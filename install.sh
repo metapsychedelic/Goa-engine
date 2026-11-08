@@ -82,15 +82,14 @@ if [ ! -d .git ]; then
   echo "Para actualizar: reemplaza la carpeta $CARPETA por la nueva versión y corre goa-restart."
   exit 1
 fi
-git fetch --tags -q
+version() { python3 -c "import goa; print(goa.__version__)"; }
 if [ "\${1:-}" = "--anterior" ]; then
-  ANTERIOR="\$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
-  [ -z "\$ANTERIOR" ] && { echo "No hay versión anterior."; exit 1; }
-  git checkout -q "\$ANTERIOR"
-  echo "Volviste a la versión \$ANTERIOR."
+  git rev-parse -q --verify HEAD^ >/dev/null || { echo "No hay versión anterior."; exit 1; }
+  git checkout -q HEAD^
+  echo "Volviste a la versión \$(version). Para volver a la última: goa-update"
 else
   git checkout -q main && git pull -q
-  echo "Actualizado a \$(git describe --tags --always)."
+  echo "Actualizado a la versión \$(version)."
 fi
 sudo systemctl restart goa
 echo "Motor reiniciado."

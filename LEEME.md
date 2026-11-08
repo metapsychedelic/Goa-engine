@@ -17,15 +17,19 @@ Tus cables MIDI actuales no cambian.
 
 ## 2. Copiar e instalar
 
-Desde tu computador, en la carpeta donde descomprimiste este zip:
+Desde tu computador, conéctate a la Pi y descarga el motor desde GitHub:
 
 ```
-scp -r goa-engine tu-usuario@goa.local:~/
 ssh tu-usuario@goa.local
+sudo apt install -y git
+git clone https://github.com/metapsychedelic/Goa-engine.git goa-engine
 cd goa-engine
 ./install.sh
 sudo reboot
 ```
+
+Para actualizar más adelante: `goa-update`. Para volver a la versión
+anterior si algo suena peor: `goa-update --anterior`.
 
 ## 3. Configurar la Circuit Tracks
 
