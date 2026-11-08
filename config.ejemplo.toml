@@ -1,0 +1,52 @@
+# Configuración del motor Goa · etapa 1
+# Después de editar, corre: goa-restart
+
+[entrada]
+# Parte del nombre del puerto USB de la Circuit (míralo con goa-ports)
+puerto = "Circuit"
+# Canal de la pista de la Circuit donde mantienes la nota larga
+canal_disparo = 4
+
+[musica]
+tonica = "F"              # C, D, E, F, G, A, B (también Fa, Sol, Sib, F#...)
+escala = "frigio"         # frigio, menor_armonica, frigio_dominante, menor, hungara_menor
+cambio_de_nota = "paso"   # "paso": cambia al siguiente paso · "compas": espera al siguiente compás
+adaptacion = "escala"     # "escala": se ajusta a la tonalidad · "transponer": mueve el patrón igual
+
+[[secuencia]]
+nombre = "A"
+activa = true
+salida = "FM-1"           # parte del nombre del puerto USB (míralo con goa-ports)
+canal = 2
+estilo = "rolling"        # rolling, galope, arpegio3, acido
+posicion = "offbeat"      # onbeat, offbeat, todos, desplazado
+relacion = "unisono"      # unisono, tercera, quinta, octava
+octava = 0                # sube o baja octavas completas (-2 a 2)
+largo = 16                # 16, 13, 11, 7...
+gate = 0.55               # largo de cada nota (0.1 a 1.0)
+pedal = 0.5               # cuánto vuelve a la raíz (0 a 1)
+seed = "7A3F-0291"
+mutacion = 0.0            # probabilidad de cambiar cada nota al mutar (0 a 1)
+mutar_cada = 8            # cada cuántos compases muta
+bloqueada = false         # true: la mutación no cambia el patrón
+velocidad = 96
+acento = 124
+
+[[secuencia]]
+nombre = "B"
+activa = false            # ponla en true para probar dos secuencias
+salida = "MicroFreak"
+canal = 1
+estilo = "arpegio3"
+posicion = "onbeat"
+relacion = "quinta"
+octava = 1
+largo = 13
+gate = 0.4
+pedal = 0.3
+seed = "B-5512"
+mutacion = 0.1
+mutar_cada = 8
+bloqueada = false
+velocidad = 90
+acento = 110
