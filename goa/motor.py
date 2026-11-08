@@ -6,6 +6,8 @@ probarlo sin hardware.
 """
 
 import logging
+import time
+from collections import deque
 
 from . import generador
 from .escalas import Tonalidad, nombre_midi
@@ -50,20 +52,43 @@ class Secuencia:
 
 class Motor:
     def __init__(self, config, enviar):
-        musica = config.get("musica", {})
-        entrada = config.get("entrada", {})
-        self.tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
-        self.adaptacion = musica.get("adaptacion", "escala")
-        self.cambio = musica.get("cambio_de_nota", "paso")
-        self.canal_disparo = int(entrada.get("canal_disparo", 4)) - 1
-        self.secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
         self.enviar = enviar
+        self.secuencias = []
         self.corriendo = False
         self.tick = -1
         self.sostenidas = []
         self.raiz = None
         self.raiz_pendiente = None
         self.soltada_en = -1
+        self.relojes = deque(maxlen=48)
+        self.aplicar_config(config)
+
+    def aplicar_config(self, config):
+        """Cambia la configuración en vivo, sin detener el reloj."""
+        musica = config.get("musica", {})
+        entrada = config.get("entrada", {})
+        tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
+        secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
+        self.apagar_todo()
+        self.tonalidad = tonalidad
+        self.adaptacion = musica.get("adaptacion", "escala")
+        self.cambio = musica.get("cambio_de_nota", "paso")
+        self.canal_disparo = int(entrada.get("canal_disparo", 4)) - 1
+        self.secuencias = secuencias
+
+    def estado(self):
+        bpm = None
+        if len(self.relojes) >= 24:
+            intervalo = (self.relojes[-1] - self.relojes[0]) / (len(self.relojes) - 1)
+            if intervalo > 0:
+                bpm = round(60 / (intervalo * 24), 1)
+        paso = max(self.tick, 0) // TICKS_POR_PASO
+        return {
+            "corriendo": self.corriendo,
+            "bpm": bpm if self.corriendo else None,
+            "raiz": nombre_midi(self.raiz) if self.raiz is not None else None,
+            "compas": paso // PASOS_POR_COMPAS + 1 if self.corriendo else None,
+        }
 
     # --- Eventos que llegan de la Circuit ---
 
@@ -85,6 +110,7 @@ class Motor:
         self.apagar_todo()
 
     def reloj(self):
+        self.relojes.append(time.monotonic())
         if not self.corriendo:
             return
         self.tick += 1

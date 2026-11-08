@@ -52,15 +52,17 @@ goa-debug                         # mantén una nota en el canal 4 y mira las no
 Si los nombres de los puertos no contienen "Circuit" o "FM-1", edita
 `~/.config/goa/config.toml` con la parte del nombre que muestra `goa-ports`.
 
-## 5. Ajustar
+## 5. La app en el celular
 
-```
-nano ~/.config/goa/config.toml
-goa-restart
-```
+Con el celular en la misma red Wi-Fi que la Pi, abre **http://goa.local:8080**.
+Cada cambio se aplica en vivo, sin cortar el sonido, y queda guardado.
+En el iPhone puedes agregarla a la pantalla de inicio desde Compartir.
 
-Cada opción está explicada dentro del archivo: tonalidad, escala, estilo,
-posición rítmica, largo, gate, seed, mutación y más.
+Si `goa.local` no abre (pasa en algunos Android), usa la IP de la Pi:
+corre `hostname -I` en la Pi y abre `http://LA-IP:8080`.
+
+También puedes editar a mano `~/.config/goa/config.toml` y correr `goa-restart`;
+las opciones están explicadas en `config.ejemplo.toml`.
 
 ## Si algo falla
 
@@ -74,3 +76,4 @@ python3 -m pruebas.simular
 ```
 
 Simula la Circuit y muestra las notas generadas en una grilla por compás.
+`python3 -m pruebas.app` levanta la app con una Circuit simulada en http://localhost:8080.

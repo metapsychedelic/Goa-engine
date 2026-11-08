@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111210">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Motor Goa">
+<title>Motor Goa</title>
+<style>
+:root{--bg:#111210;--card:#1A1C19;--line:#2A2C28;--line2:#3A3C37;--txt:#ECEDE8;--mut:#A3A59D;--acc:#D9A55B;--accbg:#2A2418;--bad:#E2836F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:560px;margin:0 auto;padding:16px 16px 96px;display:flex;flex-direction:column;gap:18px}
+h1{margin:0;font-size:24px;font-weight:650}
+h2{margin:0;font-size:17px;font-weight:650}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.fila{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mut{color:var(--mut);font-size:13px}
+.estado{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.estado div{display:flex;flex-direction:column}
+.estado b{font-size:22px;font-weight:650}
+.pill{font-size:12px;font-weight:650;padding:4px 10px;border-radius:10px;background:var(--line);color:var(--mut);white-space:nowrap}
+.pill.ok{background:var(--acc);color:#111210}
+.pill.mal{background:#3A1E19;color:var(--bad)}
+label.campo{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3}
+select,input[type=text],input[type=number]{min-height:44px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--txt);padding:0 12px;font:inherit;width:100%}
+input[type=range]{width:100%;accent-color:var(--acc);min-height:28px}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--acc)}
+.seg{display:grid;gap:6px}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;padding:4px;cursor:pointer}
+.seg input:checked+label{border-color:var(--acc);background:var(--accbg);font-weight:650}
+.seg input:focus-visible+label{outline:2px solid var(--acc);outline-offset:2px}
+.dos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+button{min-height:44px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--txt);font:inherit;font-weight:550;padding:0 14px;cursor:pointer}
+button.prim{background:var(--acc);border-color:var(--acc);color:#111210}
+button.panico{min-height:52px;border-color:#8C3B32;background:#2A1714;color:#F2B8AF;font-weight:650;width:100%}
+.seed{display:flex;gap:6px}
+.seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.05em}
+details.card>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:32px}
+details.card>summary::-webkit-details-marker{display:none}
+.guardado{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.guardado.ver{opacity:1}
+.guardado.error{color:var(--bad);border-color:#8C3B32}
+</style>
+</head>
+<body>
+<main>
+  <div class="fila">
+    <h1>Motor Goa</h1>
+    <span class="pill" id="pill">Conectando…</span>
+  </div>
+
+  <section class="card" aria-label="Estado">
+    <div class="estado">
+      <div><span class="mut">Tempo</span><b id="bpm">–</b><span class="mut">reloj Circuit</span></div>
+      <div><span class="mut">Nota</span><b id="raiz">–</b><span class="mut">disparadora</span></div>
+      <div><span class="mut">Compás</span><b id="compas">–</b><span class="mut" id="ver">&nbsp;</span></div>
+    </div>
+    <div class="mut" id="puertos"></div>
+  </section>
+
+  <button class="panico" id="panico">Pánico · apagar todas las notas</button>
+
+  <section class="card">
+    <h2>Música</h2>
+    <div class="dos">
+      <label class="campo">Tónica <select data-k="musica.tonica" id="tonica"></select></label>
+      <label class="campo">Escala <select data-k="musica.escala" id="escala"></select></label>
+    </div>
+    <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Cambio de nota
+      <div class="seg" style="grid-template-columns:1fr 1fr" id="cambio"></div></div>
+    <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Adaptación
+      <div class="seg" style="grid-template-columns:1fr 1fr" id="adaptacion"></div></div>
+    <label class="campo">Canal de disparo (pista de la nota larga en la Circuit)
+      <input type="number" min="1" max="16" data-k="entrada.canal_disparo" id="canal_disparo"></label>
+  </section>
+
+  <div class="fila"><h2>Secuencias</h2><button id="agregar">+ Añadir</button></div>
+  <div id="secuencias" style="display:flex;flex-direction:column;gap:12px"></div>
+  <datalist id="salidas"></datalist>
+</main>
+<div class="guardado" id="aviso" role="status" aria-live="polite"></div>
+
+<script>
+const TONICAS = [["C","Do"],["C#","Do#"],["D","Re"],["D#","Re#"],["E","Mi"],["F","Fa"],["F#","Fa#"],["G","Sol"],["G#","Sol#"],["A","La"],["A#","La#"],["B","Si"]];
+const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"]];
+const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido"]];
+const POSICIONES = [["onbeat","On beat"],["offbeat","Offbeat"],["todos","Todos"],["desplazado","Desplazado"]];
+const RELACIONES = [["unisono","Unísono"],["tercera","Tercera"],["quinta","Quinta"],["octava","Octava"]];
+let cfg = null, temporizador = null, uid = 0;
+const $ = (id) => document.getElementById(id);
+
+function el(tag, props = {}, hijos = []) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k in e && k !== "list") e[k] = v; else e.setAttribute(k, v);
+  }
+  for (const h of [].concat(hijos)) if (h != null) e.append(h);
+  return e;
+}
+
+function aviso(texto, error = false) {
+  const a = $("aviso");
+  a.textContent = texto;
+  a.className = "guardado ver" + (error ? " error" : "");
+  clearTimeout(a._t);
+  a._t = setTimeout(() => a.className = "guardado" + (error ? " error" : ""), error ? 4000 : 1200);
+}
+
+function guardar() {
+  clearTimeout(temporizador);
+  temporizador = setTimeout(async () => {
+    try {
+      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(cfg)});
+      const d = await r.json();
+      if (!r.ok) aviso(d.error || "No se pudo aplicar", true);
+      else aviso(d.aviso || "Aplicado", !!d.aviso);
+    } catch (e) { aviso("Sin conexión con la Pi", true); }
+  }, 350);
+}
+
+function segmentado(opciones, valor, alCambiar, columnas) {
+  const nombre = "s" + (uid++);
+  const cont = el("div", {className: "seg", style: `grid-template-columns:repeat(${columnas},minmax(0,1fr))`});
+  for (const [v, texto] of opciones) {
+    const id = nombre + v;
+    cont.append(el("input", {type: "radio", name: nombre, id, value: v, checked: v === valor, onchange: () => alCambiar(v)}),
+                el("label", {htmlFor: id, textContent: texto}));
+  }
+  return cont;
+}
+
+function campo(texto, control) {
+  return el("div", {style: "display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3"}, [texto, control]);
+}
+
+function deslizador(s, k, texto, min, max, paso, formato) {
+  const valor = el("span", {textContent: formato(s[k])});
+  const r = el("input", {type: "range", min, max, step: paso, value: s[k], "aria-label": texto,
+    oninput: () => { s[k] = parseFloat(r.value); valor.textContent = formato(s[k]); guardar(); }});
+  return el("label", {className: "campo"}, [el("span", {}, [texto + " · ", valor]), r]);
+}
+
+function seedNueva() {
+  const hex = () => Math.floor(Math.random() * 65536).toString(16).toUpperCase().padStart(4, "0");
+  return hex() + "-" + hex();
+}
+
+function tarjeta(s, i) {
+  const titulo = el("span", {style: "font-weight:650", textContent: `${s.nombre} · ${s.salida}`});
+  const estado = el("span", {className: "pill", "data-salida": s.salida});
+  const activa = el("input", {type: "checkbox", checked: s.activa, onchange: () => { s.activa = activa.checked; guardar(); }});
+  const actualizarTitulo = () => { titulo.textContent = `${s.nombre} · ${s.salida}`; estado.dataset.salida = s.salida; };
+
+  const texto = (k, etiqueta, extra = {}) => {
+    const inp = el("input", Object.assign({type: "text", value: s[k],
+      onchange: () => { s[k] = inp.value.trim() || s[k]; inp.value = s[k]; actualizarTitulo(); guardar(); }}, extra));
+    return el("label", {className: "campo"}, [etiqueta, inp]);
+  };
+  const numero = (k, etiqueta, min, max) => {
+    const inp = el("input", {type: "number", min, max, value: s[k],
+      onchange: () => { s[k] = Math.max(min, Math.min(max, parseInt(inp.value) || s[k])); inp.value = s[k]; guardar(); }});
+    return el("label", {className: "campo"}, [etiqueta, inp]);
+  };
+
+  const seed = el("input", {type: "text", value: s.seed, "aria-label": "Seed",
+    onchange: () => { s.seed = seed.value.trim() || s.seed; seed.value = s.seed; guardar(); }});
+  const candado = el("input", {type: "checkbox", checked: s.bloqueada, onchange: () => { s.bloqueada = candado.checked; guardar(); }});
+
+  const cuerpo = [
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activa"}), activa]),
+    el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), texto("salida", "Destino (puerto)", {list: "salidas"})]),
+    el("div", {className: "dos"}, [numero("canal", "Canal MIDI", 1, 16), numero("octava", "Octava", -3, 3)]),
+    campo("Estilo", segmentado(ESTILOS, s.estilo, (v) => { s.estilo = v; guardar(); }, 2)),
+    campo("Posición rítmica", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; guardar(); }, 2)),
+    campo("Relación con la nota", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 4)),
+    campo("Largo del patrón", segmentado([[16,"16"],[13,"13"],[11,"11"],[7,"7"]].map(([v,t]) => [String(v), t]), String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
+    deslizador(s, "gate", "Gate", 0.05, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "pedal", "Pedal (vuelve a la raíz)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    campo("Seed", el("div", {className: "seed"}, [seed,
+      el("button", {type: "button", textContent: "Otra", onclick: () => { s.seed = seedNueva(); seed.value = s.seed; guardar(); }})])),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Bloquear patrón", el("br"), el("span", {className: "mut", textContent: "La mutación no lo cambia"})]), candado]),
+    deslizador(s, "mutacion", "Mutación", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    numero("mutar_cada", "Mutar cada (compases)", 1, 64),
+    el("div", {className: "dos"}, [numero("velocidad", "Velocidad", 1, 127), numero("acento", "Acento", 1, 127)]),
+    el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
+      onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); render(); guardar(); } }}),
+  ];
+  return el("details", {className: "card", open: i === 0}, [
+    el("summary", {}, [el("span", {style: "display:flex;flex-direction:column;gap:2px"}, [titulo, el("span", {className: "mut", textContent: `canal ${s.canal} · ${s.estilo} · ${s.posicion}`})]),
+      estado]),
+    ...cuerpo,
+  ]);
+}
+
+function render() {
+  const sel = (id, opciones, valor, alCambiar) => {
+    const s = $(id); s.innerHTML = "";
+    for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === valor}));
+    s.onchange = () => { alCambiar(s.value); guardar(); };
+  };
+  sel("tonica", TONICAS, cfg.musica.tonica.toUpperCase(), (v) => cfg.musica.tonica = v);
+  sel("escala", ESCALAS, cfg.musica.escala, (v) => cfg.musica.escala = v);
+  $("cambio").replaceWith(Object.assign(segmentado([["paso","Siguiente paso"],["compas","Siguiente compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2), {id: "cambio"}));
+  $("adaptacion").replaceWith(Object.assign(segmentado([["escala","Ajustar a la escala"],["transponer","Transponer igual"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2), {id: "adaptacion"}));
+  const cd = $("canal_disparo"); cd.value = cfg.entrada.canal_disparo;
+  cd.onchange = () => { cfg.entrada.canal_disparo = Math.max(1, Math.min(16, parseInt(cd.value) || 4)); cd.value = cfg.entrada.canal_disparo; guardar(); };
+  const cont = $("secuencias"); cont.innerHTML = "";
+  cfg.secuencia.forEach((s, i) => cont.append(tarjeta(s, i)));
+  $("agregar").disabled = cfg.secuencia.length >= 8;
+}
+
+async function estado() {
+  try {
+    const d = await (await fetch("/api/estado")).json();
+    const p = $("pill");
+    if (!d.entrada) { p.textContent = "Sin Circuit"; p.className = "pill mal"; }
+    else if (d.corriendo) { p.textContent = "Sonando"; p.className = "pill ok"; }
+    else { p.textContent = "Detenido"; p.className = "pill"; }
+    $("bpm").textContent = d.bpm ? Math.round(d.bpm) : "–";
+    $("raiz").textContent = d.raiz || "–";
+    $("compas").textContent = d.compas || "–";
+    $("ver").textContent = "v" + d.version;
+    const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
+    $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";
+    document.querySelectorAll("[data-salida]").forEach((e) => {
+      const ok = d.salidas[e.dataset.salida];
+      e.textContent = ok ? "Conectada" : "Sin cable"; e.className = "pill" + (ok ? " ok" : " mal");
+    });
+    const dl = $("salidas"); dl.innerHTML = "";
+    for (const n of d.disponibles) dl.append(el("option", {value: n}));
+  } catch (e) {
+    $("pill").textContent = "Sin conexión"; $("pill").className = "pill mal";
+  }
+}
+
+$("panico").onclick = async () => {
+  try { await fetch("/api/panico", {method: "POST"}); aviso("Notas apagadas"); } catch (e) { aviso("Sin conexión con la Pi", true); }
+};
+$("agregar").onclick = () => {
+  const base = cfg.secuencia[cfg.secuencia.length - 1] || {salida: "FM-1", canal: 2, estilo: "rolling", posicion: "offbeat", relacion: "unisono",
+    octava: 0, largo: 16, gate: 0.55, pedal: 0.5, mutacion: 0, mutar_cada: 8, bloqueada: false, velocidad: 96, acento: 124};
+  const letra = String.fromCharCode(65 + cfg.secuencia.length);
+  cfg.secuencia.push(Object.assign({}, base, {nombre: letra, seed: seedNueva(), activa: true}));
+  render(); guardar();
+};
+
+(async () => {
+  try { cfg = await (await fetch("/api/config")).json(); render(); }
+  catch (e) { aviso("No pude cargar la configuración", true); }
+  estado(); setInterval(estado, 1000);
+})();
+</script>
+</body>
+</html>

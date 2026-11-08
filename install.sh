@@ -100,7 +100,9 @@ sudo systemctl enable --now goa
 sudo systemctl restart goa
 
 echo
-echo "Listo. Comandos:"
+echo "Listo. App en el celular (misma red Wi-Fi): http://goa.local:8080"
+echo
+echo "Comandos:"
 echo "  goa-ports                    lista los puertos MIDI"
 echo "  goa-ports --probar FM-1 2    toca unas notas en la FM-1, canal 2"
 echo "  goa-ports --escuchar Circuit muestra lo que manda la Circuit"

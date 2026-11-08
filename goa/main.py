@@ -1,15 +1,15 @@
-"""Punto de entrada: abre los puertos MIDI y conecta la Circuit con el motor."""
+"""Punto de entrada: abre los puertos MIDI, conecta la Circuit con el motor y sirve la app."""
 
 import argparse
 import logging
 import signal
 import threading
-import time
-import tomllib
 
 import mido
 
+from .config import ConfigError, cargar
 from .motor import Motor
+from .web import Contexto, crear_servidor
 
 log = logging.getLogger("goa")
 
@@ -29,19 +29,32 @@ class Puertos:
         self.salidas = sorted(set(salidas))
         self.abiertos = {}
         self.avisados = set()
+        self.disponibles = []
+
+    def cambiar_salidas(self, salidas):
+        nuevas = sorted(set(salidas))
+        for clave in list(self.abiertos):
+            if clave not in nuevas:
+                self.abiertos.pop(clave).close()
+        self.salidas = nuevas
+        self.revisar()
 
     def revisar(self):
-        disponibles = mido.get_output_names()
+        self.disponibles = mido.get_output_names()
         for clave in self.salidas:
             puerto = self.abiertos.get(clave)
-            if puerto is not None and puerto.name not in disponibles:
+            if puerto is not None and puerto.name not in self.disponibles:
                 log.warning("Se desconectó la salida %r", clave)
                 puerto.close()
                 del self.abiertos[clave]
             if clave not in self.abiertos:
-                nombre = buscar_puerto(disponibles, clave)
+                nombre = buscar_puerto(self.disponibles, clave)
                 if nombre:
-                    self.abiertos[clave] = mido.open_output(nombre)
+                    try:
+                        self.abiertos[clave] = mido.open_output(nombre)
+                    except OSError as e:
+                        log.warning("No pude abrir %s: %s", nombre, e)
+                        continue
                     self.avisados.discard(clave)
                     log.info("Salida %r conectada: %s", clave, nombre)
                 elif clave not in self.avisados:
@@ -57,6 +70,15 @@ class Puertos:
         except (OSError, ValueError) as e:
             log.warning("Error enviando a %r: %s", clave, e)
 
+    def panico(self):
+        """All Notes Off en los 16 canales de cada salida abierta."""
+        for puerto in self.abiertos.values():
+            for canal in range(16):
+                try:
+                    puerto.send(mido.Message("control_change", channel=canal, control=123, value=0))
+                except (OSError, ValueError):
+                    pass
+
     def cerrar(self):
         for p in self.abiertos.values():
             p.close()
@@ -71,11 +93,14 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
 
-    with open(args.config, "rb") as f:
-        config = tomllib.load(f)
+    try:
+        config = cargar(args.config)
+    except (ConfigError, OSError, ValueError) as e:
+        log.error("No pude leer %s: %s", args.config, e)
+        raise SystemExit(1)
 
-    puertos = Puertos([s["salida"] for s in config.get("secuencia", [])])
-    candado = threading.Lock()
+    puertos = Puertos([s["salida"] for s in config["secuencia"]])
+    candado = threading.RLock()
 
     def enviar(salida, tipo, canal, nota, velocidad):
         if args.debug and tipo == "note_on":
@@ -84,6 +109,13 @@ def main():
 
     motor = Motor(config, enviar)
     log.info("Secuencias: %s", ", ".join(f"{s.nombre} -> {s.salida} canal {s.canal + 1}" for s in motor.secuencias))
+
+    ctx = Contexto(motor, puertos, candado, args.config, config)
+    servidor = None
+    try:
+        servidor = crear_servidor(ctx, config["app"]["puerto"])
+    except OSError as e:
+        log.error("No pude abrir la app web: %s", e)
 
     def al_recibir(msg):
         with candado:
@@ -101,7 +133,6 @@ def main():
             elif t == "continue":
                 motor.continuar()
 
-    nombre_entrada = config.get("entrada", {}).get("puerto", "Circuit")
     entrada = None
     terminar = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: terminar.set())
@@ -111,22 +142,33 @@ def main():
         while not terminar.is_set():
             with candado:
                 puertos.revisar()
+                nombre_entrada = ctx.config["entrada"]["puerto"]
             disponibles = mido.get_input_names()
-            if entrada is not None and entrada.name not in disponibles:
-                log.warning("Se desconectó la entrada %r", nombre_entrada)
+            if entrada is not None and (entrada.name not in disponibles
+                                        or nombre_entrada.lower() not in entrada.name.lower()):
+                log.warning("Se desconectó la entrada %s", entrada.name)
                 entrada.close()
                 entrada = None
                 with candado:
+                    ctx.entrada = None
                     motor.stop()
             if entrada is None:
                 nombre = buscar_puerto(disponibles, nombre_entrada)
                 if nombre:
-                    entrada = mido.open_input(nombre, callback=al_recibir)
-                    log.info("Entrada conectada: %s", nombre)
+                    try:
+                        entrada = mido.open_input(nombre, callback=al_recibir)
+                    except OSError as e:
+                        log.warning("No pude abrir %s: %s", nombre, e)
+                    else:
+                        with candado:
+                            ctx.entrada = nombre
+                        log.info("Entrada conectada: %s", nombre)
             terminar.wait(2.0)
     finally:
         with candado:
             motor.apagar_todo()
+        if servidor is not None:
+            servidor.shutdown()
         if entrada is not None:
             entrada.close()
         puertos.cerrar()

@@ -1,5 +1,9 @@
 # Configuración del motor Goa · etapa 1
-# Después de editar, corre: goa-restart
+# Lo más cómodo es cambiarla desde la app: http://goa.local:8080
+# Si la editas a mano, después corre: goa-restart
+
+[app]
+puerto = 8080             # la app queda en http://goa.local:8080
 
 [entrada]
 # Parte del nombre del puerto USB de la Circuit (míralo con goa-ports)
