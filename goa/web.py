@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__
-from .config import ConfigError, guardar, normalizar
+from .config import ConfigError, guardar, normalizar, salidas
 from .motor import Motor
 
 log = logging.getLogger("goa")
@@ -91,7 +91,7 @@ def crear_servidor(ctx, puerto):
                 with ctx.candado:
                     ctx.motor.aplicar_config(nueva)
                     ctx.config = nueva
-                    ctx.puertos.cambiar_salidas([s["salida"] for s in nueva["secuencia"]])
+                    ctx.puertos.cambiar_salidas(salidas(nueva))
                     try:
                         guardar(ctx.ruta_config, nueva)
                     except OSError as e:

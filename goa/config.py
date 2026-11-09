@@ -17,6 +17,10 @@ ESQUEMA_SECCIONES = {
         "puerto": (str, "Circuit", None, None),
         "canal_disparo": (int, 4, 1, 16),
     },
+    "thru": {
+        "activo": (bool, False, None, None),
+        "salida": (str, "USB MIDI", None, None),
+    },
     "musica": {
         "tonica": (str, "F", None, None),
         "escala": (str, "frigio", None, tuple(ESCALAS)),
@@ -92,6 +96,14 @@ def normalizar(cfg):
         for s in secuencias[:MAX_SECUENCIAS]
     ]
     return limpia
+
+
+def salidas(cfg):
+    """Todos los puertos de salida que usa la configuración."""
+    claves = [s["salida"] for s in cfg["secuencia"]]
+    if cfg["thru"]["activo"]:
+        claves.append(cfg["thru"]["salida"])
+    return claves
 
 
 def cargar(ruta):

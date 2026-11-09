@@ -7,7 +7,7 @@ import threading
 
 import mido
 
-from .config import ConfigError, cargar
+from .config import ConfigError, cargar, salidas
 from .motor import Motor
 from .web import Contexto, crear_servidor
 
@@ -70,6 +70,15 @@ class Puertos:
         except (OSError, ValueError) as e:
             log.warning("Error enviando a %r: %s", clave, e)
 
+    def reenviar(self, clave, msg):
+        puerto = self.abiertos.get(clave)
+        if puerto is None:
+            return
+        try:
+            puerto.send(msg)
+        except (OSError, ValueError) as e:
+            log.warning("Error reenviando a %r: %s", clave, e)
+
     def panico(self):
         """All Notes Off en los 16 canales de cada salida abierta."""
         for puerto in self.abiertos.values():
@@ -99,7 +108,7 @@ def main():
         log.error("No pude leer %s: %s", args.config, e)
         raise SystemExit(1)
 
-    puertos = Puertos([s["salida"] for s in config["secuencia"]])
+    puertos = Puertos(salidas(config))
     candado = threading.RLock()
 
     def enviar(salida, tipo, canal, nota, velocidad):
@@ -120,6 +129,10 @@ def main():
     def al_recibir(msg):
         with candado:
             t = msg.type
+            thru = ctx.config["thru"]
+            if thru["activo"] and t != "sysex":
+                # Pasa todo lo de la Circuit (reloj, notas, CC) a la cadena MIDI.
+                puertos.reenviar(thru["salida"], msg)
             if t == "clock":
                 motor.reloj()
             elif t == "note_on" and msg.velocity > 0:
@@ -152,6 +165,7 @@ def main():
                 with candado:
                     ctx.entrada = None
                     motor.stop()
+                    puertos.panico()  # por si quedó una nota reenviada sin su note_off
             if entrada is None:
                 nombre = buscar_puerto(disponibles, nombre_entrada)
                 if nombre:

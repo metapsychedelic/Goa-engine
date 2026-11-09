@@ -38,6 +38,24 @@ anterior si algo suena peor: `goa-update --anterior`.
 - Elige una pista para la nota larga y ponle el **canal 4** (o cambia
   `canal_disparo` en la configuración). Baja su volumen si es un sinte interno.
 
+## Conexión recomendada: modo dongle
+
+Conectar los sintes a la Pi por USB mete ruido (lazo de tierra) y la Circuit,
+al cargar su batería, puede hacer caer la Pi. Con el dongle USB-MIDI no pasa
+ninguna de las dos cosas, porque el MIDI de 5 pines y TRS es aislado:
+
+1. Circuit MIDI Out → IN del dongle
+2. OUT del dongle → MicroFreak MIDI In (MicroFreak con su Out en modo Thru)
+3. MicroFreak Thru → FM-1
+4. Dongle por USB a la Pi. Nada más va por USB.
+
+En la app, sección Conexión MIDI: Entrada = nombre del dongle, activa
+"Reenviar todo a la cadena MIDI" y en cada secuencia pon como destino el dongle.
+La secuencia A con canal 2 suena en la FM-1; con canal 1, en la MicroFreak.
+
+Si la Pi está apagada, la MicroFreak y la FM-1 no reciben a la Circuit:
+para tocar sin la Pi, conecta la Circuit directo a la MicroFreak como antes.
+
 ## 4. Primera prueba
 
 Conecta la Circuit y la FM-1 a la Pi por USB y entra por `ssh`:

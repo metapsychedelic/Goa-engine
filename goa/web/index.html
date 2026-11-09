@@ -77,6 +77,16 @@ details.card>summary::-webkit-details-marker{display:none}
       <input type="number" min="1" max="16" data-k="entrada.canal_disparo" id="canal_disparo"></label>
   </section>
 
+  <section class="card">
+    <h2>Conexión MIDI</h2>
+    <label class="campo">Entrada (puerto de la Circuit o del dongle)
+      <input type="text" list="salidas" id="entrada_puerto"></label>
+    <label class="fila" style="min-height:44px"><span>Reenviar todo a la cadena MIDI<br><span class="mut">Modo dongle: la Circuit pasa por la Pi</span></span>
+      <input type="checkbox" id="thru_activo"></label>
+    <label class="campo">Salida del reenvío
+      <input type="text" list="salidas" id="thru_salida"></label>
+  </section>
+
   <div class="fila"><h2>Secuencias</h2><button id="agregar">+ Añadir</button></div>
   <div id="secuencias" style="display:flex;flex-direction:column;gap:12px"></div>
   <datalist id="salidas"></datalist>
@@ -209,6 +219,12 @@ function render() {
   $("adaptacion").replaceWith(Object.assign(segmentado([["escala","Ajustar a la escala"],["transponer","Transponer igual"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2), {id: "adaptacion"}));
   const cd = $("canal_disparo"); cd.value = cfg.entrada.canal_disparo;
   cd.onchange = () => { cfg.entrada.canal_disparo = Math.max(1, Math.min(16, parseInt(cd.value) || 4)); cd.value = cfg.entrada.canal_disparo; guardar(); };
+  const ep = $("entrada_puerto"); ep.value = cfg.entrada.puerto;
+  ep.onchange = () => { cfg.entrada.puerto = ep.value.trim() || cfg.entrada.puerto; ep.value = cfg.entrada.puerto; guardar(); };
+  const ta = $("thru_activo"); ta.checked = cfg.thru.activo;
+  ta.onchange = () => { cfg.thru.activo = ta.checked; guardar(); };
+  const ts = $("thru_salida"); ts.value = cfg.thru.salida;
+  ts.onchange = () => { cfg.thru.salida = ts.value.trim() || cfg.thru.salida; ts.value = cfg.thru.salida; guardar(); };
   const cont = $("secuencias"); cont.innerHTML = "";
   cfg.secuencia.forEach((s, i) => cont.append(tarjeta(s, i)));
   $("agregar").disabled = cfg.secuencia.length >= 8;

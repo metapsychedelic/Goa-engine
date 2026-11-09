@@ -11,6 +11,15 @@ puerto = "Circuit"
 # Canal de la pista de la Circuit donde mantienes la nota larga
 canal_disparo = 4
 
+[thru]
+# Modo dongle (recomendado: sin ruido y sin que la Pi se caiga).
+# Cables: Circuit MIDI Out -> IN del dongle · OUT del dongle -> MicroFreak In -> Thru -> FM-1.
+# La Pi reenvía todo lo de la Circuit y le suma sus secuencias.
+# Para usarlo: activo = true, entrada.puerto y las salidas de las secuencias
+# con el nombre del dongle (míralo con goa-ports).
+activo = false
+salida = "USB MIDI"
+
 [musica]
 tonica = "F"              # C, D, E, F, G, A, B (también Fa, Sol, Sib, F#...)
 escala = "frigio"         # frigio, menor_armonica, frigio_dominante, menor, hungara_menor

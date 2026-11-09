@@ -10,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 
-from goa.config import cargar
+from goa.config import cargar, salidas
 from goa.motor import Motor
 from goa.web import Contexto, crear_servidor
 
@@ -38,7 +38,7 @@ def main():
     config = cargar(ruta)
     candado = threading.RLock()
     motor = Motor(config, lambda *a: None)
-    puertos = PuertosFalsos([s["salida"] for s in config["secuencia"]])
+    puertos = PuertosFalsos(salidas(config))
     ctx = Contexto(motor, puertos, candado, ruta, config)
     ctx.entrada = "Circuit Tracks:Circuit Tracks MIDI 1 20:0"
     crear_servidor(ctx, config["app"]["puerto"])
