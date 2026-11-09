@@ -271,7 +271,8 @@ class Motor:
             azar = random.Random(f"{s.seed}:{paso}")  # determinista: misma seed, mismo resultado
             velocidad = (s.acento if acento else s.velocidad) + round(s.vel_random * 30 * azar.uniform(-1, 1))
             velocidad = max(1, min(127, velocidad))
-            gate = max(0.05, min(1.0, s.gate * (1 + s.gate_random * azar.uniform(-1, 1))))
+            gate = s.gate * p.get("gate_mult", 1.0)
+            gate = max(0.05, min(1.0, gate * (1 + s.gate_random * azar.uniform(-1, 1))))
             duracion = max(1, round(TICKS_POR_PASO * gate))
             if slide:
                 # Slide 303: la nota dura hasta pisar la siguiente; un sinte en modo
