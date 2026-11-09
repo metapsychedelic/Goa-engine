@@ -180,6 +180,20 @@ if __name__ == "__main__":
         notas = [n for i in range(300) for n in frase(random.Random(i), v, 32)]
         return sum(1 for n in notas if v.tonalidad.intervalos[n["grado"] % 7] in (1, 8)) / len(notas)
     todo &= ok(color(0.9) > color(0.5) * 1.3, f"sobre 50 % la oscuridad atrae ♭2 y ♭6 ({color(0.5):.0%} → {color(0.9):.0%})")
+    from goa.dialogo import responder
+    vl = Voz({"densidad": 0.5, "ritmo": "mixto", "movimiento": "abierto"}, "F", "frigio")
+    vr = Voz({"densidad": 0.3, "ritmo": "corcheas", "movimiento": "arpegio", "final": "reposo"}, "F", "frigio")
+    iguales = {"alto": 0, "bajo": 0}
+    for i in range(100):
+        ll = frase(random.Random(f"l{i}"), vl, 32)
+        for clave, parecido in (("alto", 1.0), ("bajo", 0.2)):
+            r = responder(random.Random(f"r{i}"), ll, vl, vr, "variacion", 32, vl.densidad, parecido)
+            iguales[clave] += [n["paso"] for n in r] == [n["paso"] for n in ll]
+    todo &= ok(iguales["alto"] == 100 and iguales["bajo"] < 15,
+               f"parecido 100 % calca el ritmo de la llamada; 20 % usa su propia figura ({iguales['bajo']} de 100 iguales)")
+    ultra = Voz({"oscuridad": 1.0, "final": "tension", "densidad": 0.2}, "F", "frigio")
+    finales = {frase(random.Random(i), ultra, 32)[-1]["grado"] % 7 for i in range(100)}
+    todo &= ok(finales == {1}, "ultra oscuro: la tensión queda colgada en el ♭2")
     v = Voz({"final": "suspendido"}, "F", "frigio")
     todo &= ok(all(frase(random.Random(i), v, 32)[-1]["grado"] % 7 in (3, 4) for i in range(100)),
                "final suspendido: termina en quinta o cuarta")

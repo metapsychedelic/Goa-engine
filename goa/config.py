@@ -60,6 +60,7 @@ ESQUEMA_SECCIONES = {
         "descanso": (int, 2, 0, 16),
         "transformacion": (str, "variacion", None, dialogo.TRANSFORMACIONES),
         "evolucion": (float, 0.3, 0.0, 1.0),
+        "parecido": (float, 0.3, 0.0, 1.0),
         "seed": (str, "CR-0001", None, None),
     },
 }
@@ -88,7 +89,7 @@ def _esquema_voz(salida, canal, contorno, ritmo, densidad, final, octava, movimi
 
 
 ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, "arco", "mixto", 0.5, "tension", 0, "abierto")
-ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, "baja", "corcheas", 0.45, "reposo", 0, "arpegio")
+ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, "baja", "corcheas", 0.3, "reposo", 0, "arpegio")
 
 # Un clip de diálogo guarda la conversación completa, con quién llama y los destinos,
 # para que al lanzarlo entre tal como se armó. Las voces van con prefijo para que

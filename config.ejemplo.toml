@@ -60,6 +60,7 @@ pausa = 2                 # tiempos entre llamada y respuesta (en vivo: silencio
 descanso = 2              # compases de silencio después de la respuesta (modo motor)
 transformacion = "variacion"  # variacion, espejo, eco, nueva
 evolucion = 0.3           # cuánto cambia la frase en cada vuelta (0 = se repite igual)
+parecido = 0.3            # variación: 1 = calca ritmo y dirección de la llamada · bajo 0.5 = su propia figura, contesta al revés
 seed = "CR-0001"
 
 # Carácter de cada voz. La respuesta puede ir al mismo sinte que la llamada.
@@ -79,7 +80,7 @@ velocidad = 96
 vel_random = 0.15
 saltos = 0.1
 movimiento = "abierto"    # conjunto (grados vecinos), abierto (cuartas, quintas, octavas), arpegio (acorde menor con séptima)
-oscuridad = 0.7           # ♭2 y ♭6 (el color oscuro del frigio); sobre 50 % los atrae. El tritono casi nunca
+oscuridad = 0.7           # 0 = luminoso · 1 = ultra oscuro. ♭2 y ♭6: sobre 50 % los atrae; desde 85 % motivos de medio tono. Tritono casi nunca
 forma = "motivo"          # motivo: figura corta (densidad baja = 3 notas, media = 3 cortas y una larga, alta = arpegio) · frase
 
 [respuesta]
@@ -91,7 +92,7 @@ octava = 0
 ambito = 5
 contorno = "baja"
 ritmo = "corcheas"
-densidad = 0.45           # menos que la llamada: la respuesta quita notas en variación, espejo y eco
+densidad = 0.3            # motivo: 3 notas (contrasta con las 3 cortas y una larga de la llamada)
 final = "reposo"
 gate = 0.7
 velocidad = 96

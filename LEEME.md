@@ -124,9 +124,13 @@ Dos voces que conversan dejando espacio, sin repetir frases.
 - **Forma:** *motivo* (por defecto), una figura corta que elige la densidad:
   baja = 3 notas cortas, media = 3 cortas y una larga, alta = pequeño arpegio;
   el resto del turno queda en silencio. O *frase*, una línea más elaborada.
-- **Oscuridad:** el ♭2 y el ♭6 son el color oscuro del frigio. Bajo 50 % se
-  filtran; sobre 50 % además se atraen como vecinos de la raíz y la quinta
-  (el giro F‑G♭‑F). El tritono casi nunca: es lo que suena terrorífico.
+- **Luminoso ↔ Oscuro:** uno general para ambas voces y uno por voz. El ♭2 y
+  el ♭6 son el color oscuro del frigio: hacia luminoso se filtran; sobre 50 %
+  se atraen como vecinos de la raíz y la quinta (el giro F‑G♭‑F); desde 85 %
+  (ultra oscuro) los motivos se vuelven de medio tono y la tensión queda
+  colgada en el ♭2. El tritono casi nunca: es lo que suena terrorífico.
+- **Parecido con la llamada** (en variación): alto calca ritmo y dirección;
+  bajo 50 % la respuesta usa su propia figura y contesta al revés.
 - Las frases se arman con células rítmicas de un tiempo en un motivo de un
   compás que se repite con cambios: amarradas al bombo, sin volverse loop.
 - **Cómo responde:** *variación* (mismo ritmo y dirección, otras notas),

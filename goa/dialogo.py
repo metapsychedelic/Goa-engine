@@ -152,9 +152,14 @@ def _cercano(grado, opciones):
     return min(candidatos, key=lambda c: (abs(c - grado), c))
 
 
-def _cerrar(notas, final):
-    if notas and final != "libre":
-        opciones = {"tension": GRADOS_TENSION, "reposo": GRADOS_REPOSO, "suspendido": GRADOS_SUSPENDIDO}[final]
+ULTRA_OSCURO = 0.85
+
+
+def _cerrar(notas, voz):
+    if notas and voz.final != "libre":
+        opciones = {"tension": GRADOS_TENSION, "reposo": GRADOS_REPOSO, "suspendido": GRADOS_SUSPENDIDO}[voz.final]
+        if voz.final == "tension" and voz.oscuridad >= ULTRA_OSCURO:
+            opciones = (1,)  # ultra oscuro: la pregunta queda colgada en el ♭2
         notas[-1]["grado"] = _cercano(notas[-1]["grado"], opciones)
     return notas
 
@@ -170,7 +175,7 @@ def _aclarar(rng, voz, notas):
     Bajo 50 % los ♭2 y ♭6 se van filtrando hacia la nota vecina; el tritono casi
     siempre se evita. Sobre 50 % además atrae el ♭2 y el ♭6 como vecinos de la raíz
     y la quinta en las notas de paso: el color oscuro del Goa frigio."""
-    atraccion = max(0.0, voz.oscuridad - 0.5) * 0.9
+    atraccion = max(0.0, voz.oscuridad - 0.5) * 1.4  # en 100 %: 70 % de las notas de paso
     for k, n in enumerate(notas):
         peso = _oscuro(voz, n["grado"])
         if peso and rng.random() >= voz.oscuridad * peso:
@@ -254,7 +259,10 @@ def motivo(rng, voz, largo):
             grados = acorde[max(0, desde - n + 1):desde + 1][::-1]
     else:
         corta_voz = copy.copy(voz)
-        corta_voz.ambito = min(voz.ambito, 4)  # figuras cortas: poco recorrido
+        # Figuras cortas: poco recorrido; en ultra oscuro, giros de medio tono.
+        corta_voz.ambito = 2 if voz.oscuridad >= ULTRA_OSCURO else min(voz.ambito, 4)
+        if voz.oscuridad >= ULTRA_OSCURO:
+            corta_voz.movimiento = "conjunto"
         grados = _melodia(rng, corta_voz, n)
     notas = []
     for k, (paso, grado) in enumerate(zip(pasos, grados)):
@@ -266,7 +274,7 @@ def motivo(rng, voz, largo):
             dur = max(1, round(corta * TICKS_POR_PASO * voz.gate))
         dv = round(voz.vel_random * 20 * rng.uniform(-1, 1)) + (8 if k == 0 else 0) + (6 if larga else 0)
         notas.append({"paso": paso, "grado": grado, "dur": dur, "dv": dv})
-    return _cerrar(_aclarar(rng, voz, notas), voz.final)
+    return _cerrar(_aclarar(rng, voz, notas), voz)
 
 
 def frase(rng, voz, largo):
@@ -290,7 +298,7 @@ def frase(rng, voz, largo):
         dur = max(1, round(min(hueco, tope) * TICKS_POR_PASO * voz.gate))
         dv = round(voz.vel_random * 25 * rng.uniform(-1, 1)) + (8 if k == 0 else 0)
         notas.append({"paso": inicio, "grado": grados[k], "dur": dur, "dv": dv})
-    return _cerrar(_aclarar(rng, voz, notas), voz.final)
+    return _cerrar(_aclarar(rng, voz, notas), voz)
 
 
 def _encajar(notas, largo):
@@ -312,11 +320,20 @@ def _encajar(notas, largo):
     return encajadas
 
 
-def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_ref):
-    """Respuesta a una frase de llamada."""
+def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_ref, parecido=1.0):
+    """Respuesta a una frase de llamada.
+
+    `parecido` (solo en variación): en 1 la respuesta calca el ritmo y la dirección
+    de cada intervalo de la llamada; bajo 0.5 usa su propia figura y su propio
+    ritmo, y cuanto más bajo, más contesta en dirección contraria."""
     if transformacion == "nueva" or not llamada:
         return frase(rng, voz, largo)
-    notas = [dict(n) for n in _encajar(llamada, largo)]
+    propio = transformacion == "variacion" and parecido < 0.5
+    if propio:
+        notas = frase(rng, voz, largo)  # su propia figura y ritmo; las notas se rehacen abajo
+    else:
+        notas = [dict(n) for n in _encajar(llamada, largo)]
+    direcciones = [(b["grado"] > a["grado"]) - (b["grado"] < a["grado"]) for a, b in zip(llamada, llamada[1:])] or [0]
     g0 = notas[0]["grado"]
     if transformacion == "espejo":
         for n in notas:
@@ -331,8 +348,11 @@ def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_re
         else:
             inicio = voz.ambito // 2 if voz.contorno == "baja" else rng.choice((0, 2, 4))
         nuevos = [inicio]
-        for a, b in zip(notas, notas[1:]):
-            direccion = (b["grado"] > a["grado"]) - (b["grado"] < a["grado"])
+        for i in range(len(notas) - 1):
+            direccion = direcciones[i % len(direcciones)]
+            if rng.random() >= parecido:
+                # Contesta en sentido contrario (o se mueve si la llamada repetía).
+                direccion = -direccion if direccion else rng.choice((1, -1))
             previo = nuevos[-1]
             if direccion == 0:
                 g = previo if rng.random() < 0.6 else previo + rng.choice((1, -1))
@@ -351,18 +371,18 @@ def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_re
             n["grado"] = g
     # Densidad menor que la de la llamada: quita notas, nunca la primera ni la última.
     # En forma motivo la densidad ya eligió la figura: no se quitan notas.
-    if voz.forma == "frase" and densidad_ref > 0 and voz.densidad < densidad_ref and len(notas) > 2:
+    if not propio and voz.forma == "frase" and densidad_ref > 0 and voz.densidad < densidad_ref and len(notas) > 2:
         queda = voz.densidad / densidad_ref
         notas = [notas[0]] + [n for n in notas[1:-1] if rng.random() < queda] + [notas[-1]]
     # Articulación propia de la respuesta.
-    if voz_llamada is not None and voz_llamada.gate > 0:
+    if not propio and voz_llamada is not None and voz_llamada.gate > 0:
         factor = voz.gate / voz_llamada.gate
         for n in notas:
             n["dur"] = max(1, round(n["dur"] * factor))
     for n in notas:
         n["dv"] = n["dv"] + round(voz.vel_random * 15 * rng.uniform(-1, 1))
     # El eco devuelve la frase tal cual (tus notas, en vivo); el resto se dosifica y se cierra.
-    return notas if transformacion == "eco" else _cerrar(_aclarar(rng, voz, notas), voz.final)
+    return notas if transformacion == "eco" else _cerrar(_aclarar(rng, voz, notas), voz)
 
 
 def evolucionar(rng, notas, voz, cantidad, largo):
@@ -376,7 +396,7 @@ def evolucionar(rng, notas, voz, cantidad, largo):
         if rng.random() < cantidad:
             n["grado"] = max(-2, min(voz.ambito + 2, n["grado"] + rng.choice((-2, -1, 1, 2))))
     if voz.forma == "motivo":  # la figura conserva su forma; cambian las notas
-        return _cerrar(_aclarar(rng, voz, nuevas), voz.final)
+        return _cerrar(_aclarar(rng, voz, nuevas), voz)
     if len(nuevas) > 2 and rng.random() < cantidad * 0.3:
         del nuevas[rng.randrange(1, len(nuevas) - 1)]  # una nota menos
     if rng.random() < cantidad * 0.3:
@@ -388,7 +408,7 @@ def evolucionar(rng, notas, voz, cantidad, largo):
             nuevas.append({"paso": paso, "grado": vecina["grado"] + rng.choice((-1, 1)),
                            "dur": max(1, round(separacion * TICKS_POR_PASO * voz.gate)), "dv": 0})
             nuevas.sort(key=lambda n: n["paso"])
-    return _cerrar(_aclarar(rng, voz, nuevas), voz.final)
+    return _cerrar(_aclarar(rng, voz, nuevas), voz)
 
 
 # --- Tiempo ---
@@ -405,6 +425,7 @@ class Dialogo:
         self.descanso = max(0, int(cfg.get("descanso", 2)))    # compases
         self.transformacion = cfg.get("transformacion", "variacion")
         self.evolucion = float(cfg.get("evolucion", 0.3))
+        self.parecido = float(cfg.get("parecido", 0.3))
         self.seed = str(cfg.get("seed", "CR-0001"))
         for nombre, valor, opciones in (("modo", self.modo, MODOS),
                                         ("transformacion", self.transformacion, TRANSFORMACIONES)):
@@ -468,7 +489,7 @@ class Dialogo:
             resp = self.frase_nueva
         else:
             resp = responder(rng, self.frase_llamada, self.llamada, self.respuesta, self.transformacion,
-                             self.largo_respuesta, self.llamada.densidad)
+                             self.largo_respuesta, self.llamada.densidad, self.parecido)
         inicio_resp, _ = self._ciclo_pasos()
         fin_llamada = paso + self.largo_llamada
         fin_resp = paso + inicio_resp + self.largo_respuesta
@@ -535,7 +556,8 @@ class Dialogo:
         rng = random.Random(f"vivo:{self.seed}:{self.respuestas}")
         self.respuestas += 1
         # En vivo la referencia de densidad es media: sobre 50 % responde con todas tus notas.
-        resp = responder(rng, llamada, None, self.respuesta, self.transformacion, self.largo_respuesta, 0.5)
+        resp = responder(rng, llamada, None, self.respuesta, self.transformacion, self.largo_respuesta, 0.5,
+                         self.parecido)
         if not resp:
             return
         fin = paso + min(self.largo_respuesta, max(n["paso"] for n in resp) + PASOS_POR_TIEMPO)
