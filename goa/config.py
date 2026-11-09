@@ -82,11 +82,12 @@ def _esquema_voz(salida, canal, contorno, ritmo, densidad, final, octava, movimi
         "vel_random": (float, 0.15, 0.0, 1.0),
         "saltos": (float, 0.1, 0.0, 1.0),
         "movimiento": (str, movimiento, None, dialogo.MOVIMIENTOS),
-        "oscuridad": (float, 0.5, 0.0, 1.0),
+        "oscuridad": (float, 0.7, 0.0, 1.0),
+        "forma": (str, "motivo", None, dialogo.FORMAS),
     }
 
 
-ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, "arco", "mixto", 0.5, "suspendido", 0, "abierto")
+ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, "arco", "mixto", 0.5, "tension", 0, "abierto")
 ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, "baja", "corcheas", 0.45, "reposo", 0, "arpegio")
 
 # Un clip de diálogo guarda la conversación completa, con quién llama y los destinos,

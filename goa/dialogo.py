@@ -16,6 +16,7 @@ Las frases se guardan en grados de escala y se convierten a notas al
 tocar, así siguen a la nota larga y a los acordes de los pads.
 """
 
+import copy
 import math
 import random
 
@@ -31,6 +32,7 @@ CONTORNOS = ("libre", "sube", "baja", "arco", "valle")
 RITMOS = ("semicorcheas", "corcheas", "mixto", "largas")
 FINALES = ("suspendido", "tension", "reposo", "libre")
 MOVIMIENTOS = ("conjunto", "abierto", "arpegio")
+FORMAS = ("motivo", "frase")
 # Grados de escala por sobre la raíz.
 RELACIONES = {"unisono": 0, "tercera": 2, "cuarta": 3, "quinta": 4, "sexta": 5, "octava": 7}
 
@@ -40,8 +42,9 @@ GRADOS_REPOSO = (0,)
 GRADOS_SUSPENDIDO = (4, 3)   # quinta o cuarta: queda abierta sin sonar a amenaza
 # Notas del acorde de la escala con séptima (en frigio: Fm7). Base de los arpegios.
 GRADOS_ACORDE = (0, 2, 4, 6)
-# Colores oscuros, en semitonos sobre la raíz: ♭2, ♭6 y el tritono. El tritono
-# pesa menos: es lo que lleva una frase de misteriosa a terrorífica.
+# Colores oscuros, en semitonos sobre la raíz: ♭2, ♭6 y el tritono. El ♭2 y el ♭6
+# son la esencia oscura del frigio (sobre todo resolviendo medio tono abajo);
+# el tritono pesa poco: es lo que lleva una frase de misteriosa a terrorífica.
 OSCUROS = {1: 1.0, 8: 1.0, 6: 0.25}
 
 
@@ -65,9 +68,11 @@ class Voz:
         self.vel_random = float(cfg.get("vel_random", 0.15))
         self.saltos = float(cfg.get("saltos", 0.1))
         self.movimiento = cfg.get("movimiento", "abierto")
-        self.oscuridad = float(cfg.get("oscuridad", 0.5))
+        self.oscuridad = float(cfg.get("oscuridad", 0.7))
+        self.forma = cfg.get("forma", "motivo")
         for nombre, valor, opciones in (("contorno", self.contorno, CONTORNOS), ("ritmo", self.ritmo, RITMOS),
-                                        ("final", self.final, FINALES), ("movimiento", self.movimiento, MOVIMIENTOS)):
+                                        ("final", self.final, FINALES), ("movimiento", self.movimiento, MOVIMIENTOS),
+                                        ("forma", self.forma, FORMAS)):
             if valor not in opciones:
                 raise ValueError(f"{nombre} debe ser una de: {', '.join(opciones)}")
 
@@ -162,15 +167,20 @@ def _oscuro(voz, grado):
 def _aclarar(rng, voz, notas):
     """Dosifica los colores oscuros según la oscuridad de la voz.
 
-    Un ♭2 o un ♭6 que no pasa el filtro baja o sube a la nota vecina que no es
-    oscura; el tritono casi siempre se evita."""
-    for n in notas:
+    Bajo 50 % los ♭2 y ♭6 se van filtrando hacia la nota vecina; el tritono casi
+    siempre se evita. Sobre 50 % además atrae el ♭2 y el ♭6 como vecinos de la raíz
+    y la quinta en las notas de paso: el color oscuro del Goa frigio."""
+    atraccion = max(0.0, voz.oscuridad - 0.5) * 0.9
+    for k, n in enumerate(notas):
         peso = _oscuro(voz, n["grado"])
         if peso and rng.random() >= voz.oscuridad * peso:
             for vecino in (n["grado"] - 1, n["grado"] + 1):
                 if not _oscuro(voz, vecino):
                     n["grado"] = vecino
                     break
+        elif (not peso and 0 < k < len(notas) - 1 and _oscuro(voz, n["grado"] + 1) == 1.0
+              and rng.random() < atraccion):
+            n["grado"] += 1
     return notas
 
 
@@ -220,8 +230,49 @@ def _melodia(rng, voz, n):
     return grados
 
 
+def motivo(rng, voz, largo):
+    """Figura corta; la densidad elige cuál:
+
+    baja: 3 notas cortas · media: 3 cortas y una larga · alta: pequeño arpegio.
+    Después, silencio hasta el final del turno: el espacio es parte de la frase."""
+    d = voz.densidad
+    figura = "tres" if d < 0.35 else ("tres_y_larga" if d < 0.65 else "arpegio")
+    corta = {"semicorcheas": 1, "mixto": 1, "corcheas": 2, "largas": 4}[voz.ritmo]
+    if voz.ritmo == "mixto" and rng.random() < 0.4:
+        corta = 2
+    inicio = 0 if rng.random() < 0.75 else 2  # a veces entra en anacrusa
+    n = {"tres": 3, "tres_y_larga": 4, "arpegio": 5 if d > 0.85 else 4}[figura]
+    pasos = [inicio + k * corta for k in range(n)]
+    if figura == "arpegio":
+        acorde = sorted({a + 7 * k for a in GRADOS_ACORDE for k in range(0, 2)})
+        sube = voz.contorno in ("sube", "arco") or (voz.contorno == "libre" and rng.random() < 0.5)
+        if sube:
+            desde = rng.choice((0, 1, 2))  # raíz, tercera o quinta
+            grados = acorde[desde:desde + n]
+        else:
+            desde = rng.choice((4, 5, 6))  # octava, novena… baja hacia la raíz
+            grados = acorde[max(0, desde - n + 1):desde + 1][::-1]
+    else:
+        corta_voz = copy.copy(voz)
+        corta_voz.ambito = min(voz.ambito, 4)  # figuras cortas: poco recorrido
+        grados = _melodia(rng, corta_voz, n)
+    notas = []
+    for k, (paso, grado) in enumerate(zip(pasos, grados)):
+        larga = figura == "tres_y_larga" and k == n - 1
+        if larga:
+            dur_pasos = min(8, max(corta, largo - paso - PASOS_POR_TIEMPO))
+            dur = max(1, round(dur_pasos * TICKS_POR_PASO * max(voz.gate, 0.9)))
+        else:
+            dur = max(1, round(corta * TICKS_POR_PASO * voz.gate))
+        dv = round(voz.vel_random * 20 * rng.uniform(-1, 1)) + (8 if k == 0 else 0) + (6 if larga else 0)
+        notas.append({"paso": paso, "grado": grado, "dur": dur, "dv": dv})
+    return _cerrar(_aclarar(rng, voz, notas), voz.final)
+
+
 def frase(rng, voz, largo):
     """Frase nueva de `largo` pasos según el carácter de la voz."""
+    if voz.forma == "motivo":
+        return motivo(rng, voz, largo)
     separacion, _ = _rejilla(voz.ritmo)
     util = max(separacion, largo - PASOS_POR_TIEMPO)  # deja respirar el final
     inicios = _inicios(rng, voz, largo)
@@ -274,8 +325,12 @@ def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_re
         # Mismo ritmo y misma dirección de cada intervalo, con otros intervalos:
         # suena emparentada sin repetir la frase.
         acorde = sorted({a + 7 * k for a in GRADOS_ACORDE for k in range(-1, 3)})
-        inicio = voz.ambito // 2 if voz.contorno == "baja" else rng.choice((0, 2, 4))
-        nuevos = [_cercano(inicio, GRADOS_ACORDE) if voz.movimiento == "arpegio" else inicio]
+        if voz.movimiento == "arpegio":
+            # Parte desde distintas notas del acorde para no repetir la respuesta.
+            inicio = rng.choice((2, 4, 6, 7) if voz.contorno == "baja" else (0, 2, 4, 6))
+        else:
+            inicio = voz.ambito // 2 if voz.contorno == "baja" else rng.choice((0, 2, 4))
+        nuevos = [inicio]
         for a, b in zip(notas, notas[1:]):
             direccion = (b["grado"] > a["grado"]) - (b["grado"] < a["grado"])
             previo = nuevos[-1]
@@ -285,7 +340,8 @@ def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_re
                 # La nota del acorde siguiente en esa dirección (o la otra si salta).
                 lado = [x for x in acorde if (x - previo) * direccion > 0]
                 lado.sort(key=lambda x: abs(x - previo))
-                g = lado[1 if len(lado) > 1 and rng.random() < voz.saltos else 0] if lado else previo
+                salta = len(lado) > 1 and rng.random() < max(voz.saltos, 0.35)
+                g = lado[1 if salta else 0] if lado else previo
             elif voz.movimiento == "abierto":
                 g = previo + direccion * rng.choice((3, 4, 4, 1) if rng.random() >= voz.saltos else (7,))
             else:
@@ -294,7 +350,8 @@ def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_re
         for n, g in zip(notas, nuevos):
             n["grado"] = g
     # Densidad menor que la de la llamada: quita notas, nunca la primera ni la última.
-    if densidad_ref > 0 and voz.densidad < densidad_ref and len(notas) > 2:
+    # En forma motivo la densidad ya eligió la figura: no se quitan notas.
+    if voz.forma == "frase" and densidad_ref > 0 and voz.densidad < densidad_ref and len(notas) > 2:
         queda = voz.densidad / densidad_ref
         notas = [notas[0]] + [n for n in notas[1:-1] if rng.random() < queda] + [notas[-1]]
     # Articulación propia de la respuesta.
@@ -318,6 +375,8 @@ def evolucionar(rng, notas, voz, cantidad, largo):
     for n in nuevas:
         if rng.random() < cantidad:
             n["grado"] = max(-2, min(voz.ambito + 2, n["grado"] + rng.choice((-2, -1, 1, 2))))
+    if voz.forma == "motivo":  # la figura conserva su forma; cambian las notas
+        return _cerrar(_aclarar(rng, voz, nuevas), voz.final)
     if len(nuevas) > 2 and rng.random() < cantidad * 0.3:
         del nuevas[rng.randrange(1, len(nuevas) - 1)]  # una nota menos
     if rng.random() < cantidad * 0.3:

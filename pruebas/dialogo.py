@@ -152,21 +152,34 @@ if __name__ == "__main__":
     from goa.dialogo import Voz, frase, _oscuro
     import random
     def colores(osc):
-        v = Voz({"oscuridad": osc, "movimiento": "conjunto", "final": "libre"}, "F", "frigio")
+        v = Voz({"oscuridad": osc, "movimiento": "conjunto", "final": "libre", "forma": "frase"}, "F", "frigio")
         notas = [n for i in range(300) for n in frase(random.Random(i), v, 32)]
         return sum(1 for n in notas if _oscuro(v, n["grado"])) / len(notas), \
             sum(1 for n in notas if v.tonalidad.intervalos[n["grado"] % 7] == 6) / len(notas)
     poca, _ = colores(0.0)
     mucha, _ = colores(1.0)
     todo &= ok(poca < 0.02 < mucha, f"oscuridad 0 casi sin ♭2 ni ♭6 ({poca:.0%}), en 100 % aparecen ({mucha:.0%})")
-    v = Voz({"movimiento": "arpegio", "final": "libre", "oscuridad": 0}, "F", "frigio")
-    notas = [n for i in range(200) for n in frase(random.Random(i), v, 32)]
+    notas = [n for forma in ("frase", "motivo") for i in range(200) for n in
+             frase(random.Random(i), Voz({"movimiento": "arpegio", "final": "libre", "oscuridad": 0, "forma": forma}, "F", "frigio"), 32)]
     todo &= ok(all(n["grado"] % 7 in (0, 2, 4, 6) for n in notas), "arpegio: solo notas del acorde menor con séptima")
-    v = Voz({"movimiento": "abierto", "final": "libre", "oscuridad": 0.5}, "F", "frigio")
+    v = Voz({"movimiento": "abierto", "final": "libre", "oscuridad": 0.5, "forma": "frase"}, "F", "frigio")
     saltos = [abs(b["grado"] - a["grado"]) for i in range(200) for f in [frase(random.Random(i), v, 32)]
               for a, b in zip(f, f[1:])]
     abiertos = sum(1 for x in saltos if x in (2, 3, 4, 7)) / len(saltos)
     todo &= ok(0.45 < abiertos < 0.85, f"abierto: terceras, cuartas, quintas y octavas, con algún grado conjunto ({abiertos:.0%})")
+    figuras = {}
+    for dens, esperado in ((0.2, {3}), (0.5, {4}), (0.75, {4}), (0.95, {5})):
+        v = Voz({"densidad": dens, "forma": "motivo"}, "F", "frigio")
+        figuras[dens] = {len(frase(random.Random(i), v, 32)) for i in range(100)} == esperado
+    todo &= ok(all(figuras.values()), "motivo: densidad baja 3 notas, media 3 + 1 larga, alta arpegio")
+    v = Voz({"densidad": 0.5, "forma": "motivo", "ritmo": "semicorcheas"}, "F", "frigio")
+    f = frase(random.Random(3), v, 32)
+    todo &= ok(f[-1]["dur"] > 3 * f[0]["dur"] and f[-1]["paso"] < 8, "3 cortas y una larga, y después silencio")
+    def color(osc):
+        v = Voz({"oscuridad": osc, "forma": "frase", "movimiento": "conjunto", "final": "libre"}, "F", "frigio")
+        notas = [n for i in range(300) for n in frase(random.Random(i), v, 32)]
+        return sum(1 for n in notas if v.tonalidad.intervalos[n["grado"] % 7] in (1, 8)) / len(notas)
+    todo &= ok(color(0.9) > color(0.5) * 1.3, f"sobre 50 % la oscuridad atrae ♭2 y ♭6 ({color(0.5):.0%} → {color(0.9):.0%})")
     v = Voz({"final": "suspendido"}, "F", "frigio")
     todo &= ok(all(frase(random.Random(i), v, 32)[-1]["grado"] % 7 in (3, 4) for i in range(100)),
                "final suspendido: termina en quinta o cuarta")
