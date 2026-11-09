@@ -84,7 +84,7 @@ details.voz>*:not(summary){margin-top:12px}
 
   <section class="card">
     <div class="fila"><h2>Disparador</h2><label class="mut" style="display:flex;align-items:center;gap:6px;min-height:44px"><input type="checkbox" id="editar_clips">Borrar clips</label></div>
-    <p class="mut" style="margin:0">Toca un clip para que entre en el próximo compás de la Circuit. Guarda clips desde cada secuencia.</p>
+    <p class="mut" style="margin:0">Toca un clip para que entre en el próximo compás de la Circuit. Guarda clips desde cada secuencia y desde Llamada y respuesta.</p>
     <div class="grilla" id="grilla"></div>
   </section>
 
@@ -416,6 +416,9 @@ function renderDialogo() {
     deslizador(d, "evolucion", "Evolución (cuánto cambia la frase en cada vuelta)", 0, 1, 0.05, (x) => x === 0 ? "se repite igual" : Math.round(x * 100) + " %"),
     campo("Seed", el("div", {className: "seed"}, [seed,
       el("button", {type: "button", textContent: "Otra", onclick: () => { d.seed = seedNueva(); seed.value = d.seed; guardar(); }})])),
+    el("button", {type: "button", className: "prim", textContent: "Guardar como clip",
+      onclick: () => guardarClipDialogo()}),
+    el("p", {className: "mut", style: "margin:0", textContent: "El clip guarda todo lo de esta sección: quién llama, destinos, tiempos y el carácter de cada voz. Al lanzarlo desde el disparador entra así, en el próximo compás."}),
     vivo ? null : bloqueVoz(cfg.llamada, "Llamada", abiertos[0] ?? false),
     bloqueVoz(cfg.respuesta, "Respuesta", abiertos[vivo ? 0 : 1] ?? false, [mismo,
       vivo ? el("p", {className: "mut", style: "margin:0", textContent: "En vivo, ritmo y gate de la respuesta salen de lo que tocaste (salvo en Nueva). La densidad bajo 50 % quita algunas de tus notas."}) : null]),
@@ -443,17 +446,41 @@ async function guardarClip(i, s) {
   catch (e) { aviso(e.message, true); }
 }
 
+async function guardarClipDialogo() {
+  const d = cfg.dialogo;
+  const nombre = prompt("Nombre del clip de diálogo", `${d.modo === "en_vivo" ? "Vivo" : "Motor"} ${d.transformacion} ${d.seed}`);
+  if (nombre === null) return;
+  try {
+    clearTimeout(temporizador);  // aplica primero lo último que cambiaste, para que el clip lo incluya
+    await api("/api/config", cfg);
+    await api("/api/dialogo/clip/guardar", {nombre}); await recargar(); aviso("Clip de diálogo guardado");
+  } catch (e) { aviso(e.message, true); }
+}
+
 function renderGrilla() {
   const g = $("grilla"); g.innerHTML = "";
   const borrar = $("editar_clips").checked;
-  if (!cfg.clip.length) { g.append(el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay clips."})); return; }
+  const dialogos = cfg.clip_dialogo || [];
+  if (!cfg.clip.length && !dialogos.length) { g.append(el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay clips."})); return; }
   if (borrar) {
     const fila = el("div", {className: "fila-clips"});
-    cfg.clip.forEach((c, ci) => fila.append(el("button", {className: "clip", textContent: "Borrar " + c.nombre, style: "color:var(--bad)",
-      onclick: async () => { if (!confirm(`¿Borrar el clip ${c.nombre}?`)) return;
-        try { await api("/api/clip/borrar", {indice: ci}); await recargar(); } catch (e) { aviso(e.message, true); } }})));
+    const boton = (c, ci, ruta, tipo) => el("button", {className: "clip", textContent: "Borrar " + c.nombre, style: "color:var(--bad)",
+      onclick: async () => { if (!confirm(`¿Borrar el ${tipo} ${c.nombre}?`)) return;
+        try { await api(ruta, {indice: ci}); await recargar(); } catch (e) { aviso(e.message, true); } }});
+    cfg.clip.forEach((c, ci) => fila.append(boton(c, ci, "/api/clip/borrar", "clip")));
+    dialogos.forEach((c, ci) => fila.append(boton(c, ci, "/api/dialogo/clip/borrar", "clip de diálogo")));
     g.append(fila); return;
   }
+  if (dialogos.length) {
+    const fila = el("div", {className: "fila-clips", "data-fila-dialogo": "1"});
+    dialogos.forEach((c, ci) => fila.append(el("button", {className: "clip", textContent: c.nombre, "data-clip": c.nombre,
+      onclick: async () => { try { await api("/api/dialogo/lanzar", {clip: ci}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }})));
+    fila.append(el("button", {className: "clip parar", textContent: "■ Parar", "data-parar": "1",
+      onclick: async () => { try { await api("/api/dialogo/detener", {}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }}));
+    g.append(el("div", {style: "display:flex;flex-direction:column;gap:6px"}, [
+      el("span", {className: "mut", textContent: "Llamada y respuesta"}), fila]));
+  }
+  if (!cfg.clip.length) { pintarGrilla(); return; }
   cfg.secuencia.forEach((s, fi) => {
     const fila = el("div", {className: "fila-clips", "data-fila": fi});
     cfg.clip.forEach((c, ci) => fila.append(el("button", {className: "clip", textContent: c.nombre, "data-clip": c.nombre,
@@ -466,8 +493,19 @@ function renderGrilla() {
   pintarGrilla();
 }
 
+function pintarFila(fila, f) {
+  fila.querySelectorAll("[data-clip]").forEach((b) => {
+    const n = b.dataset.clip;
+    b.classList.toggle("cola", f.cola === n);
+    b.classList.toggle("sonando", f.activa && f.clip === n && f.cola !== n);
+  });
+  fila.querySelector("[data-parar]").classList.toggle("cola", f.cola === "detener");
+}
+
 function pintarGrilla() {
   if (!ultimoEstado || !ultimoEstado.filas) return;
+  const fd = document.querySelector("#grilla [data-fila-dialogo]");
+  if (fd && ultimoEstado.fila_dialogo) pintarFila(fd, ultimoEstado.fila_dialogo);
   document.querySelectorAll("#grilla [data-fila]").forEach((fila) => {
     const f = ultimoEstado.filas[parseInt(fila.dataset.fila)];
     if (!f) return;

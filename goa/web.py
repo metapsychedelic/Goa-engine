@@ -9,7 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__
-from .config import MAX_CLIPS, ConfigError, cargar, clip_de, guardar, normalizar, salidas
+from .config import (MAX_CLIPS, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
+                     secciones_de_clip)
 from .motor import Motor
 
 log = logging.getLogger("goa")
@@ -118,6 +119,10 @@ def crear_servidor(ctx, puerto):
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/lanzar": self._lanzar,
                 "/api/detener": self._detener,
+                "/api/dialogo/clip/guardar": self._dialogo_clip_guardar,
+                "/api/dialogo/clip/borrar": self._dialogo_clip_borrar,
+                "/api/dialogo/lanzar": self._dialogo_lanzar,
+                "/api/dialogo/detener": self._dialogo_detener,
                 "/api/proyecto/guardar": self._proyecto_guardar,
                 "/api/proyecto/abrir": self._proyecto_abrir,
                 "/api/proyecto/borrar": self._proyecto_borrar,
@@ -198,6 +203,37 @@ def crear_servidor(ctx, puerto):
                 fila = int(datos["fila"])
                 ctx.motor.detener(fila)
                 ctx.config["secuencia"][fila]["activa"] = False
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _dialogo_clip_guardar(self, datos):
+            with ctx.candado:
+                if len(ctx.config["clip_dialogo"]) >= MAX_CLIPS:
+                    raise ValueError(f"Máximo {MAX_CLIPS} clips de diálogo")
+                ctx.config["clip_dialogo"].append(clip_de_dialogo(ctx.config, str(datos.get("nombre", ""))))
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _dialogo_clip_borrar(self, datos):
+            with ctx.candado:
+                del ctx.config["clip_dialogo"][int(datos["indice"])]
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _dialogo_lanzar(self, datos):
+            with ctx.candado:
+                clip = ctx.config["clip_dialogo"][int(datos["clip"])]
+                dialogo, llamada, respuesta = secciones_de_clip(clip)
+                ctx.motor.lanzar_dialogo(dialogo, llamada, respuesta, clip["nombre"])
+                ctx.config.update(dialogo=dialogo, llamada=llamada, respuesta=respuesta)
+                ctx.puertos.cambiar_salidas(salidas(ctx.config))
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _dialogo_detener(self, datos):
+            with ctx.candado:
+                ctx.motor.detener_dialogo()
+                ctx.config["dialogo"]["activo"] = False
                 aviso = self._guardar_activa()
             self._responder(aviso)
 

@@ -126,6 +126,8 @@ class Motor:
         self.pads = None
         self.dialogo = None
         self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
+        self.cola_dialogo = False  # False = nada en cola · None = detener · (secciones, nombre) = lanzar
+        self.musica = {}
         self.aplicar_config(config)
 
     def aplicar_config(self, config):
@@ -138,6 +140,9 @@ class Motor:
         dialogo = Dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}),
                           musica.get("tonica", "F"), musica.get("escala", "frigio"), musica.get("adaptacion", "escala"))
         self.apagar_todo()
+        if self.dialogo is not None:
+            dialogo.clip = self.dialogo.clip  # recuerda qué clip de diálogo sonaba
+        self.musica = musica
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
@@ -178,6 +183,43 @@ class Motor:
         self.cola[fila] = None
         if not self.corriendo:
             self._aplicar_cola()
+
+    def lanzar_dialogo(self, dialogo, llamada, respuesta, nombre):
+        """Pone un clip de diálogo en cola; entra en el próximo compás con todo su seteo."""
+        self._crear_dialogo(dialogo, llamada, respuesta)  # valida antes de encolar
+        self.cola_dialogo = ((dialogo, llamada, respuesta), nombre)
+        if not self.corriendo:
+            self._aplicar_cola_dialogo()
+
+    def detener_dialogo(self):
+        self.cola_dialogo = None
+        if not self.corriendo:
+            self._aplicar_cola_dialogo()
+
+    def _crear_dialogo(self, dialogo, llamada, respuesta):
+        m = self.musica
+        nuevo = Dialogo(dialogo, llamada, respuesta, m.get("tonica", "F"), m.get("escala", "frigio"),
+                        m.get("adaptacion", "escala"))
+        nuevo.disparo = self._canal_de(dialogo)
+        return nuevo
+
+    def _aplicar_cola_dialogo(self):
+        pedido, self.cola_dialogo = self.cola_dialogo, False
+        if pedido is False:
+            return
+        self.dialogo.apagar(self.enviar)
+        if pedido is None:
+            self.dialogo.activo = False
+            self.dialogo.reiniciar()
+            log.info("Diálogo detenido")
+            return
+        (dialogo, llamada, respuesta), nombre = pedido
+        nuevo = self._crear_dialogo(dialogo, llamada, respuesta)
+        if nuevo.disparo not in self.disparos:
+            self.disparos[nuevo.disparo] = Disparo(nuevo.disparo)
+        nuevo.clip = nombre
+        self.dialogo = nuevo
+        log.info("Entra el diálogo %s", nombre)
 
     def _aplicar_cola(self):
         for fila, pedido in self.cola.items():
@@ -225,6 +267,9 @@ class Motor:
                        "cola": (None if i not in self.cola else
                                 ("detener" if self.cola[i] is None else self.cola[i][1]))}
                       for i, s in enumerate(self.secuencias)],
+            "fila_dialogo": {"clip": self.dialogo.clip, "activa": self.dialogo.activo,
+                             "cola": (None if self.cola_dialogo is False else
+                                      ("detener" if self.cola_dialogo is None else self.cola_dialogo[1]))},
         }
 
     def _olvidar_notas(self):
@@ -303,6 +348,8 @@ class Motor:
         if paso % PASOS_POR_COMPAS == 0:
             if self.cola:
                 self._aplicar_cola()  # los clips entran justo en el primer paso del compás
+            if self.cola_dialogo is not False:
+                self._aplicar_cola_dialogo()
             compas = paso // PASOS_POR_COMPAS
             for s in self.secuencias:
                 s.evolucionar(compas)

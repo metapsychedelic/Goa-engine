@@ -87,6 +87,16 @@ def _esquema_voz(salida, canal, contorno, ritmo, densidad, final, octava):
 ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, "arco", "mixto", 0.5, "tension", 0)
 ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, "baja", "corcheas", 0.45, "reposo", 0)
 
+# Un clip de diálogo guarda la conversación completa, con quién llama y los destinos,
+# para que al lanzarlo entre tal como se armó. Las voces van con prefijo para que
+# quede plano en el archivo: llamada_salida, respuesta_escala...
+VOCES = ("llamada", "respuesta")
+ESQUEMA_CLIP_DIALOGO = dict(
+    {"nombre": (str, "Diálogo", None, None)},
+    **{k: v for k, v in ESQUEMA_SECCIONES["dialogo"].items() if k != "activo"},
+    **{f"{voz}_{k}": v for voz in VOCES for k, v in ESQUEMA_SECCIONES[voz].items()},
+)
+
 ESQUEMA_SECUENCIA = {
     "nombre": (str, "A", None, None),
     "disparo": (int, 0, 0, 16),
@@ -174,6 +184,11 @@ def normalizar(cfg):
         raise ConfigError("clip debe ser una lista")
     limpia["clip"] = [{k: _valor(k, (s or {}).get(k), e) for k, e in ESQUEMA_CLIP.items()}
                       for s in clips[:MAX_CLIPS]]
+    clips = cfg.get("clip_dialogo") or []
+    if not isinstance(clips, list):
+        raise ConfigError("clip_dialogo debe ser una lista")
+    limpia["clip_dialogo"] = [{k: _valor(k, (s or {}).get(k), e) for k, e in ESQUEMA_CLIP_DIALOGO.items()}
+                              for s in clips[:MAX_CLIPS]]
     return limpia
 
 
@@ -182,6 +197,23 @@ def clip_de(secuencia, nombre):
     clip = {k: secuencia[k] for k in ESQUEMA_CLIP if k in secuencia}
     clip["nombre"] = nombre.strip()[:40] or secuencia.get("nombre", "Clip")
     return clip
+
+
+def clip_de_dialogo(cfg, nombre):
+    """La conversación que está armada, lista para guardarse como clip."""
+    clip = {"nombre": nombre.strip()[:40] or "Diálogo"}
+    clip.update({k: v for k, v in cfg["dialogo"].items() if k != "activo"})
+    for voz in VOCES:
+        clip.update({f"{voz}_{k}": v for k, v in cfg[voz].items()})
+    return clip
+
+
+def secciones_de_clip(clip):
+    """De un clip de diálogo a las secciones dialogo, llamada y respuesta."""
+    dialogo = {k: clip[k] for k in ESQUEMA_SECCIONES["dialogo"] if k in clip}
+    dialogo["activo"] = True
+    voces = {voz: {k: clip[f"{voz}_{k}"] for k in ESQUEMA_SECCIONES[voz]} for voz in VOCES}
+    return dialogo, voces["llamada"], voces["respuesta"]
 
 
 def salidas(cfg):
@@ -224,6 +256,10 @@ def a_toml(cfg):
         lineas.append("")
     for s in cfg.get("clip", []):
         lineas.append("[[clip]]")
+        lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
+        lineas.append("")
+    for s in cfg.get("clip_dialogo", []):
+        lineas.append("[[clip_dialogo]]")
         lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
         lineas.append("")
     return "\n".join(lineas)

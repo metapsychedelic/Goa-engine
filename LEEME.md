@@ -97,6 +97,11 @@ y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la 
   afinación y mutación.
 - **Disparador:** una fila por secuencia. Toca un clip y entra en el próximo
   compás de la Circuit; mientras espera, titila. Los clips siguen mutando.
+- **Clips de diálogo:** en Llamada y respuesta, "Guardar como clip" guarda la
+  conversación completa: quién llama (motor o en vivo), destinos y canales,
+  tiempos, cómo responde y el carácter de cada voz. En el disparador aparecen en
+  la fila *Llamada y respuesta*; al lanzar uno entra en el próximo compás con
+  todo ese seteo, y la sección queda mostrando lo que suena.
 - **Proyectos:** guardar, guardar como, abrir y borrar proyectos completos.
   Se guardan en `~/.config/goa/proyectos/`.
 

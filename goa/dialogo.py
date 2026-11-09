@@ -256,6 +256,7 @@ class Dialogo:
         self.tonalidad = Tonalidad(tonica, escala)
         self.adaptacion = adaptacion
         self.disparo = None  # lo resuelve el motor
+        self.clip = None     # nombre del clip de diálogo que suena, si vino del disparador
         self.sonando = {}    # (salida, canal, nota) -> tick en que se apaga
         self.reiniciar()
 

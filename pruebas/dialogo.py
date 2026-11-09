@@ -12,7 +12,7 @@ import tomllib
 from pathlib import Path
 
 from goa import dialogo
-from goa.config import normalizar
+from goa.config import a_toml, clip_de_dialogo, normalizar, secciones_de_clip
 from goa.escalas import nombre_midi
 from goa.motor import Motor
 
@@ -145,6 +145,39 @@ if __name__ == "__main__":
     salida = correr(cfg, compases=4, vivo=tocadas)
     notas = [nombre_midi(n) for _, _, t, _, n, _ in salida if t == "note_on"]
     todo &= ok(notas == ["C4", "D#4", "F4", "G#4"], f"eco devuelve tu frase: {' '.join(notas)}")
+
+    print("\nClips de diálogo")
+    cfg = base(modo="en_vivo", transformacion="espejo", escucha=7)
+    cfg["respuesta"].update(salida="FM-1", canal=4, escala="frigio_dominante", relacion="quinta")
+    clip = clip_de_dialogo(cfg, "Vivo espejo")
+    cfg["clip_dialogo"] = [clip]
+    guardada = normalizar(tomllib.loads(a_toml(cfg)))
+    todo &= ok(guardada["clip_dialogo"] == [clip], "el clip se guarda y se lee igual del archivo")
+
+    otra = base(modo="motor", transformacion="variacion")  # lo que está armado ahora es otra cosa
+    salida = []
+    motor = Motor(otra, lambda sal, tipo, canal, nota, vel: salida.append((motor.tick, sal, tipo, canal, nota, vel)))
+    motor.start()
+    for tick in range(3 * 16 * 6):
+        motor.reloj()
+        paso, resto = divmod(tick, 6)
+        if resto == 1 and paso % 16 == 0:
+            motor.nota_on(1, 41)
+        if tick == 5 * 6:  # se lanza a mitad del primer compás
+            motor.lanzar_dialogo(*secciones_de_clip(clip), clip["nombre"])
+            esperando = motor.estado()["fila_dialogo"]["cola"] == "Vivo espejo" and motor.dialogo.modo == "motor"
+        if tick == 16 * 6 + 1:
+            d = motor.dialogo
+            entro = (d.clip == "Vivo espejo" and d.modo == "en_vivo" and d.transformacion == "espejo"
+                     and d.escucha == 6 and d.respuesta.salida == "FM-1" and d.respuesta.canal == 3)
+    todo &= ok(esperando, "lanzado a mitad de compás, queda en cola y sigue el diálogo anterior")
+    todo &= ok(entro, "en el compás siguiente entra con todo su seteo: quién llama, destinos y carácter")
+    motor.detener_dialogo()
+    todo &= ok(motor.dialogo.activo and motor.estado()["fila_dialogo"]["cola"] == "detener", "parar queda en cola hasta el compás")
+    for _ in range(16 * 6):
+        motor.reloj()
+    motor.stop()
+    todo &= ok(not motor.dialogo.activo and colgadas(salida) == 0, "se detiene en el compás sin dejar notas colgadas")
 
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)
