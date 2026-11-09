@@ -84,6 +84,44 @@ def _rejilla(ritmo):
     return 1, lambda i: 1.0 if i % 2 == 0 else 0.45  # mixto: corcheas con algunas semicorcheas
 
 
+# Células de un tiempo (4 semicorcheas, x = nota). La frase se arma con un motivo
+# de un compás hecho de estas células, que se repite con pequeños cambios: así
+# tiene groove y queda amarrada al bombo en vez de ser notas sueltas.
+CELULAS = {
+    "semicorcheas": ("xxxx", "x.xx", "xx.x", "xxx.", ".xxx", "x.x.", "xx.."),
+    "corcheas": ("x.x.", "x...", "..x.", "x.x."),
+    "mixto": ("x.x.", "x.xx", "xx.x", "x...", "..xx", "xxx.", "x..x", "..x."),
+    "largas": ("x...",),
+}
+# Cuántas notas por tiempo busca cada ritmo con densidad 0 y con densidad 1.
+NOTAS_POR_TIEMPO = {"semicorcheas": (2.0, 4.0), "corcheas": (1.0, 2.0), "mixto": (1.0, 3.0), "largas": (1.0, 1.0)}
+
+
+def _celula(rng, voz):
+    if rng.random() > min(1.0, 0.25 + voz.densidad):
+        return "...."  # tiempo en silencio: deja espacio
+    poca, mucha = NOTAS_POR_TIEMPO[voz.ritmo]
+    objetivo = poca + (mucha - poca) * voz.densidad
+    celulas = CELULAS[voz.ritmo]
+    pesos = [1 / (1 + 2 * abs(c.count("x") - objetivo)) for c in celulas]
+    return rng.choices(celulas, pesos)[0]
+
+
+def _inicios(rng, voz, largo):
+    """Dónde empieza cada nota: motivo de un compás repetido con variaciones."""
+    tiempos = max(1, largo // PASOS_POR_TIEMPO - 1)  # el último tiempo respira
+    motivo = [_celula(rng, voz) for _ in range(min(4, tiempos))]
+    if motivo[0] == "....":
+        motivo[0] = rng.choice([c for c in CELULAS[voz.ritmo] if c[0] == "x"])
+    celdas = []
+    for t in range(tiempos):
+        celda = motivo[t % len(motivo)]
+        if t >= len(motivo) and rng.random() < 0.3:
+            celda = _celula(rng, voz)  # la repetición cambia un poco
+        celdas.append(celda)
+    return [t * PASOS_POR_TIEMPO + i for t, c in enumerate(celdas) for i, ch in enumerate(c) if ch == "x"]
+
+
 def _curva(contorno, x):
     if contorno == "sube":
         return x
@@ -132,11 +170,9 @@ def _melodia(rng, voz, n):
 
 def frase(rng, voz, largo):
     """Frase nueva de `largo` pasos según el carácter de la voz."""
-    separacion, peso = _rejilla(voz.ritmo)
-    util = max(separacion, largo - max(2, separacion))  # deja respirar el final
-    inicios = [i for i in range(0, util, separacion) if rng.random() < voz.densidad * peso(i)]
-    if not inicios or inicios[0] > 4:
-        inicios.insert(0, 0 if rng.random() < 0.6 else min(separacion, util - 1))
+    separacion, _ = _rejilla(voz.ritmo)
+    util = max(separacion, largo - PASOS_POR_TIEMPO)  # deja respirar el final
+    inicios = _inicios(rng, voz, largo)
     if len(inicios) < 2:
         medio = (util // 2) // separacion * separacion
         if medio > inicios[0]:
@@ -144,8 +180,11 @@ def frase(rng, voz, largo):
     grados = _melodia(rng, voz, len(inicios))
     notas = []
     for k, inicio in enumerate(inicios):
-        hueco = (inicios[k + 1] if k + 1 < len(inicios) else min(util, inicio + 8)) - inicio
-        dur = max(1, round(hueco * TICKS_POR_PASO * voz.gate))
+        ultima = k + 1 == len(inicios)
+        hueco = (min(util, inicio + 8) if ultima else inicios[k + 1]) - inicio
+        # Notas cortas y con pulso; solo la última y las "largas" pueden durar más de un tiempo.
+        tope = 8 if ultima or voz.ritmo == "largas" else PASOS_POR_TIEMPO
+        dur = max(1, round(min(hueco, tope) * TICKS_POR_PASO * voz.gate))
         dv = round(voz.vel_random * 25 * rng.uniform(-1, 1)) + (8 if k == 0 else 0)
         notas.append({"paso": inicio, "grado": grados[k], "dur": dur, "dv": dv})
     return _cerrar(notas, voz.final)
