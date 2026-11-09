@@ -65,7 +65,7 @@ class Voz:
         self.vel_random = float(cfg.get("vel_random", 0.15))
         self.saltos = float(cfg.get("saltos", 0.1))
         self.movimiento = cfg.get("movimiento", "abierto")
-        self.oscuridad = float(cfg.get("oscuridad", 0.35))
+        self.oscuridad = float(cfg.get("oscuridad", 0.5))
         for nombre, valor, opciones in (("contorno", self.contorno, CONTORNOS), ("ritmo", self.ritmo, RITMOS),
                                         ("final", self.final, FINALES), ("movimiento", self.movimiento, MOVIMIENTOS)):
             if valor not in opciones:
@@ -180,8 +180,8 @@ def _candidatos(voz, anterior, rng):
     if voz.movimiento == "arpegio":
         opciones = {a + 7 * k for a in GRADOS_ACORDE for k in range(-1, 3)}
     elif voz.movimiento == "abierto":
-        # Cuartas, quintas y octavas; algún grado conjunto para unirlas.
-        opciones = {anterior + p for p in (-7, -4, -3, -1, 0, 1, 3, 4, 7)}
+        # Cuartas, quintas, octavas y terceras; algún grado conjunto para unirlas.
+        opciones = {anterior + p for p in (-7, -4, -3, -2, -1, 0, 1, 2, 3, 4, 7)}
     else:
         pasos = (-2, -1, 0, 1, 2) + ((-4, 4, -7, 7) if rng.random() < voz.saltos else ())
         opciones = {anterior + p for p in pasos}
@@ -210,6 +210,9 @@ def _melodia(rng, voz, n):
                 return (abs(c - objetivo) * (0.45 if abierto else 1.0) + rng.random() * 1.5
                         + (0.8 if c == anterior else 0)                        # no machacar la misma nota
                         - (0.75 if abierto and salto in (3, 4) else 0)
+                        # Aterriza en el acorde menor con séptima: la tercera menor ancla
+                        # el color menor; sin ella, cuartas y quintas suenan luminosas.
+                        - (0.7 if abierto and c % 7 in GRADOS_ACORDE else 0)
                         + (0.0 if salto < 7 else 1.5 * (1 - voz.saltos)))      # octavas, según saltos
             g = min(_candidatos(voz, anterior, rng), key=costo)
         grados.append(g)

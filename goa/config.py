@@ -82,7 +82,7 @@ def _esquema_voz(salida, canal, contorno, ritmo, densidad, final, octava, movimi
         "vel_random": (float, 0.15, 0.0, 1.0),
         "saltos": (float, 0.1, 0.0, 1.0),
         "movimiento": (str, movimiento, None, dialogo.MOVIMIENTOS),
-        "oscuridad": (float, 0.35, 0.0, 1.0),
+        "oscuridad": (float, 0.5, 0.0, 1.0),
     }
 
 

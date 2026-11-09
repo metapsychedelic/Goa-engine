@@ -162,11 +162,11 @@ if __name__ == "__main__":
     v = Voz({"movimiento": "arpegio", "final": "libre", "oscuridad": 0}, "F", "frigio")
     notas = [n for i in range(200) for n in frase(random.Random(i), v, 32)]
     todo &= ok(all(n["grado"] % 7 in (0, 2, 4, 6) for n in notas), "arpegio: solo notas del acorde menor con séptima")
-    v = Voz({"movimiento": "abierto", "final": "libre", "oscuridad": 0.35}, "F", "frigio")
+    v = Voz({"movimiento": "abierto", "final": "libre", "oscuridad": 0.5}, "F", "frigio")
     saltos = [abs(b["grado"] - a["grado"]) for i in range(200) for f in [frase(random.Random(i), v, 32)]
               for a, b in zip(f, f[1:])]
-    abiertos = sum(1 for x in saltos if x in (3, 4, 7)) / len(saltos)
-    todo &= ok(0.45 < abiertos < 0.85, f"abierto: mezcla cuartas, quintas y octavas con grados conjuntos ({abiertos:.0%})")
+    abiertos = sum(1 for x in saltos if x in (2, 3, 4, 7)) / len(saltos)
+    todo &= ok(0.45 < abiertos < 0.85, f"abierto: terceras, cuartas, quintas y octavas, con algún grado conjunto ({abiertos:.0%})")
     v = Voz({"final": "suspendido"}, "F", "frigio")
     todo &= ok(all(frase(random.Random(i), v, 32)[-1]["grado"] % 7 in (3, 4) for i in range(100)),
                "final suspendido: termina en quinta o cuarta")

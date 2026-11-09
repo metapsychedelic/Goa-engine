@@ -79,7 +79,7 @@ velocidad = 96
 vel_random = 0.15
 saltos = 0.1
 movimiento = "abierto"    # conjunto (grados vecinos), abierto (cuartas, quintas, octavas), arpegio (acorde menor con séptima)
-oscuridad = 0.35          # cuánto aparecen ♭2 y ♭6; el tritono casi nunca (lo que suena terrorífico)
+oscuridad = 0.5           # cuánto aparecen ♭2 y ♭6; el tritono casi nunca (lo que suena terrorífico)
 
 [respuesta]
 salida = "MicroFreak"
@@ -97,7 +97,7 @@ velocidad = 96
 vel_random = 0.15
 saltos = 0.1
 movimiento = "arpegio"
-oscuridad = 0.35
+oscuridad = 0.5
 
 [[secuencia]]
 nombre = "A"
