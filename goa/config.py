@@ -5,7 +5,7 @@ import os
 import tempfile
 import tomllib
 
-from . import generador, pads
+from . import dialogo, generador, pads
 from .escalas import ESCALAS, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -49,7 +49,43 @@ ESQUEMA_SECCIONES = {
         "seed": (str, "P-1C88", None, None),
         "disparo": (int, 0, 0, 16),
     },
+    "dialogo": {
+        "activo": (bool, False, None, None),
+        "modo": (str, "motor", None, dialogo.MODOS),
+        "disparo": (int, 0, 0, 16),
+        "escucha": (int, 4, 1, 16),
+        "compases_llamada": (int, 2, 1, 8),
+        "compases_respuesta": (int, 2, 1, 8),
+        "pausa": (int, 2, 0, 16),
+        "descanso": (int, 2, 0, 16),
+        "transformacion": (str, "variacion", None, dialogo.TRANSFORMACIONES),
+        "evolucion": (float, 0.3, 0.0, 1.0),
+        "seed": (str, "CR-0001", None, None),
+    },
 }
+
+
+def _esquema_voz(salida, canal, contorno, ritmo, densidad, final, octava):
+    return {
+        "salida": (str, salida, None, None),
+        "canal": (int, canal, 1, 16),
+        "escala": (str, "general", None, ("general",) + tuple(ESCALAS)),
+        "relacion": (str, "unisono", None, tuple(dialogo.RELACIONES)),
+        "octava": (int, octava, -3, 3),
+        "ambito": (int, 5, 2, 12),
+        "contorno": (str, contorno, None, dialogo.CONTORNOS),
+        "ritmo": (str, ritmo, None, dialogo.RITMOS),
+        "densidad": (float, densidad, 0.0, 1.0),
+        "final": (str, final, None, dialogo.FINALES),
+        "gate": (float, 0.7, 0.05, 1.0),
+        "velocidad": (int, 96, 1, 127),
+        "vel_random": (float, 0.15, 0.0, 1.0),
+        "saltos": (float, 0.1, 0.0, 1.0),
+    }
+
+
+ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, "arco", "mixto", 0.5, "tension", 0)
+ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, "baja", "corcheas", 0.45, "reposo", 0)
 
 ESQUEMA_SECUENCIA = {
     "nombre": (str, "A", None, None),
@@ -155,6 +191,10 @@ def salidas(cfg):
         claves.append(cfg["thru"]["salida"])
     if cfg["pads"]["activo"]:
         claves.append(cfg["pads"]["salida"])
+    if cfg["dialogo"]["activo"]:
+        if cfg["dialogo"]["modo"] == "motor":
+            claves.append(cfg["llamada"]["salida"])
+        claves.append(cfg["respuesta"]["salida"])
     return claves
 
 

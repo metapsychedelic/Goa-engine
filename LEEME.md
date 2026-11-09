@@ -100,6 +100,29 @@ y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la 
 - **Proyectos:** guardar, guardar como, abrir y borrar proyectos completos.
   Se guardan en `~/.config/goa/proyectos/`.
 
+## Llamada y respuesta
+
+Dos voces que conversan dejando espacio, sin repetir frases.
+
+- **Quién llama:** *el motor* (con su nota larga, como las secuencias) o
+  *yo, en vivo*: tocas tu frase en el canal de escucha y, cuando dejas de
+  tocar, el motor espera el silencio que elijas y responde en el próximo tiempo.
+- **Quién responde:** cualquier destino y canal. El botón "Responder en el
+  mismo sinte" manda la respuesta al sinte que llamó (o al canal donde tocas).
+- **Cada voz tiene su carácter:** escala propia (o la de Música), relación con
+  la nota larga (unísono a octava), octava, ámbito, contorno (sube, baja, arco,
+  valle, libre), ritmo, densidad, gate, saltos, matices y cómo **termina**:
+  en tensión (♭2, quinta, ♭7: suena a pregunta) o en reposo (la raíz: resuelve).
+- **Cómo responde:** *variación* (mismo ritmo y dirección, otras notas),
+  *espejo* (la frase invertida), *eco* (tu frase con el carácter de la
+  respuesta) o *nueva* (una frase propia).
+- **Espacio y tiempo:** compases de cada voz, pausa entre ambas y descanso
+  después. **Evolución** cambia un poco la frase en cada vuelta; en 0 se repite igual.
+
+Para tocar la llamada en vivo, tus notas tienen que llegar a la Pi: por ejemplo
+tocando en vivo una pista de la Circuit (Note Tx activo). En modo dongle esas
+notas se reenvían a la cadena, así que escuchas tu llamada y el motor responde.
+
 ## Si algo falla
 
 - `goa-log` muestra lo que está haciendo el motor.
@@ -112,4 +135,5 @@ python3 -m pruebas.simular
 ```
 
 Simula la Circuit y muestra las notas generadas en una grilla por compás.
+`python3 -m pruebas.dialogo` prueba la llamada y respuesta en los dos modos.
 `python3 -m pruebas.app` levanta la app con una Circuit simulada en http://localhost:8080.

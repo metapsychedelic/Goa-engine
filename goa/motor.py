@@ -11,6 +11,7 @@ import time
 from collections import deque
 
 from . import generador
+from .dialogo import Dialogo
 from .escalas import Tonalidad, nombre_midi
 from .pads import Pads, _cerca
 
@@ -123,6 +124,7 @@ class Motor:
         self.tick = -1
         self.relojes = deque(maxlen=48)
         self.pads = None
+        self.dialogo = None
         self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
         self.aplicar_config(config)
 
@@ -133,6 +135,8 @@ class Motor:
         tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
         pads = Pads(config.get("pads", {}), tonalidad)
+        dialogo = Dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}),
+                          musica.get("tonica", "F"), musica.get("escala", "frigio"), musica.get("adaptacion", "escala"))
         self.apagar_todo()
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
@@ -145,11 +149,13 @@ class Motor:
             if i < len(self.secuencias):
                 s.clip = self.secuencias[i].clip  # recuerda qué clip sonaba en esa fila
         pads.disparo = self._canal_de(config.get("pads", {}))
-        canales = {s.disparo for s in secuencias} | {pads.disparo, self.canal_disparo}
+        dialogo.disparo = self._canal_de(config.get("dialogo", {}))
+        canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, self.canal_disparo}
         anteriores = self.disparos
         self.disparos = {c: anteriores.get(c) or Disparo(c) for c in canales}
         self.secuencias = secuencias
         self.pads = pads
+        self.dialogo = dialogo
         self.seguir_pads = bool(musica.get("seguir_pads", False))
 
     def _canal_de(self, c):
@@ -214,6 +220,7 @@ class Motor:
             "raices": raices,
             "compas": paso // PASOS_POR_COMPAS + 1 if self.corriendo else None,
             "acorde": self.pads.descripcion() if self.pads and self.pads.activo else None,
+            "dialogo": self.dialogo.fase if self.dialogo and self.dialogo.activo and self.corriendo else None,
             "filas": [{"clip": s.clip, "activa": s.activa,
                        "cola": (None if i not in self.cola else
                                 ("detener" if self.cola[i] is None else self.cola[i][1]))}
@@ -232,6 +239,7 @@ class Motor:
         self._olvidar_notas()  # la Circuit vuelve a mandar sus notas desde el primer paso
         for s in self.secuencias:
             s.reiniciar()
+        self.dialogo.reiniciar()
         self.corriendo = True
         self.tick = -1
 
@@ -243,6 +251,7 @@ class Motor:
         log.info("Stop")
         self.corriendo = False
         self.apagar_todo()
+        self.dialogo.reiniciar()
         self._olvidar_notas()  # al parar, la Circuit no siempre manda el note_off
 
     def reloj(self):
@@ -251,6 +260,7 @@ class Motor:
             return
         self.tick += 1
         self._apagar_vencidas()
+        self.dialogo.tick(self.tick, self.enviar)
         self.pads.tick(self.tick, self.enviar)
         if self.tick % TICKS_POR_PASO == 0:
             self._paso(self.tick // TICKS_POR_PASO)
@@ -261,7 +271,9 @@ class Motor:
             raiz = None if d.pendiente is None else (d.raiz if d.raiz is not None else d.pendiente)
             self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
 
-    def nota_on(self, canal, nota):
+    def nota_on(self, canal, nota, velocidad=100):
+        if canal == self.dialogo.escucha:
+            self.dialogo.entrada_on(nota, velocidad, self.tick)
         d = self.disparos.get(canal)
         if d is None:
             return
@@ -275,8 +287,12 @@ class Motor:
             if self.cambio == "paso" or paso % PASOS_POR_COMPAS == 0:
                 d.raiz = nota
                 self._tocar_paso(paso, solo_canal=canal)
+                if self.dialogo.disparo == canal:
+                    self._paso_dialogo(paso)
 
     def nota_off(self, canal, nota):
+        if canal == self.dialogo.escucha:
+            self.dialogo.entrada_off(nota, self.tick)
         d = self.disparos.get(canal)
         if d is not None:
             d.off(nota, self.tick)
@@ -293,6 +309,17 @@ class Motor:
         for d in self.disparos.values():
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
         self._tocar_paso(paso)
+        self._paso_dialogo(paso)
+
+    def _raiz_con_pads(self, raiz):
+        if raiz is not None and self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
+            # Toma como base la raíz del acorde que suena, cerca de su nota larga.
+            return _cerca(self.pads.raiz_acorde % 12, raiz)
+        return raiz
+
+    def _paso_dialogo(self, paso):
+        raiz = self._raiz_con_pads(self.disparos[self.dialogo.disparo].raiz)
+        self.dialogo.paso(paso, self.tick, raiz, self.enviar)
 
     def _tocar_paso(self, paso, solo_canal=None):
         for s in self.secuencias:
@@ -383,3 +410,5 @@ class Motor:
             s.slide_previo = False
         if self.pads is not None:
             self.pads.apagar(self.enviar)
+        if self.dialogo is not None:
+            self.dialogo.apagar(self.enviar)

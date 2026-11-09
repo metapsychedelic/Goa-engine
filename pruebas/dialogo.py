@@ -1,0 +1,150 @@
+"""Prueba la llamada y respuesta sin hardware.
+
+  python3 -m pruebas.dialogo            desde la carpeta goa-engine
+
+Muestra la conversación en una grilla por compás (L = llamada, R = respuesta)
+y revisa que no queden notas colgadas, que la misma seed suene igual,
+que con el mismo sinte las voces no se pisen y que el modo en vivo responda.
+"""
+
+import itertools
+import tomllib
+from pathlib import Path
+
+from goa import dialogo
+from goa.config import normalizar
+from goa.escalas import nombre_midi
+from goa.motor import Motor
+
+RAIZ = Path(__file__).resolve().parent.parent
+
+
+def base(**dialogo_extra):
+    with open(RAIZ / "config.ejemplo.toml", "rb") as f:
+        cfg = normalizar(tomllib.load(f))
+    for s in cfg["secuencia"]:
+        s["activa"] = False
+    cfg["dialogo"].update(activo=True, disparo=2, **dialogo_extra)
+    return cfg
+
+
+def correr(cfg, compases=12, vivo=None):
+    """vivo: lista de (paso, nota, pasos de duración) que tocas en el canal de escucha."""
+    salida = []
+    motor = Motor(cfg, lambda sal, tipo, canal, nota, vel: salida.append((motor.tick, sal, tipo, canal, nota, vel)))
+    motor.start()
+    apagar = {}
+    for tick in range(compases * 16 * 6):
+        motor.reloj()
+        paso, resto = divmod(tick, 6)
+        if resto == 1:
+            if paso % 16 == 0:
+                motor.nota_on(1, 41)  # nota larga F2 en el canal 2; la Circuit la repite cada vuelta
+            for p, nota, dur in vivo or []:
+                if p == paso:
+                    motor.nota_on(motor.dialogo.escucha, nota, 100)
+                    apagar[paso + dur] = apagar.get(paso + dur, []) + [nota]
+            for nota in apagar.pop(paso, []):
+                motor.nota_off(motor.dialogo.escucha, nota)
+    motor.stop()
+    return salida
+
+
+def mostrar(salida, cfg, compases):
+    voces = {}
+    for clave, letra in (("llamada", "L"), ("respuesta", "R")):
+        voces[(cfg[clave]["salida"], cfg[clave]["canal"] - 1)] = voces.get((cfg[clave]["salida"], cfg[clave]["canal"] - 1), "") + letra
+    pasos = {}
+    for tick, sal, tipo, canal, nota, vel in salida:
+        if tipo == "note_on":
+            pasos[tick // 6] = nombre_midi(nota)
+    marca = {}
+    for tick, sal, tipo, canal, nota, vel in salida:
+        if tipo == "note_on":
+            marca[tick // 6] = voces.get((sal, canal), "?")
+    for compas in range(compases):
+        fila = [f"{marca[p]}{pasos[p]}" if p in pasos else "·" for p in range(compas * 16, compas * 16 + 16)]
+        print(f"  {compas + 1:>2}: " + " ".join(f"{x:>5}" for x in fila))
+
+
+def colgadas(salida):
+    sonando = {}
+    for _, sal, tipo, canal, nota, _ in salida:
+        clave = (sal, canal, nota)
+        sonando[clave] = sonando.get(clave, 0) + (1 if tipo == "note_on" else -1)
+    return sum(v for v in sonando.values() if v > 0)
+
+
+def max_simultaneas(salida):
+    actuales, maximo = set(), 0
+    for _, sal, tipo, canal, nota, _ in salida:
+        (actuales.add if tipo == "note_on" else actuales.discard)((sal, canal, nota))
+        maximo = max(maximo, len(actuales))
+    return maximo
+
+
+def ok(condicion, texto):
+    print(("OK    " if condicion else "ERROR ") + texto)
+    return condicion
+
+
+if __name__ == "__main__":
+    todo = True
+    cfg = base()
+    salida = correr(cfg)
+    print("Modo motor · llamada en FM-1 (L), respuesta en MicroFreak (R)")
+    mostrar(salida, cfg, 12)
+    todo &= ok(colgadas(salida) == 0, "sin notas colgadas")
+    todo &= ok(correr(cfg) == salida, "misma seed, misma conversación")
+    sinte = {(x[1], x[3]) for x in salida if x[2] == "note_on"}
+    todo &= ok(len(sinte) == 2, "suenan las dos voces en sus sintes")
+
+    cfg = base(evolucion=0.0)
+    mismo = correr(cfg)
+    ons = [x for x in mismo if x[2] == "note_on"]
+    _, ciclo = Motor(cfg, lambda *a: None).dialogo._ciclo_pasos()
+    vuelta1 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if t < ciclo * 6]
+    vuelta2 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if ciclo * 6 <= t < 2 * ciclo * 6]
+    todo &= ok(vuelta1 == vuelta2, "evolución 0: la frase se repite igual")
+    cfg = base(evolucion=0.6)
+    ons = [x for x in correr(cfg) if x[2] == "note_on"]
+    vuelta1 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if t < ciclo * 6]
+    vuelta2 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if ciclo * 6 <= t < 2 * ciclo * 6]
+    todo &= ok(vuelta1 != vuelta2, "evolución 60 %: la frase cambia en cada vuelta")
+
+    cfg = base(pausa=0, descanso=0)
+    cfg["respuesta"].update(salida=cfg["llamada"]["salida"], canal=cfg["llamada"]["canal"])
+    cfg["llamada"]["gate"] = cfg["respuesta"]["gate"] = 1.0
+    print("\nMismo sinte, sin pausa, gate 100 %")
+    salida = correr(cfg, compases=8)
+    mostrar(salida, cfg, 4)
+    todo &= ok(max_simultaneas(salida) == 1, "con el mismo sinte nunca suenan dos notas a la vez")
+
+    errores = 0
+    for t, c, r, f in itertools.product(dialogo.TRANSFORMACIONES, dialogo.CONTORNOS, dialogo.RITMOS, dialogo.FINALES):
+        cfg = base(transformacion=t, compases_llamada=1, compases_respuesta=1)
+        cfg["llamada"].update(contorno=c, ritmo=r, final=f, escala="hungara_menor", relacion="quinta")
+        cfg["respuesta"].update(contorno=c, ritmo=r, final=f, octava=-1, densidad=0.2)
+        s = correr(cfg, compases=6)
+        if colgadas(s) or not any(x[2] == "note_on" for x in s):
+            errores += 1
+    todo &= ok(errores == 0, "todas las combinaciones de transformación, contorno, ritmo y final suenan")
+
+    print("\nModo en vivo · tocas C4 D#4 F4 G#4 y la respuesta entra tras 2 tiempos de silencio")
+    cfg = base(modo="en_vivo", escucha=4, transformacion="variacion")
+    tocadas = [(16, 60, 2), (18, 63, 2), (20, 65, 2), (22, 68, 4)]
+    salida = correr(cfg, compases=4, vivo=tocadas)
+    mostrar(salida, cfg, 4)
+    resp = [x for x in salida if x[2] == "note_on"]
+    todo &= ok(bool(resp) and min(t for t, *_ in resp) // 6 >= 30, "responde después de tu frase y del silencio")
+    todo &= ok(all(abs(n - 62) <= 14 for _, _, _, _, n, _ in resp), "responde en el registro de lo que tocaste")
+    todo &= ok(colgadas(salida) == 0, "sin notas colgadas en vivo")
+
+    cfg = base(modo="en_vivo", escucha=4, transformacion="eco")
+    cfg["respuesta"]["densidad"] = 0.6
+    salida = correr(cfg, compases=4, vivo=tocadas)
+    notas = [nombre_midi(n) for _, _, t, _, n, _ in salida if t == "note_on"]
+    todo &= ok(notas == ["C4", "D#4", "F4", "G#4"], f"eco devuelve tu frase: {' '.join(notas)}")
+
+    print("\nTodo bien" if todo else "\nHay errores")
+    raise SystemExit(0 if todo else 1)

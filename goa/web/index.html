@@ -48,6 +48,10 @@ details.card>summary::-webkit-details-marker{display:none}
 @media (prefers-reduced-motion:no-preference){.clip.cola{animation:titila 1s steps(2) infinite}}
 @keyframes titila{50%{opacity:.45}}
 .clip.parar{flex:0 0 auto;min-width:72px;color:var(--mut)}
+details.voz{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+details.voz>summary{cursor:pointer;font-weight:650;min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:10px;list-style:none}
+details.voz>summary::-webkit-details-marker{display:none}
+details.voz>*:not(summary){margin-top:12px}
 .guardado{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .guardado.ver{opacity:1}
 .guardado.error{color:var(--bad);border-color:#8C3B32}
@@ -104,6 +108,8 @@ details.card>summary::-webkit-details-marker{display:none}
 
   <section class="card" id="pads"></section>
 
+  <section class="card" id="dialogo"></section>
+
   <section class="card">
     <h2>Conexión MIDI</h2>
     <label class="campo">Entrada (puerto de la Circuit o del dongle)
@@ -128,6 +134,16 @@ const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frig
 const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"]];
 const POSICIONES = [["onbeat","On beat"],["offbeat","Offbeat"],["todos","Todos"],["desplazado","Desplazado"]];
 const RELACIONES = [["unisono","Unísono"],["tercera","Tercera"],["quinta","Quinta"],["octava","Octava"]];
+const TRANSFORMACIONES = [["variacion","Variación"],["espejo","Espejo"],["eco","Eco"],["nueva","Nueva"]];
+const TRANSF_TEXTO = {variacion: "Mismo ritmo y la misma dirección de la frase, con otras notas: emparentada sin repetirla.",
+  espejo: "La frase invertida: donde la llamada sube, la respuesta baja.",
+  eco: "Repite la llamada con el carácter de la respuesta (escala, relación, octava). Con evolución, cambia de a poco.",
+  nueva: "Una frase propia, hecha solo con el carácter de la respuesta."};
+const CONTORNOS = [["libre","Libre"],["sube","Sube"],["baja","Baja"],["arco","Arco"],["valle","Valle"]];
+const RITMOS = [["semicorcheas","Semicorcheas"],["corcheas","Corcheas"],["mixto","Mixto"],["largas","Largas"]];
+const FINALES = [["tension","Tensión (pregunta)"],["reposo","Reposo (resuelve)"],["libre","Libre"]];
+const RELACIONES_CR = [["unisono","Unísono"],["tercera","Tercera"],["cuarta","Cuarta"],["quinta","Quinta"],["sexta","Sexta"],["octava","Octava"]];
+const FASES = {llamada: "Llamando", respuesta: "Respondiendo", espacio: "Espacio", escuchando: "Escuchándote"};
 let cfg = null, temporizador = null, uid = 0;
 const $ = (id) => document.getElementById(id);
 
@@ -273,6 +289,7 @@ function render() {
   const sp = $("seguir_pads"); sp.checked = cfg.musica.seguir_pads;
   sp.onchange = () => { cfg.musica.seguir_pads = sp.checked; guardar(); };
   renderPads();
+  renderDialogo();
   const ep = $("entrada_puerto"); ep.value = cfg.entrada.puerto;
   ep.onchange = () => { cfg.entrada.puerto = ep.value.trim() || cfg.entrada.puerto; ep.value = cfg.entrada.puerto; guardar(); };
   const ta = $("thru_activo"); ta.checked = cfg.thru.activo;
@@ -326,6 +343,83 @@ function renderPads() {
     campo("Seed", el("div", {className: "seed"}, [seed,
       el("button", {type: "button", textContent: "Otra", onclick: () => { p.seed = seedNueva(); seed.value = p.seed; guardar(); }})])),
   );
+}
+
+function bloqueVoz(v, titulo, abierto, extra = []) {
+  const estado = el("span", {className: "pill", "data-salida": v.salida});
+  const numero = (k, etiqueta, min, max) => {
+    const inp = el("input", {type: "number", min, max, value: v[k],
+      onchange: () => { const n = parseInt(inp.value); v[k] = isNaN(n) ? v[k] : Math.max(min, Math.min(max, n)); inp.value = v[k]; guardar(); }});
+    return el("label", {className: "campo"}, [etiqueta, inp]);
+  };
+  const destino = el("input", {type: "text", value: v.salida, list: "salidas",
+    onchange: () => { v.salida = destino.value.trim() || v.salida; destino.value = v.salida; estado.dataset.salida = v.salida; guardar(); }});
+  destino.setAttribute("list", "salidas");
+  const escala = el("select", {onchange: () => { v.escala = escala.value; guardar(); }});
+  for (const [val, t] of [["general", "La de Música"]].concat(ESCALAS)) escala.append(el("option", {value: val, textContent: t, selected: val === v.escala}));
+  return el("details", {className: "voz", open: abierto}, [
+    el("summary", {}, [el("span", {textContent: titulo}), estado]),
+    ...extra.filter(Boolean),
+    el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Destino (puerto)", destino]), numero("canal", "Canal MIDI", 1, 16)]),
+    el("h3", {style: "margin:20px 0 0;font-size:14px", textContent: "Tonalidad"}),
+    el("label", {className: "campo"}, ["Escala", escala]),
+    campo("Relación con la nota larga", segmentado(RELACIONES_CR, v.relacion, (x) => { v.relacion = x; guardar(); }, 3)),
+    el("div", {className: "dos"}, [numero("octava", "Octava", -3, 3), numero("velocidad", "Velocidad", 1, 127)]),
+    el("h3", {style: "margin:20px 0 0;font-size:14px", textContent: "Frase"}),
+    campo("Contorno", segmentado(CONTORNOS, v.contorno, (x) => { v.contorno = x; guardar(); }, 5)),
+    deslizador(v, "ambito", "Ámbito", 2, 12, 1, (x) => x + " grados"),
+    campo("Ritmo", segmentado(RITMOS, v.ritmo, (x) => { v.ritmo = x; guardar(); }, 2)),
+    campo("Termina en", segmentado(FINALES, v.final, (x) => { v.final = x; guardar(); }, 3)),
+    deslizador(v, "densidad", "Densidad", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
+    deslizador(v, "gate", "Gate (largo de las notas)", 0.05, 1, 0.05, (x) => Math.round(x * 100) + " %"),
+    deslizador(v, "saltos", "Saltos", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
+    deslizador(v, "vel_random", "Matices de velocidad", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
+  ]);
+}
+
+function renderDialogo() {
+  const d = cfg.dialogo, cont = $("dialogo");
+  const abiertos = [...cont.querySelectorAll("details.voz")].map((x) => x.open);
+  cont.innerHTML = "";
+  const vivo = d.modo === "en_vivo";
+  const activo = el("input", {type: "checkbox", checked: d.activo, onchange: () => { d.activo = activo.checked; guardar(); }});
+  const numero = (k, etiqueta, min, max) => {
+    const inp = el("input", {type: "number", min, max, value: d[k],
+      onchange: () => { const n = parseInt(inp.value); d[k] = isNaN(n) ? d[k] : Math.max(min, Math.min(max, n)); inp.value = d[k]; guardar(); }});
+    return el("label", {className: "campo"}, [etiqueta, inp]);
+  };
+  const seed = el("input", {type: "text", value: d.seed, "aria-label": "Seed del diálogo",
+    onchange: () => { d.seed = seed.value.trim() || d.seed; seed.value = d.seed; guardar(); }});
+  const compases = (k) => segmentado([["1","1"],["2","2"],["4","4"],["8","8"]], String(d[k]), (x) => { d[k] = parseInt(x); guardar(); }, 4);
+  const texto = el("p", {className: "mut", style: "margin:0", textContent: TRANSF_TEXTO[d.transformacion]});
+  const mismo = el("button", {type: "button", textContent: vivo ? "Responder en el sinte donde toco" : "Responder en el mismo sinte que llama",
+    onclick: () => {
+      if (vivo) { cfg.respuesta.canal = d.escucha; }
+      else { cfg.respuesta.salida = cfg.llamada.salida; cfg.respuesta.canal = cfg.llamada.canal; }
+      renderDialogo(); guardar(); aviso("La respuesta va al mismo sinte");
+    }});
+  cont.append(...[
+    el("div", {className: "fila"}, [el("h2", {textContent: "Llamada y respuesta"}), el("span", {className: "pill", id: "dialogo_fase", textContent: "En silencio"})]),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activa"}), activo]),
+    campo("Quién llama", segmentado([["motor","El motor"],["en_vivo","Yo, en vivo"]], d.modo, (x) => { d.modo = x; renderDialogo(); guardar(); }, 2)),
+    vivo ? el("p", {className: "mut", style: "margin:0", textContent: "Toca tu frase en el canal de escucha. Cuando dejas de tocar, el motor espera el silencio que elijas y responde en el próximo tiempo. Mientras responde, no escucha."}) : null,
+    vivo ? numero("escucha", "Canal donde toco la llamada", 1, 16)
+         : numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
+    campo("Cómo responde", segmentado(TRANSFORMACIONES, d.transformacion, (x) => { d.transformacion = x; texto.textContent = TRANSF_TEXTO[x]; guardar(); }, 4)),
+    texto,
+    el("h3", {style: "margin:0;font-size:15px", textContent: "Espacio y tiempo"}),
+    campo(vivo ? "Largo máximo de mi llamada (compases)" : "Compases de llamada", compases("compases_llamada")),
+    campo(vivo ? "Largo máximo de la respuesta (compases)" : "Compases de respuesta", compases("compases_respuesta")),
+    deslizador(d, "pausa", vivo ? "Silencio antes de responder" : "Pausa entre llamada y respuesta", vivo ? 1 : 0, 16, 1,
+      (x) => x === 0 ? "sin pausa" : x === 1 ? "1 tiempo" : x + " tiempos"),
+    vivo ? null : deslizador(d, "descanso", "Descanso tras la respuesta", 0, 16, 1, (x) => x === 0 ? "sin descanso" : x === 1 ? "1 compás" : x + " compases"),
+    deslizador(d, "evolucion", "Evolución (cuánto cambia la frase en cada vuelta)", 0, 1, 0.05, (x) => x === 0 ? "se repite igual" : Math.round(x * 100) + " %"),
+    campo("Seed", el("div", {className: "seed"}, [seed,
+      el("button", {type: "button", textContent: "Otra", onclick: () => { d.seed = seedNueva(); seed.value = d.seed; guardar(); }})])),
+    vivo ? null : bloqueVoz(cfg.llamada, "Llamada", abiertos[0] ?? false),
+    bloqueVoz(cfg.respuesta, "Respuesta", abiertos[vivo ? 0 : 1] ?? false, [mismo,
+      vivo ? el("p", {className: "mut", style: "margin:0", textContent: "En vivo, ritmo y gate de la respuesta salen de lo que tocaste (salvo en Nueva). La densidad bajo 50 % quita algunas de tus notas."}) : null]),
+  ].filter(Boolean));
 }
 
 let ultimoEstado = null;
@@ -431,6 +525,8 @@ async function estado() {
     $("compas").textContent = d.compas || "–";
     $("ver").textContent = "v" + d.version;
     $("acorde").textContent = d.acorde ? "Pads: " + d.acorde : "";
+    const fase = $("dialogo_fase");
+    if (fase) { fase.textContent = FASES[d.dialogo] || "En silencio"; fase.className = "pill" + (d.dialogo && d.dialogo !== "espacio" ? " ok" : ""); }
     ultimoEstado = d; pintarGrilla();
     const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
     $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";

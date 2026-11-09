@@ -137,7 +137,7 @@ def main():
             if t == "clock":
                 motor.reloj()
             elif t == "note_on" and msg.velocity > 0:
-                motor.nota_on(msg.channel, msg.note)
+                motor.nota_on(msg.channel, msg.note, msg.velocity)
             elif t == "note_off" or t == "note_on":
                 motor.nota_off(msg.channel, msg.note)
             elif t == "start":
