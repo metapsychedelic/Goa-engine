@@ -73,11 +73,13 @@ ambito = 5                # grados de escala que recorre la frase (2 a 12)
 contorno = "arco"         # libre, sube, baja, arco, valle
 ritmo = "mixto"           # semicorcheas, corcheas, mixto, largas
 densidad = 0.5
-final = "tension"         # tension (queda abierta, como pregunta), reposo (resuelve en la raíz), libre
+final = "suspendido"      # suspendido (quinta o cuarta: abierto), tension (♭2/♭7: pregunta), reposo (raíz), libre
 gate = 0.7
 velocidad = 96
 vel_random = 0.15
 saltos = 0.1
+movimiento = "abierto"    # conjunto (grados vecinos), abierto (cuartas, quintas, octavas), arpegio (acorde menor con séptima)
+oscuridad = 0.35          # cuánto aparecen ♭2 y ♭6; el tritono casi nunca (lo que suena terrorífico)
 
 [respuesta]
 salida = "MicroFreak"
@@ -94,6 +96,8 @@ gate = 0.7
 velocidad = 96
 vel_random = 0.15
 saltos = 0.1
+movimiento = "arpegio"
+oscuridad = 0.35
 
 [[secuencia]]
 nombre = "A"

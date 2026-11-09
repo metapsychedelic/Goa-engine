@@ -117,7 +117,14 @@ Dos voces que conversan dejando espacio, sin repetir frases.
 - **Cada voz tiene su carácter:** escala propia (o la de Música), relación con
   la nota larga (unísono a octava), octava, ámbito, contorno (sube, baja, arco,
   valle, libre), ritmo, densidad, gate, saltos, matices y cómo **termina**:
-  en tensión (♭2, quinta, ♭7: suena a pregunta) o en reposo (la raíz: resuelve).
+  suspendida (quinta o cuarta: abierta), en tensión (♭2, ♭7: pregunta) o en
+  reposo (la raíz: resuelve).
+- **Movimiento:** conjunto (grados vecinos), abierto (cuartas, quintas y
+  octavas: espacial, galáctico) o arpegio (acorde menor con séptima: misterioso).
+- **Oscuridad:** cuánto aparecen el ♭2 y el ♭6. El tritono casi nunca: es lo
+  que lleva una frase de misteriosa a terrorífica.
+- Las frases se arman con células rítmicas de un tiempo en un motivo de un
+  compás que se repite con cambios: amarradas al bombo, sin volverse loop.
 - **Cómo responde:** *variación* (mismo ritmo y dirección, otras notas),
   *espejo* (la frase invertida), *eco* (tu frase con el carácter de la
   respuesta) o *nueva* (una frase propia).

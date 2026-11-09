@@ -121,10 +121,12 @@ if __name__ == "__main__":
     todo &= ok(max_simultaneas(salida) == 1, "con el mismo sinte nunca suenan dos notas a la vez")
 
     errores = 0
-    for t, c, r, f in itertools.product(dialogo.TRANSFORMACIONES, dialogo.CONTORNOS, dialogo.RITMOS, dialogo.FINALES):
+    for (t, c, r, f), m in zip(itertools.product(dialogo.TRANSFORMACIONES, dialogo.CONTORNOS, dialogo.RITMOS,
+                                                 dialogo.FINALES), itertools.cycle(dialogo.MOVIMIENTOS)):
         cfg = base(transformacion=t, compases_llamada=1, compases_respuesta=1)
-        cfg["llamada"].update(contorno=c, ritmo=r, final=f, escala="hungara_menor", relacion="quinta")
-        cfg["respuesta"].update(contorno=c, ritmo=r, final=f, octava=-1, densidad=0.2)
+        cfg["llamada"].update(contorno=c, ritmo=r, final=f, escala="hungara_menor", relacion="quinta", movimiento=m)
+        cfg["respuesta"].update(contorno=c, ritmo=r, final=f, octava=-1, densidad=0.2,
+                                movimiento=dialogo.MOVIMIENTOS[(dialogo.MOVIMIENTOS.index(m) + 1) % 3])
         s = correr(cfg, compases=6)
         if colgadas(s) or not any(x[2] == "note_on" for x in s):
             errores += 1
@@ -145,6 +147,29 @@ if __name__ == "__main__":
     salida = correr(cfg, compases=4, vivo=tocadas)
     notas = [nombre_midi(n) for _, _, t, _, n, _ in salida if t == "note_on"]
     todo &= ok(notas == ["C4", "D#4", "F4", "G#4"], f"eco devuelve tu frase: {' '.join(notas)}")
+
+    print("\nCarácter")
+    from goa.dialogo import Voz, frase, _oscuro
+    import random
+    def colores(osc):
+        v = Voz({"oscuridad": osc, "movimiento": "conjunto", "final": "libre"}, "F", "frigio")
+        notas = [n for i in range(300) for n in frase(random.Random(i), v, 32)]
+        return sum(1 for n in notas if _oscuro(v, n["grado"])) / len(notas), \
+            sum(1 for n in notas if v.tonalidad.intervalos[n["grado"] % 7] == 6) / len(notas)
+    poca, _ = colores(0.0)
+    mucha, _ = colores(1.0)
+    todo &= ok(poca < 0.02 < mucha, f"oscuridad 0 casi sin ♭2 ni ♭6 ({poca:.0%}), en 100 % aparecen ({mucha:.0%})")
+    v = Voz({"movimiento": "arpegio", "final": "libre", "oscuridad": 0}, "F", "frigio")
+    notas = [n for i in range(200) for n in frase(random.Random(i), v, 32)]
+    todo &= ok(all(n["grado"] % 7 in (0, 2, 4, 6) for n in notas), "arpegio: solo notas del acorde menor con séptima")
+    v = Voz({"movimiento": "abierto", "final": "libre", "oscuridad": 0.35}, "F", "frigio")
+    saltos = [abs(b["grado"] - a["grado"]) for i in range(200) for f in [frase(random.Random(i), v, 32)]
+              for a, b in zip(f, f[1:])]
+    abiertos = sum(1 for x in saltos if x in (3, 4, 7)) / len(saltos)
+    todo &= ok(0.45 < abiertos < 0.85, f"abierto: mezcla cuartas, quintas y octavas con grados conjuntos ({abiertos:.0%})")
+    v = Voz({"final": "suspendido"}, "F", "frigio")
+    todo &= ok(all(frase(random.Random(i), v, 32)[-1]["grado"] % 7 in (3, 4) for i in range(100)),
+               "final suspendido: termina en quinta o cuarta")
 
     print("\nClips de diálogo")
     cfg = base(modo="en_vivo", transformacion="espejo", escucha=7)

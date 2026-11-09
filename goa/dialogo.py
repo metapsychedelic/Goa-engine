@@ -29,13 +29,20 @@ MODOS = ("motor", "en_vivo")
 TRANSFORMACIONES = ("variacion", "espejo", "eco", "nueva")
 CONTORNOS = ("libre", "sube", "baja", "arco", "valle")
 RITMOS = ("semicorcheas", "corcheas", "mixto", "largas")
-FINALES = ("tension", "reposo", "libre")
+FINALES = ("suspendido", "tension", "reposo", "libre")
+MOVIMIENTOS = ("conjunto", "abierto", "arpegio")
 # Grados de escala por sobre la raíz.
 RELACIONES = {"unisono": 0, "tercera": 2, "cuarta": 3, "quinta": 4, "sexta": 5, "octava": 7}
 
 # Grados donde una frase queda abierta (♭2, quinta, ♭7 en frigio) o descansa.
 GRADOS_TENSION = (1, 4, 6)
 GRADOS_REPOSO = (0,)
+GRADOS_SUSPENDIDO = (4, 3)   # quinta o cuarta: queda abierta sin sonar a amenaza
+# Notas del acorde de la escala con séptima (en frigio: Fm7). Base de los arpegios.
+GRADOS_ACORDE = (0, 2, 4, 6)
+# Colores oscuros, en semitonos sobre la raíz: ♭2, ♭6 y el tritono. El tritono
+# pesa menos: es lo que lleva una frase de misteriosa a terrorífica.
+OSCUROS = {1: 1.0, 8: 1.0, 6: 0.25}
 
 
 class Voz:
@@ -57,8 +64,10 @@ class Voz:
         self.velocidad = int(cfg.get("velocidad", 96))
         self.vel_random = float(cfg.get("vel_random", 0.15))
         self.saltos = float(cfg.get("saltos", 0.1))
+        self.movimiento = cfg.get("movimiento", "abierto")
+        self.oscuridad = float(cfg.get("oscuridad", 0.35))
         for nombre, valor, opciones in (("contorno", self.contorno, CONTORNOS), ("ritmo", self.ritmo, RITMOS),
-                                        ("final", self.final, FINALES)):
+                                        ("final", self.final, FINALES), ("movimiento", self.movimiento, MOVIMIENTOS)):
             if valor not in opciones:
                 raise ValueError(f"{nombre} debe ser una de: {', '.join(opciones)}")
 
@@ -140,9 +149,43 @@ def _cercano(grado, opciones):
 
 def _cerrar(notas, final):
     if notas and final != "libre":
-        opciones = GRADOS_TENSION if final == "tension" else GRADOS_REPOSO
+        opciones = {"tension": GRADOS_TENSION, "reposo": GRADOS_REPOSO, "suspendido": GRADOS_SUSPENDIDO}[final]
         notas[-1]["grado"] = _cercano(notas[-1]["grado"], opciones)
     return notas
+
+
+def _oscuro(voz, grado):
+    """Peso del color oscuro de un grado (0 si no es oscuro)."""
+    return OSCUROS.get(voz.tonalidad.intervalos[(grado + voz.relacion) % 7], 0.0)
+
+
+def _aclarar(rng, voz, notas):
+    """Dosifica los colores oscuros según la oscuridad de la voz.
+
+    Un ♭2 o un ♭6 que no pasa el filtro baja o sube a la nota vecina que no es
+    oscura; el tritono casi siempre se evita."""
+    for n in notas:
+        peso = _oscuro(voz, n["grado"])
+        if peso and rng.random() >= voz.oscuridad * peso:
+            for vecino in (n["grado"] - 1, n["grado"] + 1):
+                if not _oscuro(voz, vecino):
+                    n["grado"] = vecino
+                    break
+    return notas
+
+
+def _candidatos(voz, anterior, rng):
+    """Notas a las que puede ir la melodía desde `anterior`, según el movimiento."""
+    bajo, alto = -3, voz.ambito + 3
+    if voz.movimiento == "arpegio":
+        opciones = {a + 7 * k for a in GRADOS_ACORDE for k in range(-1, 3)}
+    elif voz.movimiento == "abierto":
+        # Cuartas, quintas y octavas; algún grado conjunto para unirlas.
+        opciones = {anterior + p for p in (-7, -4, -3, -1, 0, 1, 3, 4, 7)}
+    else:
+        pasos = (-2, -1, 0, 1, 2) + ((-4, 4, -7, 7) if rng.random() < voz.saltos else ())
+        opciones = {anterior + p for p in pasos}
+    return [g for g in opciones if bajo <= g <= alto] or [anterior]
 
 
 def _melodia(rng, voz, n):
@@ -150,19 +193,25 @@ def _melodia(rng, voz, n):
     anterior = 0
     for k in range(n):
         if voz.contorno == "libre":
-            if k == 0:
-                g = 0
-            elif rng.random() < voz.saltos:
-                g = anterior + rng.choice((-4, 4, -7, 7))
-            else:
-                g = anterior + rng.choice((-2, -1, -1, 0, 1, 1, 2))
-            g = max(-2, min(voz.ambito, g))
+            objetivo = anterior + rng.choice((-3, -2, -1, 1, 2, 3))
         else:
             x = k / (n - 1) if n > 1 else 0.0
-            g = round(_curva(voz.contorno, x) * voz.ambito + rng.gauss(0, 0.6))
-            if k > 0 and abs(g - anterior) > 2 and rng.random() >= voz.saltos:
-                # Sin salto: se acerca al objetivo por grados conjuntos.
-                g = anterior + (1 if g > anterior else -1) * rng.choice((1, 2))
+            objetivo = _curva(voz.contorno, x) * voz.ambito
+        if k == 0:
+            # Arranca en un punto de apoyo: la raíz, la quinta o una nota del acorde.
+            apoyos = GRADOS_ACORDE if voz.movimiento == "arpegio" else (0, 4)
+            g = _cercano(round(objetivo), apoyos)
+        else:
+            abierto = voz.movimiento == "abierto"
+
+            def costo(c):
+                salto = abs(c - anterior)
+                # En abierto el contorno es gravedad, no riel: deja saltar cuartas y quintas.
+                return (abs(c - objetivo) * (0.45 if abierto else 1.0) + rng.random() * 1.5
+                        + (0.8 if c == anterior else 0)                        # no machacar la misma nota
+                        - (0.75 if abierto and salto in (3, 4) else 0)
+                        + (0.0 if salto < 7 else 1.5 * (1 - voz.saltos)))      # octavas, según saltos
+            g = min(_candidatos(voz, anterior, rng), key=costo)
         grados.append(g)
         anterior = g
     return grados
@@ -187,7 +236,7 @@ def frase(rng, voz, largo):
         dur = max(1, round(min(hueco, tope) * TICKS_POR_PASO * voz.gate))
         dv = round(voz.vel_random * 25 * rng.uniform(-1, 1)) + (8 if k == 0 else 0)
         notas.append({"paso": inicio, "grado": grados[k], "dur": dur, "dv": dv})
-    return _cerrar(notas, voz.final)
+    return _cerrar(_aclarar(rng, voz, notas), voz.final)
 
 
 def _encajar(notas, largo):
@@ -221,16 +270,24 @@ def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_re
     elif transformacion == "variacion":
         # Mismo ritmo y misma dirección de cada intervalo, con otros intervalos:
         # suena emparentada sin repetir la frase.
-        nuevos = [rng.choice((0, 2, 4)) if voz.contorno != "baja" else voz.ambito // 2]
+        acorde = sorted({a + 7 * k for a in GRADOS_ACORDE for k in range(-1, 3)})
+        inicio = voz.ambito // 2 if voz.contorno == "baja" else rng.choice((0, 2, 4))
+        nuevos = [_cercano(inicio, GRADOS_ACORDE) if voz.movimiento == "arpegio" else inicio]
         for a, b in zip(notas, notas[1:]):
             direccion = (b["grado"] > a["grado"]) - (b["grado"] < a["grado"])
+            previo = nuevos[-1]
             if direccion == 0:
-                paso = rng.choice((0, 0, 1, -1))
-            elif rng.random() < voz.saltos:
-                paso = direccion * rng.choice((3, 4))
+                g = previo if rng.random() < 0.6 else previo + rng.choice((1, -1))
+            elif voz.movimiento == "arpegio":
+                # La nota del acorde siguiente en esa dirección (o la otra si salta).
+                lado = [x for x in acorde if (x - previo) * direccion > 0]
+                lado.sort(key=lambda x: abs(x - previo))
+                g = lado[1 if len(lado) > 1 and rng.random() < voz.saltos else 0] if lado else previo
+            elif voz.movimiento == "abierto":
+                g = previo + direccion * rng.choice((3, 4, 4, 1) if rng.random() >= voz.saltos else (7,))
             else:
-                paso = direccion * rng.choice((1, 1, 2))
-            nuevos.append(max(-2, min(voz.ambito + 2, nuevos[-1] + paso)))
+                g = previo + direccion * (rng.choice((3, 4)) if rng.random() < voz.saltos else rng.choice((1, 1, 2)))
+            nuevos.append(max(-3, min(voz.ambito + 3, g)))
         for n, g in zip(notas, nuevos):
             n["grado"] = g
     # Densidad menor que la de la llamada: quita notas, nunca la primera ni la última.
@@ -244,7 +301,8 @@ def responder(rng, llamada, voz_llamada, voz, transformacion, largo, densidad_re
             n["dur"] = max(1, round(n["dur"] * factor))
     for n in notas:
         n["dv"] = n["dv"] + round(voz.vel_random * 15 * rng.uniform(-1, 1))
-    return notas if transformacion == "eco" else _cerrar(notas, voz.final)
+    # El eco devuelve la frase tal cual (tus notas, en vivo); el resto se dosifica y se cierra.
+    return notas if transformacion == "eco" else _cerrar(_aclarar(rng, voz, notas), voz.final)
 
 
 def evolucionar(rng, notas, voz, cantidad, largo):
@@ -268,7 +326,7 @@ def evolucionar(rng, notas, voz, cantidad, largo):
             nuevas.append({"paso": paso, "grado": vecina["grado"] + rng.choice((-1, 1)),
                            "dur": max(1, round(separacion * TICKS_POR_PASO * voz.gate)), "dv": 0})
             nuevas.sort(key=lambda n: n["paso"])
-    return _cerrar(nuevas, voz.final)
+    return _cerrar(_aclarar(rng, voz, nuevas), voz.final)
 
 
 # --- Tiempo ---

@@ -141,7 +141,11 @@ const TRANSF_TEXTO = {variacion: "Mismo ritmo y la misma dirección de la frase,
   nueva: "Una frase propia, hecha solo con el carácter de la respuesta."};
 const CONTORNOS = [["libre","Libre"],["sube","Sube"],["baja","Baja"],["arco","Arco"],["valle","Valle"]];
 const RITMOS = [["semicorcheas","Semicorcheas"],["corcheas","Corcheas"],["mixto","Mixto"],["largas","Largas"]];
-const FINALES = [["tension","Tensión (pregunta)"],["reposo","Reposo (resuelve)"],["libre","Libre"]];
+const FINALES = [["suspendido","Suspendido (quinta, abierto)"],["tension","Tensión (♭2, ♭7: pregunta)"],["reposo","Reposo (resuelve)"],["libre","Libre"]];
+const MOVIMIENTOS = [["conjunto","Conjunto"],["abierto","Abierto"],["arpegio","Arpegio"]];
+const MOV_TEXTO = {conjunto: "Por grados vecinos: más cantado, más tenso en frigio.",
+  abierto: "Cuartas, quintas y octavas con algún paso: espacial, galáctico.",
+  arpegio: "Notas del acorde menor con séptima: misterioso y estable."};
 const RELACIONES_CR = [["unisono","Unísono"],["tercera","Tercera"],["cuarta","Cuarta"],["quinta","Quinta"],["sexta","Sexta"],["octava","Octava"]];
 const FASES = {llamada: "Llamando", respuesta: "Respondiendo", espacio: "Espacio", escuchando: "Escuchándote"};
 let cfg = null, temporizador = null, uid = 0;
@@ -347,6 +351,7 @@ function renderPads() {
 
 function bloqueVoz(v, titulo, abierto, extra = []) {
   const estado = el("span", {className: "pill", "data-salida": v.salida});
+  const movTexto = el("p", {className: "mut", style: "margin:0", textContent: MOV_TEXTO[v.movimiento]});
   const numero = (k, etiqueta, min, max) => {
     const inp = el("input", {type: "number", min, max, value: v[k],
       onchange: () => { const n = parseInt(inp.value); v[k] = isNaN(n) ? v[k] : Math.max(min, Math.min(max, n)); inp.value = v[k]; guardar(); }});
@@ -366,10 +371,13 @@ function bloqueVoz(v, titulo, abierto, extra = []) {
     campo("Relación con la nota larga", segmentado(RELACIONES_CR, v.relacion, (x) => { v.relacion = x; guardar(); }, 3)),
     el("div", {className: "dos"}, [numero("octava", "Octava", -3, 3), numero("velocidad", "Velocidad", 1, 127)]),
     el("h3", {style: "margin:20px 0 0;font-size:14px", textContent: "Frase"}),
+    campo("Movimiento", segmentado(MOVIMIENTOS, v.movimiento, (x) => { v.movimiento = x; movTexto.textContent = MOV_TEXTO[x]; guardar(); }, 3)),
+    movTexto,
+    deslizador(v, "oscuridad", "Oscuridad (♭2, ♭6; el tritono casi nunca)", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
     campo("Contorno", segmentado(CONTORNOS, v.contorno, (x) => { v.contorno = x; guardar(); }, 5)),
     deslizador(v, "ambito", "Ámbito", 2, 12, 1, (x) => x + " grados"),
     campo("Ritmo", segmentado(RITMOS, v.ritmo, (x) => { v.ritmo = x; guardar(); }, 2)),
-    campo("Termina en", segmentado(FINALES, v.final, (x) => { v.final = x; guardar(); }, 3)),
+    campo("Termina en", segmentado(FINALES, v.final, (x) => { v.final = x; guardar(); }, 2)),
     deslizador(v, "densidad", "Densidad", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
     deslizador(v, "gate", "Gate (largo de las notas)", 0.05, 1, 0.05, (x) => Math.round(x * 100) + " %"),
     deslizador(v, "saltos", "Saltos", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
