@@ -195,7 +195,11 @@ function tarjeta(s, i) {
     el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), texto("salida", "Destino (puerto)", {list: "salidas"})]),
     el("div", {className: "dos"}, [numero("canal", "Canal MIDI", 1, 16), numero("octava", "Octava", -3, 3)]),
     numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
-    campo("Estilo", segmentado(ESTILOS, s.estilo, (v) => { s.estilo = v; guardar(); }, 2)),
+    campo("Estilo", segmentado(ESTILOS, s.estilo, (v) => {
+      s.estilo = v;
+      if (v === "acido" && !s.slide && !s.acentos) { s.slide = 0.3; s.acentos = 0.3; render(); }
+      guardar();
+    }, 2)),
     campo("Posición rítmica", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; guardar(); }, 2)),
     campo("Relación con la nota", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 4)),
     campo("Largo del patrón", segmentado([[16,"16"],[13,"13"],[11,"11"],[7,"7"]].map(([v,t]) => [String(v), t]), String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
@@ -211,11 +215,11 @@ function tarjeta(s, i) {
     deslizador(s, "gate_random", "Gate aleatorio", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     deslizador(s, "vel_random", "Velocidad aleatoria", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
-    deslizador(s, "slide", "Slides extra", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "acentos", "Acentos extra", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "slide", "Slides", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "acentos", "Acentos", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     deslizador(s, "repeticion", "Repeticiones (redobles de fusa)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    el("p", {className: "mut", style: "margin:0", textContent: "Para que los slides deslicen, pon el sinte en modo mono o legato con glide."}),
+    el("p", {className: "mut", style: "margin:0", textContent: "En Ácido 303, Acentos y Slides son la cantidad total; en los demás estilos se suman a los del estilo. Para que los slides deslicen, pon el sinte en modo mono o legato con glide."}),
     el("div", {className: "dos"}, [numero("velocidad", "Velocidad", 1, 127), numero("acento", "Acento", 1, 127)]),
     el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
       onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); render(); guardar(); } }}),

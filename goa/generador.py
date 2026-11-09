@@ -28,7 +28,7 @@ TRANSICIONES = {
 
 # Melodía de estilo 303: movimientos cortos, mucho ♭2 y ♭3, saltos a quinta, séptima y octava.
 TRANSICIONES_ACIDO = {
-    0: {0: 3.0, 1: 2.0, 2: 2.0, 4: 1.5, 6: 1.0, 7: 1.0},
+    0: {0: 1.5, 1: 2.5, 2: 2.0, 4: 2.0, 6: 1.2, 7: 1.5},
     1: {0: 4.0, 2: 1.0, 1: 1.0},
     2: {0: 2.0, 1: 1.5, 3: 1.0, 4: 1.5},
     3: {2: 2.0, 4: 2.0, 0: 1.0},
@@ -69,26 +69,64 @@ def _siguiente_grado(rng, anterior, pedal):
     return _elegir(rng, TRANSICIONES.get(anterior, TRANSICIONES[0]))
 
 
+# Células rítmicas de un tiempo (4 semicorcheas) para líneas ácidas, con su peso.
+CELULAS_ACIDO = {
+    "x.xx": 3.0, "xx.x": 3.0, ".xxx": 2.0, "xxx.": 2.0, "x.x.": 1.5,
+    "xxxx": 1.5, ".xx.": 1.0, "x..x": 1.0, ".x.x": 1.0,
+}
+
+
 def _acido(rng, largo, pedal):
-    """Línea de estilo 303: notas, silencios, acentos, slides y saltos de octava por paso."""
-    golpes = euclidiano(rng.choice((9, 10, 11, 12)), 16, rotacion=rng.randrange(16))
-    patron = []
-    anterior = 0
-    for i in range(largo):
-        suena = golpes[i % 16] or rng.random() < 0.15
-        if i == 0:
-            grado = 0
-        elif rng.random() < pedal * 0.4:
-            grado = 0
-        else:
-            grado = _elegir(rng, TRANSICIONES_ACIDO.get(anterior, TRANSICIONES_ACIDO[0]))
+    """Línea estilo 303 con estructura musical.
+
+    Un compás se arma como A B A C: un motivo de dos tiempos que se repite
+    y cambia su final, como pregunta y respuesta. Los acentos caen sobre todo
+    en las semicorcheas débiles, los slides unen notas seguidas y los saltos
+    de octava acompañan a los acentos, como en las líneas clásicas de 303.
+    """
+    celulas = list(CELULAS_ACIDO)
+    a = _elegir(rng, CELULAS_ACIDO)
+    b = _elegir(rng, CELULAS_ACIDO)
+    c = _elegir(rng, {k: v for k, v in CELULAS_ACIDO.items() if k != b} or CELULAS_ACIDO)
+    ritmo = [ch == "x" for ch in a + b + a + c]
+
+    def melodia(n, anterior, primero_raiz):
+        grados = []
+        for i in range(n):
+            if i == 0 and primero_raiz:
+                g = 0
+            elif rng.random() < pedal * 0.25:
+                g = 0
+            else:
+                g = _elegir(rng, TRANSICIONES_ACIDO.get(anterior, TRANSICIONES_ACIDO[0]))
+            grados.append(g)
+            anterior = g
+        return grados
+
+    motivo = melodia(8, 0, True)
+    respuesta = melodia(4, motivo[3], False)
+    grados = motivo + motivo[:4] + respuesta
+
+    # Los acentos y slides no quedan fijos: cada paso dice cuánto le calzan
+    # (pesos) y la cantidad la regula el usuario. "fuente" hace que la parte
+    # repetida del motivo use los mismos valores al azar, así se repiten igual.
+    fuente = list(range(8)) + list(range(4)) + list(range(12, 16))
+    compas = []
+    for i in range(16):
+        siguiente = ritmo[(i + 1) % 16]
+        cambia = grados[(i + 1) % 16] != grados[i]
         r = rng.random()
-        octava = 1 if r < 0.12 else (-1 if r < 0.18 else 0)
-        patron.append({"suena": suena, "grado": grado, "acento": rng.random() < 0.3,
-                       "slide": rng.random() < 0.25, "octava": octava})
-        if suena:
-            anterior = grado
-    return patron
+        compas.append({
+            "suena": ritmo[i], "grado": grados[i], "acento": False, "slide": False,
+            "octava": 1 if r < 0.06 else (-1 if r < 0.09 else 0),
+            "fuente": fuente[i],
+            "pref_acento": 1.6 if i % 2 == 1 else 0.6,  # mejor en las semicorcheas débiles
+            "pref_slide": (1.5 if cambia else 0.5) if siguiente else 0.0,  # nunca hacia un silencio
+        })
+    for i in range(12):  # la repetición del motivo copia también sus saltos de octava
+        if fuente[i] != i:
+            compas[i]["octava"] = compas[fuente[i]]["octava"]
+    return [dict(compas[i % 16]) for i in range(largo)]
 
 
 def _ritmo(estilo, largo, rng):
@@ -153,6 +191,7 @@ def extras(seed, largo):
     subir la intensidad de a poco en un rise.
     """
     rng = random.Random(f"extras:{seed}")
+    largo = max(largo, 16)  # el ácido referencia pasos de su compás de 16
     return [{"densidad": rng.random(), "slide": rng.random(), "acento": rng.random(),
              "salto": rng.random(), "direccion": 1 if rng.random() < 0.7 else -1,
              "repeticion": rng.random()} for _ in range(largo)]

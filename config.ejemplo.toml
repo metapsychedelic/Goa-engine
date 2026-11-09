@@ -72,8 +72,8 @@ densidad = 1.0            # menos de 1 quita notas; subirla de a poco agrega not
 gate_random = 0.0         # varía el largo de cada nota
 vel_random = 0.0          # varía la fuerza de cada nota
 swing = 0.0               # atrasa las semicorcheas pares
-slide = 0.0               # slides extra (el estilo acido ya trae los suyos)
-acentos = 0.0             # acentos extra
+slide = 0.0               # slides: en acido es la cantidad total; en otros estilos se suman
+acentos = 0.0             # acentos: en acido es la cantidad total; en otros estilos se suman
 saltos = 0.0              # saltos de octava
 repeticion = 0.0          # redobles de fusa en algunos pasos
 

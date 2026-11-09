@@ -247,7 +247,8 @@ class Motor:
                 continue
             raiz = self.disparos[s.disparo].raiz
             i = paso % s.largo
-            p, x = s.patron[i], s.extra[i]
+            p = s.patron[i]
+            x = s.extra[p.get("fuente", i)]
             if (raiz is None or not s.activa or not generador.pasa_posicion(s.posicion, paso)
                     or not p["suena"] or x["densidad"] >= s.densidad):
                 s.slide_previo = False
@@ -258,8 +259,14 @@ class Motor:
             octava = s.octava + p.get("octava", 0) + (x["direccion"] if x["salto"] < s.saltos else 0)
             nota = self.tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * octava
             nota = max(0, min(127, nota))
-            acento = p["acento"] or x["acento"] < s.acentos
-            slide = p.get("slide", False) or x["slide"] < s.slide
+            if "pref_acento" in p:
+                # Ácido 303: la cantidad de acentos y slides la regula el usuario;
+                # el patrón solo dice dónde calzan mejor.
+                acento = x["acento"] < s.acentos * p["pref_acento"]
+                slide = x["slide"] < s.slide * p["pref_slide"]
+            else:
+                acento = p["acento"] or x["acento"] < s.acentos
+                slide = p.get("slide", False) or x["slide"] < s.slide
             azar = random.Random(f"{s.seed}:{paso}")  # determinista: misma seed, mismo resultado
             velocidad = (s.acento if acento else s.velocidad) + round(s.vel_random * 30 * azar.uniform(-1, 1))
             velocidad = max(1, min(127, velocidad))
