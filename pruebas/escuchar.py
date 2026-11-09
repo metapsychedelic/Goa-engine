@@ -107,21 +107,25 @@ def sinte_303(lista, dur):
 
 
 def beat(dur):
+    """Bombo psytrance en negras (con ataque audible en el parlante de un celular)
+    y hi-hat abierto en los contratiempos."""
     n = int(dur * SR)
     out = np.zeros(n)
     negra = 60 / BPM
-    t = np.arange(int(0.25 * SR)) / SR
-    bombo = np.sin(2 * np.pi * (45 + 120 * np.exp(-t * 35)) * t) * np.exp(-t * 9)
-    th = np.arange(int(0.06 * SR)) / SR
-    hat = np.random.default_rng(1).uniform(-1, 1, len(th)) * np.exp(-th * 60)
+    t = np.arange(int(0.22 * SR)) / SR
+    cuerpo = np.sin(2 * np.pi * np.cumsum(55 + 260 * np.exp(-t * 28)) / SR) * np.exp(-t * 11)
+    clic = np.random.default_rng(2).uniform(-1, 1, len(t)) * np.exp(-t * 400) * 0.6
+    bombo = np.tanh((cuerpo + clic) * 2.5)
+    th = np.arange(int(0.07 * SR)) / SR
+    hat = np.random.default_rng(1).uniform(-1, 1, len(th)) * np.exp(-th * 45)
     hat = np.diff(hat, prepend=0)
     k = 0
     while k * negra < dur:
         a = int(k * negra * SR)
-        out[a:a + len(bombo)] += bombo[: n - a] * 0.9
+        out[a:a + len(bombo)] += bombo[: n - a]
         h = int((k + 0.5) * negra * SR)
         if h < n:
-            out[h:h + len(hat)] += hat[: n - h] * 0.25
+            out[h:h + len(hat)] += hat[: n - h] * 0.35
         k += 1
     return out
 
@@ -130,12 +134,12 @@ def main():
     salida = sys.argv[1] if len(sys.argv) > 1 else "acido.wav"
     estilo = sys.argv[2] if len(sys.argv) > 2 else "acido"
     seeds = sys.argv[3:] or ["7A3F-0291", "ACID-1", "B-5512"]
-    compases = 4
+    compases = 8
     dur = compases * 4 * 60 / BPM
     partes = []
     for seed in seeds:
         acid = sinte_303(notas(eventos(estilo, seed, compases)), dur)
-        partes.append(beat(dur) + acid)
+        partes.append(beat(dur) * 0.9 + acid * 0.7)
     audio = np.concatenate(partes)
     audio = np.tanh(audio * 1.2) * 0.8
     with wave.open(salida, "wb") as w:
