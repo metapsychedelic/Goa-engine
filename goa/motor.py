@@ -52,6 +52,7 @@ class Secuencia:
         self.sonando = {}       # nota -> tick en que se apaga
         self.pendientes = []    # (tick, nota, velocidad, duración) por swing y repeticiones
         self.slide_previo = False
+        self.clip = None        # nombre del clip que suena en esta fila, si vino del disparador
         self.reiniciar()
 
     def reiniciar(self):
@@ -122,6 +123,7 @@ class Motor:
         self.tick = -1
         self.relojes = deque(maxlen=48)
         self.pads = None
+        self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
         self.aplicar_config(config)
 
     def aplicar_config(self, config):
@@ -138,16 +140,60 @@ class Motor:
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
         self.nota_maxima = int(entrada.get("nota_maxima", 4))
         # Cada secuencia y los pads escuchan su propia pista; 0 = la general.
-        for s, c in zip(secuencias, config.get("secuencia", [])):
-            s.disparo = int(c.get("disparo", 0) or 0) - 1 if c.get("disparo") else self.canal_disparo
-        pads.disparo = int(config.get("pads", {}).get("disparo", 0) or 0) - 1 \
-            if config.get("pads", {}).get("disparo") else self.canal_disparo
+        for i, (s, c) in enumerate(zip(secuencias, config.get("secuencia", []))):
+            s.disparo = self._canal_de(c)
+            if i < len(self.secuencias):
+                s.clip = self.secuencias[i].clip  # recuerda qué clip sonaba en esa fila
+        pads.disparo = self._canal_de(config.get("pads", {}))
         canales = {s.disparo for s in secuencias} | {pads.disparo, self.canal_disparo}
         anteriores = self.disparos
         self.disparos = {c: anteriores.get(c) or Disparo(c) for c in canales}
         self.secuencias = secuencias
         self.pads = pads
         self.seguir_pads = bool(musica.get("seguir_pads", False))
+
+    def _canal_de(self, c):
+        return int(c["disparo"]) - 1 if c.get("disparo") else self.canal_disparo
+
+    # --- Disparador de clips ---
+
+    def lanzar(self, fila, cfg, nombre):
+        """Pone un clip en cola para la fila; entra en el próximo compás."""
+        if not 0 <= fila < len(self.secuencias):
+            raise ValueError("Fila inexistente")
+        Secuencia(cfg)  # valida antes de encolar
+        self.cola[fila] = (cfg, nombre)
+        if not self.corriendo:
+            self._aplicar_cola()
+
+    def detener(self, fila):
+        if not 0 <= fila < len(self.secuencias):
+            raise ValueError("Fila inexistente")
+        self.cola[fila] = None
+        if not self.corriendo:
+            self._aplicar_cola()
+
+    def _aplicar_cola(self):
+        for fila, pedido in self.cola.items():
+            if fila >= len(self.secuencias):
+                continue
+            vieja = self.secuencias[fila]
+            for nota in list(vieja.sonando):
+                self.enviar(vieja.salida, "note_off", vieja.canal, nota, 0)
+            vieja.sonando.clear()
+            vieja.pendientes = []
+            if pedido is None:
+                vieja.activa = False
+                continue
+            cfg, nombre = pedido
+            nueva = Secuencia(cfg)
+            nueva.disparo = self._canal_de(cfg)
+            if nueva.disparo not in self.disparos:
+                self.disparos[nueva.disparo] = Disparo(nueva.disparo)
+            nueva.clip = nombre
+            self.secuencias[fila] = nueva
+            log.info("Fila %d: entra el clip %s", fila + 1, nombre)
+        self.cola = {}
 
     @property
     def canales_disparo(self):
@@ -168,6 +214,10 @@ class Motor:
             "raices": raices,
             "compas": paso // PASOS_POR_COMPAS + 1 if self.corriendo else None,
             "acorde": self.pads.descripcion() if self.pads and self.pads.activo else None,
+            "filas": [{"clip": s.clip, "activa": s.activa,
+                       "cola": (None if i not in self.cola else
+                                ("detener" if self.cola[i] is None else self.cola[i][1]))}
+                      for i, s in enumerate(self.secuencias)],
         }
 
     def _olvidar_notas(self):
@@ -235,6 +285,8 @@ class Motor:
 
     def _paso(self, paso):
         if paso % PASOS_POR_COMPAS == 0:
+            if self.cola:
+                self._aplicar_cola()  # los clips entran justo en el primer paso del compás
             compas = paso // PASOS_POR_COMPAS
             for s in self.secuencias:
                 s.evolucionar(compas)

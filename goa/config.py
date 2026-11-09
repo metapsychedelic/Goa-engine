@@ -9,10 +9,11 @@ from . import generador, pads
 from .escalas import ESCALAS, nombre_a_clase
 
 MAX_SECUENCIAS = 8
+MAX_CLIPS = 64
 
 # clave: (tipo, valor por defecto, mínimo, máximo u opciones)
 ESQUEMA_SECCIONES = {
-    "app": {"puerto": (int, 8080, 1024, 65535)},
+    "app": {"puerto": (int, 8080, 1024, 65535), "proyecto": (str, "", None, None)},
     "entrada": {
         "puerto": (str, "Circuit", None, None),
         "canal_disparo": (int, 4, 1, 16),
@@ -81,6 +82,12 @@ ESQUEMA_SECUENCIA = {
 }
 
 
+# Un clip guarda el carácter musical de una secuencia; el destino lo pone la fila
+# del disparador donde se lanza.
+CLAVES_DESTINO = ("disparo", "activa", "salida", "canal")
+ESQUEMA_CLIP = {k: v for k, v in ESQUEMA_SECUENCIA.items() if k not in CLAVES_DESTINO}
+
+
 class ConfigError(ValueError):
     pass
 
@@ -126,7 +133,19 @@ def normalizar(cfg):
         {k: _valor(k, (s or {}).get(k), e) for k, e in ESQUEMA_SECUENCIA.items()}
         for s in secuencias[:MAX_SECUENCIAS]
     ]
+    clips = cfg.get("clip") or []
+    if not isinstance(clips, list):
+        raise ConfigError("clip debe ser una lista")
+    limpia["clip"] = [{k: _valor(k, (s or {}).get(k), e) for k, e in ESQUEMA_CLIP.items()}
+                      for s in clips[:MAX_CLIPS]]
     return limpia
+
+
+def clip_de(secuencia, nombre):
+    """El carácter musical de una secuencia, listo para guardarse como clip."""
+    clip = {k: secuencia[k] for k in ESQUEMA_CLIP if k in secuencia}
+    clip["nombre"] = nombre.strip()[:40] or secuencia.get("nombre", "Clip")
+    return clip
 
 
 def salidas(cfg):
@@ -161,6 +180,10 @@ def a_toml(cfg):
         lineas.append("")
     for s in cfg["secuencia"]:
         lineas.append("[[secuencia]]")
+        lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
+        lineas.append("")
+    for s in cfg.get("clip", []):
+        lineas.append("[[clip]]")
         lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
         lineas.append("")
     return "\n".join(lineas)

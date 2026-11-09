@@ -91,6 +91,15 @@ Con "Las secuencias siguen al acorde" (en Música), las secuencias Goa cambian
 de nota base junto con los pads. Pads en la MicroFreak (canal 3, hasta 4 voces)
 y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la vez.
 
+## Disparador y proyectos
+
+- **Guardar como clip** (en cada secuencia) guarda su carácter: estilo, seed,
+  afinación y mutación.
+- **Disparador:** una fila por secuencia. Toca un clip y entra en el próximo
+  compás de la Circuit; mientras espera, titila. Los clips siguen mutando.
+- **Proyectos:** guardar, guardar como, abrir y borrar proyectos completos.
+  Se guardan en `~/.config/goa/proyectos/`.
+
 ## Si algo falla
 
 - `goa-log` muestra lo que está haciendo el motor.

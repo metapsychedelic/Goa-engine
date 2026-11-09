@@ -40,6 +40,14 @@ button.panico{min-height:52px;border-color:#8C3B32;background:#2A1714;color:#F2B
 .seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.05em}
 details.card>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:32px}
 details.card>summary::-webkit-details-marker{display:none}
+.grilla{display:flex;flex-direction:column;gap:12px}
+.fila-clips{display:flex;flex-wrap:wrap;gap:8px}
+.clip{min-height:52px;min-width:96px;flex:1 1 96px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--txt);font-weight:600;padding:6px 10px;text-align:center}
+.clip.sonando{background:var(--acc);border-color:var(--acc);color:#111210}
+.clip.cola{border:2px dashed var(--acc);color:var(--acc)}
+@media (prefers-reduced-motion:no-preference){.clip.cola{animation:titila 1s steps(2) infinite}}
+@keyframes titila{50%{opacity:.45}}
+.clip.parar{flex:0 0 auto;min-width:72px;color:var(--mut)}
 .guardado{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .guardado.ver{opacity:1}
 .guardado.error{color:var(--bad);border-color:#8C3B32}
@@ -62,7 +70,19 @@ details.card>summary::-webkit-details-marker{display:none}
     <div class="mut" id="puertos"></div>
   </section>
 
+  <section class="card" aria-label="Proyecto">
+    <div class="fila"><h2 id="proyecto_nombre">Sin proyecto</h2><button id="proyecto_abrir">Abrir</button></div>
+    <div class="dos"><button id="proyecto_guardar" class="prim">Guardar</button><button id="proyecto_guardar_como">Guardar como…</button></div>
+    <div id="proyecto_lista" style="display:none;flex-direction:column;gap:6px"></div>
+  </section>
+
   <button class="panico" id="panico">Pánico · apagar todas las notas</button>
+
+  <section class="card">
+    <div class="fila"><h2>Disparador</h2><label class="mut" style="display:flex;align-items:center;gap:6px;min-height:44px"><input type="checkbox" id="editar_clips">Borrar clips</label></div>
+    <p class="mut" style="margin:0">Toca un clip para que entre en el próximo compás de la Circuit. Guarda clips desde cada secuencia.</p>
+    <div class="grilla" id="grilla"></div>
+  </section>
 
   <section class="card">
     <h2>Música</h2>
@@ -222,6 +242,8 @@ function tarjeta(s, i) {
     deslizador(s, "largas", "Notas largas (se sostienen sobre los silencios)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     el("p", {className: "mut", style: "margin:0", textContent: "En Ácido 303, Acentos y Slides son la cantidad total; en los demás estilos se suman a los del estilo. Para que los slides deslicen, pon el sinte en modo mono o legato con glide."}),
     el("div", {className: "dos"}, [numero("velocidad", "Velocidad", 1, 127), numero("acento", "Acento", 1, 127)]),
+    el("button", {type: "button", textContent: "Guardar como clip", className: "prim",
+      onclick: () => guardarClip(i, s)}),
     el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
       onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); render(); guardar(); } }}),
   ];
@@ -260,6 +282,8 @@ function render() {
   const cont = $("secuencias"); cont.innerHTML = "";
   cfg.secuencia.forEach((s, i) => cont.append(tarjeta(s, i)));
   $("agregar").disabled = cfg.secuencia.length >= 8;
+  $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
+  renderGrilla();
 }
 
 function renderPads() {
@@ -304,6 +328,97 @@ function renderPads() {
   );
 }
 
+let ultimoEstado = null;
+
+async function api(ruta, datos) {
+  const r = await fetch(ruta, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(datos || {})});
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || "No se pudo");
+  return d;
+}
+
+async function recargar() {
+  cfg = await (await fetch("/api/config")).json();
+  render();
+}
+
+async function guardarClip(i, s) {
+  const nombre = prompt("Nombre del clip", `${s.estilo} ${s.seed}`);
+  if (nombre === null) return;
+  try { await api("/api/clip/guardar", {fila: i, nombre}); await recargar(); aviso("Clip guardado"); }
+  catch (e) { aviso(e.message, true); }
+}
+
+function renderGrilla() {
+  const g = $("grilla"); g.innerHTML = "";
+  const borrar = $("editar_clips").checked;
+  if (!cfg.clip.length) { g.append(el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay clips."})); return; }
+  if (borrar) {
+    const fila = el("div", {className: "fila-clips"});
+    cfg.clip.forEach((c, ci) => fila.append(el("button", {className: "clip", textContent: "Borrar " + c.nombre, style: "color:var(--bad)",
+      onclick: async () => { if (!confirm(`¿Borrar el clip ${c.nombre}?`)) return;
+        try { await api("/api/clip/borrar", {indice: ci}); await recargar(); } catch (e) { aviso(e.message, true); } }})));
+    g.append(fila); return;
+  }
+  cfg.secuencia.forEach((s, fi) => {
+    const fila = el("div", {className: "fila-clips", "data-fila": fi});
+    cfg.clip.forEach((c, ci) => fila.append(el("button", {className: "clip", textContent: c.nombre, "data-clip": c.nombre,
+      onclick: async () => { try { await api("/api/lanzar", {fila: fi, clip: ci}); estado(); } catch (e) { aviso(e.message, true); } }})));
+    fila.append(el("button", {className: "clip parar", textContent: "■ Parar", "data-parar": "1",
+      onclick: async () => { try { await api("/api/detener", {fila: fi}); estado(); } catch (e) { aviso(e.message, true); } }}));
+    g.append(el("div", {style: "display:flex;flex-direction:column;gap:6px"}, [
+      el("span", {className: "mut", textContent: `${s.nombre} · ${s.salida} canal ${s.canal}`}), fila]));
+  });
+  pintarGrilla();
+}
+
+function pintarGrilla() {
+  if (!ultimoEstado || !ultimoEstado.filas) return;
+  document.querySelectorAll("#grilla [data-fila]").forEach((fila) => {
+    const f = ultimoEstado.filas[parseInt(fila.dataset.fila)];
+    if (!f) return;
+    fila.querySelectorAll("[data-clip]").forEach((b) => {
+      const n = b.dataset.clip;
+      b.classList.toggle("cola", f.cola === n);
+      b.classList.toggle("sonando", f.activa && f.clip === n && f.cola !== n);
+    });
+    const parar = fila.querySelector("[data-parar]");
+    parar.classList.toggle("cola", f.cola === "detener");
+  });
+}
+
+$("editar_clips").onchange = renderGrilla;
+
+$("proyecto_guardar").onclick = async () => {
+  let nombre = cfg.app.proyecto;
+  if (!nombre) { nombre = prompt("Nombre del proyecto"); if (!nombre) return; }
+  try { await api("/api/proyecto/guardar", {nombre}); await recargar(); aviso("Proyecto guardado"); } catch (e) { aviso(e.message, true); }
+};
+$("proyecto_guardar_como").onclick = async () => {
+  const nombre = prompt("Nombre del proyecto", cfg.app.proyecto || ""); if (!nombre) return;
+  try { await api("/api/proyecto/guardar", {nombre}); await recargar(); aviso("Proyecto guardado"); } catch (e) { aviso(e.message, true); }
+};
+$("proyecto_abrir").onclick = async () => {
+  const lista = $("proyecto_lista");
+  if (lista.style.display === "flex") { lista.style.display = "none"; return; }
+  const d = await (await fetch("/api/proyectos")).json();
+  lista.innerHTML = "";
+  if (!d.proyectos.length) lista.append(el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay proyectos guardados."}));
+  for (const p of d.proyectos) {
+    lista.append(el("div", {className: "fila"}, [
+      el("button", {textContent: p.nombre, style: "flex:1;text-align:left", onclick: async () => {
+        if (!confirm(`¿Abrir ${p.nombre}? Los cambios sin guardar del proyecto actual se pierden.`)) return;
+        try { await api("/api/proyecto/abrir", {nombre: p.archivo}); lista.style.display = "none"; await recargar(); aviso("Proyecto abierto"); }
+        catch (e) { aviso(e.message, true); } }}),
+      el("button", {textContent: "Borrar", "aria-label": `Borrar ${p.nombre}`, style: "color:var(--bad)", onclick: async () => {
+        if (!confirm(`¿Borrar el proyecto ${p.nombre}? No se puede deshacer.`)) return;
+        try { await api("/api/proyecto/borrar", {nombre: p.archivo}); $("proyecto_abrir").click(); $("proyecto_abrir").click(); }
+        catch (e) { aviso(e.message, true); } }}),
+    ]));
+  }
+  lista.style.display = "flex";
+};
+
 async function estado() {
   try {
     const d = await (await fetch("/api/estado")).json();
@@ -316,6 +431,7 @@ async function estado() {
     $("compas").textContent = d.compas || "–";
     $("ver").textContent = "v" + d.version;
     $("acorde").textContent = d.acorde ? "Pads: " + d.acorde : "";
+    ultimoEstado = d; pintarGrilla();
     const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
     $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";
     document.querySelectorAll("[data-salida]").forEach((e) => {
