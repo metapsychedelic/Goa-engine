@@ -74,7 +74,7 @@ details.card>summary::-webkit-details-marker{display:none}
       <div class="seg" style="grid-template-columns:1fr 1fr" id="cambio"></div></div>
     <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Adaptación
       <div class="seg" style="grid-template-columns:1fr 1fr" id="adaptacion"></div></div>
-    <label class="campo">Canal de disparo (pista de la nota larga en la Circuit)
+    <label class="campo">Canal general de la nota larga (lo usan las secuencias y pads en 0)
       <input type="number" min="1" max="16" data-k="entrada.canal_disparo" id="canal_disparo"></label>
     <label class="campo">Soltar la nota si no se repite en (compases, 0 = nunca)
       <input type="number" min="0" max="64" id="nota_maxima"></label>
@@ -194,6 +194,7 @@ function tarjeta(s, i) {
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activa"}), activa]),
     el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), texto("salida", "Destino (puerto)", {list: "salidas"})]),
     el("div", {className: "dos"}, [numero("canal", "Canal MIDI", 1, 16), numero("octava", "Octava", -3, 3)]),
+    numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
     campo("Estilo", segmentado(ESTILOS, s.estilo, (v) => { s.estilo = v; guardar(); }, 2)),
     campo("Posición rítmica", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; guardar(); }, 2)),
     campo("Relación con la nota", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 4)),
@@ -271,6 +272,7 @@ function renderPads() {
     el("div", {className: "fila"}, [el("h2", {textContent: "Pads y drones"}), estado]),
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activos"}), activo]),
     el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Destino (puerto)", destino]), numero("canal", "Canal MIDI", 1, 16)]),
+    numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
     el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
     el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
     campo("Cambia cada (compases)", segmentado([["4","4"],["8","8"],["16","16"],["32","32"]], String(p.cambia_cada), (v) => { p.cambia_cada = parseInt(v); guardar(); }, 4)),

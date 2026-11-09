@@ -46,10 +46,12 @@ drone = false             # nota grave sostenida en la raíz
 rasgueo = 1               # pulsos entre la entrada de cada voz (0 = juntas)
 velocidad = 80
 seed = "P-1C88"
+disparo = 1               # canal de su nota larga (pista Synth 1): mutearla apaga solo los pads
 
 [[secuencia]]
 nombre = "A"
 activa = true
+disparo = 2               # canal de su nota larga (pista Synth 2); 0 = el general
 salida = "FM-1"           # parte del nombre del puerto (míralo con goa-ports); en modo dongle: "CH345"
 canal = 4                 # FM-1 en canal 4 (pista MIDI 2 de la Circuit)
 estilo = "rolling"        # rolling, galope, arpegio3, acido
@@ -69,6 +71,7 @@ acento = 124
 [[secuencia]]
 nombre = "B"
 activa = false            # ponla en true para probar dos secuencias
+disparo = 0               # 0 = usa el canal general
 salida = "MicroFreak"
 canal = 3                 # MicroFreak en canal 3 (pista MIDI 1 de la Circuit)
 estilo = "arpegio3"

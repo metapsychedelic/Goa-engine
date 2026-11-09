@@ -46,11 +46,13 @@ ESQUEMA_SECCIONES = {
         "rasgueo": (int, 1, 0, 6),
         "velocidad": (int, 80, 1, 127),
         "seed": (str, "P-1C88", None, None),
+        "disparo": (int, 0, 0, 16),
     },
 }
 
 ESQUEMA_SECUENCIA = {
     "nombre": (str, "A", None, None),
+    "disparo": (int, 0, 0, 16),
     "activa": (bool, True, None, None),
     "salida": (str, "FM-1", None, None),
     "canal": (int, 1, 1, 16),
