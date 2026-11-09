@@ -77,6 +77,7 @@ ESQUEMA_SECUENCIA = {
     "acentos": (float, 0.0, 0.0, 1.0),
     "saltos": (float, 0.0, 0.0, 1.0),
     "repeticion": (float, 0.0, 0.0, 1.0),
+    "largas": (float, 0.0, 0.0, 1.0),
 }
 
 

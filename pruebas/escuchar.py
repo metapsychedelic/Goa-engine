@@ -25,7 +25,7 @@ def eventos(estilo, seed, compases, extra=None):
     cfg["entrada"]["canal_disparo"] = 2
     s = cfg["secuencia"][0]
     s.update(disparo=0, estilo=estilo, posicion="todos", seed=seed, salida="SEQ", gate=0.5, acento=127, velocidad=90,
-             acentos=0.3, slide=0.3)
+             acentos=0.3, slide=0.3, largas=0.35)
     s.update(extra or {})
     cfg["secuencia"][1]["activa"] = False
     out = []

@@ -70,9 +70,9 @@ def _siguiente_grado(rng, anterior, pedal):
 
 
 # Células rítmicas de un tiempo (4 semicorcheas) para líneas ácidas, con su peso.
+# Sin las células más sincopadas (x..x, .x.x, .xx.): corren la línea respecto al bombo.
 CELULAS_ACIDO = {
-    "x.xx": 3.0, "xx.x": 3.0, ".xxx": 2.0, "xxx.": 2.0, "x.x.": 1.5,
-    "xxxx": 1.5, ".xx.": 1.0, "x..x": 1.0, ".x.x": 1.0,
+    "x.xx": 3.0, "xx.x": 3.0, "xxx.": 2.5, ".xxx": 2.0, "x.x.": 2.0, "x...": 1.0, "xxxx": 1.0,
 }
 
 
@@ -121,7 +121,9 @@ def _acido(rng, largo, pedal):
             "octava": 1 if r < 0.06 else (-1 if r < 0.09 else 0),
             "fuente": fuente[i],
             "pref_acento": 1.6 if i % 2 == 1 else 0.6,  # mejor en las semicorcheas débiles
-            "pref_slide": (1.5 if cambia else 0.5) if siguiente else 0.0,  # nunca hacia un silencio
+            # Slides solo hacia el contratiempo o la última semicorchea del tiempo:
+            # nunca hacia el golpe del bombo ni saliendo de él, y nunca hacia un silencio.
+            "pref_slide": ((1.5 if cambia else 0.5) if siguiente and i % 4 in (1, 2) else 0.0),
         })
     for i in range(12):  # la repetición del motivo copia también sus saltos de octava
         if fuente[i] != i:
@@ -194,7 +196,7 @@ def extras(seed, largo):
     largo = max(largo, 16)  # el ácido referencia pasos de su compás de 16
     return [{"densidad": rng.random(), "slide": rng.random(), "acento": rng.random(),
              "salto": rng.random(), "direccion": 1 if rng.random() < 0.7 else -1,
-             "repeticion": rng.random()} for _ in range(largo)]
+             "repeticion": rng.random(), "larga": rng.random()} for _ in range(largo)]
 
 
 def mutar(patron, seed, compas, probabilidad, pedal=0.5):

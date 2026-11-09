@@ -197,7 +197,7 @@ function tarjeta(s, i) {
     numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
     campo("Estilo", segmentado(ESTILOS, s.estilo, (v) => {
       s.estilo = v;
-      if (v === "acido" && !s.slide && !s.acentos) { s.slide = 0.3; s.acentos = 0.3; render(); }
+      if (v === "acido" && !s.slide && !s.acentos) { s.slide = 0.3; s.acentos = 0.3; s.largas = s.largas || 0.3; render(); }
       guardar();
     }, 2)),
     campo("Posición rítmica", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; guardar(); }, 2)),
@@ -219,6 +219,7 @@ function tarjeta(s, i) {
     deslizador(s, "acentos", "Acentos", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     deslizador(s, "repeticion", "Repeticiones (redobles de fusa)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "largas", "Notas largas (se sostienen sobre los silencios)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     el("p", {className: "mut", style: "margin:0", textContent: "En Ácido 303, Acentos y Slides son la cantidad total; en los demás estilos se suman a los del estilo. Para que los slides deslicen, pon el sinte en modo mono o legato con glide."}),
     el("div", {className: "dos"}, [numero("velocidad", "Velocidad", 1, 127), numero("acento", "Acento", 1, 127)]),
     el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",

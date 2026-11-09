@@ -48,6 +48,7 @@ class Secuencia:
         self.acentos = float(cfg.get("acentos", 0.0))
         self.saltos = float(cfg.get("saltos", 0.0))
         self.repeticion = float(cfg.get("repeticion", 0.0))
+        self.largas = float(cfg.get("largas", 0.0))
         self.sonando = {}       # nota -> tick en que se apaga
         self.pendientes = []    # (tick, nota, velocidad, duración) por swing y repeticiones
         self.slide_previo = False
@@ -276,6 +277,13 @@ class Motor:
                 # Slide 303: la nota dura hasta pisar la siguiente; un sinte en modo
                 # legato con glide hace el deslizamiento.
                 duracion = TICKS_POR_PASO + 2
+            elif x.get("larga", 1.0) < s.largas:
+                # Nota larga: se sostiene sobre los silencios que la siguen (hasta 4 pasos).
+                silencios = 0
+                while silencios < 3 and not s.patron[(i + silencios + 1) % s.largo]["suena"]:
+                    silencios += 1
+                if silencios:
+                    duracion = (silencios + 1) * TICKS_POR_PASO - 1
             inicio = self.tick + (round(s.swing * TICKS_POR_PASO) if paso % 2 == 1 else 0)
             if s.slide_previo and nota in s.sonando:
                 # Tie: misma nota después de un slide, se prolonga sin volver a tocarla.

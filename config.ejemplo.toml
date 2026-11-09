@@ -76,6 +76,7 @@ slide = 0.0               # slides: en acido es la cantidad total; en otros esti
 acentos = 0.0             # acentos: en acido es la cantidad total; en otros estilos se suman
 saltos = 0.0              # saltos de octava
 repeticion = 0.0          # redobles de fusa en algunos pasos
+largas = 0.0              # notas que se sostienen sobre los silencios siguientes
 
 [[secuencia]]
 nombre = "B"
