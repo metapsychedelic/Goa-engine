@@ -9,7 +9,7 @@ puerto = 8080             # la app queda en http://goa.local:8080
 # Parte del nombre del puerto USB de la Circuit (míralo con goa-ports)
 puerto = "Circuit"
 # Canal de la pista de la Circuit donde mantienes la nota larga
-canal_disparo = 4
+canal_disparo = 2        # pista Synth 2 de la Circuit, con volumen en cero
 
 [thru]
 # Modo dongle (recomendado: sin ruido y sin que la Pi se caiga).
@@ -29,8 +29,8 @@ adaptacion = "escala"     # "escala": se ajusta a la tonalidad · "transponer": 
 [[secuencia]]
 nombre = "A"
 activa = true
-salida = "FM-1"           # parte del nombre del puerto USB (míralo con goa-ports)
-canal = 2
+salida = "FM-1"           # parte del nombre del puerto (míralo con goa-ports); en modo dongle: "CH345"
+canal = 4                 # FM-1 en canal 4 (pista MIDI 2 de la Circuit)
 estilo = "rolling"        # rolling, galope, arpegio3, acido
 posicion = "offbeat"      # onbeat, offbeat, todos, desplazado
 relacion = "unisono"      # unisono, tercera, quinta, octava
@@ -49,7 +49,7 @@ acento = 124
 nombre = "B"
 activa = false            # ponla en true para probar dos secuencias
 salida = "MicroFreak"
-canal = 1
+canal = 3                 # MicroFreak en canal 3 (pista MIDI 1 de la Circuit)
 estilo = "arpegio3"
 posicion = "onbeat"
 relacion = "quinta"

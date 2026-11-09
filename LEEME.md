@@ -35,8 +35,8 @@ anterior si algo suena peor: `goa-update --anterior`.
 
 - En el **Setup** de la Circuit activa el envío de reloj (Clock Tx) y de notas
   MIDI (Note Tx) para las pistas.
-- Elige una pista para la nota larga y ponle el **canal 4** (o cambia
-  `canal_disparo` en la configuración). Baja su volumen si es un sinte interno.
+- Usa la pista **Synth 2** para la nota larga (canal 2) y baja su volumen a cero.
+  Las pistas MIDI 1 y 2 salen por los canales 3 (MicroFreak) y 4 (FM-1).
 
 ## Conexión recomendada: modo dongle
 
@@ -51,7 +51,7 @@ ninguna de las dos cosas, porque el MIDI de 5 pines y TRS es aislado:
 
 En la app, sección Conexión MIDI: Entrada = nombre del dongle, activa
 "Reenviar todo a la cadena MIDI" y en cada secuencia pon como destino el dongle.
-La secuencia A con canal 2 suena en la FM-1; con canal 1, en la MicroFreak.
+La secuencia A con canal 4 suena en la FM-1; con canal 3, en la MicroFreak.
 
 Si la Pi está apagada, la MicroFreak y la FM-1 no reciben a la Circuit:
 para tocar sin la Pi, conecta la Circuit directo a la MicroFreak como antes.
@@ -62,9 +62,9 @@ Conecta la Circuit y la FM-1 a la Pi por USB y entra por `ssh`:
 
 ```
 goa-ports                         # ¿aparecen la Circuit y la FM-1?
-goa-ports --probar FM-1 2         # ¿suena la FM-1?
+goa-ports --probar FM-1 4         # ¿suena la FM-1? (modo dongle: CH345 4)
 goa-ports --escuchar Circuit      # dale Play: ¿aparece "reloj OK" con el BPM?
-goa-debug                         # mantén una nota en el canal 4 y mira las notas
+goa-debug                         # mantén una nota en la pista Synth 2 y mira las notas
 ```
 
 Si los nombres de los puertos no contienen "Circuit" o "FM-1", edita
