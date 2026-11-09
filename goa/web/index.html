@@ -105,7 +105,7 @@ const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# ·
 const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"]];
 const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"]];
 const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"]];
-const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido"]];
+const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"]];
 const POSICIONES = [["onbeat","On beat"],["offbeat","Offbeat"],["todos","Todos"],["desplazado","Desplazado"]];
 const RELACIONES = [["unisono","Unísono"],["tercera","Tercera"],["quinta","Quinta"],["octava","Octava"]];
 let cfg = null, temporizador = null, uid = 0;
@@ -206,6 +206,16 @@ function tarjeta(s, i) {
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Bloquear patrón", el("br"), el("span", {className: "mut", textContent: "La mutación no lo cambia"})]), candado]),
     deslizador(s, "mutacion", "Mutación", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
     numero("mutar_cada", "Mutar cada (compases)", 1, 64),
+    el("h3", {style: "margin:6px 0 0;font-size:15px", textContent: "Afinar"}),
+    deslizador(s, "densidad", "Densidad de notas", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "gate_random", "Gate aleatorio", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "vel_random", "Velocidad aleatoria", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
+    deslizador(s, "slide", "Slides extra", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "acentos", "Acentos extra", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(s, "repeticion", "Repeticiones (redobles de fusa)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    el("p", {className: "mut", style: "margin:0", textContent: "Para que los slides deslicen, pon el sinte en modo mono o legato con glide."}),
     el("div", {className: "dos"}, [numero("velocidad", "Velocidad", 1, 127), numero("acento", "Acento", 1, 127)]),
     el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
       onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); render(); guardar(); } }}),

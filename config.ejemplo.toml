@@ -67,6 +67,15 @@ mutar_cada = 8            # cada cuántos compases muta
 bloqueada = false         # true: la mutación no cambia el patrón
 velocidad = 96
 acento = 124
+# Afinación (0 a 1; swing 0 a 0.5)
+densidad = 1.0            # menos de 1 quita notas; subirla de a poco agrega notas sin cambiar las que hay
+gate_random = 0.0         # varía el largo de cada nota
+vel_random = 0.0          # varía la fuerza de cada nota
+swing = 0.0               # atrasa las semicorcheas pares
+slide = 0.0               # slides extra (el estilo acido ya trae los suyos)
+acentos = 0.0             # acentos extra
+saltos = 0.0              # saltos de octava
+repeticion = 0.0          # redobles de fusa en algunos pasos
 
 [[secuencia]]
 nombre = "B"

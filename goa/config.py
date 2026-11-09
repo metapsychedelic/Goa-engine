@@ -69,6 +69,14 @@ ESQUEMA_SECUENCIA = {
     "bloqueada": (bool, False, None, None),
     "velocidad": (int, 96, 1, 127),
     "acento": (int, 124, 1, 127),
+    "densidad": (float, 1.0, 0.0, 1.0),
+    "gate_random": (float, 0.0, 0.0, 1.0),
+    "vel_random": (float, 0.0, 0.0, 1.0),
+    "swing": (float, 0.0, 0.0, 0.5),
+    "slide": (float, 0.0, 0.0, 1.0),
+    "acentos": (float, 0.0, 0.0, 1.0),
+    "saltos": (float, 0.0, 0.0, 1.0),
+    "repeticion": (float, 0.0, 0.0, 1.0),
 }
 
 

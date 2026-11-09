@@ -6,6 +6,7 @@ probarlo sin hardware.
 """
 
 import logging
+import random
 import time
 from collections import deque
 
@@ -38,13 +39,25 @@ class Secuencia:
         self.bloqueada = bool(cfg.get("bloqueada", False))
         self.velocidad = int(cfg.get("velocidad", 100))
         self.acento = int(cfg.get("acento", 120))
-        self.sonando = {}  # nota -> tick en que se apaga
+        # Afinación
+        self.densidad = float(cfg.get("densidad", 1.0))
+        self.gate_random = float(cfg.get("gate_random", 0.0))
+        self.vel_random = float(cfg.get("vel_random", 0.0))
+        self.swing = float(cfg.get("swing", 0.0))
+        self.slide = float(cfg.get("slide", 0.0))
+        self.acentos = float(cfg.get("acentos", 0.0))
+        self.saltos = float(cfg.get("saltos", 0.0))
+        self.repeticion = float(cfg.get("repeticion", 0.0))
+        self.sonando = {}       # nota -> tick en que se apaga
+        self.pendientes = []    # (tick, nota, velocidad, duración) por swing y repeticiones
+        self.slide_previo = False
         self.reiniciar()
 
     def reiniciar(self):
         if self.posicion not in generador.POSICIONES:
             raise ValueError(f"Posición desconocida: {self.posicion!r}. Opciones: {', '.join(generador.POSICIONES)}")
         self.patron = generador.generar(self.seed, self.estilo, self.largo, self.pedal)
+        self.extra = generador.extras(self.seed, self.largo)
 
     def evolucionar(self, compas):
         if not self.bloqueada and self.mutacion > 0 and compas > 0 and compas % self.mutar_cada == 0:
@@ -233,21 +246,53 @@ class Motor:
             if solo_canal is not None and s.disparo != solo_canal:
                 continue
             raiz = self.disparos[s.disparo].raiz
-            if raiz is None or not s.activa or not generador.pasa_posicion(s.posicion, paso):
+            i = paso % s.largo
+            p, x = s.patron[i], s.extra[i]
+            if (raiz is None or not s.activa or not generador.pasa_posicion(s.posicion, paso)
+                    or not p["suena"] or x["densidad"] >= s.densidad):
+                s.slide_previo = False
                 continue
             if self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
                 # Toma como base la raíz del acorde que suena, cerca de su nota larga.
                 raiz = _cerca(self.pads.raiz_acorde % 12, raiz)
-            p = s.patron[paso % s.largo]
-            if not p["suena"]:
-                continue
-            nota = self.tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * s.octava
+            octava = s.octava + p.get("octava", 0) + (x["direccion"] if x["salto"] < s.saltos else 0)
+            nota = self.tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * octava
             nota = max(0, min(127, nota))
-            if nota in s.sonando:
-                self.enviar(s.salida, "note_off", s.canal, nota, 0)
-            velocidad = s.acento if p["acento"] else s.velocidad
-            self.enviar(s.salida, "note_on", s.canal, nota, velocidad)
-            s.sonando[nota] = self.tick + max(1, round(TICKS_POR_PASO * s.gate))
+            acento = p["acento"] or x["acento"] < s.acentos
+            slide = p.get("slide", False) or x["slide"] < s.slide
+            azar = random.Random(f"{s.seed}:{paso}")  # determinista: misma seed, mismo resultado
+            velocidad = (s.acento if acento else s.velocidad) + round(s.vel_random * 30 * azar.uniform(-1, 1))
+            velocidad = max(1, min(127, velocidad))
+            gate = max(0.05, min(1.0, s.gate * (1 + s.gate_random * azar.uniform(-1, 1))))
+            duracion = max(1, round(TICKS_POR_PASO * gate))
+            if slide:
+                # Slide 303: la nota dura hasta pisar la siguiente; un sinte en modo
+                # legato con glide hace el deslizamiento.
+                duracion = TICKS_POR_PASO + 2
+            inicio = self.tick + (round(s.swing * TICKS_POR_PASO) if paso % 2 == 1 else 0)
+            if s.slide_previo and nota in s.sonando:
+                # Tie: misma nota después de un slide, se prolonga sin volver a tocarla.
+                s.sonando[nota] = max(s.sonando[nota], inicio + duracion)
+            elif not slide and x["repeticion"] < s.repeticion:
+                # Repetición (ratchet): dos golpes de fusa en el mismo paso.
+                mitad = TICKS_POR_PASO // 2
+                self._programar(s, inicio, nota, velocidad, max(1, mitad - 1))
+                self._programar(s, inicio + mitad, nota, max(1, velocidad - 15), max(1, mitad - 1))
+            else:
+                self._programar(s, inicio, nota, velocidad, duracion)
+            s.slide_previo = slide
+
+    def _programar(self, s, tick, nota, velocidad, duracion):
+        if tick <= self.tick:
+            self._encender(s, nota, velocidad, self.tick + duracion)
+        else:
+            s.pendientes.append((tick, nota, velocidad, duracion))
+
+    def _encender(self, s, nota, velocidad, fin):
+        if nota in s.sonando:
+            self.enviar(s.salida, "note_off", s.canal, nota, 0)
+        self.enviar(s.salida, "note_on", s.canal, nota, velocidad)
+        s.sonando[nota] = fin
 
     def _apagar_vencidas(self):
         for s in self.secuencias:
@@ -255,11 +300,18 @@ class Motor:
                 if fin <= self.tick:
                     self.enviar(s.salida, "note_off", s.canal, nota, 0)
                     del s.sonando[nota]
+            if s.pendientes:
+                listas = [p for p in s.pendientes if p[0] <= self.tick]
+                s.pendientes = [p for p in s.pendientes if p[0] > self.tick]
+                for _, nota, velocidad, duracion in listas:
+                    self._encender(s, nota, velocidad, self.tick + duracion)
 
     def apagar_todo(self):
         for s in self.secuencias:
             for nota in list(s.sonando):
                 self.enviar(s.salida, "note_off", s.canal, nota, 0)
             s.sonando.clear()
+            s.pendientes = []
+            s.slide_previo = False
         if self.pads is not None:
             self.pads.apagar(self.enviar)

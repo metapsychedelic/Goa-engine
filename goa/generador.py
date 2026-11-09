@@ -26,6 +26,17 @@ TRANSICIONES = {
     -1: {0: 6.0, 1: 1.0},
 }
 
+# Melodía de estilo 303: movimientos cortos, mucho ♭2 y ♭3, saltos a quinta, séptima y octava.
+TRANSICIONES_ACIDO = {
+    0: {0: 3.0, 1: 2.0, 2: 2.0, 4: 1.5, 6: 1.0, 7: 1.0},
+    1: {0: 4.0, 2: 1.0, 1: 1.0},
+    2: {0: 2.0, 1: 1.5, 3: 1.0, 4: 1.5},
+    3: {2: 2.0, 4: 2.0, 0: 1.0},
+    4: {0: 2.0, 3: 1.0, 6: 1.5, 7: 1.0, 4: 1.0},
+    6: {7: 2.0, 4: 1.5, 0: 2.0},
+    7: {6: 2.0, 0: 3.0, 4: 1.0},
+}
+
 ESTILOS = ("rolling", "galope", "arpegio3", "acido")
 POSICIONES = ("onbeat", "offbeat", "todos", "desplazado")
 RELACIONES = {"unisono": 0, "tercera": 2, "quinta": 4, "octava": 7}
@@ -58,12 +69,31 @@ def _siguiente_grado(rng, anterior, pedal):
     return _elegir(rng, TRANSICIONES.get(anterior, TRANSICIONES[0]))
 
 
+def _acido(rng, largo, pedal):
+    """Línea de estilo 303: notas, silencios, acentos, slides y saltos de octava por paso."""
+    golpes = euclidiano(rng.choice((9, 10, 11, 12)), 16, rotacion=rng.randrange(16))
+    patron = []
+    anterior = 0
+    for i in range(largo):
+        suena = golpes[i % 16] or rng.random() < 0.15
+        if i == 0:
+            grado = 0
+        elif rng.random() < pedal * 0.4:
+            grado = 0
+        else:
+            grado = _elegir(rng, TRANSICIONES_ACIDO.get(anterior, TRANSICIONES_ACIDO[0]))
+        r = rng.random()
+        octava = 1 if r < 0.12 else (-1 if r < 0.18 else 0)
+        patron.append({"suena": suena, "grado": grado, "acento": rng.random() < 0.3,
+                       "slide": rng.random() < 0.25, "octava": octava})
+        if suena:
+            anterior = grado
+    return patron
+
+
 def _ritmo(estilo, largo, rng):
     """Lista de (suena, acento) por paso, antes del filtro de posición."""
     pasos = []
-    if estilo == "acido":
-        golpes = euclidiano(9, 16, rotacion=rng.randrange(16))
-        acentos = [rng.random() < 0.3 for _ in range(16)]
     for i in range(largo):
         if estilo == "rolling":
             pasos.append((True, i % 4 == 1))
@@ -71,8 +101,6 @@ def _ritmo(estilo, largo, rng):
             pasos.append((i % 4 != 1, i % 4 == 0))
         elif estilo == "arpegio3":
             pasos.append((True, i % 3 == 0))
-        elif estilo == "acido":
-            pasos.append((golpes[i % 16], acentos[i % 16]))
         else:
             raise ValueError(f"Estilo desconocido: {estilo!r}. Opciones: {', '.join(ESTILOS)}")
     return pasos
@@ -98,6 +126,8 @@ def generar(seed, estilo="rolling", largo=16, pedal=0.5):
     con el paso global, para que un patrón de 13 pasos siga en la grilla.
     """
     rng = random.Random(f"patron:{seed}")
+    if estilo == "acido":
+        return _acido(rng, largo, pedal)
     ritmo = _ritmo(estilo, largo, rng)
     arpegio = [0, 2, 4] if rng.random() < 0.5 else [0, 4, 7]
     patron = []
@@ -111,8 +141,21 @@ def generar(seed, estilo="rolling", largo=16, pedal=0.5):
             grado = _siguiente_grado(rng, anterior, pedal)
         if suena:
             anterior = grado
-        patron.append({"suena": suena, "grado": grado, "acento": acento})
+        patron.append({"suena": suena, "grado": grado, "acento": acento, "slide": False, "octava": 0})
     return patron
+
+
+def extras(seed, largo):
+    """Valores al azar fijos por paso, uno por cada control de afinación.
+
+    Como cada paso tiene su número fijo, subir la densidad (o los slides,
+    o los saltos) agrega notas sin cambiar las que ya estaban: ideal para
+    subir la intensidad de a poco en un rise.
+    """
+    rng = random.Random(f"extras:{seed}")
+    return [{"densidad": rng.random(), "slide": rng.random(), "acento": rng.random(),
+             "salto": rng.random(), "direccion": 1 if rng.random() < 0.7 else -1,
+             "repeticion": rng.random()} for _ in range(largo)]
 
 
 def mutar(patron, seed, compas, probabilidad, pedal=0.5):
