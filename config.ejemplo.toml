@@ -10,6 +10,8 @@ puerto = 8080             # la app queda en http://goa.local:8080
 puerto = "Circuit"
 # Canal de la pista de la Circuit donde mantienes la nota larga
 canal_disparo = 2        # pista Synth 2 de la Circuit, con volumen en cero
+# Si una nota no se repite en tantos compases, se da por soltada (0 = nunca)
+nota_maxima = 4
 
 [thru]
 # Modo dongle (recomendado: sin ruido y sin que la Pi se caiga).

@@ -76,6 +76,8 @@ details.card>summary::-webkit-details-marker{display:none}
       <div class="seg" style="grid-template-columns:1fr 1fr" id="adaptacion"></div></div>
     <label class="campo">Canal de disparo (pista de la nota larga en la Circuit)
       <input type="number" min="1" max="16" data-k="entrada.canal_disparo" id="canal_disparo"></label>
+    <label class="campo">Soltar la nota si no se repite en (compases, 0 = nunca)
+      <input type="number" min="0" max="64" id="nota_maxima"></label>
     <label class="fila" style="min-height:44px"><span>Las secuencias siguen al acorde<br><span class="mut">La nota base sale del acorde de los pads</span></span>
       <input type="checkbox" id="seguir_pads"></label>
   </section>
@@ -228,6 +230,8 @@ function render() {
   $("adaptacion").replaceWith(Object.assign(segmentado([["escala","Ajustar a la escala"],["transponer","Transponer igual"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2), {id: "adaptacion"}));
   const cd = $("canal_disparo"); cd.value = cfg.entrada.canal_disparo;
   cd.onchange = () => { cfg.entrada.canal_disparo = Math.max(1, Math.min(16, parseInt(cd.value) || 4)); cd.value = cfg.entrada.canal_disparo; guardar(); };
+  const nm = $("nota_maxima"); nm.value = cfg.entrada.nota_maxima;
+  nm.onchange = () => { const v = parseInt(nm.value); cfg.entrada.nota_maxima = isNaN(v) ? 4 : Math.max(0, Math.min(64, v)); nm.value = cfg.entrada.nota_maxima; guardar(); };
   const sp = $("seguir_pads"); sp.checked = cfg.musica.seguir_pads;
   sp.onchange = () => { cfg.musica.seguir_pads = sp.checked; guardar(); };
   renderPads();

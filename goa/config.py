@@ -16,6 +16,7 @@ ESQUEMA_SECCIONES = {
     "entrada": {
         "puerto": (str, "Circuit", None, None),
         "canal_disparo": (int, 4, 1, 16),
+        "nota_maxima": (int, 4, 0, 64),
     },
     "thru": {
         "activo": (bool, False, None, None),

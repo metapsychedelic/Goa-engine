@@ -91,9 +91,11 @@ class Pads:
         return grado
 
     def _base(self, raiz):
+        if raiz is None:  # sin nota larga, los pads se callan
+            return None
         centro = CENTRO + 12 * self.octava
         if self.base == "nota":
-            return None if raiz is None else _cerca(raiz % 12, centro)
+            return _cerca(raiz % 12, centro)
         return _cerca(self.tonalidad.tonica, centro)
 
     def _voicing(self, raiz_acorde):

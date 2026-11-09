@@ -57,10 +57,7 @@ class Motor:
         self.secuencias = []
         self.corriendo = False
         self.tick = -1
-        self.sostenidas = []
-        self.raiz = None
-        self.raiz_pendiente = None
-        self.soltada_en = -1
+        self._olvidar_notas()
         self.relojes = deque(maxlen=48)
         self.pads = None
         self.aplicar_config(config)
@@ -77,6 +74,7 @@ class Motor:
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
         self.canal_disparo = int(entrada.get("canal_disparo", 4)) - 1
+        self.nota_maxima = int(entrada.get("nota_maxima", 4))
         self.secuencias = secuencias
         self.pads = pads
         self.seguir_pads = bool(musica.get("seguir_pads", False))
@@ -96,11 +94,19 @@ class Motor:
             "acorde": self.pads.descripcion() if self.pads and self.pads.activo else None,
         }
 
+    def _olvidar_notas(self):
+        self.sostenidas = []
+        self.vistas = {}  # nota -> tick de su último note_on
+        self.raiz = None
+        self.raiz_pendiente = None
+        self.soltada_en = -1
+
     # --- Eventos que llegan de la Circuit ---
 
     def start(self):
         log.info("Start")
         self.apagar_todo()
+        self._olvidar_notas()  # la Circuit vuelve a mandar sus notas desde el primer paso
         for s in self.secuencias:
             s.reiniciar()
         self.corriendo = True
@@ -114,6 +120,7 @@ class Motor:
         log.info("Stop")
         self.corriendo = False
         self.apagar_todo()
+        self._olvidar_notas()  # al parar, la Circuit no siempre manda el note_off
 
     def reloj(self):
         self.relojes.append(time.monotonic())
@@ -131,6 +138,7 @@ class Motor:
         if nota in self.sostenidas:
             self.sostenidas.remove(nota)
         self.sostenidas.append(nota)
+        self.vistas[nota] = self.tick
         self.raiz_pendiente = nota
         log.info("Nota disparadora %s", nombre_midi(nota))
         # La nota de la Circuit suele llegar justo después del pulso del paso.
@@ -145,8 +153,12 @@ class Motor:
     def nota_off(self, canal, nota):
         if canal != self.canal_disparo:
             return
+        self._soltar(nota)
+
+    def _soltar(self, nota):
         if nota in self.sostenidas:
             self.sostenidas.remove(nota)
+        self.vistas.pop(nota, None)
         self.raiz_pendiente = self.sostenidas[-1] if self.sostenidas else None
         if self.raiz_pendiente is None:
             self.soltada_en = self.tick
@@ -158,6 +170,15 @@ class Motor:
             compas = paso // PASOS_POR_COMPAS
             for s in self.secuencias:
                 s.evolucionar(compas)
+        if self.nota_maxima > 0:
+            # Vigilancia: la Circuit repite sus notas en cada vuelta del patrón.
+            # Una nota que no se repite en tantos compases perdió su note_off.
+            limite = self.nota_maxima * PASOS_POR_COMPAS * TICKS_POR_PASO
+            for nota in list(self.sostenidas):
+                if self.tick - self.vistas.get(nota, self.tick) > limite:
+                    log.info("Nota %s sin repetirse: la doy por soltada", nombre_midi(nota))
+                    self._soltar(nota)
+                    self.soltada_en = self.tick - TICKS_POR_PASO  # sin paso de gracia
         if self.raiz_pendiente is None:
             # Un paso de gracia: al pasar de una nota a otra en la Circuit
             # puede haber un instante sin nota, y eso no debe cortar el patrón.
