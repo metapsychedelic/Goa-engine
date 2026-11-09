@@ -19,7 +19,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 
 class PuertosFalsos:
     def __init__(self, salidas):
-        self.disponibles = ["Circuit Tracks:Circuit Tracks MIDI 1 20:0", "FM-1:FM-1 MIDI 1 24:0", "Midi Through:Midi Through Port-0 14:0"]
+        self.disponibles = ["Circuit Tracks:Circuit Tracks MIDI 1 20:0", "FM-1:FM-1 MIDI 1 24:0", "CH345:CH345 MIDI 1 28:0", "Midi Through:Midi Through Port-0 14:0"]
         self.cambiar_salidas(salidas)
 
     def cambiar_salidas(self, salidas):
