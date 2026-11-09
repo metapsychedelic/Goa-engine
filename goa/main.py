@@ -130,8 +130,9 @@ def main():
         with candado:
             t = msg.type
             thru = ctx.config["thru"]
-            if thru["activo"] and t != "sysex":
-                # Pasa todo lo de la Circuit (reloj, notas, CC) a la cadena MIDI.
+            if thru["activo"] and t != "sysex" and getattr(msg, "channel", None) != motor.canal_disparo:
+                # Pasa todo lo de la Circuit (reloj, notas, CC) a la cadena MIDI,
+                # menos el canal de la nota larga: esa nota es solo para la Pi.
                 puertos.reenviar(thru["salida"], msg)
             if t == "clock":
                 motor.reloj()

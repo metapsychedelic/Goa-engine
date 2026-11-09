@@ -82,6 +82,15 @@ corre `hostname -I` en la Pi y abre `http://LA-IP:8080`.
 También puedes editar a mano `~/.config/goa/config.toml` y correr `goa-restart`;
 las opciones están explicadas en `config.ejemplo.toml`.
 
+## Pads y drones
+
+Sección **Pads y drones** de la app: progresiones lentas de estilo Goa y
+psytrance (i–♭II frigio, épica, andaluza, drone modal...), con voces que se
+mueven lo mínimo entre acordes, drone opcional en la raíz, variación y rasgueo.
+Con "Las secuencias siguen al acorde" (en Música), las secuencias Goa cambian
+de nota base junto con los pads. Pads en la MicroFreak (canal 3, hasta 4 voces)
+y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la vez.
+
 ## Si algo falla
 
 - `goa-log` muestra lo que está haciendo el motor.

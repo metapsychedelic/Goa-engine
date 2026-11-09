@@ -25,6 +25,25 @@ tonica = "F"              # C, D, E, F, G, A, B (también Fa, Sol, Sib, F#...)
 escala = "frigio"         # frigio, menor_armonica, frigio_dominante, menor, hungara_menor
 cambio_de_nota = "paso"   # "paso": cambia al siguiente paso · "compas": espera al siguiente compás
 adaptacion = "escala"     # "escala": se ajusta a la tonalidad · "transponer": mueve el patrón igual
+seguir_pads = false       # true: las secuencias toman como base la raíz del acorde de los pads
+
+[pads]
+activo = false
+salida = "CH345"          # parte del nombre del puerto
+canal = 3                 # 3 = MicroFreak (4 voces) · 4 = FM-1
+base = "nota"             # "nota": la progresión parte de la nota larga · "tonica": de la tónica
+progresion = "i_bII"      # i_bII, i_bVI_bVII, i_v, drone_modal, i_iv_bII_i, andaluza
+acorde = "menor_add9"     # quintas, sus2, menor_add9, triada, cluster
+cambia_cada = 16          # compases por acorde
+voces = 4                 # 2 a 6 (la MicroFreak toca hasta 4)
+octava = 0
+apertura = "abierta"      # cerrada, abierta, amplia
+variacion = 0.15          # probabilidad de cambiar un acorde por uno emparentado
+ataque = "ligado"         # ligado: mantiene las notas en común · reatacar: vuelve a tocar todo
+drone = false             # nota grave sostenida en la raíz
+rasgueo = 1               # pulsos entre la entrada de cada voz (0 = juntas)
+velocidad = 80
+seed = "P-1C88"
 
 [[secuencia]]
 nombre = "A"

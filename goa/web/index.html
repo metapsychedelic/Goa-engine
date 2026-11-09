@@ -58,6 +58,7 @@ details.card>summary::-webkit-details-marker{display:none}
       <div><span class="mut">Nota</span><b id="raiz">–</b><span class="mut">disparadora</span></div>
       <div><span class="mut">Compás</span><b id="compas">–</b><span class="mut" id="ver">&nbsp;</span></div>
     </div>
+    <div class="mut" id="acorde"></div>
     <div class="mut" id="puertos"></div>
   </section>
 
@@ -75,7 +76,11 @@ details.card>summary::-webkit-details-marker{display:none}
       <div class="seg" style="grid-template-columns:1fr 1fr" id="adaptacion"></div></div>
     <label class="campo">Canal de disparo (pista de la nota larga en la Circuit)
       <input type="number" min="1" max="16" data-k="entrada.canal_disparo" id="canal_disparo"></label>
+    <label class="fila" style="min-height:44px"><span>Las secuencias siguen al acorde<br><span class="mut">La nota base sale del acorde de los pads</span></span>
+      <input type="checkbox" id="seguir_pads"></label>
   </section>
+
+  <section class="card" id="pads"></section>
 
   <section class="card">
     <h2>Conexión MIDI</h2>
@@ -94,7 +99,9 @@ details.card>summary::-webkit-details-marker{display:none}
 <div class="guardado" id="aviso" role="status" aria-live="polite"></div>
 
 <script>
-const TONICAS = [["C","Do"],["C#","Do#"],["D","Re"],["D#","Re#"],["E","Mi"],["F","Fa"],["F#","Fa#"],["G","Sol"],["G#","Sol#"],["A","La"],["A#","La#"],["B","Si"]];
+const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# · Re#"],["E","E · Mi"],["F","F · Fa"],["F#","F# · Fa#"],["G","G · Sol"],["G#","G# · Sol#"],["A","A · La"],["A#","A# · La#"],["B","B · Si"]];
+const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"]];
+const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"]];
 const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"]];
 const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido"]];
 const POSICIONES = [["onbeat","On beat"],["offbeat","Offbeat"],["todos","Todos"],["desplazado","Desplazado"]];
@@ -213,12 +220,17 @@ function render() {
     for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === valor}));
     s.onchange = () => { alCambiar(s.value); guardar(); };
   };
-  sel("tonica", TONICAS, cfg.musica.tonica.toUpperCase(), (v) => cfg.musica.tonica = v);
+  const ES = {DO: "C", RE: "D", MI: "E", FA: "F", SOL: "G", LA: "A", SI: "B"};
+  let ton = cfg.musica.tonica.toUpperCase().replace(/^(DO|RE|MI|FA|SOL|LA|SI)/, (m) => ES[m]);
+  sel("tonica", TONICAS, ton, (v) => cfg.musica.tonica = v);
   sel("escala", ESCALAS, cfg.musica.escala, (v) => cfg.musica.escala = v);
   $("cambio").replaceWith(Object.assign(segmentado([["paso","Siguiente paso"],["compas","Siguiente compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2), {id: "cambio"}));
   $("adaptacion").replaceWith(Object.assign(segmentado([["escala","Ajustar a la escala"],["transponer","Transponer igual"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2), {id: "adaptacion"}));
   const cd = $("canal_disparo"); cd.value = cfg.entrada.canal_disparo;
   cd.onchange = () => { cfg.entrada.canal_disparo = Math.max(1, Math.min(16, parseInt(cd.value) || 4)); cd.value = cfg.entrada.canal_disparo; guardar(); };
+  const sp = $("seguir_pads"); sp.checked = cfg.musica.seguir_pads;
+  sp.onchange = () => { cfg.musica.seguir_pads = sp.checked; guardar(); };
+  renderPads();
   const ep = $("entrada_puerto"); ep.value = cfg.entrada.puerto;
   ep.onchange = () => { cfg.entrada.puerto = ep.value.trim() || cfg.entrada.puerto; ep.value = cfg.entrada.puerto; guardar(); };
   const ta = $("thru_activo"); ta.checked = cfg.thru.activo;
@@ -228,6 +240,47 @@ function render() {
   const cont = $("secuencias"); cont.innerHTML = "";
   cfg.secuencia.forEach((s, i) => cont.append(tarjeta(s, i)));
   $("agregar").disabled = cfg.secuencia.length >= 8;
+}
+
+function renderPads() {
+  const p = cfg.pads, cont = $("pads");
+  cont.innerHTML = "";
+  const estado = el("span", {className: "pill", "data-salida": p.salida});
+  const activo = el("input", {type: "checkbox", checked: p.activo, onchange: () => { p.activo = activo.checked; guardar(); }});
+  const select = (opciones, k) => {
+    const s = el("select", {onchange: () => { p[k] = s.value; guardar(); }});
+    for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === p[k]}));
+    return s;
+  };
+  const numero = (k, etiqueta, min, max) => {
+    const inp = el("input", {type: "number", min, max, value: p[k],
+      onchange: () => { p[k] = Math.max(min, Math.min(max, parseInt(inp.value) || p[k])); inp.value = p[k]; guardar(); }});
+    return el("label", {className: "campo"}, [etiqueta, inp]);
+  };
+  const destino = el("input", {type: "text", value: p.salida,
+    onchange: () => { p.salida = destino.value.trim() || p.salida; destino.value = p.salida; estado.dataset.salida = p.salida; guardar(); }});
+  destino.setAttribute("list", "salidas");
+  const seed = el("input", {type: "text", value: p.seed, "aria-label": "Seed de los pads",
+    onchange: () => { p.seed = seed.value.trim() || p.seed; seed.value = p.seed; guardar(); }});
+  const drone = el("input", {type: "checkbox", checked: p.drone, onchange: () => { p.drone = drone.checked; guardar(); }});
+  cont.append(
+    el("div", {className: "fila"}, [el("h2", {textContent: "Pads y drones"}), estado]),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activos"}), activo]),
+    el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Destino (puerto)", destino]), numero("canal", "Canal MIDI", 1, 16)]),
+    el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
+    el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
+    campo("Cambia cada (compases)", segmentado([["4","4"],["8","8"],["16","16"],["32","32"]], String(p.cambia_cada), (v) => { p.cambia_cada = parseInt(v); guardar(); }, 4)),
+    campo("Qué mueve la progresión", segmentado([["nota","La nota larga"],["tonica","La tónica"]], p.base, (v) => { p.base = v; guardar(); }, 2)),
+    campo("Apertura de voces", segmentado([["cerrada","Cerrada"],["abierta","Abierta"],["amplia","Amplia"]], p.apertura, (v) => { p.apertura = v; guardar(); }, 3)),
+    campo("Entre acordes", segmentado([["ligado","Ligado"],["reatacar","Reatacar"]], p.ataque, (v) => { p.ataque = v; guardar(); }, 2)),
+    el("div", {className: "dos"}, [numero("voces", "Voces (MicroFreak: 4)", 2, 6), numero("octava", "Octava", -2, 2)]),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Drone en la raíz", el("br"), el("span", {className: "mut", textContent: "Una nota grave sostenida bajo los acordes"})]), drone]),
+    deslizador(p, "variacion", "Variación de la progresión", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
+    deslizador(p, "rasgueo", "Rasgueo (entrada escalonada)", 0, 6, 1, (v) => v === 0 ? "juntas" : v === 1 ? "1 pulso" : v + " pulsos"),
+    numero("velocidad", "Velocidad", 1, 127),
+    campo("Seed", el("div", {className: "seed"}, [seed,
+      el("button", {type: "button", textContent: "Otra", onclick: () => { p.seed = seedNueva(); seed.value = p.seed; guardar(); }})])),
+  );
 }
 
 async function estado() {
@@ -241,6 +294,7 @@ async function estado() {
     $("raiz").textContent = d.raiz || "–";
     $("compas").textContent = d.compas || "–";
     $("ver").textContent = "v" + d.version;
+    $("acorde").textContent = d.acorde ? "Pads: " + d.acorde : "";
     const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
     $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";
     document.querySelectorAll("[data-salida]").forEach((e) => {

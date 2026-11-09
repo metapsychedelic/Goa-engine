@@ -40,17 +40,19 @@ def main():
     M = mido.Message
     cb(M("start"))
     cb(M("note_on", channel=0, note=60, velocity=100))   # nota de la Circuit para la MicroFreak
-    cb(M("note_on", channel=3, note=41, velocity=100))   # nota larga, canal 4
+    cb(M("note_on", channel=1, note=41, velocity=100))   # nota larga, canal 2
     for _ in range(16 * 6):
         cb(M("clock"))
     cb(M("note_off", channel=0, note=60, velocity=0))
 
-    reenviados = [m for m in mido.ENVIADOS if m.type in ("start", "clock") or getattr(m, "channel", None) in (0, 3)]
-    goa = [m for m in mido.ENVIADOS if m.type == "note_on" and m.channel == 1]
+    reenviados = [m for m in mido.ENVIADOS if m.type in ("start", "clock") or getattr(m, "channel", None) == 0]
+    disparo = [m for m in mido.ENVIADOS if getattr(m, "channel", None) == 1]
+    goa = [m for m in mido.ENVIADOS if m.type == "note_on" and m.channel == 3]
     relojes = sum(1 for m in mido.ENVIADOS if m.type == "clock")
     print(f"reenviados de la Circuit: {len(reenviados)} (relojes {relojes} de 96)")
-    print(f"notas Goa en canal 2: {len(goa)} · primeras: {[m.note for m in goa[:6]]}")
-    ok = relojes == 96 and any(m.type == "start" for m in mido.ENVIADOS) and len(goa) > 0
+    print(f"notas Goa en canal 4: {len(goa)} · primeras: {[m.note for m in goa[:6]]}")
+    print(f"mensajes del canal de disparo reenviados: {len(disparo)} (debe ser 0)")
+    ok = relojes == 96 and any(m.type == "start" for m in mido.ENVIADOS) and len(goa) > 0 and not disparo
     print("OK" if ok else "ERROR")
 
 

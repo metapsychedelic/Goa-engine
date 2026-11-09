@@ -5,7 +5,7 @@ import os
 import tempfile
 import tomllib
 
-from . import generador
+from . import generador, pads
 from .escalas import ESCALAS, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -26,6 +26,25 @@ ESQUEMA_SECCIONES = {
         "escala": (str, "frigio", None, tuple(ESCALAS)),
         "cambio_de_nota": (str, "paso", None, ("paso", "compas")),
         "adaptacion": (str, "escala", None, ("escala", "transponer")),
+        "seguir_pads": (bool, False, None, None),
+    },
+    "pads": {
+        "activo": (bool, False, None, None),
+        "salida": (str, "CH345", None, None),
+        "canal": (int, 3, 1, 16),
+        "base": (str, "nota", None, pads.BASES),
+        "progresion": (str, "i_bII", None, tuple(pads.PROGRESIONES)),
+        "acorde": (str, "menor_add9", None, tuple(pads.ACORDES)),
+        "cambia_cada": (int, 16, 1, 64),
+        "voces": (int, 4, 2, 6),
+        "octava": (int, 0, -2, 2),
+        "apertura": (str, "abierta", None, pads.APERTURAS),
+        "variacion": (float, 0.15, 0.0, 1.0),
+        "ataque": (str, "ligado", None, pads.ATAQUES),
+        "drone": (bool, False, None, None),
+        "rasgueo": (int, 1, 0, 6),
+        "velocidad": (int, 80, 1, 127),
+        "seed": (str, "P-1C88", None, None),
     },
 }
 
@@ -103,6 +122,8 @@ def salidas(cfg):
     claves = [s["salida"] for s in cfg["secuencia"]]
     if cfg["thru"]["activo"]:
         claves.append(cfg["thru"]["salida"])
+    if cfg["pads"]["activo"]:
+        claves.append(cfg["pads"]["salida"])
     return claves
 
 

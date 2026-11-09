@@ -11,6 +11,7 @@ from collections import deque
 
 from . import generador
 from .escalas import Tonalidad, nombre_midi
+from .pads import Pads, _cerca
 
 TICKS_POR_PASO = 6  # 24 pulsos por negra -> 6 por semicorchea
 PASOS_POR_COMPAS = 16
@@ -61,6 +62,7 @@ class Motor:
         self.raiz_pendiente = None
         self.soltada_en = -1
         self.relojes = deque(maxlen=48)
+        self.pads = None
         self.aplicar_config(config)
 
     def aplicar_config(self, config):
@@ -69,12 +71,15 @@ class Motor:
         entrada = config.get("entrada", {})
         tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
+        pads = Pads(config.get("pads", {}), tonalidad)
         self.apagar_todo()
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
         self.canal_disparo = int(entrada.get("canal_disparo", 4)) - 1
         self.secuencias = secuencias
+        self.pads = pads
+        self.seguir_pads = bool(musica.get("seguir_pads", False))
 
     def estado(self):
         bpm = None
@@ -88,6 +93,7 @@ class Motor:
             "bpm": bpm if self.corriendo else None,
             "raiz": nombre_midi(self.raiz) if self.raiz is not None else None,
             "compas": paso // PASOS_POR_COMPAS + 1 if self.corriendo else None,
+            "acorde": self.pads.descripcion() if self.pads and self.pads.activo else None,
         }
 
     # --- Eventos que llegan de la Circuit ---
@@ -115,6 +121,7 @@ class Motor:
             return
         self.tick += 1
         self._apagar_vencidas()
+        self.pads.tick(self.tick, self.enviar)
         if self.tick % TICKS_POR_PASO == 0:
             self._paso(self.tick // TICKS_POR_PASO)
 
@@ -132,6 +139,7 @@ class Motor:
             paso = self.tick // TICKS_POR_PASO
             if self.cambio == "paso" or paso % PASOS_POR_COMPAS == 0:
                 self.raiz = nota
+                self.pads.actualizar(paso, self.raiz, self.tick, self.enviar)
                 self._tocar_paso(paso)
 
     def nota_off(self, canal, nota):
@@ -157,18 +165,23 @@ class Motor:
                 self.raiz = None
         elif self.cambio == "paso" or paso % PASOS_POR_COMPAS == 0 or self.raiz is None:
             self.raiz = self.raiz_pendiente
+        self.pads.actualizar(paso, self.raiz, self.tick, self.enviar)
         self._tocar_paso(paso)
 
     def _tocar_paso(self, paso):
         if self.raiz is None:
             return
+        raiz = self.raiz
+        if self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
+            # Las secuencias toman como base la raíz del acorde que suena, cerca de la nota larga.
+            raiz = _cerca(self.pads.raiz_acorde % 12, self.raiz)
         for s in self.secuencias:
             if not s.activa or not generador.pasa_posicion(s.posicion, paso):
                 continue
             p = s.patron[paso % s.largo]
             if not p["suena"]:
                 continue
-            nota = self.tonalidad.nota(self.raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * s.octava
+            nota = self.tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * s.octava
             nota = max(0, min(127, nota))
             if nota in s.sonando:
                 self.enviar(s.salida, "note_off", s.canal, nota, 0)
@@ -188,3 +201,5 @@ class Motor:
             for nota in list(s.sonando):
                 self.enviar(s.salida, "note_off", s.canal, nota, 0)
             s.sonando.clear()
+        if self.pads is not None:
+            self.pads.apagar(self.enviar)
