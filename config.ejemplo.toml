@@ -49,59 +49,40 @@ seed = "P-1C88"
 disparo = 1               # canal de su nota larga (pista Synth 1): mutearla apaga solo los pads
 
 [dialogo]
-# Llamada y respuesta: dos voces que conversan dejando espacio.
+# Llamada y respuesta euclidiana: dos voces que reparten sus golpes parejo en el compás.
 activo = false
-modo = "motor"            # "motor": llama el motor · "en_vivo": llamas tú tocando en el canal de escucha
+modo = "motor"            # "motor": llama el motor · "en_vivo": llamas tú y responde el compás siguiente en tus huecos
+forma = "entrelazado"     # entrelazado: la respuesta toca en los huecos de la llamada · turnos: alternan por compases
+rejilla = "corcheas"      # corcheas: siempre con el bombo · semicorcheas: más rápido y sincopado
+espacio = 1               # lugares de la rejilla que la respuesta espera después de cada nota de la llamada (0 a 3)
+compases_turno = 2        # en turnos: compases de cada voz
 disparo = 0               # canal de su nota larga (modo motor); 0 = el general
 escucha = 4               # en vivo: canal donde tocas tu llamada
-compases_llamada = 2      # en vivo: largo máximo de tu llamada
-compases_respuesta = 2
-pausa = 2                 # tiempos entre llamada y respuesta (en vivo: silencio que espera antes de responder)
-descanso = 2              # compases de silencio después de la respuesta (modo motor)
-transformacion = "variacion"  # variacion, espejo, eco, nueva
-evolucion = 0.3           # cuánto cambia la frase en cada vuelta (0 = se repite igual)
-seguir_pads = true        # si los pads suenan: su escala, sus acordes, y las notas largas caen en el acorde
-parecido = 0.3            # variación: 1 = calca ritmo y dirección de la llamada · bajo 0.5 = su propia figura, contesta al revés
+seguir_pads = true        # si los pads suenan: su escala y la raíz de cada acorde
+evolucion = 0.5           # mutación: probabilidad de cambiar una nota o girar el patrón
+mutar_cada = 4            # compases
 seed = "CR-0001"
 
-# Carácter de cada voz. La respuesta puede ir al mismo sinte que la llamada.
+# Cada voz: cuántos golpes reparte y su color. La respuesta puede ir al mismo sinte.
 [llamada]
 salida = "FM-1"
 canal = 4
-escala = "general"        # general (la de [musica]) o frigio, menor_armonica, frigio_dominante, menor, hungara_menor
-relacion = "unisono"      # unisono, tercera, cuarta, quinta, sexta, octava
-octava = 0
-ambito = 5                # grados de escala que recorre la frase (2 a 12)
-contorno = "arco"         # libre, sube, baja, arco, valle
-ritmo = "mixto"           # semicorcheas, corcheas, mixto, largas
-densidad = 0.5
-final = "tension"         # suspendido (quinta o cuarta: abierto), tension (♭2/♭7: pregunta), reposo (raíz), libre
-gate = 0.7
-velocidad = 96
+golpes = 3                # de 8 (corcheas) o de 16 (semicorcheas); la llamada siempre cae en el uno
+octava = 1
+oscuridad = 0.7           # 0 = luminoso (raíz, ♭3, 5, ♭7) · 0.7 = oscuro (♭2, ♭6) · 1 = ultra (medio tono contra la raíz)
+gate = 0.5                # largo de las notas; nunca pisa a la siguiente
+velocidad = 100
 vel_random = 0.15
-saltos = 0.1
-movimiento = "abierto"    # conjunto (grados vecinos), abierto (cuartas, quintas, octavas), arpegio (acorde menor con séptima)
-oscuridad = 0.7           # 0 = luminoso · 1 = ultra oscuro. ♭2 y ♭6: sobre 50 % los atrae; desde 85 % motivos de medio tono. Tritono casi nunca
-forma = "motivo"          # motivo: figura corta (densidad baja = 3 notas, media = 3 cortas y una larga, alta = arpegio) · frase
 
 [respuesta]
 salida = "MicroFreak"
 canal = 3
-escala = "general"
-relacion = "unisono"
-octava = 0
-ambito = 5
-contorno = "baja"
-ritmo = "corcheas"
-densidad = 0.3            # motivo: 3 notas (contrasta con las 3 cortas y una larga de la llamada)
-final = "reposo"
-gate = 0.7
-velocidad = 96
-vel_random = 0.15
-saltos = 0.1
-movimiento = "arpegio"
+golpes = 2
+octava = 1
 oscuridad = 0.7
-forma = "motivo"
+gate = 0.6
+velocidad = 92
+vel_random = 0.15
 
 [[secuencia]]
 nombre = "A"

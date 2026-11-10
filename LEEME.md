@@ -111,48 +111,29 @@ Cada módulo (Proyecto, Disparador, Música, Pads, Llamada y respuesta, Conexió
 y cada secuencia) se abre y cierra tocando su título; la app recuerda cómo los
 dejaste. El interruptor del título prende o apaga el módulo sin abrirlo.
 Arriba quedan los controles para tocar en vivo; lo demás está en "Más ajustes".
+Para encontrar una buena secuencia, prueba variantes con **Otra**; si saltaste
+una que sonaba bien, **Anterior** vuelve a ella (recuerda las últimas 20).
 
 ## Llamada y respuesta
 
-- **Sigue a los pads** (por defecto): si los pads suenan, el diálogo usa su
-  escala, se mueve con cada acorde de la progresión y las notas que pesan (la
-  primera, la última y las largas) caen en notas del acorde que suena.
+Dos voces que conversan con **ritmos euclidianos**: cada una reparte sus golpes
+de la forma más pareja posible en el compás. Todo cae en la rejilla y la
+llamada siempre tiene un golpe en el uno, así nada se arrastra contra el bombo.
 
-Dos voces que conversan dejando espacio, sin repetir frases.
-
-- **Quién llama:** *el motor* (con su nota larga, como las secuencias) o
-  *yo, en vivo*: tocas tu frase en el canal de escucha y, cuando dejas de
-  tocar, el motor espera el silencio que elijas y responde en el próximo tiempo.
-- **Quién responde:** cualquier destino y canal. El botón "Responder en el
-  mismo sinte" manda la respuesta al sinte que llamó (o al canal donde tocas).
-- **Cada voz tiene su carácter:** escala propia (o la de Música), relación con
-  la nota larga (unísono a octava), octava, ámbito, contorno (sube, baja, arco,
-  valle, libre), ritmo, densidad, gate, saltos, matices y cómo **termina**:
-  suspendida (quinta o cuarta: abierta), en tensión (♭2, ♭7: pregunta) o en
-  reposo (la raíz: resuelve).
-- **Movimiento:** conjunto (grados vecinos), abierto (cuartas, quintas y
-  octavas: espacial, galáctico) o arpegio (acorde menor con séptima: misterioso).
-- **Forma:** *motivo* (por defecto), una figura corta que elige la densidad:
-  baja = 3 notas cortas, media = 3 cortas y una larga, alta = pequeño arpegio;
-  el resto del turno queda en silencio. O *frase*, una línea más elaborada.
-- **Luminoso ↔ Oscuro:** uno general para ambas voces y uno por voz. El ♭2 y
-  el ♭6 son el color oscuro del frigio: hacia luminoso se filtran; sobre 50 %
-  se atraen como vecinos de la raíz y la quinta (el giro F‑G♭‑F); desde 85 %
-  (ultra oscuro) los motivos se vuelven de medio tono y la tensión queda
-  colgada en el ♭2. El tritono casi nunca: es lo que suena terrorífico.
-- **Parecido con la llamada** (en variación): alto calca ritmo y dirección;
-  bajo 50 % la respuesta usa su propia figura y contesta al revés.
-- Las frases se arman con células rítmicas de un tiempo en un motivo de un
-  compás que se repite con cambios: amarradas al bombo, sin volverse loop.
-- **Cómo responde:** *variación* (mismo ritmo y dirección, otras notas),
-  *espejo* (la frase invertida), *eco* (tu frase con el carácter de la
-  respuesta) o *nueva* (una frase propia).
-- **Espacio y tiempo:** compases de cada voz, pausa entre ambas y descanso
-  después. **Mutación** cambia un poco la frase en cada vuelta; en 0 se repite igual.
-
-Para tocar la llamada en vivo, tus notas tienen que llegar a la Pi: por ejemplo
-tocando en vivo una pista de la Circuit (Note Tx activo). En modo dongle esas
-notas se reenvían a la cadena, así que escuchas tu llamada y el motor responde.
+- **Quién llama:** *el motor* (con su nota larga) o *yo, en vivo*: el motor
+  escucha dónde tocas en cada compás y en el siguiente responde en tus huecos.
+- **Cómo conversan:** *entrelazado* (la respuesta toca solo en los huecos de la
+  llamada, en el mismo compás) o *por turnos* (alternan por compases).
+- **Rejilla:** corcheas (siempre con el bombo) o semicorcheas (más sincopado).
+- **Golpes** de cada voz y **Espacio:** cuántos lugares espera la respuesta
+  después de cada nota de la llamada. Si no caben todos sus golpes, la app
+  muestra cuántos caben.
+- **Luminoso ↔ Oscuro:** elige las notas. Luminoso: raíz, ♭3, quinta, ♭7.
+  Oscuro: con ♭2 y ♭6. Ultra oscuro: medio tono contra la raíz.
+- **Variante y mutación:** cada cierto número de compases cambia una nota o
+  gira el patrón (la llamada sigue cayendo en el uno).
+- **Sigue a los pads** (por defecto): usa su escala y la raíz de cada acorde.
+- Ninguna nota pisa a la siguiente, aunque las dos voces vayan al mismo sinte.
 
 ## Si algo falla
 

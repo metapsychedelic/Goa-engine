@@ -52,45 +52,35 @@ ESQUEMA_SECCIONES = {
     "dialogo": {
         "activo": (bool, False, None, None),
         "modo": (str, "motor", None, dialogo.MODOS),
+        "forma": (str, "entrelazado", None, dialogo.FORMAS),
+        "rejilla": (str, "corcheas", None, tuple(dialogo.REJILLAS)),
+        "espacio": (int, 1, 0, 3),
+        "compases_turno": (int, 2, 1, 8),
         "disparo": (int, 0, 0, 16),
         "escucha": (int, 4, 1, 16),
-        "compases_llamada": (int, 2, 1, 8),
-        "compases_respuesta": (int, 2, 1, 8),
-        "pausa": (int, 2, 0, 16),
-        "descanso": (int, 2, 0, 16),
-        "transformacion": (str, "variacion", None, dialogo.TRANSFORMACIONES),
-        "evolucion": (float, 0.3, 0.0, 1.0),
-        "parecido": (float, 0.3, 0.0, 1.0),
         "seguir_pads": (bool, True, None, None),
+        "evolucion": (float, 0.5, 0.0, 1.0),
+        "mutar_cada": (int, 4, 1, 16),
         "seed": (str, "CR-0001", None, None),
     },
 }
 
 
-def _esquema_voz(salida, canal, contorno, ritmo, densidad, final, octava, movimiento):
+def _esquema_voz(salida, canal, golpes, gate, velocidad):
     return {
         "salida": (str, salida, None, None),
         "canal": (int, canal, 1, 16),
-        "escala": (str, "general", None, ("general",) + tuple(ESCALAS)),
-        "relacion": (str, "unisono", None, tuple(dialogo.RELACIONES)),
-        "octava": (int, octava, -3, 3),
-        "ambito": (int, 5, 2, 12),
-        "contorno": (str, contorno, None, dialogo.CONTORNOS),
-        "ritmo": (str, ritmo, None, dialogo.RITMOS),
-        "densidad": (float, densidad, 0.0, 1.0),
-        "final": (str, final, None, dialogo.FINALES),
-        "gate": (float, 0.7, 0.05, 1.0),
-        "velocidad": (int, 96, 1, 127),
-        "vel_random": (float, 0.15, 0.0, 1.0),
-        "saltos": (float, 0.1, 0.0, 1.0),
-        "movimiento": (str, movimiento, None, dialogo.MOVIMIENTOS),
+        "golpes": (int, golpes, 1, 16),
+        "octava": (int, 1, -3, 3),
         "oscuridad": (float, 0.7, 0.0, 1.0),
-        "forma": (str, "motivo", None, dialogo.FORMAS),
+        "gate": (float, gate, 0.05, 1.0),
+        "velocidad": (int, velocidad, 1, 127),
+        "vel_random": (float, 0.15, 0.0, 1.0),
     }
 
 
-ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, "arco", "mixto", 0.5, "tension", 0, "abierto")
-ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, "baja", "corcheas", 0.3, "reposo", 0, "arpegio")
+ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, 3, 0.5, 100)
+ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, 2, 0.6, 92)
 
 # Un clip de diálogo guarda la conversación completa, con quién llama y los destinos,
 # para que al lanzarlo entre tal como se armó. Las voces van con prefijo para que

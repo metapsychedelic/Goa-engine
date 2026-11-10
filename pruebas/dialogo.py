@@ -1,35 +1,33 @@
-"""Prueba la llamada y respuesta sin hardware.
+"""Prueba la llamada y respuesta euclidiana sin hardware.
 
   python3 -m pruebas.dialogo            desde la carpeta goa-engine
 
 Muestra la conversación en una grilla por compás (L = llamada, R = respuesta)
-y revisa que no queden notas colgadas, que la misma seed suene igual,
-que con el mismo sinte las voces no se pisen y que el modo en vivo responda.
+y revisa que todo caiga en la rejilla, que la llamada siempre tenga el uno,
+que la respuesta respete el espacio, que nada se pise y que siga a los pads.
 """
 
-import itertools
 import tomllib
 from pathlib import Path
 
-from goa import dialogo
 from goa.config import a_toml, clip_de_dialogo, normalizar, secciones_de_clip
-from goa.escalas import nombre_midi
+from goa.escalas import Tonalidad
 from goa.motor import Motor
 
 RAIZ = Path(__file__).resolve().parent.parent
 
 
-def base(**dialogo_extra):
+def base(**extra):
     with open(RAIZ / "config.ejemplo.toml", "rb") as f:
         cfg = normalizar(tomllib.load(f))
     for s in cfg["secuencia"]:
         s["activa"] = False
-    cfg["dialogo"].update(activo=True, disparo=2, **dialogo_extra)
+    cfg["dialogo"].update(activo=True, disparo=2, **extra)
     return cfg
 
 
-def correr(cfg, compases=12, vivo=None):
-    """vivo: lista de (paso, nota, pasos de duración) que tocas en el canal de escucha."""
+def correr(cfg, compases=16, vivo=None):
+    """vivo: (paso, nota) que tocas en el canal de escucha (cada nota dura 1 paso)."""
     salida = []
     motor = Motor(cfg, lambda sal, tipo, canal, nota, vel: salida.append((motor.tick, sal, tipo, canal, nota, vel)))
     motor.start()
@@ -39,32 +37,29 @@ def correr(cfg, compases=12, vivo=None):
         paso, resto = divmod(tick, 6)
         if resto == 1:
             if paso % 16 == 0:
-                motor.nota_on(1, 41)  # nota larga F2 en el canal 2; la Circuit la repite cada vuelta
-            for p, nota, dur in vivo or []:
+                motor.nota_on(1, 41)  # nota larga F2; la Circuit la repite cada vuelta
+            for p, nota in vivo or []:
                 if p == paso:
                     motor.nota_on(motor.dialogo.escucha, nota, 100)
-                    apagar[paso + dur] = apagar.get(paso + dur, []) + [nota]
+                    apagar[paso + 1] = apagar.get(paso + 1, []) + [nota]
             for nota in apagar.pop(paso, []):
                 motor.nota_off(motor.dialogo.escucha, nota)
     motor.stop()
-    return salida
+    return salida, motor
 
 
-def mostrar(salida, cfg, compases):
-    voces = {}
-    for clave, letra in (("llamada", "L"), ("respuesta", "R")):
-        voces[(cfg[clave]["salida"], cfg[clave]["canal"] - 1)] = voces.get((cfg[clave]["salida"], cfg[clave]["canal"] - 1), "") + letra
-    pasos = {}
+def voces(cfg):
+    return {(cfg["llamada"]["salida"], cfg["llamada"]["canal"] - 1): "L",
+            (cfg["respuesta"]["salida"], cfg["respuesta"]["canal"] - 1): "R"}
+
+
+def grilla(salida, cfg, compas):
+    v = voces(cfg)
+    fila = ["."] * 16
     for tick, sal, tipo, canal, nota, vel in salida:
-        if tipo == "note_on":
-            pasos[tick // 6] = nombre_midi(nota)
-    marca = {}
-    for tick, sal, tipo, canal, nota, vel in salida:
-        if tipo == "note_on":
-            marca[tick // 6] = voces.get((sal, canal), "?")
-    for compas in range(compases):
-        fila = [f"{marca[p]}{pasos[p]}" if p in pasos else "·" for p in range(compas * 16, compas * 16 + 16)]
-        print(f"  {compas + 1:>2}: " + " ".join(f"{x:>5}" for x in fila))
+        if tipo == "note_on" and compas * 16 <= tick // 6 < compas * 16 + 16:
+            fila[tick // 6 - compas * 16] = v.get((sal, canal), "?")
+    return "".join(fila)
 
 
 def colgadas(salida):
@@ -91,181 +86,111 @@ def ok(condicion, texto):
 if __name__ == "__main__":
     todo = True
     cfg = base()
-    salida = correr(cfg)
-    print("Modo motor · llamada en FM-1 (L), respuesta en MicroFreak (R)")
-    mostrar(salida, cfg, 12)
+    salida, motor = correr(cfg)
+    print("Entrelazado · corcheas · espacio 1 · llamada 3 golpes, respuesta 2")
+    for c in range(0, 9, 4):
+        print(f"  compás {c + 1:>2}: {grilla(salida, cfg, c)}")
+    ons = [(t, sal, canal) for t, sal, tipo, canal, _, _ in salida if tipo == "note_on"]
+    todo &= ok(all(t % 12 in (0, 1) for t, *_ in ons), "todas las notas caen en corcheas")
+    todo &= ok(all(grilla(salida, cfg, c)[0] == "L" for c in range(16)), "la llamada cae en el uno de cada compás")
+    todo &= ok(max_simultaneas(salida) == 1, "nunca suenan dos notas a la vez: no se pisan")
     todo &= ok(colgadas(salida) == 0, "sin notas colgadas")
-    todo &= ok(correr(cfg) == salida, "misma seed, misma conversación")
-    sinte = {(x[1], x[3]) for x in salida if x[2] == "note_on"}
-    todo &= ok(len(sinte) == 2, "suenan las dos voces en sus sintes")
+    todo &= ok(correr(cfg)[0] == salida, "misma variante, misma conversación")
+    todo &= ok({"L", "R"} <= set("".join(grilla(salida, cfg, c) for c in range(16))), "suenan las dos voces")
+
+    def respeta_espacio(cfg, salida):
+        for c in range(16):
+            g = grilla(salida, cfg, c)
+            lugares = g[::2]
+            for i, x in enumerate(lugares):
+                if x == "R":
+                    for d in range(1, cfg["dialogo"]["espacio"] + 1):
+                        if lugares[(i - d) % 8] == "L":
+                            return False
+        return True
+    for espacio in (0, 1, 2):
+        c2 = base(espacio=espacio)
+        if espacio == 2:
+            c2["llamada"]["golpes"] = 2
+        s2, _ = correr(c2)
+        todo &= ok(respeta_espacio(c2, s2), f"espacio {espacio}: la respuesta espera {espacio} corcheas después de la llamada"
+                                           f" ({grilla(s2, c2, 0)})")
 
     cfg = base(evolucion=0.0)
-    mismo = correr(cfg)
-    ons = [x for x in mismo if x[2] == "note_on"]
-    _, ciclo = Motor(cfg, lambda *a: None).dialogo._ciclo_pasos()
-    vuelta1 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if t < ciclo * 6]
-    vuelta2 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if ciclo * 6 <= t < 2 * ciclo * 6]
-    todo &= ok(vuelta1 == vuelta2, "evolución 0: la frase se repite igual")
-    cfg = base(evolucion=0.6)
-    ons = [x for x in correr(cfg) if x[2] == "note_on"]
-    vuelta1 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if t < ciclo * 6]
-    vuelta2 = [(t // 6 % ciclo, n) for t, _, _, _, n, _ in ons if ciclo * 6 <= t < 2 * ciclo * 6]
-    todo &= ok(vuelta1 != vuelta2, "evolución 60 %: la frase cambia en cada vuelta")
+    s0, _ = correr(cfg)
+    todo &= ok(len({grilla(s0, cfg, c) for c in range(16)}) == 1, "mutación 0: el patrón no cambia")
+    cfg = base(evolucion=1.0, mutar_cada=2)
+    s1, _ = correr(cfg)
+    notas = lambda s, c: [n for t, _, tipo, _, n, _ in s if tipo == "note_on" and t // 96 == c]
+    todo &= ok(len({tuple(notas(s1, c)) for c in range(16)}) > 1, "mutación 100 %: cambia cada 2 compases")
+    todo &= ok(all(grilla(s1, cfg, c)[0] == "L" for c in range(16)), "aun mutando, la llamada sigue cayendo en el uno")
 
-    cfg = base(pausa=0, descanso=0)
+    cfg = base(rejilla="semicorcheas")
+    cfg["llamada"]["golpes"] = 5
+    s3, _ = correr(cfg)
+    todo &= ok(max_simultaneas(s3) == 1 and colgadas(s3) == 0, f"semicorcheas: {grilla(s3, cfg, 0)}")
+
+    cfg = base(forma="turnos", compases_turno=2)
+    s4, _ = correr(cfg, compases=8)
+    turnos = [set(grilla(s4, cfg, c)) - {"."} for c in range(8)]
+    todo &= ok(turnos == [{"L"}, {"L"}, {"R"}, {"R"}] * 2, "por turnos: 2 compases la llamada, 2 la respuesta")
+
+    cfg = base()
     cfg["respuesta"].update(salida=cfg["llamada"]["salida"], canal=cfg["llamada"]["canal"])
     cfg["llamada"]["gate"] = cfg["respuesta"]["gate"] = 1.0
-    print("\nMismo sinte, sin pausa, gate 100 %")
-    salida = correr(cfg, compases=8)
-    mostrar(salida, cfg, 4)
-    todo &= ok(max_simultaneas(salida) == 1, "con el mismo sinte nunca suenan dos notas a la vez")
+    s5, _ = correr(cfg)
+    todo &= ok(max_simultaneas(s5) == 1, "mismo sinte y largo 100 %: un sinte mono nunca recibe dos notas juntas")
 
-    errores = 0
-    for (t, c, r, f), m in zip(itertools.product(dialogo.TRANSFORMACIONES, dialogo.CONTORNOS, dialogo.RITMOS,
-                                                 dialogo.FINALES), itertools.cycle(dialogo.MOVIMIENTOS)):
-        cfg = base(transformacion=t, compases_llamada=1, compases_respuesta=1)
-        cfg["llamada"].update(contorno=c, ritmo=r, final=f, escala="hungara_menor", relacion="quinta", movimiento=m)
-        cfg["respuesta"].update(contorno=c, ritmo=r, final=f, octava=-1, densidad=0.2,
-                                movimiento=dialogo.MOVIMIENTOS[(dialogo.MOVIMIENTOS.index(m) + 1) % 3])
-        s = correr(cfg, compases=6)
-        if colgadas(s) or not any(x[2] == "note_on" for x in s):
-            errores += 1
-    todo &= ok(errores == 0, "todas las combinaciones de transformación, contorno, ritmo y final suenan")
+    def clases(oscuridad):
+        c = base()
+        c["llamada"]["oscuridad"] = c["respuesta"]["oscuridad"] = oscuridad
+        s, _ = correr(c)
+        return {(n - 5) % 12 for _, _, tipo, _, n, _ in s if tipo == "note_on"}
+    todo &= ok(1 not in clases(0.0) and 1 in clases(1.0), "luminoso sin ♭2; ultra oscuro con ♭2 contra la raíz")
 
-    print("\nModo en vivo · tocas C4 D#4 F4 G#4 y la respuesta entra tras 2 tiempos de silencio")
-    cfg = base(modo="en_vivo", escucha=4, transformacion="variacion")
-    tocadas = [(16, 60, 2), (18, 63, 2), (20, 65, 2), (22, 68, 4)]
-    salida = correr(cfg, compases=4, vivo=tocadas)
-    mostrar(salida, cfg, 4)
-    resp = [x for x in salida if x[2] == "note_on"]
-    todo &= ok(bool(resp) and min(t for t, *_ in resp) // 6 >= 30, "responde después de tu frase y del silencio")
-    todo &= ok(all(abs(n - 62) <= 14 for _, _, _, _, n, _ in resp), "responde en el registro de lo que tocaste")
-    todo &= ok(colgadas(salida) == 0, "sin notas colgadas en vivo")
-
-    cfg = base(modo="en_vivo", escucha=4, transformacion="eco")
-    cfg["respuesta"]["densidad"] = 0.6
-    salida = correr(cfg, compases=4, vivo=tocadas)
-    notas = [nombre_midi(n) for _, _, t, _, n, _ in salida if t == "note_on"]
-    todo &= ok(notas == ["C4", "D#4", "F4", "G#4"], f"eco devuelve tu frase: {' '.join(notas)}")
-
-    print("\nCarácter")
-    from goa.dialogo import Voz, frase, _oscuro
-    import random
-    def colores(osc):
-        v = Voz({"oscuridad": osc, "movimiento": "conjunto", "final": "libre", "forma": "frase"}, "F", "frigio")
-        notas = [n for i in range(300) for n in frase(random.Random(i), v, 32)]
-        return sum(1 for n in notas if _oscuro(v, n["grado"])) / len(notas), \
-            sum(1 for n in notas if v.tonalidad.intervalos[n["grado"] % 7] == 6) / len(notas)
-    poca, _ = colores(0.0)
-    mucha, _ = colores(1.0)
-    todo &= ok(poca < 0.02 < mucha, f"oscuridad 0 casi sin ♭2 ni ♭6 ({poca:.0%}), en 100 % aparecen ({mucha:.0%})")
-    notas = [n for forma in ("frase", "motivo") for i in range(200) for n in
-             frase(random.Random(i), Voz({"movimiento": "arpegio", "final": "libre", "oscuridad": 0, "forma": forma}, "F", "frigio"), 32)]
-    todo &= ok(all(n["grado"] % 7 in (0, 2, 4, 6) for n in notas), "arpegio: solo notas del acorde menor con séptima")
-    v = Voz({"movimiento": "abierto", "final": "libre", "oscuridad": 0.5, "forma": "frase"}, "F", "frigio")
-    saltos = [abs(b["grado"] - a["grado"]) for i in range(200) for f in [frase(random.Random(i), v, 32)]
-              for a, b in zip(f, f[1:])]
-    abiertos = sum(1 for x in saltos if x in (2, 3, 4, 7)) / len(saltos)
-    todo &= ok(0.45 < abiertos < 0.85, f"abierto: terceras, cuartas, quintas y octavas, con algún grado conjunto ({abiertos:.0%})")
-    figuras = {}
-    for dens, esperado in ((0.2, {3}), (0.5, {4}), (0.75, {4}), (0.95, {5})):
-        v = Voz({"densidad": dens, "forma": "motivo"}, "F", "frigio")
-        figuras[dens] = {len(frase(random.Random(i), v, 32)) for i in range(100)} == esperado
-    todo &= ok(all(figuras.values()), "motivo: densidad baja 3 notas, media 3 + 1 larga, alta arpegio")
-    v = Voz({"densidad": 0.5, "forma": "motivo", "ritmo": "semicorcheas"}, "F", "frigio")
-    f = frase(random.Random(3), v, 32)
-    todo &= ok(f[-1]["dur"] > 3 * f[0]["dur"] and f[-1]["paso"] < 8, "3 cortas y una larga, y después silencio")
-    def color(osc):
-        v = Voz({"oscuridad": osc, "forma": "frase", "movimiento": "conjunto", "final": "libre"}, "F", "frigio")
-        notas = [n for i in range(300) for n in frase(random.Random(i), v, 32)]
-        return sum(1 for n in notas if v.tonalidad.intervalos[n["grado"] % 7] in (1, 8)) / len(notas)
-    todo &= ok(color(0.9) > color(0.5) * 1.3, f"sobre 50 % la oscuridad atrae ♭2 y ♭6 ({color(0.5):.0%} → {color(0.9):.0%})")
-    from goa.dialogo import responder
-    vl = Voz({"densidad": 0.5, "ritmo": "mixto", "movimiento": "abierto"}, "F", "frigio")
-    vr = Voz({"densidad": 0.3, "ritmo": "corcheas", "movimiento": "arpegio", "final": "reposo"}, "F", "frigio")
-    iguales = {"alto": 0, "bajo": 0}
-    for i in range(100):
-        ll = frase(random.Random(f"l{i}"), vl, 32)
-        for clave, parecido in (("alto", 1.0), ("bajo", 0.2)):
-            r = responder(random.Random(f"r{i}"), ll, vl, vr, "variacion", 32, vl.densidad, parecido)
-            iguales[clave] += [n["paso"] for n in r] == [n["paso"] for n in ll]
-    todo &= ok(iguales["alto"] == 100 and iguales["bajo"] < 15,
-               f"parecido 100 % calca el ritmo de la llamada; 20 % usa su propia figura ({iguales['bajo']} de 100 iguales)")
-    ultra = Voz({"oscuridad": 1.0, "final": "tension", "densidad": 0.2}, "F", "frigio")
-    finales = {frase(random.Random(i), ultra, 32)[-1]["grado"] % 7 for i in range(100)}
-    todo &= ok(finales == {1}, "ultra oscuro: la tensión queda colgada en el ♭2")
-    v = Voz({"final": "suspendido"}, "F", "frigio")
-    todo &= ok(all(frase(random.Random(i), v, 32)[-1]["grado"] % 7 in (3, 4) for i in range(100)),
-               "final suspendido: termina en quinta o cuarta")
-
-    print("\nSiguiendo a los pads (i – ♭II, cambia cada 4 compases)")
-    from goa.escalas import Tonalidad
-    cfg = base(evolucion=0.5)
+    print("\nSiguiendo a los pads (i – ♭II, cada 4 compases)")
+    cfg = base()
     cfg["pads"].update(activo=True, progresion="i_bII", cambia_cada=4, disparo=2, variacion=0.0)
-    cfg["respuesta"]["escala"] = "frigio_dominante"  # con los pads, igual usa la escala de los pads
-    eventos = []
-    motor = Motor(cfg, lambda sal, tipo, canal, nota, vel: eventos.append((motor.tick, sal, tipo, nota)))
-    motor.start()
-    for tick in range(16 * 16 * 6):
-        motor.reloj()
-        paso, resto = divmod(tick, 6)
-        if resto == 1 and paso % 16 == 0:
-            motor.nota_on(1, 41)
-    motor.stop()
-    voces = {cfg["llamada"]["salida"], cfg["respuesta"]["salida"]}
-    ons = [(t, n) for t, sal, tipo, n in eventos if tipo == "note_on" and sal in voces]
+    s6, motor = correr(cfg)
+    voz = {cfg["llamada"]["salida"], cfg["respuesta"]["salida"]}
     escala = set(Tonalidad("F", "frigio").intervalos)
-    fuera = [n for _, n in ons if (n - 5) % 12 not in escala]
-    todo &= ok(ons and not fuera, f"todas las notas en la escala de los pads ({len(ons)} notas)")
-    clases = {0: motor.pads.acorde_en(0, 41)[1], 1: motor.pads.acorde_en(64, 41)[1]}
-    largas, en_acorde = 0, 0
-    abiertas = {}
-    for t, sal, tipo, n in eventos:
-        if sal not in voces:
-            continue
-        if tipo == "note_on":
-            abiertas[(sal, n)] = t
-        elif (sal, n) in abiertas:
-            inicio = abiertas.pop((sal, n))
-            if t - inicio >= 18:
-                largas += 1
-                en_acorde += n % 12 in clases[(inicio // 6 // 64) % 2]
-    todo &= ok(largas and en_acorde == largas, f"las notas largas caen en el acorde que suena ({en_acorde} de {largas})")
-    sobre_bii = [n for t, n in ons if (t // 6 // 64) % 2 == 1]
-    todo &= ok(sobre_bii and all(n % 12 != 4 for n in sobre_bii), "sobre ♭II (G♭) la frase se mueve con el acorde")
+    ons = [(t, n) for t, sal, tipo, _, n, _ in s6 if tipo == "note_on" and sal in voz]
+    todo &= ok(all((n - 5) % 12 in escala for _, n in ons), "todas las notas en la escala de los pads")
+    unos = {(t // 96 // 4) % 2: n % 12 for t, n in ons if t % 96 < 2 and (t // 96) % 4 == 0}
+    todo &= ok(unos == {0: 5, 1: 6}, "el uno de la llamada sigue la raíz del acorde: F y luego G♭")
+
+    print("\nEn vivo: tocas en el uno y el tres; responde el compás siguiente en tus huecos")
+    cfg = base(modo="en_vivo", escucha=4)
+    s7, _ = correr(cfg, compases=4, vivo=[(16, 60), (24, 63)])
+    print(f"  compás 2 (tocas):    L.......L.......")
+    print(f"  compás 3 (responde): {grilla(s7, cfg, 2)}")
+    resp = grilla(s7, cfg, 2)
+    todo &= ok("R" in resp and resp[0] != "R" and resp[8] != "R", "responde en los huecos que dejaste")
+    todo &= ok(grilla(s7, cfg, 1) == "." * 16, "mientras tocas, no responde encima")
+    notas_r = [n for t, _, tipo, _, n, _ in s7 if tipo == "note_on"]
+    todo &= ok(all(55 <= n <= 80 for n in notas_r), f"responde cerca de tu registro ({notas_r})")
 
     print("\nClips de diálogo")
-    cfg = base(modo="en_vivo", transformacion="espejo", escucha=7)
-    cfg["respuesta"].update(salida="FM-1", canal=4, escala="frigio_dominante", relacion="quinta")
-    clip = clip_de_dialogo(cfg, "Vivo espejo")
+    cfg = base(forma="turnos", rejilla="semicorcheas", espacio=2)
+    cfg["respuesta"].update(salida="FM-1", canal=4, golpes=5, oscuridad=1.0)
+    clip = clip_de_dialogo(cfg, "Turnos oscuros")
     cfg["clip_dialogo"] = [clip]
-    guardada = normalizar(tomllib.loads(a_toml(cfg)))
-    todo &= ok(guardada["clip_dialogo"] == [clip], "el clip se guarda y se lee igual del archivo")
-
-    otra = base(modo="motor", transformacion="variacion")  # lo que está armado ahora es otra cosa
-    salida = []
-    motor = Motor(otra, lambda sal, tipo, canal, nota, vel: salida.append((motor.tick, sal, tipo, canal, nota, vel)))
+    todo &= ok(normalizar(tomllib.loads(a_toml(cfg)))["clip_dialogo"] == [clip], "el clip se guarda y se lee igual")
+    otra = base()
+    motor = Motor(otra, lambda *a: None)
     motor.start()
-    for tick in range(3 * 16 * 6):
+    for tick in range(2 * 16 * 6):
         motor.reloj()
         paso, resto = divmod(tick, 6)
         if resto == 1 and paso % 16 == 0:
             motor.nota_on(1, 41)
-        if tick == 5 * 6:  # se lanza a mitad del primer compás
+        if tick == 5 * 6:
             motor.lanzar_dialogo(*secciones_de_clip(clip), clip["nombre"])
-            esperando = motor.estado()["fila_dialogo"]["cola"] == "Vivo espejo" and motor.dialogo.modo == "motor"
-        if tick == 16 * 6 + 1:
-            d = motor.dialogo
-            entro = (d.clip == "Vivo espejo" and d.modo == "en_vivo" and d.transformacion == "espejo"
-                     and d.escucha == 6 and d.respuesta.salida == "FM-1" and d.respuesta.canal == 3)
-    todo &= ok(esperando, "lanzado a mitad de compás, queda en cola y sigue el diálogo anterior")
-    todo &= ok(entro, "en el compás siguiente entra con todo su seteo: quién llama, destinos y carácter")
-    motor.detener_dialogo()
-    todo &= ok(motor.dialogo.activo and motor.estado()["fila_dialogo"]["cola"] == "detener", "parar queda en cola hasta el compás")
-    for _ in range(16 * 6):
-        motor.reloj()
-    motor.stop()
-    todo &= ok(not motor.dialogo.activo and colgadas(salida) == 0, "se detiene en el compás sin dejar notas colgadas")
+            esperando = motor.dialogo.forma == "entrelazado"
+    d = motor.dialogo
+    todo &= ok(esperando and d.clip == "Turnos oscuros" and d.forma == "turnos" and d.rejilla == "semicorcheas"
+               and d.respuesta.golpes == 5 and d.respuesta.salida == "FM-1",
+               "el clip entra en el compás siguiente con todo su seteo")
 
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

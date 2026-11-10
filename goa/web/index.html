@@ -37,7 +37,8 @@ button{min-height:44px;border-radius:10px;border:1px solid var(--line2);backgrou
 button.prim{background:var(--acc);border-color:var(--acc);color:#111210}
 button.panico{min-height:52px;border-color:#8C3B32;background:#2A1714;color:#F2B8AF;font-weight:650;width:100%}
 .seed{display:flex;gap:6px}
-.seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.05em}
+.seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.05em;text-align:center;padding:0 6px}
+.seed button{flex:none;padding:0 12px}
 details.card{gap:0}
 details.card>*:not(summary){margin-top:14px}
 details.card>p.ayuda,details.mas>p.ayuda,details.voz>p.ayuda{margin-top:6px}
@@ -159,22 +160,9 @@ const POSICIONES = [["onbeat","Con el bombo"],["offbeat","Entre bombos"],["todos
 const POS_TEXTO = {onbeat: "Las notas caen junto al bombo.", offbeat: "Entre bombo y bombo: el clásico del psytrance.",
   todos: "Todas las semicorcheas.", desplazado: "Corrida una semicorchea: sensación de tropiezo."};
 const RELACIONES = [["unisono","La nota larga"],["tercera","Su tercera"],["quinta","Su quinta"],["octava","Octava arriba"]];
-const TRANSFORMACIONES = [["variacion","Variación"],["espejo","Espejo"],["eco","Eco"],["nueva","Nueva"]];
-const TRANSF_TEXTO = {variacion: "Contesta con otras notas. El parecido decide cuánto: alto calca ritmo y dirección, bajo usa su propia figura y responde al revés.",
-  espejo: "La frase invertida: donde la llamada sube, la respuesta baja.",
-  eco: "Repite la llamada con el carácter de la respuesta (escala, relación, octava). Con evolución, cambia de a poco.",
-  nueva: "Una frase propia, hecha solo con el carácter de la respuesta."};
-const CONTORNOS = [["sube","Sube ↗"],["baja","Baja ↘"],["arco","Arco ⌒"],["valle","Valle ⌣"],["libre","Libre"]];
-const RITMOS = [["semicorcheas","Semicorcheas"],["corcheas","Corcheas"],["mixto","Mixto"],["largas","Largas"]];
-const FINALES = [["tension","Pregunta"],["suspendido","Queda abierta"],["reposo","Resuelve"],["libre","Libre"]];
-const FIN_TEXTO = {tension: "Termina en tensión (♭2 o ♭7): pide respuesta.", suspendido: "Termina en la quinta: flota, galáctica.",
-  reposo: "Termina en la raíz del acorde: cierra.", libre: "Termina donde caiga."};
-const MOVIMIENTOS = [["conjunto","Vecinas"],["abierto","Abiertas"],["arpegio","Del acorde"]];
-const MOV_TEXTO = {conjunto: "Pasa a la nota vecina: más cantado.",
-  abierto: "Cuartas, quintas y octavas: espacial, galáctico.",
-  arpegio: "Salta por las notas del acorde: misterioso y estable."};
-const RELACIONES_CR = [["unisono","La raíz"],["tercera","La tercera"],["cuarta","La cuarta"],["quinta","La quinta"],["sexta","La sexta"],["octava","Octava arriba"]];
-const FASES = {llamada: "Llamando", respuesta: "Respondiendo", espacio: "Espacio", escuchando: "Escuchándote"};
+const FASES = {llamada: "Llamando", respuesta: "Respondiendo", conversando: "Conversando", escuchando: "Escuchándote"};
+const FORMAS_TEXTO = {entrelazado: "La respuesta toca solo en los huecos que deja la llamada, en el mismo compás.",
+  turnos: "La llamada toca unos compases y después contesta la respuesta."};
 let cfg = null, temporizador = null, uid = 0;
 const $ = (id) => document.getElementById(id);
 
@@ -279,12 +267,22 @@ function ayuda(texto) {
 
 function porcentaje(v) { return Math.round(v * 100) + " %"; }
 
-function variante(obj, etiqueta = "Variante") {
+function variante(obj, clave, etiqueta = "Variante") {
+  // Guarda las últimas variantes probadas (en este teléfono) para volver a una que sonaba bien.
+  const leer = () => { try { return JSON.parse(localStorage.getItem("historial:" + clave) || "[]"); } catch (e) { return []; } };
+  const escribir = (h) => { try { localStorage.setItem("historial:" + clave, JSON.stringify(h.slice(-20))); } catch (e) {} };
   const seed = el("input", {type: "text", value: obj.seed, "aria-label": etiqueta,
-    onchange: () => { obj.seed = seed.value.trim() || obj.seed; seed.value = obj.seed; guardar(); }});
-  return [campo(etiqueta, el("div", {className: "seed"}, [seed,
-      el("button", {type: "button", textContent: "Otra", onclick: () => { obj.seed = seedNueva(); seed.value = obj.seed; guardar(); }})])),
-    ayuda("Cada código es una variante distinta y siempre suena igual. «Otra» prueba una nueva.")];
+    onchange: () => { const antes = obj.seed; obj.seed = seed.value.trim() || obj.seed; seed.value = obj.seed;
+      if (obj.seed !== antes) escribir(leer().concat([antes])); actualizar(); guardar(); }});
+  const anterior = el("button", {type: "button", textContent: "← Anterior", onclick: () => {
+    const h = leer(); if (!h.length) return;
+    obj.seed = h.pop(); escribir(h); seed.value = obj.seed; actualizar(); guardar(); }});
+  const otra = el("button", {type: "button", textContent: "Otra", className: "prim", onclick: () => {
+    escribir(leer().concat([obj.seed])); obj.seed = seedNueva(); seed.value = obj.seed; actualizar(); guardar(); }});
+  const actualizar = () => { anterior.disabled = !leer().length; };
+  actualizar();
+  return [campo(etiqueta, el("div", {className: "seed"}, [anterior, seed, otra])),
+    ayuda("Cada código es una variante distinta y siempre suena igual. «Otra» prueba una nueva; «Anterior» vuelve a la de antes.")];
 }
 
 function numeroDe(obj, k, etiqueta, min, max, alCambiar) {
@@ -323,12 +321,12 @@ function tarjeta(s, i) {
     }, 2)),
     campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; posTexto.textContent = POS_TEXTO[v]; guardar(); }, 2)),
     posTexto,
-    campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
-    deslizador(s, "densidad", "Densidad (cantidad de notas)", 0, 1, 0.05, porcentaje),
-    deslizador(s, "mutacion", "Mutación (cuánto cambia con el tiempo)", 0, 1, 0.05, (v) => v === 0 ? "fija" : porcentaje(v)),
-    ...variante(s),
-    el("button", {type: "button", textContent: "Guardar como clip", className: "prim", onclick: () => guardarClip(i, s)}),
+    ...variante(s, `sec-${s.nombre}`),
+    el("button", {type: "button", textContent: "Guardar como clip", onclick: () => guardarClip(i, s)}),
     masAjustes(`mas-sec-${s.nombre}`, [
+      campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
+      deslizador(s, "densidad", "Densidad (cantidad de notas)", 0, 1, 0.05, porcentaje),
+      deslizador(s, "mutacion", "Mutación (cuánto cambia con el tiempo)", 0, 1, 0.05, (v) => v === 0 ? "fija" : porcentaje(v)),
       el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), destinoDe(s, estado)]),
       el("div", {className: "dos"}, [numeroDe(s, "canal", "Canal MIDI", 1, 16, actualizar), numeroDe(s, "octava", "Octava", -3, 3)]),
       numeroDe(s, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
@@ -428,54 +426,42 @@ function renderPads() {
       ayuda("A veces cambia un acorde por uno emparentado que comparte dos notas."),
       deslizador(p, "rasgueo", "Entrada escalonada (rasgueo)", 0, 6, 1, (v) => v === 0 ? "todas juntas" : v === 1 ? "1 pulso" : v + " pulsos"),
       numeroDe(p, "velocidad", "Fuerza", 1, 127),
-      ...variante(p),
+      ...variante(p, "pads"),
     ]),
   );
 }
 
 // --- Llamada y respuesta ---
 
-function figuraTexto(v) {
-  if (v.forma !== "motivo") return porcentaje(v.densidad);
-  const fig = v.densidad < 0.35 ? "3 notas" : v.densidad < 0.65 ? "3 cortas y 1 larga" : v.densidad > 0.85 ? "arpegio de 5" : "arpegio de 4";
-  return `${porcentaje(v.densidad)} · ${fig}`;
+function golpesTexto(d, v, papel) {
+  // Cuántos golpes caben de verdad: en el entrelazado, la respuesta vive en los huecos.
+  const lugares = d.rejilla === "corcheas" ? 8 : 16;
+  const pedido = Math.min(v.golpes, lugares);
+  if (papel !== "respuesta" || d.forma !== "entrelazado" || d.modo === "en_vivo") return `${pedido} de ${lugares}`;
+  const l = cfg.llamada.golpes;
+  const ocup = new Set([...Array(lugares).keys()].filter((i) => (i * Math.min(l, lugares)) % lugares < Math.min(l, lugares)));
+  const libres = [...Array(lugares).keys()].filter((i) => !ocup.has(i) &&
+    ![...ocup].some((j) => { const dd = ((i - j) % lugares + lugares) % lugares; return dd >= 1 && dd <= d.espacio; })).length;
+  return libres >= pedido ? `${pedido} de ${lugares}` : `${pedido} pedidos · caben ${libres}`;
 }
 
-function bloqueVoz(v, titulo, clave, extra = []) {
+function bloqueVoz(v, titulo, papel, extra = []) {
+  const d = cfg.dialogo;
   const estado = el("span", {className: "pill", "data-salida": v.salida});
-  const movTexto = ayuda(MOV_TEXTO[v.movimiento]);
-  const finTexto = ayuda(FIN_TEXTO[v.final]);
-  const densidad = deslizador(v, "densidad", "Densidad", 0, 1, 0.05, () => figuraTexto(v));
-  const sigue = cfg.dialogo.seguir_pads && cfg.pads.activo;
-  const escala = el("select", {disabled: sigue, onchange: () => { v.escala = escala.value; guardar(); }});
-  for (const [val, t] of [["general", "La de Música"]].concat(ESCALAS)) escala.append(el("option", {value: val, textContent: t, selected: val === v.escala}));
+  const lugares = d.rejilla === "corcheas" ? 8 : 16;
   return recordar(el("details", {className: "voz"}, [
     el("summary", {}, [el("span", {textContent: titulo}), el("span", {className: "der"}, [estado])]),
-    densidad,
+    deslizador(v, "golpes", "Golpes", 1, lugares, 1, () => golpesTexto(d, v, papel)),
     deslizador(v, "oscuridad", "Luminoso ↔ Oscuro", 0, 1, 0.05, colorTexto),
-    campo("Dibujo de la melodía", segmentado(CONTORNOS, v.contorno, (x) => { v.contorno = x; guardar(); }, 3)),
-    campo("Cómo salta entre notas", segmentado(MOVIMIENTOS, v.movimiento, (x) => { v.movimiento = x; movTexto.textContent = MOV_TEXTO[x]; guardar(); }, 3)),
-    movTexto,
-    campo("Cómo termina", segmentado(FINALES, v.final, (x) => { v.final = x; finTexto.textContent = FIN_TEXTO[x]; guardar(); }, 4)),
-    finTexto,
-    masAjustes(`mas-${clave}`, [
+    masAjustes(`mas-voz-${papel}`, [
       ...extra.filter(Boolean),
       el("div", {className: "dos"}, [destinoDe(v, estado), numeroDe(v, "canal", "Canal MIDI", 1, 16)]),
-      campo("Forma", segmentado([["motivo","Motivo corto"],["frase","Frase larga"]], v.forma, (x) => {
-        v.forma = x; densidad.querySelector("span span").textContent = figuraTexto(v); guardar(); }, 2)),
-      ayuda("Motivo: una figura corta que elige la densidad, y luego silencio. Frase larga: una línea más elaborada."),
-      el("label", {className: "campo"}, ["Escala", escala]),
-      sigue ? ayuda("Mientras sigue a los pads usa la escala de los pads, para no chocar.") : null,
-      campo("Parte desde", segmentado(RELACIONES_CR, v.relacion, (x) => { v.relacion = x; guardar(); }, 3)),
       el("div", {className: "dos"}, [numeroDe(v, "octava", "Octava", -3, 3), numeroDe(v, "velocidad", "Fuerza", 1, 127)]),
-      deslizador(v, "ambito", "Rango de notas", 2, 12, 1, (x) => `${x} notas de la escala`),
-      ayuda("Cuántas notas de la escala puede recorrer la melodía: poco = contenida, mucho = amplia."),
-      campo("Ritmo", segmentado(RITMOS, v.ritmo, (x) => { v.ritmo = x; guardar(); }, 2)),
       deslizador(v, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
-      deslizador(v, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
+      ayuda("Nunca pisa a la nota siguiente, de ninguna de las dos voces."),
       deslizador(v, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
     ]),
-  ]), clave, false);
+  ]), `voz-${papel}`, true);
 }
 
 function colorGeneral() {
@@ -494,8 +480,7 @@ function renderDialogo() {
   const d = cfg.dialogo, cont = $("dialogo");
   const vivo = d.modo === "en_vivo";
   const fase = el("span", {className: "pill", id: "dialogo_fase", textContent: "En silencio"});
-  const sub = `${vivo ? "Llamas tú" : "Llama el motor"} · ${TRANSFORMACIONES.find((t) => t[0] === d.transformacion)[1].toLowerCase()}`;
-  const texto = ayuda(TRANSF_TEXTO[d.transformacion]);
+  const sub = vivo ? "Llamas tú · responde en tus huecos" : (d.forma === "entrelazado" ? "Entrelazado" : "Por turnos") + ` · ${d.rejilla}`;
   const sigue = el("input", {type: "checkbox", checked: d.seguir_pads, onchange: () => { d.seguir_pads = sigue.checked; renderDialogo(); guardar(); }});
   const mismo = el("button", {type: "button", textContent: vivo ? "Responder en el sinte donde toco" : "Responder en el mismo sinte que llama",
     onclick: () => {
@@ -503,37 +488,42 @@ function renderDialogo() {
       else { cfg.respuesta.salida = cfg.llamada.salida; cfg.respuesta.canal = cfg.llamada.canal; }
       renderDialogo(); guardar(); aviso("La respuesta va al mismo sinte");
     }});
-  const compases = (k) => segmentado([["1","1"],["2","2"],["4","4"],["8","8"]], String(d[k]), (x) => { d[k] = parseInt(x); guardar(); }, 4);
+  // Al cambiar algo que mueve los huecos, se actualiza el «caben» de la respuesta.
+  const rehacer = () => { renderDialogo(); guardar(); };
   if (!cont._recordado) { recordar(cont, "dialogo", false); cont._recordado = true; }
   cont.innerHTML = "";
   cont.append(...[
     cabecera("Llamada y respuesta", sub, [fase, interruptor(d.activo, (v) => { d.activo = v; guardar(); }, "Activar llamada y respuesta")]),
-    campo("Quién llama", segmentado([["motor","El motor"],["en_vivo","Yo, en vivo"]], d.modo, (x) => { d.modo = x; renderDialogo(); guardar(); }, 2)),
-    vivo ? ayuda("Toca tu frase en el canal de escucha. Cuando paras, el motor espera el silencio que elijas y responde en el próximo tiempo.") : null,
+    campo("Quién llama", segmentado([["motor","El motor"],["en_vivo","Yo, en vivo"]], d.modo, (x) => { d.modo = x; rehacer(); }, 2)),
+    vivo ? ayuda("El motor escucha dónde tocas en cada compás y en el siguiente responde en tus huecos.") : null,
     vivo ? numeroDe(d, "escucha", "Canal donde toco la llamada", 1, 16) : null,
-    campo("Cómo responde", segmentado(TRANSFORMACIONES, d.transformacion, (x) => { d.transformacion = x; renderDialogo(); guardar(); }, 4)),
-    texto,
-    d.transformacion === "variacion" ? deslizador(d, "parecido", "Parecido con la llamada", 0, 1, 0.05,
-      (x) => x >= 0.5 ? `${porcentaje(x)} · copia su ritmo` : `${porcentaje(x)} · figura propia`) : null,
+    vivo ? null : campo("Cómo conversan", segmentado([["entrelazado","Entrelazado"],["turnos","Por turnos"]], d.forma, (x) => { d.forma = x; rehacer(); }, 2)),
+    vivo ? null : ayuda(FORMAS_TEXTO[d.forma]),
+    campo("Rejilla", segmentado([["corcheas","Corcheas"],["semicorcheas","Semicorcheas"]], d.rejilla, (x) => {
+      d.rejilla = x; const n = x === "corcheas" ? 8 : 16;
+      for (const v of [cfg.llamada, cfg.respuesta]) v.golpes = Math.min(v.golpes, n);
+      rehacer(); }, 2)),
+    ayuda(d.rejilla === "corcheas" ? "Todo cae en el tiempo o en su contratiempo: siempre con el bombo." : "Más rápido y sincopado."),
+    d.forma === "entrelazado" || vivo ? deslizador(d, "espacio", "Espacio", 0, 3, 1,
+      (x) => x === 0 ? "pueden ir pegadas" : `la respuesta espera ${x} ${d.rejilla === "corcheas" ? "corchea" : "semicorchea"}${x > 1 ? "s" : ""}`) : null,
+    d.forma === "turnos" && !vivo ? campo("Compases por turno", segmentado([["1","1"],["2","2"],["4","4"]], String(d.compases_turno), (x) => { d.compases_turno = parseInt(x); guardar(); }, 3)) : null,
     colorGeneral(),
-    deslizador(d, "evolucion", "Mutación (cuánto cambia en cada vuelta)", 0, 1, 0.05, (x) => x === 0 ? "se repite igual" : porcentaje(x)),
-    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Sigue a los pads", el("br"),
-      el("span", {className: "mut", textContent: cfg.pads.activo ? "Usa su escala y se mueve con cada acorde" : "Los pads están apagados"})]), sigue]),
-    ...variante(d),
-    el("button", {type: "button", className: "prim", textContent: "Guardar como clip", onclick: () => guardarClipDialogo()}),
-    ayuda("El clip guarda todo este módulo y entra así, en el próximo compás, al lanzarlo desde el Disparador."),
-    vivo ? null : bloqueVoz(cfg.llamada, "Llamada", "voz-llamada"),
-    bloqueVoz(cfg.respuesta, "Respuesta", "voz-respuesta", [mismo,
-      vivo ? ayuda("En vivo, el ritmo de la respuesta sale de lo que tocaste (salvo en Nueva o con parecido bajo).") : null]),
-    masAjustes("dlg-tiempo", [
+    deslizador(d, "evolucion", "Mutación", 0, 1, 0.05, (x) => x === 0 ? "fija" : `${porcentaje(x)} cada ${d.mutar_cada} compases`),
+    ...variante(d, "dialogo"),
+    vivo ? null : bloqueVoz(cfg.llamada, "Llamada", "llamada"),
+    bloqueVoz(cfg.respuesta, "Respuesta", "respuesta", [mismo]),
+    el("button", {type: "button", textContent: "Guardar como clip", onclick: () => guardarClipDialogo()}),
+    masAjustes("dlg-mas", [
+      el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Sigue a los pads", el("br"),
+        el("span", {className: "mut", textContent: cfg.pads.activo ? "Usa su escala y se mueve con cada acorde" : "Los pads están apagados"})]), sigue]),
       vivo ? null : numeroDe(d, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
-      campo(vivo ? "Largo máximo de mi llamada (compases)" : "Compases de la llamada", compases("compases_llamada")),
-      campo(vivo ? "Largo máximo de la respuesta (compases)" : "Compases de la respuesta", compases("compases_respuesta")),
-      deslizador(d, "pausa", vivo ? "Silencio antes de responder" : "Pausa antes de responder", vivo ? 1 : 0, 16, 1,
-        (x) => x === 0 ? "sin pausa" : x === 1 ? "1 tiempo" : x + " tiempos"),
-      vivo ? null : deslizador(d, "descanso", "Silencio después de la respuesta", 0, 16, 1, (x) => x === 0 ? "sin silencio" : x === 1 ? "1 compás" : x + " compases"),
-    ], "Espacio y tiempo"),
+      numeroDe(d, "mutar_cada", "Mutar cada (compases)", 1, 16, () => renderDialogo()),
+      ayuda("El clip guarda todo este módulo y entra así, en el próximo compás, al lanzarlo desde el Disparador."),
+    ]),
   ].filter(Boolean));
+  // El número de golpes de la respuesta depende de la llamada: al soltar el deslizador se recalcula.
+  cont.querySelectorAll("details.voz input[type=range]").forEach((r) => r.addEventListener("change", () => renderDialogo()));
+  cont.querySelector("input[aria-label='Espacio']")?.addEventListener("change", () => renderDialogo());
 }
 
 let ultimoEstado = null;
@@ -559,7 +549,7 @@ async function guardarClip(i, s) {
 
 async function guardarClipDialogo() {
   const d = cfg.dialogo;
-  const nombre = prompt("Nombre del clip de diálogo", `${d.modo === "en_vivo" ? "Vivo" : "Motor"} ${d.transformacion} ${d.seed}`);
+  const nombre = prompt("Nombre del clip de diálogo", `${d.modo === "en_vivo" ? "Vivo" : d.forma === "entrelazado" ? "Entrelazado" : "Turnos"} ${d.seed}`);
   if (nombre === null) return;
   try {
     clearTimeout(temporizador);  // aplica primero lo último que cambiaste, para que el clip lo incluya
