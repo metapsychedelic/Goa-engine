@@ -5,7 +5,7 @@ import os
 import tempfile
 import tomllib
 
-from . import dialogo, generador, pads
+from . import dialogo, generador, generos, pads
 from .escalas import ESCALAS, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -29,6 +29,8 @@ ESQUEMA_SECCIONES = {
         "cambio_de_nota": (str, "paso", None, ("paso", "compas")),
         "adaptacion": (str, "escala", None, ("escala", "transponer")),
         "seguir_pads": (bool, False, None, None),
+        "genero": (str, "goa", None, generos.ORDEN),
+        "desplazamiento": (float, 0.0, 0.0, 1.0),
     },
     "pads": {
         "activo": (bool, False, None, None),
@@ -44,7 +46,10 @@ ESQUEMA_SECCIONES = {
         "variacion": (float, 0.15, 0.0, 1.0),
         "ataque": (str, "ligado", None, pads.ATAQUES),
         "drone": (bool, False, None, None),
-        "rasgueo": (int, 1, 0, 6),
+        "rasgueo": (int, 1, 0, 24),
+        "pulso": (int, 0, 0, 8),
+        "genero_propio": (bool, False, None, None),
+        "genero": (str, "goa", None, generos.ORDEN),
         "velocidad": (int, 80, 1, 127),
         "seed": (str, "P-1C88", None, None),
         "disparo": (int, 0, 0, 16),
@@ -76,6 +81,7 @@ def _esquema_voz(salida, canal, golpes, gate, velocidad):
         "gate": (float, gate, 0.05, 1.0),
         "velocidad": (int, velocidad, 1, 127),
         "vel_random": (float, 0.15, 0.0, 1.0),
+        "desplazamiento": (float, -1.0, -1.0, 1.0),  # menos de 0 = usa el general
     }
 
 

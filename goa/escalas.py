@@ -6,6 +6,8 @@ ESCALAS = {
     "frigio_dominante": [0, 1, 4, 5, 7, 8, 10],
     "menor": [0, 2, 3, 5, 7, 8, 10],
     "hungara_menor": [0, 2, 3, 6, 7, 8, 11],
+    "dorico": [0, 2, 3, 5, 7, 9, 10],      # menor con sexta mayor: abierto, psy chill
+    "lidio": [0, 2, 4, 6, 7, 9, 11],       # cuarta aumentada: espacial, para ambient
 }
 
 _NOMBRES = {

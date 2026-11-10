@@ -1,14 +1,21 @@
 """Motor de pads y drones.
 
-Progresiones lentas de estilo Goa y psytrance oscuro. Los acordes se
-arman apilando grados de la escala de la tonalidad, y cada cambio
-elige la inversión que mueve menos las voces, para que suene ligado
-y orgánico. Opcionalmente sostiene un drone grave en la raíz.
+Progresiones lentas de estilo Goa, psytrance, chill y ambient. Los acordes se
+arman apilando grados de la escala de la tonalidad, y cada cambio elige la
+inversión que mueve menos las voces, para que suene ligado y orgánico.
+Opcionalmente sostiene un drone grave en la raíz.
+
+Con `pulso` > 0 los acordes no se sostienen: suenan en un ritmo euclidiano
+suave (golpes repartidos en las corcheas del compás, el primero en el uno),
+que se puede correr con el control Pegado ↔ Desplazado.
 """
 
 import random
 
 from .escalas import nombre_midi
+
+TICKS_POR_PASO = 6
+PASOS_POR_COMPAS = 16
 
 # Grados de la escala (0 = i) por acorde de cada progresión.
 PROGRESIONES = {
@@ -18,6 +25,11 @@ PROGRESIONES = {
     "drone_modal": [0, 1, 0, 6],     # la raíz queda fija y los acordes se mueven encima
     "i_iv_bII_i": [0, 3, 1, 0],      # ciclo largo para breaks
     "andaluza": [0, 6, 5, 4],        # i–♭VII–♭VI–V, bajada muy Goa
+    "i_IV": [0, 3],                  # con dórica, el IV mayor: abierto, psy chill
+    "i_IV_i_bVII": [0, 3, 0, 6],     # psy chill con un respiro en ♭VII
+    "i_bVI_bVII_v": [0, 5, 6, 4],    # chillgressive: oscura y en movimiento
+    "i_bVI_iv_v": [0, 5, 3, 4],      # chillout: suave, para acordes de séptima y novena
+    "pedal_I_II": [0, 1],            # con lidia, I y II sobre la misma raíz: galáctico
 }
 
 # Pasos de escala apilados desde la raíz del acorde.
@@ -27,6 +39,8 @@ ACORDES = {
     "menor_add9": [0, 2, 4, 8],
     "triada": [0, 2, 4],
     "cluster": [0, 1, 2, 4],
+    "septima": [0, 2, 4, 6],         # m7 / maj7 según el grado
+    "novena": [0, 2, 4, 6, 8],       # con 4 voces suena la séptima; con 5, la novena
 }
 
 APERTURAS = ("cerrada", "abierta", "amplia")
@@ -49,8 +63,14 @@ def _limitar(n):
     return n
 
 
+def euclides(golpes, lugares):
+    """`golpes` repartidos parejo en `lugares`, con el primero en el uno."""
+    golpes = max(0, min(golpes, lugares))
+    return [i for i in range(lugares) if (i * golpes) % lugares < golpes]
+
+
 class Pads:
-    def __init__(self, cfg, tonalidad):
+    def __init__(self, cfg, tonalidad, desplazamiento=0.0):
         self.activo = bool(cfg.get("activo", False))
         self.salida = cfg.get("salida", "CH345")
         self.canal = int(cfg.get("canal", 3)) - 1
@@ -64,7 +84,9 @@ class Pads:
         self.variacion = float(cfg.get("variacion", 0.15))
         self.ataque = cfg.get("ataque", "ligado")
         self.drone = bool(cfg.get("drone", False))
-        self.rasgueo = max(0, min(6, int(cfg.get("rasgueo", 1))))
+        self.rasgueo = max(0, min(24, int(cfg.get("rasgueo", 1))))
+        self.pulso = max(0, min(8, int(cfg.get("pulso", 0))))
+        self.desplazamiento = max(0.0, min(1.0, float(desplazamiento)))
         self.velocidad = int(cfg.get("velocidad", 80))
         self.seed = str(cfg.get("seed", "pads"))
         for nombre, valor, opciones in (("apertura", self.apertura, APERTURAS),
@@ -74,7 +96,10 @@ class Pads:
         self.tonalidad = tonalidad
         self.sonando = set()        # notas del acorde que están sonando
         self.nota_drone = None
-        self.pendientes = []        # (tick, nota) por el rasgueo
+        self.pendientes = []        # (tick, nota) por el rasgueo o el pulso
+        self.apagados = []          # (tick, nota): fin de cada golpe del pulso
+        self.programados = set()    # pasos del pulso ya programados
+        self.acorde_pulso = []      # notas del acorde que toca el pulso
         self.clave = None           # (cambio, base) del acorde actual
         self.raiz_acorde = None
 
@@ -112,9 +137,10 @@ class Pads:
 
     def _mover_minimo(self, notas):
         """Elige la inversión que menos mueve las voces respecto al acorde que suena."""
-        if not self.sonando:
+        referencia = self.sonando or set(self.acorde_pulso)  # con pulso, entre golpes no suena nada
+        if not referencia:
             return notas
-        anterior = sorted(self.sonando)
+        anterior = sorted(referencia)
         candidatas = []
         actual = list(notas)
         for _ in range(len(notas)):
@@ -156,10 +182,17 @@ class Pads:
         if base is None:
             self.apagar(enviar)
             return
-        cambio = (paso // 16) // self.cambia_cada
+        # Con pulso, los pads miran un paso adelante: así el golpe del uno del compás
+        # que viene sale a tiempo, ya con su acorde (este llamado llega 2 pulsos tarde).
+        cambio = ((paso + (1 if self.pulso else 0)) // 16) // self.cambia_cada
         clave = (cambio, base)
-        if clave == self.clave:
-            return
+        if clave != self.clave:
+            self._cambiar_acorde(clave, cambio, base, tick, enviar)
+        if self.pulso:
+            self._programar_pulso(paso, tick)
+            self.tick(tick, enviar)
+
+    def _cambiar_acorde(self, clave, cambio, base, tick, enviar):
         self.clave = clave
         raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
         self.raiz_acorde = raiz_acorde
@@ -175,6 +208,11 @@ class Pads:
                 enviar(self.salida, "note_on", self.canal, drone, self.velocidad)
                 self.nota_drone = drone
 
+        if self.pulso:
+            self.acorde_pulso = nuevas  # los golpes del pulso tocan este acorde
+            self.pendientes = [p for p in self.pendientes if p[1] in nuevas]
+            return
+
         if self.ataque == "reatacar":
             quitar, poner = set(self.sonando), list(nuevas)
             self.pendientes = []
@@ -189,12 +227,67 @@ class Pads:
         self.sonando = set(nuevas)
         self.tick(tick, enviar)
 
+    # --- Pulso euclidiano ---
+
+    def golpes_del_compas(self, compas):
+        """{paso del compás: retraso en pulsos} de los golpes del pulso.
+
+        Los golpes caen en corcheas, el primero en el uno. Con desplazamiento,
+        algunos (nunca el del uno) se corren una semicorchea, y las semicorcheas
+        débiles se atrasan un pulso (swing) o se humanizan."""
+        rng = random.Random(f"pulso:{self.seed}:{compas}")
+        d = self.desplazamiento
+        pasos = [i * 2 for i in euclides(self.pulso, 8)]
+        golpes = {}
+        for k, p in enumerate(pasos):
+            siguiente = pasos[k + 1] if k + 1 < len(pasos) else PASOS_POR_COMPAS
+            if k > 0 and rng.random() < d and p + 1 < siguiente:
+                p += 1
+            retraso = (1 if p % 2 == 1 and d >= 0.5 else 0) + (1 if rng.random() < d * 0.3 else 0)
+            golpes[p] = retraso
+        return golpes
+
+    def _programar_pulso(self, paso, tick):
+        """Programa el golpe de este paso (si llegó a tiempo) y el del siguiente."""
+        self.programados = {p for p in self.programados if p >= paso}
+        for p in (paso, paso + 1):
+            if p in self.programados or not self.acorde_pulso:
+                continue
+            golpes = self.golpes_del_compas(p // PASOS_POR_COMPAS)
+            lugar = p % PASOS_POR_COMPAS
+            if lugar not in golpes:
+                continue
+            self.programados.add(p)
+            orden = sorted(golpes)
+            sigue = next((g for g in orden if g > lugar), PASOS_POR_COMPAS)
+            inicio = max(tick, p * TICKS_POR_PASO + golpes[lugar])
+            # Dura hasta antes del golpe siguiente (como mucho una negra), sin pisarlo.
+            dur = min((sigue - lugar) * TICKS_POR_PASO * 0.85, 4 * TICKS_POR_PASO)
+            dur = max(2, round(min(dur, (sigue - lugar) * TICKS_POR_PASO - golpes[lugar] - 1)))
+            for i, n in enumerate(self.acorde_pulso):
+                desfase = i * min(self.rasgueo, 2)  # rasgueo corto: un golpe no es un arpegio
+                self.pendientes.append((inicio + desfase, n))
+                self.apagados.append((inicio + dur, n))
+
+    # --- Tiempo ---
+
     def tick(self, tick, enviar):
+        if self.apagados:
+            fin = [p for p in self.apagados if p[0] <= tick]
+            self.apagados = [p for p in self.apagados if p[0] > tick]
+            for _, n in fin:  # primero los que terminan: un golpe nunca pisa al siguiente
+                if n in self.sonando:
+                    enviar(self.salida, "note_off", self.canal, n, 0)
+                    self.sonando.discard(n)
         listas = [p for p in self.pendientes if p[0] <= tick]
         if not listas:
             return
         self.pendientes = [p for p in self.pendientes if p[0] > tick]
         for _, n in listas:
+            if self.pulso:
+                if n in self.sonando:
+                    enviar(self.salida, "note_off", self.canal, n, 0)
+                self.sonando.add(n)
             enviar(self.salida, "note_on", self.canal, n, self.velocidad)
 
     def apagar(self, enviar):
@@ -205,10 +298,14 @@ class Pads:
         self.sonando = set()
         self.nota_drone = None
         self.pendientes = []
+        self.apagados = []
+        self.programados = set()
+        self.acorde_pulso = []
         self.clave = None
         self.raiz_acorde = None
 
     def descripcion(self):
-        if not self.sonando:
+        notas = self.sonando or set(self.acorde_pulso)
+        if not notas:
             return None
-        return " · ".join(nombre_midi(n) for n in sorted(self.sonando))
+        return " · ".join(nombre_midi(n) for n in sorted(notas))

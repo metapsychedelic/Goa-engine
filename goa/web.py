@@ -8,7 +8,7 @@ import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__
+from . import __version__, generos
 from .config import (MAX_CLIPS, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
@@ -115,6 +115,7 @@ def crear_servidor(ctx, puerto):
             rutas = {
                 "/api/panico": self._panico,
                 "/api/config": self._config,
+                "/api/genero": self._genero,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/lanzar": self._lanzar,
@@ -170,6 +171,15 @@ def crear_servidor(ctx, puerto):
             with ctx.candado:
                 aviso = self._aplicar(nueva)
             self._responder(aviso)
+
+        def _genero(self, datos):
+            """Aplica un perfil de género. Con solo = "pads", cambia solo los pads (desacoplados)."""
+            genero = str(datos.get("genero", ""))
+            with ctx.candado:
+                nueva = normalizar(generos.aplicar(ctx.config, genero, solo_pads=datos.get("solo") == "pads"))
+                Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+                aviso = self._aplicar(nueva)
+            self._responder(aviso, genero=genero)
 
         def _clip_guardar(self, datos):
             with ctx.candado:

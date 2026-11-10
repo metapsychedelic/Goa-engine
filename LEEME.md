@@ -114,6 +114,28 @@ Arriba quedan los controles para tocar en vivo; lo demás está en "Más ajustes
 Para encontrar una buena secuencia, prueba variantes con **Otra**; si saltaste
 una que sonaba bien, **Anterior** vuelve a ella (recuerda las últimas 20).
 
+## Géneros y Pegado ↔ Desplazado
+
+En **Música**, un solo selector de género cambia la escala, los pads y la
+llamada y respuesta. Después puedes ajustar todo a mano; nunca toca destinos,
+canales, variantes ni las secuencias (el bajo queda como lo armaste).
+
+- **Goa:** frigio, i–♭II, diálogo en corcheas pegado al beat.
+- **Psy chill:** dórica, i–IV–i–♭VII con un pulso euclidiano suave en los pads.
+- **Chillgressive:** menor, i–♭VI–♭VII–v cada 8 compases, diálogo en semicorcheas.
+- **Chillout:** menor, acordes de séptima y novena juntos, notas largas.
+- **Ambient:** lidia, drone, acordes de 16 compases con voces que entran de a una.
+
+**Pegado ↔ Desplazado:** en 0 todo cae justo en la rejilla. Al subirlo, algunas
+notas se corren una semicorchea (nunca el uno de la llamada) y las semicorcheas
+débiles se atrasan un poco, como swing. Mueve la llamada, la respuesta y el
+pulso de los pads; las secuencias no se corren. Cada voz puede tener su propio
+ajuste (en sus "Más ajustes").
+
+**Pads desacoplados:** en "Más ajustes" de los pads, *Desacoplar del género*
+les da su propio selector, por ejemplo pads ambient bajo un diálogo
+chillgressive. Siguen usando la escala general para no chocar.
+
 ## Llamada y respuesta
 
 Dos voces que conversan con **ritmos euclidianos**: cada una reparte sus golpes
@@ -148,6 +170,8 @@ python3 -m pruebas.simular
 
 Simula la Circuit y muestra las notas generadas en una grilla por compás.
 `python3 -m pruebas.dialogo` prueba la llamada y respuesta en los dos modos.
+`python3 -m pruebas.generos` prueba los perfiles de género, el pulso de los pads
+y el control Pegado ↔ Desplazado.
 `python3 -m pruebas.mutaciones` prueba que las mutaciones avancen y que mover
 un control en la app no las borre.
 `python3 -m pruebas.app` levanta la app con una Circuit simulada en http://localhost:8080.

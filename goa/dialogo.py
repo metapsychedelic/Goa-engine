@@ -17,6 +17,11 @@ Las notas salen de un conjunto chico según Luminoso ↔ Oscuro, contadas en la
 escala desde la raíz del acorde de los pads (o de la nota larga). Cada voz
 repite su orden de notas, y la mutación cambia una nota o gira el patrón
 cada cierto número de compases, como las secuencias.
+
+Pegado ↔ Desplazado: en 0 todo cae justo en la rejilla. Al subirlo, algunas
+notas se corren una semicorchea (nunca el uno de la llamada), y las que caen en
+semicorcheas débiles se atrasan un pulso (swing) o se humanizan. Cada voz usa el
+valor general o uno propio.
 """
 
 import random
@@ -76,6 +81,7 @@ class Voz:
         self.gate = float(cfg.get("gate", 0.5))
         self.velocidad = int(cfg.get("velocidad", 100))
         self.vel_random = float(cfg.get("vel_random", 0.15))
+        self.desplazamiento = float(cfg.get("desplazamiento", -1.0))  # menos de 0 = el general
         self.rng = random.Random(f"{papel}:{seed}")          # notas y mutaciones
         self.rng_vel = random.Random(f"fuerza:{papel}:{seed}")  # matices de fuerza, aparte
         self.grados = NOTAS[color(self.oscuridad)][papel]
@@ -101,8 +107,9 @@ class Voz:
 
 
 class Dialogo:
-    def __init__(self, cfg, cfg_llamada, cfg_respuesta, tonica, escala, adaptacion):
+    def __init__(self, cfg, cfg_llamada, cfg_respuesta, tonica, escala, adaptacion, desplazamiento=0.0):
         self.activo = bool(cfg.get("activo", False))
+        self.desplazamiento = max(0.0, min(1.0, float(desplazamiento)))
         self.modo = cfg.get("modo", "motor")
         self.forma = cfg.get("forma", "entrelazado")
         self.rejilla = cfg.get("rejilla", "corcheas")
@@ -123,6 +130,7 @@ class Dialogo:
         self.disparo = None  # lo resuelve el motor
         self.clip = None     # nombre del clip de diálogo que suena, si vino del disparador
         self.sonando = {}    # (salida, canal, nota) -> tick en que se apaga
+        self.pendientes = []  # (tick, voz, nota, dur, vel): notas atrasadas por el desplazamiento
         self.reiniciar()
 
     @property
@@ -138,7 +146,8 @@ class Dialogo:
         self.respuesta = Voz(self.cfg_voces[1], "respuesta", self.seed)
         self.inicio = None      # compás donde empezó la conversación
         self.ultimo_paso = None
-        self.plan = []          # (paso, voz, grado, dur, vel)
+        self.plan = []          # (paso, voz, grado, dur, vel, retraso en pulsos)
+        self.pendientes = []
         self.fase = None
         self.raiz_vivo = None
         self.tocado = set()     # en vivo: lugares donde tocaste en este compás
@@ -165,7 +174,7 @@ class Dialogo:
             compas = inicio_compas // PASOS_POR_COMPAS - (self.inicio or 0)
             if self.modo == "en_vivo":
                 # La respuesta en curso sigue tal cual, ya con los ajustes nuevos de la voz.
-                self.plan = [(p, self.respuesta, g, d, v) for p, _, g, d, v in viejo.plan]
+                self.plan = [(p, self.respuesta, g, d, v, r) for p, _, g, d, v, r in viejo.plan]
             else:
                 self._compas(compas, inicio_compas)
                 self.plan = [e for e in self.plan if e[0] > paso]
@@ -210,17 +219,42 @@ class Dialogo:
                           for k, i in enumerate(golpes_l)]
                          + [(i, self.respuesta, self.respuesta.orden[k % len(self.respuesta.orden)])
                             for k, i in enumerate(golpes_r)], key=lambda e: e[0])
+        inicios, retrasos = self._desplazar(compas, eventos)
         # Cada nota dura según su largo, pero termina antes de que entre la siguiente
         # (de cualquier voz, también el uno del compás que viene): no se pisan.
-        inicios = [i * self.paso_lugar for i, _, _ in eventos] + [PASOS_POR_COMPAS]
+        inicios.append(PASOS_POR_COMPAS)
         self.plan = []
         for k, (i, voz, grado) in enumerate(eventos):
-            inicio = i * self.paso_lugar
+            inicio, retraso = inicios[k], retrasos[k]
             hasta = inicios[k + 1] - inicio
             pasos = min(hasta * 0.9, max(0.5, voz.gate * min(hasta, LARGO_MAXIMO)))
-            dur = max(1, round(pasos * TICKS_POR_PASO))
+            dur = round(pasos * TICKS_POR_PASO)
+            dur = max(1, min(dur, hasta * TICKS_POR_PASO - retraso - 1))
             vel = voz.velocidad + (8 if i == 0 else 0) + round(voz.vel_random * 20 * voz.rng_vel.uniform(-1, 1))
-            self.plan.append((paso + inicio, voz, grado, dur, max(1, min(127, vel))))
+            self.plan.append((paso + inicio, voz, grado, dur, max(1, min(127, vel)), retraso))
+
+    def desplazamiento_de(self, voz):
+        return voz.desplazamiento if voz.desplazamiento >= 0 else self.desplazamiento
+
+    def _desplazar(self, compas, eventos):
+        """Pasos de inicio y retrasos (en pulsos) de cada evento, según Pegado ↔ Desplazado.
+
+        Determinista por variante y compás. El uno de la llamada nunca se mueve, y una
+        nota corrida nunca llega a la siguiente."""
+        rng = random.Random(f"desplazar:{self.seed}:{compas}")
+        base = [i * self.paso_lugar for i, _, _ in eventos]
+        inicios, retrasos = [], []
+        for k, (i, voz, _) in enumerate(eventos):
+            d = self.desplazamiento_de(voz)
+            inicio = base[k]
+            siguiente = base[k + 1] if k + 1 < len(base) else PASOS_POR_COMPAS
+            correr = rng.random() < d
+            if correr and not (voz is self.llamada and i == 0) and inicio + 1 < siguiente:
+                inicio += 1
+            retraso = (1 if inicio % 2 == 1 and d >= 0.5 else 0) + (1 if rng.random() < d * 0.3 else 0)
+            inicios.append(inicio)
+            retrasos.append(retraso if d > 0 else 0)
+        return inicios, retrasos
 
     def _mutar(self, compas):
         if self.evolucion > 0 and compas > 0 and compas % self.mutar_cada == 0:
@@ -285,16 +319,23 @@ class Dialogo:
         if raiz is None:
             return
         for evento in [e for e in self.plan if e[0] == paso]:
-            _, voz, grado, dur, vel = evento
+            _, voz, grado, dur, vel, retraso = evento
             # Grados contados en la escala desde la raíz (la del acorde de los pads si
             # los sigue): nunca sale de la escala.
             nota = max(0, min(127, self.tonalidad.nota(raiz, grado, "escala") + 12 * voz.octava))
-            clave = (voz.salida, voz.canal, nota)
-            if clave in self.sonando:
-                enviar(voz.salida, "note_off", voz.canal, nota, 0)
-            enviar(voz.salida, "note_on", voz.canal, nota, vel)
-            self.sonando[clave] = paso * TICKS_POR_PASO + dur
+            inicio = paso * TICKS_POR_PASO + retraso
+            if retraso:
+                self.pendientes.append((inicio, voz, nota, dur, vel))
+            else:
+                self._encender(voz, nota, vel, inicio + dur, enviar)
         self.plan = [e for e in self.plan if e[0] > paso]
+
+    def _encender(self, voz, nota, vel, fin, enviar):
+        clave = (voz.salida, voz.canal, nota)
+        if clave in self.sonando:
+            enviar(voz.salida, "note_off", voz.canal, nota, 0)
+        enviar(voz.salida, "note_on", voz.canal, nota, vel)
+        self.sonando[clave] = fin
 
     def tick(self, tick, enviar):
         for clave, fin in list(self.sonando.items()):
@@ -302,8 +343,14 @@ class Dialogo:
                 salida, canal, nota = clave
                 enviar(salida, "note_off", canal, nota, 0)
                 del self.sonando[clave]
+        if self.pendientes:
+            listas = [p for p in self.pendientes if p[0] <= tick]
+            self.pendientes = [p for p in self.pendientes if p[0] > tick]
+            for inicio, voz, nota, dur, vel in listas:
+                self._encender(voz, nota, vel, inicio + dur, enviar)
 
     def apagar(self, enviar):
         for salida, canal, nota in self.sonando:
             enviar(salida, "note_off", canal, nota, 0)
         self.sonando = {}
+        self.pendientes = []

@@ -109,6 +109,7 @@ details.voz>*:not(summary){margin-top:14px}
 
   <details class="card" data-mod="musica">
     <summary><span class="cab"><h2>Música</h2><span class="mut" id="musica_resumen"></span></span><span class="der"></span></summary>
+    <div id="genero_caja" style="display:flex;flex-direction:column;gap:12px"></div>
     <div class="dos">
       <label class="campo">Tónica <select data-k="musica.tonica" id="tonica"></select></label>
       <label class="campo">Escala <select data-k="musica.escala" id="escala"></select></label>
@@ -152,9 +153,20 @@ details.voz>*:not(summary){margin-top:14px}
 
 <script>
 const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# · Re#"],["E","E · Mi"],["F","F · Fa"],["F#","F# · Fa#"],["G","G · Sol"],["G#","G# · Sol#"],["A","A · La"],["A#","A# · La#"],["B","B · Si"]];
-const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"]];
-const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"]];
-const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"]];
+const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"],["i_IV","i – IV · con dórica, abierta (psy chill)"],["i_IV_i_bVII","i – IV – i – ♭VII · psy chill"],["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive"],["i_bVI_iv_v","i – ♭VI – iv – v · chillout"],["pedal_I_II","I – II sobre la raíz · con lidia, galáctica (ambient)"]];
+const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"],["septima","Séptima (m7 / maj7)"],["novena","Novena (con 5 voces)"]];
+const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"],["dorico","Dórica"],["lidio","Lidia"]];
+const GENEROS = [["goa","Goa"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["chillout","Chillout"],["ambient","Ambient"]];
+const GENERO_TEXTO = {goa: "Frigio, i – ♭II, llamada y respuesta en corcheas, pegada al beat.",
+  psy_chill: "Dórica, i – IV – i – ♭VII con pulso suave en los pads, motivos cortos.",
+  chillgressive: "Menor, i – ♭VI – ♭VII – v cada 8 compases, diálogo en semicorcheas.",
+  chillout: "Menor, acordes de séptima y novena juntos, notas largas y algo de swing.",
+  ambient: "Lidia, drone y acordes que duran 16 compases, voces que entran de a una, mucho espacio."};
+const nombreGenero = (g) => (GENEROS.find((x) => x[0] === g) || [g, g])[1];
+function desplTexto(x) {
+  const t = x === 0 ? "pegado al beat" : x < 0.35 ? "casi pegado" : x < 0.7 ? "algo desplazado" : "desplazado";
+  return x === 0 ? t : `${t} (${Math.round(x * 100)} %)`;
+}
 const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"]];
 const POSICIONES = [["onbeat","Con el bombo"],["offbeat","Entre bombos"],["todos","Todas"],["desplazado","Corrida"]];
 const POS_TEXTO = {onbeat: "Las notas caen junto al bombo.", offbeat: "Entre bombo y bombo: el clásico del psytrance.",
@@ -361,6 +373,7 @@ function render() {
   };
   const ES = {DO: "C", RE: "D", MI: "E", FA: "F", SOL: "G", LA: "A", SI: "B"};
   let ton = cfg.musica.tonica.toUpperCase().replace(/^(DO|RE|MI|FA|SOL|LA|SI)/, (m) => ES[m]);
+  renderGenero();
   sel("tonica", TONICAS, ton, (v) => cfg.musica.tonica = v);
   sel("escala", ESCALAS, cfg.musica.escala, (v) => cfg.musica.escala = v);
   $("cambio").replaceWith(Object.assign(segmentado([["paso","Al tiro"],["compas","En el próximo compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2), {id: "cambio"}));
@@ -387,9 +400,30 @@ function render() {
   renderGrilla();
 }
 
+function renderGenero() {
+  const m = cfg.musica, caja = $("genero_caja");
+  caja.innerHTML = "";
+  caja.append(
+    campo("Género", segmentado(GENEROS, m.genero, (v) => cambiarGenero(v), 3)),
+    ayuda(GENERO_TEXTO[m.genero] + " Después puedes ajustar todo a mano."),
+    deslizador(m, "desplazamiento", "Pegado ↔ Desplazado", 0, 1, 0.05, desplTexto),
+    ayuda("Corre las notas de la llamada, la respuesta y el pulso de los pads. Las secuencias (el bajo) no se mueven."),
+  );
+}
+
+async function cambiarGenero(genero, soloPads = false) {
+  try {
+    clearTimeout(temporizador);  // primero aplica lo último que cambiaste
+    await api("/api/config", cfg);
+    await api("/api/genero", soloPads ? {genero, solo: "pads"} : {genero});
+    await recargar();
+    aviso((soloPads ? "Pads: " : "Género: ") + nombreGenero(genero));
+  } catch (e) { aviso(e.message, true); }
+}
+
 function resumenes() {
   const ton = (TONICAS.find((t) => t[0] === cfg.musica.tonica.toUpperCase()) || [cfg.musica.tonica])[0];
-  $("musica_resumen").textContent = `${ton} ${ESCALAS.find((e) => e[0] === cfg.musica.escala)[1].toLowerCase()}`;
+  $("musica_resumen").textContent = `${nombreGenero(cfg.musica.genero)} · ${ton} ${ESCALAS.find((e) => e[0] === cfg.musica.escala)[1].toLowerCase()}`;
   $("conexion_resumen").textContent = cfg.thru.activo ? `Modo dongle · ${cfg.entrada.puerto}` : cfg.entrada.puerto;
 }
 
@@ -406,6 +440,13 @@ function renderPads() {
     return s;
   };
   const drone = el("input", {type: "checkbox", checked: p.drone, onchange: () => { p.drone = drone.checked; guardar(); }});
+  const propio = el("input", {type: "checkbox", checked: p.genero_propio, onchange: () => {
+    p.genero_propio = propio.checked;
+    if (propio.checked) { renderPads(); guardar(); }
+    else cambiarGenero(cfg.musica.genero, true);  // vuelven a seguir al género general
+  }});
+  const generoPads = el("select", {onchange: () => cambiarGenero(generoPads.value, true)});
+  for (const [v, t] of GENEROS) generoPads.append(el("option", {value: v, textContent: t, selected: v === p.genero}));
   if (!cont._recordado) { recordar(cont, "pads", false); cont._recordado = true; }
   cont.innerHTML = "";
   cont.append(
@@ -413,8 +454,14 @@ function renderPads() {
     el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
     el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
     campo("Cambia de acorde cada (compases)", segmentado([["4","4"],["8","8"],["16","16"],["32","32"]], String(p.cambia_cada), (v) => { p.cambia_cada = parseInt(v); cab._sub.textContent = sub(); guardar(); }, 4)),
+    deslizador(p, "pulso", "Pulso", 0, 8, 1, (v) => v === 0 ? "acordes sostenidos" : `${v} golpe${v > 1 ? "s" : ""} por compás`),
+    ayuda("Con pulso, los acordes suenan en un ritmo euclidiano suave en corcheas, el primero en el uno."),
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Drone en la raíz", el("br"), el("span", {className: "mut", textContent: "Una nota grave sostenida bajo los acordes"})]), drone]),
     masAjustes("mas-pads", [
+      el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Desacoplar del género", el("br"),
+        el("span", {className: "mut", textContent: p.genero_propio ? "Los pads tienen su propio género" : `Siguen al género general (${nombreGenero(cfg.musica.genero)})`})]), propio]),
+      p.genero_propio ? el("label", {className: "campo"}, ["Género de los pads", generoPads]) : null,
+      p.genero_propio ? ayuda("Cambia solo los pads; siguen usando la escala general para no chocar.") : null,
       el("div", {className: "dos"}, [destinoDe(p, estado), numeroDe(p, "canal", "Canal MIDI", 1, 16)]),
       numeroDe(p, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
       campo("La progresión parte desde", segmentado([["nota","La nota larga"],["tonica","La tónica fija"]], p.base, (v) => { p.base = v; guardar(); }, 2)),
@@ -424,7 +471,8 @@ function renderPads() {
       el("div", {className: "dos"}, [numeroDe(p, "voces", "Notas por acorde (MicroFreak: 4)", 2, 6), numeroDe(p, "octava", "Octava", -2, 2)]),
       deslizador(p, "variacion", "Sorpresas en la progresión", 0, 1, 0.05, porcentaje),
       ayuda("A veces cambia un acorde por uno emparentado que comparte dos notas."),
-      deslizador(p, "rasgueo", "Entrada escalonada (rasgueo)", 0, 6, 1, (v) => v === 0 ? "todas juntas" : v === 1 ? "1 pulso" : v + " pulsos"),
+      deslizador(p, "rasgueo", "Entrada escalonada (rasgueo)", 0, 24, 1, (v) => v === 0 ? "todas juntas" : v === 24 ? "una voz por tiempo" : v === 1 ? "1 pulso" : v + " pulsos"),
+      ayuda("Al máximo, las voces entran de a una, una por tiempo (ambient). Con pulso se usa un rasgueo corto."),
       numeroDe(p, "velocidad", "Fuerza", 1, 127),
       ...variante(p, "pads"),
     ]),
@@ -460,8 +508,25 @@ function bloqueVoz(v, titulo, papel, extra = []) {
       deslizador(v, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
       ayuda("Nunca pisa a la nota siguiente, de ninguna de las dos voces."),
       deslizador(v, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
+      desplazamientoPropio(v),
     ]),
   ]), `voz-${papel}`, true);
+}
+
+function desplazamientoPropio(v) {
+  // Cada voz usa el Pegado ↔ Desplazado general (en Música) o uno propio.
+  const caja = el("div", {style: "display:flex;flex-direction:column;gap:12px"});
+  const pintar = () => {
+    caja.innerHTML = "";
+    const propio = v.desplazamiento >= 0;
+    const chk = el("input", {type: "checkbox", checked: propio, onchange: () => {
+      v.desplazamiento = chk.checked ? cfg.musica.desplazamiento : -1; pintar(); guardar(); }});
+    caja.append(el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Pegado ↔ Desplazado propio", el("br"),
+      el("span", {className: "mut", textContent: propio ? "Esta voz tiene su propio ajuste" : `Usa el general (${desplTexto(cfg.musica.desplazamiento)})`})]), chk]));
+    if (propio) caja.append(deslizador(v, "desplazamiento", "Pegado ↔ Desplazado de esta voz", 0, 1, 0.05, desplTexto));
+  };
+  pintar();
+  return caja;
 }
 
 function colorGeneral() {

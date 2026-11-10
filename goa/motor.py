@@ -136,9 +136,11 @@ class Motor:
         entrada = config.get("entrada", {})
         tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
-        pads = Pads(config.get("pads", {}), tonalidad)
+        desplazamiento = musica.get("desplazamiento", 0.0)
+        pads = Pads(config.get("pads", {}), tonalidad, desplazamiento)
         dialogo = Dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}),
-                          musica.get("tonica", "F"), musica.get("escala", "frigio"), musica.get("adaptacion", "escala"))
+                          musica.get("tonica", "F"), musica.get("escala", "frigio"), musica.get("adaptacion", "escala"),
+                          desplazamiento)
         self.apagar_todo()
         if self.dialogo is not None:
             dialogo.clip = self.dialogo.clip  # recuerda qué clip de diálogo sonaba
@@ -205,7 +207,7 @@ class Motor:
     def _crear_dialogo(self, dialogo, llamada, respuesta):
         m = self.musica
         nuevo = Dialogo(dialogo, llamada, respuesta, m.get("tonica", "F"), m.get("escala", "frigio"),
-                        m.get("adaptacion", "escala"))
+                        m.get("adaptacion", "escala"), m.get("desplazamiento", 0.0))
         nuevo.disparo = self._canal_de(dialogo)
         return nuevo
 
