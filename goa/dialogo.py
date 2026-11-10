@@ -76,7 +76,8 @@ class Voz:
         self.gate = float(cfg.get("gate", 0.5))
         self.velocidad = int(cfg.get("velocidad", 100))
         self.vel_random = float(cfg.get("vel_random", 0.15))
-        self.rng = random.Random(f"{papel}:{seed}")
+        self.rng = random.Random(f"{papel}:{seed}")          # notas y mutaciones
+        self.rng_vel = random.Random(f"fuerza:{papel}:{seed}")  # matices de fuerza, aparte
         self.grados = NOTAS[color(self.oscuridad)][papel]
         # El ancla primero; después cada otra nota del color al menos una vez (si caben),
         # para que el color se escuche siempre; el resto, al azar dentro del color.
@@ -143,6 +144,32 @@ class Dialogo:
         self.tocado = set()     # en vivo: lugares donde tocaste en este compás
         self.notas_vivo = []
 
+    def continuar_de(self, viejo):
+        """Retoma la conversación de `viejo` al cambiar ajustes en vivo: conserva el
+        compás de inicio y lo mutado, y rehace el compás en curso con lo nuevo."""
+        if (viejo.modo, viejo.seed) != (self.modo, self.seed):
+            return
+        for nueva, vieja in ((self.llamada, viejo.llamada), (self.respuesta, viejo.respuesta)):
+            nueva.rng.setstate(vieja.rng.getstate())
+            if (nueva.golpes, nueva.grados) == (vieja.golpes, vieja.grados):
+                nueva.orden = list(vieja.orden)
+            if viejo.rejilla == self.rejilla:
+                nueva.giro = vieja.giro % self.lugares
+        if not euclides(self.llamada.golpes, self.lugares, self.llamada.giro)[:1] == [True]:
+            self.llamada.giro = 0  # la llamada siempre en el uno
+        self.inicio, self.ultimo_paso = viejo.inicio, viejo.ultimo_paso
+        self.tocado, self.notas_vivo, self.raiz_vivo = viejo.tocado, viejo.notas_vivo, viejo.raiz_vivo
+        if self.activo and viejo.ultimo_paso is not None and (self.inicio is not None or self.modo == "en_vivo"):
+            paso = viejo.ultimo_paso
+            inicio_compas = paso - paso % PASOS_POR_COMPAS
+            compas = inicio_compas // PASOS_POR_COMPAS - (self.inicio or 0)
+            if self.modo == "en_vivo":
+                # La respuesta en curso sigue tal cual, ya con los ajustes nuevos de la voz.
+                self.plan = [(p, self.respuesta, g, d, v) for p, _, g, d, v in viejo.plan]
+            else:
+                self._compas(compas, inicio_compas)
+                self.plan = [e for e in self.plan if e[0] > paso]
+
     # --- Patrones de un compás ---
 
     def huecos(self, ocupados):
@@ -192,7 +219,7 @@ class Dialogo:
             hasta = inicios[k + 1] - inicio
             pasos = min(hasta * 0.9, max(0.5, voz.gate * min(hasta, LARGO_MAXIMO)))
             dur = max(1, round(pasos * TICKS_POR_PASO))
-            vel = voz.velocidad + (8 if i == 0 else 0) + round(voz.vel_random * 20 * voz.rng.uniform(-1, 1))
+            vel = voz.velocidad + (8 if i == 0 else 0) + round(voz.vel_random * 20 * voz.rng_vel.uniform(-1, 1))
             self.plan.append((paso + inicio, voz, grado, dur, max(1, min(127, vel))))
 
     def _mutar(self, compas):

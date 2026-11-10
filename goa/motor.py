@@ -142,6 +142,7 @@ class Motor:
         self.apagar_todo()
         if self.dialogo is not None:
             dialogo.clip = self.dialogo.clip  # recuerda qué clip de diálogo sonaba
+            dialogo.continuar_de(self.dialogo)  # sigue la conversación sin callarse ni perder lo mutado
         self.musica = musica
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
@@ -152,7 +153,12 @@ class Motor:
         for i, (s, c) in enumerate(zip(secuencias, config.get("secuencia", []))):
             s.disparo = self._canal_de(c)
             if i < len(self.secuencias):
-                s.clip = self.secuencias[i].clip  # recuerda qué clip sonaba en esa fila
+                vieja = self.secuencias[i]
+                s.clip = vieja.clip  # recuerda qué clip sonaba en esa fila
+                if (vieja.seed, vieja.estilo, vieja.largo, vieja.pedal) == (s.seed, s.estilo, s.largo, s.pedal):
+                    # Mismo patrón de base: conserva lo que ya mutó. Antes, mover cualquier
+                    # control de la app devolvía la secuencia a su patrón original.
+                    s.patron = vieja.patron
         pads.disparo = self._canal_de(config.get("pads", {}))
         dialogo.disparo = self._canal_de(config.get("dialogo", {}))
         canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, self.canal_disparo}

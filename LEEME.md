@@ -148,4 +148,6 @@ python3 -m pruebas.simular
 
 Simula la Circuit y muestra las notas generadas en una grilla por compás.
 `python3 -m pruebas.dialogo` prueba la llamada y respuesta en los dos modos.
+`python3 -m pruebas.mutaciones` prueba que las mutaciones avancen y que mover
+un control en la app no las borre.
 `python3 -m pruebas.app` levanta la app con una Circuit simulada en http://localhost:8080.
