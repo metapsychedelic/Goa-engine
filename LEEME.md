@@ -105,7 +105,18 @@ y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la 
 - **Proyectos:** guardar, guardar como, abrir y borrar proyectos completos.
   Se guardan en `~/.config/goa/proyectos/`.
 
+## La app
+
+Cada módulo (Proyecto, Disparador, Música, Pads, Llamada y respuesta, Conexión
+y cada secuencia) se abre y cierra tocando su título; la app recuerda cómo los
+dejaste. El interruptor del título prende o apaga el módulo sin abrirlo.
+Arriba quedan los controles para tocar en vivo; lo demás está en "Más ajustes".
+
 ## Llamada y respuesta
+
+- **Sigue a los pads** (por defecto): si los pads suenan, el diálogo usa su
+  escala, se mueve con cada acorde de la progresión y las notas que pesan (la
+  primera, la última y las largas) caen en notas del acorde que suena.
 
 Dos voces que conversan dejando espacio, sin repetir frases.
 
@@ -137,7 +148,7 @@ Dos voces que conversan dejando espacio, sin repetir frases.
   *espejo* (la frase invertida), *eco* (tu frase con el carácter de la
   respuesta) o *nueva* (una frase propia).
 - **Espacio y tiempo:** compases de cada voz, pausa entre ambas y descanso
-  después. **Evolución** cambia un poco la frase en cada vuelta; en 0 se repite igual.
+  después. **Mutación** cambia un poco la frase en cada vuelta; en 0 se repite igual.
 
 Para tocar la llamada en vivo, tus notas tienen que llegar a la Pi: por ejemplo
 tocando en vivo una pista de la Circuit (Note Tx activo). En modo dongle esas

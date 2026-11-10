@@ -61,6 +61,7 @@ ESQUEMA_SECCIONES = {
         "transformacion": (str, "variacion", None, dialogo.TRANSFORMACIONES),
         "evolucion": (float, 0.3, 0.0, 1.0),
         "parecido": (float, 0.3, 0.0, 1.0),
+        "seguir_pads": (bool, True, None, None),
         "seed": (str, "CR-0001", None, None),
     },
 }

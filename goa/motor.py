@@ -365,8 +365,20 @@ class Motor:
         return raiz
 
     def _paso_dialogo(self, paso):
-        raiz = self._raiz_con_pads(self.disparos[self.dialogo.disparo].raiz)
-        self.dialogo.paso(paso, self.tick, raiz, self.enviar)
+        raiz = self.disparos[self.dialogo.disparo].raiz
+        acorde = None
+        if self.dialogo.seguir_pads and self.pads.activo:
+            # Sigue la progresión de los pads: la raíz del acorde y sus notas.
+            raiz_acorde, acorde = self.pads.acorde_en(paso, self.disparos[self.pads.disparo].raiz)
+            if raiz_acorde is not None:
+                if self.dialogo.modo == "motor":
+                    # Sigue esperando su nota larga; con ella, toma la raíz del acorde cerca.
+                    raiz = None if raiz is None else _cerca(raiz_acorde % 12, raiz)
+                else:
+                    raiz = raiz_acorde  # en vivo solo importa la clase: el registro lo pones tú
+        else:
+            raiz = self._raiz_con_pads(raiz)
+        self.dialogo.paso(paso, self.tick, raiz, self.enviar, acorde)
 
     def _tocar_paso(self, paso, solo_canal=None):
         for s in self.secuencias:

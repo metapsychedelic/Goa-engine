@@ -198,6 +198,42 @@ if __name__ == "__main__":
     todo &= ok(all(frase(random.Random(i), v, 32)[-1]["grado"] % 7 in (3, 4) for i in range(100)),
                "final suspendido: termina en quinta o cuarta")
 
+    print("\nSiguiendo a los pads (i – ♭II, cambia cada 4 compases)")
+    from goa.escalas import Tonalidad
+    cfg = base(evolucion=0.5)
+    cfg["pads"].update(activo=True, progresion="i_bII", cambia_cada=4, disparo=2, variacion=0.0)
+    cfg["respuesta"]["escala"] = "frigio_dominante"  # con los pads, igual usa la escala de los pads
+    eventos = []
+    motor = Motor(cfg, lambda sal, tipo, canal, nota, vel: eventos.append((motor.tick, sal, tipo, nota)))
+    motor.start()
+    for tick in range(16 * 16 * 6):
+        motor.reloj()
+        paso, resto = divmod(tick, 6)
+        if resto == 1 and paso % 16 == 0:
+            motor.nota_on(1, 41)
+    motor.stop()
+    voces = {cfg["llamada"]["salida"], cfg["respuesta"]["salida"]}
+    ons = [(t, n) for t, sal, tipo, n in eventos if tipo == "note_on" and sal in voces]
+    escala = set(Tonalidad("F", "frigio").intervalos)
+    fuera = [n for _, n in ons if (n - 5) % 12 not in escala]
+    todo &= ok(ons and not fuera, f"todas las notas en la escala de los pads ({len(ons)} notas)")
+    clases = {0: motor.pads.acorde_en(0, 41)[1], 1: motor.pads.acorde_en(64, 41)[1]}
+    largas, en_acorde = 0, 0
+    abiertas = {}
+    for t, sal, tipo, n in eventos:
+        if sal not in voces:
+            continue
+        if tipo == "note_on":
+            abiertas[(sal, n)] = t
+        elif (sal, n) in abiertas:
+            inicio = abiertas.pop((sal, n))
+            if t - inicio >= 18:
+                largas += 1
+                en_acorde += n % 12 in clases[(inicio // 6 // 64) % 2]
+    todo &= ok(largas and en_acorde == largas, f"las notas largas caen en el acorde que suena ({en_acorde} de {largas})")
+    sobre_bii = [n for t, n in ons if (t // 6 // 64) % 2 == 1]
+    todo &= ok(sobre_bii and all(n % 12 != 4 for n in sobre_bii), "sobre ♭II (G♭) la frase se mueve con el acorde")
+
     print("\nClips de diálogo")
     cfg = base(modo="en_vivo", transformacion="espejo", escucha=7)
     cfg["respuesta"].update(salida="FM-1", canal=4, escala="frigio_dominante", relacion="quinta")

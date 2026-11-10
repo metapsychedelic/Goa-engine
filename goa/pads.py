@@ -133,6 +133,19 @@ class Pads:
 
         return min(en_registro, key=costo)
 
+    def acorde_en(self, paso, raiz):
+        """Raíz y clases de altura del acorde que suena (o sonará) en `paso`.
+
+        Sin efectos: sirve para que otros módulos sigan la progresión justo en el
+        paso del cambio, sin esperar a que los pads lo toquen."""
+        base = self._base(raiz) if self.activo else None
+        if base is None:
+            return None, None
+        cambio = (paso // 16) // self.cambia_cada
+        raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
+        clases = {self.tonalidad.nota(raiz_acorde, p, "escala") % 12 for p in self.acorde}
+        return raiz_acorde, clases
+
     # --- Tiempo ---
 
     def actualizar(self, paso, raiz, tick, enviar):

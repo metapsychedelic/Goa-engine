@@ -76,8 +76,8 @@ class Voz:
             if valor not in opciones:
                 raise ValueError(f"{nombre} debe ser una de: {', '.join(opciones)}")
 
-    def nota(self, raiz, grado, adaptacion):
-        n = self.tonalidad.nota(raiz, grado + self.relacion, adaptacion) + 12 * self.octava
+    def nota(self, raiz, grado, adaptacion, tonalidad=None):
+        n = (tonalidad or self.tonalidad).nota(raiz, grado + self.relacion, adaptacion) + 12 * self.octava
         return max(0, min(127, n))
 
 
@@ -413,6 +413,25 @@ def evolucionar(rng, notas, voz, cantidad, largo):
 
 # --- Tiempo ---
 
+LARGA = 3 * TICKS_POR_PASO  # una nota de más de 3 semicorcheas pesa en la armonía
+
+
+def _eventos(notas, inicio, voz, limite):
+    """Notas de una frase a eventos del plan. Marca las que pesan: la primera,
+    la última y las largas, que al seguir a los pads caen en notas del acorde."""
+    ultima = len(notas) - 1
+    return [(inicio + n["paso"], voz, n["grado"], n["dur"], n["dv"], limite,
+             k == 0 or k == ultima or n["dur"] >= LARGA) for k, n in enumerate(notas)]
+
+
+def _al_acorde(nota, clases):
+    """La nota del acorde más cercana (si empata, la de abajo)."""
+    for distancia in range(7):
+        for candidata in (nota - distancia, nota + distancia):
+            if candidata % 12 in clases and 0 <= candidata <= 127:
+                return candidata
+    return nota
+
 
 class Dialogo:
     def __init__(self, cfg, cfg_llamada, cfg_respuesta, tonica, escala, adaptacion):
@@ -427,6 +446,7 @@ class Dialogo:
         self.evolucion = float(cfg.get("evolucion", 0.3))
         self.parecido = float(cfg.get("parecido", 0.3))
         self.seed = str(cfg.get("seed", "CR-0001"))
+        self.seguir_pads = bool(cfg.get("seguir_pads", True))
         for nombre, valor, opciones in (("modo", self.modo, MODOS),
                                         ("transformacion", self.transformacion, TRANSFORMACIONES)):
             if valor not in opciones:
@@ -436,6 +456,7 @@ class Dialogo:
         self.tonalidad = Tonalidad(tonica, escala)
         self.adaptacion = adaptacion
         self.disparo = None  # lo resuelve el motor
+        self.acorde = None   # clases de altura del acorde de los pads, si los sigue
         self.clip = None     # nombre del clip de diálogo que suena, si vino del disparador
         self.sonando = {}    # (salida, canal, nota) -> tick en que se apaga
         self.reiniciar()
@@ -452,7 +473,7 @@ class Dialogo:
         self.inicio = None        # paso donde empezó la conversación (modo motor)
         self.ultimo_paso = None
         self.ciclo = -1
-        self.plan = []            # (paso, voz, grado, dur, dv, limite)
+        self.plan = []            # (paso, voz, grado, dur, dv, limite, importante)
         self.frase_llamada = None
         self.frase_nueva = None   # base de la respuesta "nueva", que también evoluciona
         self.fase = None
@@ -493,10 +514,8 @@ class Dialogo:
         inicio_resp, _ = self._ciclo_pasos()
         fin_llamada = paso + self.largo_llamada
         fin_resp = paso + inicio_resp + self.largo_respuesta
-        self.plan = ([(paso + n["paso"], "llamada", n["grado"], n["dur"], n["dv"], fin_llamada)
-                      for n in self.frase_llamada]
-                     + [(paso + inicio_resp + n["paso"], "respuesta", n["grado"], n["dur"], n["dv"], fin_resp)
-                        for n in resp])
+        self.plan = (_eventos(self.frase_llamada, paso, "llamada", fin_llamada)
+                     + _eventos(resp, paso + inicio_resp, "respuesta", fin_resp))
 
     def _fase_motor(self, pos):
         inicio_resp, _ = self._ciclo_pasos()
@@ -561,15 +580,16 @@ class Dialogo:
         if not resp:
             return
         fin = paso + min(self.largo_respuesta, max(n["paso"] for n in resp) + PASOS_POR_TIEMPO)
-        self.plan = [(paso + n["paso"], "respuesta", n["grado"], n["dur"], n["dv"], fin) for n in resp]
+        self.plan = _eventos(resp, paso, "respuesta", fin)
         self.respondiendo_hasta = fin
         self.fase = "respuesta"
 
     # --- Llamado por el motor en cada paso ---
 
-    def paso(self, paso, tick, raiz, enviar):
+    def paso(self, paso, tick, raiz, enviar, acorde=None):
         if not self.activo or paso == self.ultimo_paso:
             return
+        self.acorde = acorde
         if self.modo == "en_vivo":
             self.ultimo_paso = paso
             self._paso_vivo(paso, tick, raiz, enviar)
@@ -612,9 +632,16 @@ class Dialogo:
         if raiz is None:
             return
         for evento in [e for e in self.plan if e[0] == paso]:
-            _, nombre, grado, dur, dv, limite = evento
+            _, nombre, grado, dur, dv, limite, importante = evento
             voz = self.llamada if nombre == "llamada" else self.respuesta
-            nota = voz.nota(raiz, grado, self.adaptacion)
+            if self.acorde:
+                # Siguiendo a los pads: la escala de los pads, contada desde la raíz del
+                # acorde, y las notas que pesan caen en notas del acorde.
+                nota = voz.nota(raiz, grado, "escala", self.tonalidad)
+                if importante:
+                    nota = _al_acorde(nota, self.acorde)
+            else:
+                nota = voz.nota(raiz, grado, self.adaptacion)
             velocidad = max(1, min(127, voz.velocidad + dv))
             dur = max(1, min(dur, (limite - paso) * TICKS_POR_PASO - 1))
             clave = (voz.salida, voz.canal, nota)

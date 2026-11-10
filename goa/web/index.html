@@ -38,8 +38,24 @@ button.prim{background:var(--acc);border-color:var(--acc);color:#111210}
 button.panico{min-height:52px;border-color:#8C3B32;background:#2A1714;color:#F2B8AF;font-weight:650;width:100%}
 .seed{display:flex;gap:6px}
 .seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.05em}
-details.card>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:32px}
-details.card>summary::-webkit-details-marker{display:none}
+details.card{gap:0}
+details.card>*:not(summary){margin-top:14px}
+details.card>p.ayuda,details.mas>p.ayuda,details.voz>p.ayuda{margin-top:6px}
+details.card>button,details.mas>button,details.voz>button{width:100%}
+details.card>summary,details.mas>summary,details.voz>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px}
+details.card>summary::-webkit-details-marker,details.mas>summary::-webkit-details-marker{display:none}
+details.card>summary .cab{display:flex;flex-direction:column;gap:2px;min-width:0}
+details.card>summary .cab .mut{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.card>summary .der{display:flex;align-items:center;gap:10px;flex:none}
+details.card>summary .der::after,details.mas>summary::after,details.voz>summary .der::after{content:"";width:8px;height:8px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(45deg) translate(-2px,-2px);flex:none;transition:transform .15s}
+details[open]>summary .der::after,details.mas[open]>summary::after{transform:rotate(225deg) translate(-2px,-2px)}
+details.mas{border-top:1px solid var(--line);padding-top:4px}
+details.mas>summary{font-size:14px;color:var(--mut);font-weight:600}
+details.mas[open]>summary{color:var(--txt)}
+details.mas>*:not(summary){margin-top:14px}
+details.mas[open]{padding-bottom:4px}
+.ayuda{color:var(--mut);font-size:12.5px;margin:-4px 0 0}
+.interruptor{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin:-6px 0}
 .grilla{display:flex;flex-direction:column;gap:12px}
 .fila-clips{display:flex;flex-wrap:wrap;gap:8px}
 .clip{min-height:52px;min-width:96px;flex:1 1 96px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--txt);font-weight:600;padding:6px 10px;text-align:center}
@@ -49,9 +65,10 @@ details.card>summary::-webkit-details-marker{display:none}
 @keyframes titila{50%{opacity:.45}}
 .clip.parar{flex:0 0 auto;min-width:72px;color:var(--mut)}
 details.voz{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-details.voz>summary{cursor:pointer;font-weight:650;min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:10px;list-style:none}
+details.voz>summary{font-weight:650}
+details.voz>summary .der{display:flex;align-items:center;gap:10px;margin-left:auto}
 details.voz>summary::-webkit-details-marker{display:none}
-details.voz>*:not(summary){margin-top:12px}
+details.voz>*:not(summary){margin-top:14px}
 .guardado{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .guardado.ver{opacity:1}
 .guardado.error{color:var(--bad);border-color:#8C3B32}
@@ -74,51 +91,57 @@ details.voz>*:not(summary){margin-top:12px}
     <div class="mut" id="puertos"></div>
   </section>
 
-  <section class="card" aria-label="Proyecto">
-    <div class="fila"><h2 id="proyecto_nombre">Sin proyecto</h2><button id="proyecto_abrir">Abrir</button></div>
-    <div class="dos"><button id="proyecto_guardar" class="prim">Guardar</button><button id="proyecto_guardar_como">Guardar como…</button></div>
-    <div id="proyecto_lista" style="display:none;flex-direction:column;gap:6px"></div>
-  </section>
-
   <button class="panico" id="panico">Pánico · apagar todas las notas</button>
 
-  <section class="card">
-    <div class="fila"><h2>Disparador</h2><label class="mut" style="display:flex;align-items:center;gap:6px;min-height:44px"><input type="checkbox" id="editar_clips">Borrar clips</label></div>
-    <p class="mut" style="margin:0">Toca un clip para que entre en el próximo compás de la Circuit. Guarda clips desde cada secuencia y desde Llamada y respuesta.</p>
-    <div class="grilla" id="grilla"></div>
-  </section>
+  <details class="card" data-mod="proyecto">
+    <summary><span class="cab"><h2>Proyecto</h2><span class="mut" id="proyecto_nombre">Sin proyecto</span></span><span class="der"></span></summary>
+    <div class="dos"><button id="proyecto_guardar" class="prim">Guardar</button><button id="proyecto_guardar_como">Guardar como…</button></div>
+    <button id="proyecto_abrir">Abrir otro proyecto</button>
+    <div id="proyecto_lista" style="display:none;flex-direction:column;gap:6px"></div>
+  </details>
 
-  <section class="card">
-    <h2>Música</h2>
+  <details class="card" data-mod="disparador" data-abierto="1">
+    <summary><span class="cab"><h2>Disparador</h2><span class="mut">Toca un clip y entra en el próximo compás</span></span><span class="der"></span></summary>
+    <div class="grilla" id="grilla"></div>
+    <label class="fila mut" style="min-height:44px"><span>Modo borrar clips</span><input type="checkbox" id="editar_clips"></label>
+  </details>
+
+  <details class="card" data-mod="musica">
+    <summary><span class="cab"><h2>Música</h2><span class="mut" id="musica_resumen"></span></span><span class="der"></span></summary>
     <div class="dos">
       <label class="campo">Tónica <select data-k="musica.tonica" id="tonica"></select></label>
       <label class="campo">Escala <select data-k="musica.escala" id="escala"></select></label>
     </div>
-    <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Cambio de nota
-      <div class="seg" style="grid-template-columns:1fr 1fr" id="cambio"></div></div>
-    <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Adaptación
-      <div class="seg" style="grid-template-columns:1fr 1fr" id="adaptacion"></div></div>
-    <label class="campo">Canal general de la nota larga (lo usan las secuencias y pads en 0)
-      <input type="number" min="1" max="16" data-k="entrada.canal_disparo" id="canal_disparo"></label>
-    <label class="campo">Soltar la nota si no se repite en (compases, 0 = nunca)
-      <input type="number" min="0" max="64" id="nota_maxima"></label>
-    <label class="fila" style="min-height:44px"><span>Las secuencias siguen al acorde<br><span class="mut">La nota base sale del acorde de los pads</span></span>
-      <input type="checkbox" id="seguir_pads"></label>
-  </section>
+    <details class="mas" data-mod="mas-musica">
+      <summary>Más ajustes</summary>
+      <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Cuando cambias la nota larga, el motor cambia
+        <div class="seg" style="grid-template-columns:1fr 1fr" id="cambio"></div></div>
+      <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Al cambiar de nota, los patrones
+        <div class="seg" style="grid-template-columns:1fr 1fr" id="adaptacion"></div></div>
+      <label class="campo">Canal general de la nota larga
+        <input type="number" min="1" max="16" data-k="entrada.canal_disparo" id="canal_disparo"></label>
+      <p class="ayuda">Lo usan los módulos que tienen su canal en 0.</p>
+      <label class="campo">Callar todo si la nota larga no vuelve en (compases)
+        <input type="number" min="0" max="64" id="nota_maxima"></label>
+      <p class="ayuda">0 = nunca. Evita que algo quede sonando si la Circuit deja de mandar la nota.</p>
+      <label class="fila" style="min-height:44px"><span>Las secuencias siguen al acorde de los pads<br><span class="mut">Su nota base sale del acorde que suena</span></span>
+        <input type="checkbox" id="seguir_pads"></label>
+    </details>
+  </details>
 
-  <section class="card" id="pads"></section>
+  <details class="card" id="pads" data-mod="pads"></details>
 
-  <section class="card" id="dialogo"></section>
+  <details class="card" id="dialogo" data-mod="dialogo"></details>
 
-  <section class="card">
-    <h2>Conexión MIDI</h2>
+  <details class="card" data-mod="conexion">
+    <summary><span class="cab"><h2>Conexión MIDI</h2><span class="mut" id="conexion_resumen"></span></span><span class="der"></span></summary>
     <label class="campo">Entrada (puerto de la Circuit o del dongle)
       <input type="text" list="salidas" id="entrada_puerto"></label>
     <label class="fila" style="min-height:44px"><span>Reenviar todo a la cadena MIDI<br><span class="mut">Modo dongle: la Circuit pasa por la Pi</span></span>
       <input type="checkbox" id="thru_activo"></label>
     <label class="campo">Salida del reenvío
       <input type="text" list="salidas" id="thru_salida"></label>
-  </section>
+  </details>
 
   <div class="fila"><h2>Secuencias</h2><button id="agregar">+ Añadir</button></div>
   <div id="secuencias" style="display:flex;flex-direction:column;gap:12px"></div>
@@ -132,21 +155,25 @@ const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i 
 const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"]];
 const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"]];
 const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"]];
-const POSICIONES = [["onbeat","On beat"],["offbeat","Offbeat"],["todos","Todos"],["desplazado","Desplazado"]];
-const RELACIONES = [["unisono","Unísono"],["tercera","Tercera"],["quinta","Quinta"],["octava","Octava"]];
+const POSICIONES = [["onbeat","Con el bombo"],["offbeat","Entre bombos"],["todos","Todas"],["desplazado","Corrida"]];
+const POS_TEXTO = {onbeat: "Las notas caen junto al bombo.", offbeat: "Entre bombo y bombo: el clásico del psytrance.",
+  todos: "Todas las semicorcheas.", desplazado: "Corrida una semicorchea: sensación de tropiezo."};
+const RELACIONES = [["unisono","La nota larga"],["tercera","Su tercera"],["quinta","Su quinta"],["octava","Octava arriba"]];
 const TRANSFORMACIONES = [["variacion","Variación"],["espejo","Espejo"],["eco","Eco"],["nueva","Nueva"]];
 const TRANSF_TEXTO = {variacion: "Contesta con otras notas. El parecido decide cuánto: alto calca ritmo y dirección, bajo usa su propia figura y responde al revés.",
   espejo: "La frase invertida: donde la llamada sube, la respuesta baja.",
   eco: "Repite la llamada con el carácter de la respuesta (escala, relación, octava). Con evolución, cambia de a poco.",
   nueva: "Una frase propia, hecha solo con el carácter de la respuesta."};
-const CONTORNOS = [["libre","Libre"],["sube","Sube"],["baja","Baja"],["arco","Arco"],["valle","Valle"]];
+const CONTORNOS = [["sube","Sube ↗"],["baja","Baja ↘"],["arco","Arco ⌒"],["valle","Valle ⌣"],["libre","Libre"]];
 const RITMOS = [["semicorcheas","Semicorcheas"],["corcheas","Corcheas"],["mixto","Mixto"],["largas","Largas"]];
-const FINALES = [["suspendido","Suspendido (quinta, abierto)"],["tension","Tensión (♭2, ♭7: pregunta)"],["reposo","Reposo (resuelve)"],["libre","Libre"]];
-const MOVIMIENTOS = [["conjunto","Conjunto"],["abierto","Abierto"],["arpegio","Arpegio"]];
-const MOV_TEXTO = {conjunto: "Por grados vecinos: más cantado, más tenso en frigio.",
-  abierto: "Cuartas, quintas y octavas con algún paso: espacial, galáctico.",
-  arpegio: "Notas del acorde menor con séptima: misterioso y estable."};
-const RELACIONES_CR = [["unisono","Unísono"],["tercera","Tercera"],["cuarta","Cuarta"],["quinta","Quinta"],["sexta","Sexta"],["octava","Octava"]];
+const FINALES = [["tension","Pregunta"],["suspendido","Queda abierta"],["reposo","Resuelve"],["libre","Libre"]];
+const FIN_TEXTO = {tension: "Termina en tensión (♭2 o ♭7): pide respuesta.", suspendido: "Termina en la quinta: flota, galáctica.",
+  reposo: "Termina en la raíz del acorde: cierra.", libre: "Termina donde caiga."};
+const MOVIMIENTOS = [["conjunto","Vecinas"],["abierto","Abiertas"],["arpegio","Del acorde"]];
+const MOV_TEXTO = {conjunto: "Pasa a la nota vecina: más cantado.",
+  abierto: "Cuartas, quintas y octavas: espacial, galáctico.",
+  arpegio: "Salta por las notas del acorde: misterioso y estable."};
+const RELACIONES_CR = [["unisono","La raíz"],["tercera","La tercera"],["cuarta","La cuarta"],["quinta","La quinta"],["sexta","La sexta"],["octava","Octava arriba"]];
 const FASES = {llamada: "Llamando", respuesta: "Respondiendo", espacio: "Espacio", escuchando: "Escuchándote"};
 let cfg = null, temporizador = null, uid = 0;
 const $ = (id) => document.getElementById(id);
@@ -214,83 +241,132 @@ function seedNueva() {
   return hex() + "-" + hex();
 }
 
-function tarjeta(s, i) {
-  const titulo = el("span", {style: "font-weight:650", textContent: `${s.nombre} · ${s.salida}`});
-  const estado = el("span", {className: "pill", "data-salida": s.salida});
-  const activa = el("input", {type: "checkbox", checked: s.activa, onchange: () => { s.activa = activa.checked; guardar(); }});
-  const actualizarTitulo = () => { titulo.textContent = `${s.nombre} · ${s.salida}`; estado.dataset.salida = s.salida; };
+// --- Módulos colapsables ---
 
+function recordar(det, clave, porDefecto) {
+  // Cada módulo se acuerda de si lo dejaste abierto o cerrado (en este teléfono).
+  let guardado = null;
+  try { guardado = localStorage.getItem("abierto:" + clave); } catch (e) {}
+  det.open = guardado === null ? porDefecto : guardado === "1";
+  det.addEventListener("toggle", () => { try { localStorage.setItem("abierto:" + clave, det.open ? "1" : "0"); } catch (e) {} });
+  return det;
+}
+
+function interruptor(valor, alCambiar, etiqueta) {
+  // Interruptor en el título del módulo: prende o apaga sin abrirlo ni cerrarlo.
+  const inp = el("input", {type: "checkbox", checked: valor, "aria-label": etiqueta,
+    onchange: () => alCambiar(inp.checked)});
+  return el("label", {className: "interruptor", onclick: (e) => e.stopPropagation()}, [inp]);
+}
+
+function cabecera(titulo, sub, extra = []) {
+  const subtitulo = el("span", {className: "mut", textContent: sub});
+  const resumen = el("summary", {}, [
+    el("span", {className: "cab"}, [el("h2", {textContent: titulo}), subtitulo]),
+    el("span", {className: "der"}, extra.filter(Boolean)),
+  ]);
+  resumen._sub = subtitulo;
+  return resumen;
+}
+
+function masAjustes(clave, hijos, titulo = "Más ajustes") {
+  return recordar(el("details", {className: "mas"}, [el("summary", {textContent: titulo}), ...hijos.filter(Boolean)]), clave, false);
+}
+
+function ayuda(texto) {
+  return el("p", {className: "ayuda", textContent: texto});
+}
+
+function porcentaje(v) { return Math.round(v * 100) + " %"; }
+
+function variante(obj, etiqueta = "Variante") {
+  const seed = el("input", {type: "text", value: obj.seed, "aria-label": etiqueta,
+    onchange: () => { obj.seed = seed.value.trim() || obj.seed; seed.value = obj.seed; guardar(); }});
+  return [campo(etiqueta, el("div", {className: "seed"}, [seed,
+      el("button", {type: "button", textContent: "Otra", onclick: () => { obj.seed = seedNueva(); seed.value = obj.seed; guardar(); }})])),
+    ayuda("Cada código es una variante distinta y siempre suena igual. «Otra» prueba una nueva.")];
+}
+
+function numeroDe(obj, k, etiqueta, min, max, alCambiar) {
+  const inp = el("input", {type: "number", min, max, value: obj[k],
+    onchange: () => { const n = parseInt(inp.value); obj[k] = isNaN(n) ? obj[k] : Math.max(min, Math.min(max, n)); inp.value = obj[k]; if (alCambiar) alCambiar(); guardar(); }});
+  return el("label", {className: "campo"}, [etiqueta, inp]);
+}
+
+function destinoDe(obj, pill) {
+  const inp = el("input", {type: "text", value: obj.salida,
+    onchange: () => { obj.salida = inp.value.trim() || obj.salida; inp.value = obj.salida; if (pill) pill.dataset.salida = obj.salida; guardar(); }});
+  inp.setAttribute("list", "salidas");
+  return el("label", {className: "campo"}, ["Destino (puerto)", inp]);
+}
+
+// --- Secuencias ---
+
+function tarjeta(s, i) {
+  const estado = el("span", {className: "pill", "data-salida": s.salida});
+  const sub = () => `${s.salida} · canal ${s.canal} · ${ESTILOS.find((x) => x[0] === s.estilo)[1]}`;
+  const cab = cabecera(s.nombre, sub(), [estado, interruptor(s.activa, (v) => { s.activa = v; guardar(); }, `Activar secuencia ${s.nombre}`)]);
+  const actualizar = () => { cab.querySelector("h2").textContent = s.nombre; cab._sub.textContent = sub(); };
+  const posTexto = ayuda(POS_TEXTO[s.posicion]);
   const texto = (k, etiqueta, extra = {}) => {
     const inp = el("input", Object.assign({type: "text", value: s[k],
-      onchange: () => { s[k] = inp.value.trim() || s[k]; inp.value = s[k]; actualizarTitulo(); guardar(); }}, extra));
+      onchange: () => { s[k] = inp.value.trim() || s[k]; inp.value = s[k]; actualizar(); guardar(); }}, extra));
     return el("label", {className: "campo"}, [etiqueta, inp]);
   };
-  const numero = (k, etiqueta, min, max) => {
-    const inp = el("input", {type: "number", min, max, value: s[k],
-      onchange: () => { s[k] = Math.max(min, Math.min(max, parseInt(inp.value) || s[k])); inp.value = s[k]; guardar(); }});
-    return el("label", {className: "campo"}, [etiqueta, inp]);
-  };
-
-  const seed = el("input", {type: "text", value: s.seed, "aria-label": "Seed",
-    onchange: () => { s.seed = seed.value.trim() || s.seed; seed.value = s.seed; guardar(); }});
   const candado = el("input", {type: "checkbox", checked: s.bloqueada, onchange: () => { s.bloqueada = candado.checked; guardar(); }});
-
-  const cuerpo = [
-    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activa"}), activa]),
-    el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), texto("salida", "Destino (puerto)", {list: "salidas"})]),
-    el("div", {className: "dos"}, [numero("canal", "Canal MIDI", 1, 16), numero("octava", "Octava", -3, 3)]),
-    numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
+  return recordar(el("details", {className: "card"}, [
+    cab,
     campo("Estilo", segmentado(ESTILOS, s.estilo, (v) => {
       s.estilo = v;
       if (v === "acido" && !s.slide && !s.acentos) { s.slide = 0.3; s.acentos = 0.3; s.largas = s.largas || 0.3; render(); }
-      guardar();
+      actualizar(); guardar();
     }, 2)),
-    campo("Posición rítmica", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; guardar(); }, 2)),
-    campo("Relación con la nota", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 4)),
-    campo("Largo del patrón", segmentado([[16,"16"],[13,"13"],[11,"11"],[7,"7"]].map(([v,t]) => [String(v), t]), String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
-    deslizador(s, "gate", "Gate", 0.05, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "pedal", "Pedal (vuelve a la raíz)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    campo("Seed", el("div", {className: "seed"}, [seed,
-      el("button", {type: "button", textContent: "Otra", onclick: () => { s.seed = seedNueva(); seed.value = s.seed; guardar(); }})])),
-    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Bloquear patrón", el("br"), el("span", {className: "mut", textContent: "La mutación no lo cambia"})]), candado]),
-    deslizador(s, "mutacion", "Mutación", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    numero("mutar_cada", "Mutar cada (compases)", 1, 64),
-    el("h3", {style: "margin:6px 0 0;font-size:15px", textContent: "Afinar"}),
-    deslizador(s, "densidad", "Densidad de notas", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "gate_random", "Gate aleatorio", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "vel_random", "Velocidad aleatoria", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
-    deslizador(s, "slide", "Slides", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "acentos", "Acentos", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "repeticion", "Repeticiones (redobles de fusa)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(s, "largas", "Notas largas (se sostienen sobre los silencios)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    el("p", {className: "mut", style: "margin:0", textContent: "En Ácido 303, Acentos y Slides son la cantidad total; en los demás estilos se suman a los del estilo. Para que los slides deslicen, pon el sinte en modo mono o legato con glide."}),
-    el("div", {className: "dos"}, [numero("velocidad", "Velocidad", 1, 127), numero("acento", "Acento", 1, 127)]),
-    el("button", {type: "button", textContent: "Guardar como clip", className: "prim",
-      onclick: () => guardarClip(i, s)}),
-    el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
-      onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); render(); guardar(); } }}),
-  ];
-  return el("details", {className: "card", open: i === 0}, [
-    el("summary", {}, [el("span", {style: "display:flex;flex-direction:column;gap:2px"}, [titulo, el("span", {className: "mut", textContent: `canal ${s.canal} · ${s.estilo} · ${s.posicion}`})]),
-      estado]),
-    ...cuerpo,
-  ]);
+    campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; posTexto.textContent = POS_TEXTO[v]; guardar(); }, 2)),
+    posTexto,
+    campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
+    deslizador(s, "densidad", "Densidad (cantidad de notas)", 0, 1, 0.05, porcentaje),
+    deslizador(s, "mutacion", "Mutación (cuánto cambia con el tiempo)", 0, 1, 0.05, (v) => v === 0 ? "fija" : porcentaje(v)),
+    ...variante(s),
+    el("button", {type: "button", textContent: "Guardar como clip", className: "prim", onclick: () => guardarClip(i, s)}),
+    masAjustes(`mas-sec-${s.nombre}`, [
+      el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), destinoDe(s, estado)]),
+      el("div", {className: "dos"}, [numeroDe(s, "canal", "Canal MIDI", 1, 16, actualizar), numeroDe(s, "octava", "Octava", -3, 3)]),
+      numeroDe(s, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
+      campo("Largo del patrón (pasos)", segmentado([[16,"16"],[13,"13"],[11,"11"],[7,"7"]].map(([v,t]) => [String(v), t]), String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
+      ayuda("16 da un compás. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
+      deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
+      deslizador(s, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
+      ayuda("Cuánto regresa a la nota base entre las demás: más alto, más hipnótico."),
+      el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Congelar el patrón", el("br"), el("span", {className: "mut", textContent: "La mutación no lo cambia"})]), candado]),
+      numeroDe(s, "mutar_cada", "Mutar cada (compases)", 1, 64),
+      deslizador(s, "gate_random", "Variación del largo de las notas", 0, 1, 0.05, porcentaje),
+      deslizador(s, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
+      deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
+      deslizador(s, "slide", "Slides (deslizar entre notas)", 0, 1, 0.05, porcentaje),
+      deslizador(s, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
+      deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
+      deslizador(s, "repeticion", "Redobles (notas repetidas muy rápido)", 0, 1, 0.05, porcentaje),
+      deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
+      ayuda("En Ácido 303, acentos y slides son la cantidad total; en los otros estilos se suman. Para que los slides deslicen, pon el sinte en mono o legato con glide."),
+      el("div", {className: "dos"}, [numeroDe(s, "velocidad", "Fuerza normal", 1, 127), numeroDe(s, "acento", "Fuerza del acento", 1, 127)]),
+      el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
+        onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); render(); guardar(); } }}),
+    ]),
+  ]), `sec-${s.nombre}`, i === 0);
 }
 
 function render() {
   const sel = (id, opciones, valor, alCambiar) => {
     const s = $(id); s.innerHTML = "";
     for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === valor}));
-    s.onchange = () => { alCambiar(s.value); guardar(); };
+    s.onchange = () => { alCambiar(s.value); resumenes(); guardar(); };
   };
   const ES = {DO: "C", RE: "D", MI: "E", FA: "F", SOL: "G", LA: "A", SI: "B"};
   let ton = cfg.musica.tonica.toUpperCase().replace(/^(DO|RE|MI|FA|SOL|LA|SI)/, (m) => ES[m]);
   sel("tonica", TONICAS, ton, (v) => cfg.musica.tonica = v);
   sel("escala", ESCALAS, cfg.musica.escala, (v) => cfg.musica.escala = v);
-  $("cambio").replaceWith(Object.assign(segmentado([["paso","Siguiente paso"],["compas","Siguiente compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2), {id: "cambio"}));
-  $("adaptacion").replaceWith(Object.assign(segmentado([["escala","Ajustar a la escala"],["transponer","Transponer igual"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2), {id: "adaptacion"}));
+  $("cambio").replaceWith(Object.assign(segmentado([["paso","Al tiro"],["compas","En el próximo compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2), {id: "cambio"}));
+  $("adaptacion").replaceWith(Object.assign(segmentado([["escala","Se quedan en la escala"],["transponer","Se transponen iguales"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2), {id: "adaptacion"}));
   const cd = $("canal_disparo"); cd.value = cfg.entrada.canal_disparo;
   cd.onchange = () => { cfg.entrada.canal_disparo = Math.max(1, Math.min(16, parseInt(cd.value) || 4)); cd.value = cfg.entrada.canal_disparo; guardar(); };
   const nm = $("nota_maxima"); nm.value = cfg.entrada.nota_maxima;
@@ -300,96 +376,106 @@ function render() {
   renderPads();
   renderDialogo();
   const ep = $("entrada_puerto"); ep.value = cfg.entrada.puerto;
-  ep.onchange = () => { cfg.entrada.puerto = ep.value.trim() || cfg.entrada.puerto; ep.value = cfg.entrada.puerto; guardar(); };
+  ep.onchange = () => { cfg.entrada.puerto = ep.value.trim() || cfg.entrada.puerto; ep.value = cfg.entrada.puerto; resumenes(); guardar(); };
   const ta = $("thru_activo"); ta.checked = cfg.thru.activo;
-  ta.onchange = () => { cfg.thru.activo = ta.checked; guardar(); };
+  ta.onchange = () => { cfg.thru.activo = ta.checked; resumenes(); guardar(); };
   const ts = $("thru_salida"); ts.value = cfg.thru.salida;
   ts.onchange = () => { cfg.thru.salida = ts.value.trim() || cfg.thru.salida; ts.value = cfg.thru.salida; guardar(); };
   const cont = $("secuencias"); cont.innerHTML = "";
   cfg.secuencia.forEach((s, i) => cont.append(tarjeta(s, i)));
   $("agregar").disabled = cfg.secuencia.length >= 8;
   $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
+  resumenes();
   renderGrilla();
 }
 
+function resumenes() {
+  const ton = (TONICAS.find((t) => t[0] === cfg.musica.tonica.toUpperCase()) || [cfg.musica.tonica])[0];
+  $("musica_resumen").textContent = `${ton} ${ESCALAS.find((e) => e[0] === cfg.musica.escala)[1].toLowerCase()}`;
+  $("conexion_resumen").textContent = cfg.thru.activo ? `Modo dongle · ${cfg.entrada.puerto}` : cfg.entrada.puerto;
+}
+
+// --- Pads ---
+
 function renderPads() {
   const p = cfg.pads, cont = $("pads");
-  cont.innerHTML = "";
   const estado = el("span", {className: "pill", "data-salida": p.salida});
-  const activo = el("input", {type: "checkbox", checked: p.activo, onchange: () => { p.activo = activo.checked; guardar(); }});
+  const sub = () => PROGRESIONES.find((x) => x[0] === p.progresion)[1].split(" · ")[0] + ` · cada ${p.cambia_cada} compases`;
+  const cab = cabecera("Pads y drones", sub(), [estado, interruptor(p.activo, (v) => { p.activo = v; renderDialogo(); guardar(); }, "Activar pads")]);
   const select = (opciones, k) => {
-    const s = el("select", {onchange: () => { p[k] = s.value; guardar(); }});
+    const s = el("select", {onchange: () => { p[k] = s.value; cab._sub.textContent = sub(); guardar(); }});
     for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === p[k]}));
     return s;
   };
-  const numero = (k, etiqueta, min, max) => {
-    const inp = el("input", {type: "number", min, max, value: p[k],
-      onchange: () => { p[k] = Math.max(min, Math.min(max, parseInt(inp.value) || p[k])); inp.value = p[k]; guardar(); }});
-    return el("label", {className: "campo"}, [etiqueta, inp]);
-  };
-  const destino = el("input", {type: "text", value: p.salida,
-    onchange: () => { p.salida = destino.value.trim() || p.salida; destino.value = p.salida; estado.dataset.salida = p.salida; guardar(); }});
-  destino.setAttribute("list", "salidas");
-  const seed = el("input", {type: "text", value: p.seed, "aria-label": "Seed de los pads",
-    onchange: () => { p.seed = seed.value.trim() || p.seed; seed.value = p.seed; guardar(); }});
   const drone = el("input", {type: "checkbox", checked: p.drone, onchange: () => { p.drone = drone.checked; guardar(); }});
+  if (!cont._recordado) { recordar(cont, "pads", false); cont._recordado = true; }
+  cont.innerHTML = "";
   cont.append(
-    el("div", {className: "fila"}, [el("h2", {textContent: "Pads y drones"}), estado]),
-    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activos"}), activo]),
-    el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Destino (puerto)", destino]), numero("canal", "Canal MIDI", 1, 16)]),
-    numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
+    cab,
     el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
     el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
-    campo("Cambia cada (compases)", segmentado([["4","4"],["8","8"],["16","16"],["32","32"]], String(p.cambia_cada), (v) => { p.cambia_cada = parseInt(v); guardar(); }, 4)),
-    campo("Qué mueve la progresión", segmentado([["nota","La nota larga"],["tonica","La tónica"]], p.base, (v) => { p.base = v; guardar(); }, 2)),
-    campo("Apertura de voces", segmentado([["cerrada","Cerrada"],["abierta","Abierta"],["amplia","Amplia"]], p.apertura, (v) => { p.apertura = v; guardar(); }, 3)),
-    campo("Entre acordes", segmentado([["ligado","Ligado"],["reatacar","Reatacar"]], p.ataque, (v) => { p.ataque = v; guardar(); }, 2)),
-    el("div", {className: "dos"}, [numero("voces", "Voces (MicroFreak: 4)", 2, 6), numero("octava", "Octava", -2, 2)]),
+    campo("Cambia de acorde cada (compases)", segmentado([["4","4"],["8","8"],["16","16"],["32","32"]], String(p.cambia_cada), (v) => { p.cambia_cada = parseInt(v); cab._sub.textContent = sub(); guardar(); }, 4)),
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Drone en la raíz", el("br"), el("span", {className: "mut", textContent: "Una nota grave sostenida bajo los acordes"})]), drone]),
-    deslizador(p, "variacion", "Variación de la progresión", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"),
-    deslizador(p, "rasgueo", "Rasgueo (entrada escalonada)", 0, 6, 1, (v) => v === 0 ? "juntas" : v === 1 ? "1 pulso" : v + " pulsos"),
-    numero("velocidad", "Velocidad", 1, 127),
-    campo("Seed", el("div", {className: "seed"}, [seed,
-      el("button", {type: "button", textContent: "Otra", onclick: () => { p.seed = seedNueva(); seed.value = p.seed; guardar(); }})])),
+    masAjustes("mas-pads", [
+      el("div", {className: "dos"}, [destinoDe(p, estado), numeroDe(p, "canal", "Canal MIDI", 1, 16)]),
+      numeroDe(p, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
+      campo("La progresión parte desde", segmentado([["nota","La nota larga"],["tonica","La tónica fija"]], p.base, (v) => { p.base = v; guardar(); }, 2)),
+      ayuda("Con la nota larga, si cambias de nota en la Circuit la progresión se mueve con ella."),
+      campo("Separación de las voces", segmentado([["cerrada","Juntas"],["abierta","Abiertas"],["amplia","Muy abiertas"]], p.apertura, (v) => { p.apertura = v; guardar(); }, 3)),
+      campo("Al cambiar de acorde", segmentado([["ligado","Ligado"],["reatacar","Vuelve a atacar"]], p.ataque, (v) => { p.ataque = v; guardar(); }, 2)),
+      el("div", {className: "dos"}, [numeroDe(p, "voces", "Notas por acorde (MicroFreak: 4)", 2, 6), numeroDe(p, "octava", "Octava", -2, 2)]),
+      deslizador(p, "variacion", "Sorpresas en la progresión", 0, 1, 0.05, porcentaje),
+      ayuda("A veces cambia un acorde por uno emparentado que comparte dos notas."),
+      deslizador(p, "rasgueo", "Entrada escalonada (rasgueo)", 0, 6, 1, (v) => v === 0 ? "todas juntas" : v === 1 ? "1 pulso" : v + " pulsos"),
+      numeroDe(p, "velocidad", "Fuerza", 1, 127),
+      ...variante(p),
+    ]),
   );
 }
 
-function bloqueVoz(v, titulo, abierto, extra = []) {
+// --- Llamada y respuesta ---
+
+function figuraTexto(v) {
+  if (v.forma !== "motivo") return porcentaje(v.densidad);
+  const fig = v.densidad < 0.35 ? "3 notas" : v.densidad < 0.65 ? "3 cortas y 1 larga" : v.densidad > 0.85 ? "arpegio de 5" : "arpegio de 4";
+  return `${porcentaje(v.densidad)} · ${fig}`;
+}
+
+function bloqueVoz(v, titulo, clave, extra = []) {
   const estado = el("span", {className: "pill", "data-salida": v.salida});
-  const movTexto = el("p", {className: "mut", style: "margin:0", textContent: MOV_TEXTO[v.movimiento]});
-  const numero = (k, etiqueta, min, max) => {
-    const inp = el("input", {type: "number", min, max, value: v[k],
-      onchange: () => { const n = parseInt(inp.value); v[k] = isNaN(n) ? v[k] : Math.max(min, Math.min(max, n)); inp.value = v[k]; guardar(); }});
-    return el("label", {className: "campo"}, [etiqueta, inp]);
-  };
-  const destino = el("input", {type: "text", value: v.salida, list: "salidas",
-    onchange: () => { v.salida = destino.value.trim() || v.salida; destino.value = v.salida; estado.dataset.salida = v.salida; guardar(); }});
-  destino.setAttribute("list", "salidas");
-  const escala = el("select", {onchange: () => { v.escala = escala.value; guardar(); }});
+  const movTexto = ayuda(MOV_TEXTO[v.movimiento]);
+  const finTexto = ayuda(FIN_TEXTO[v.final]);
+  const densidad = deslizador(v, "densidad", "Densidad", 0, 1, 0.05, () => figuraTexto(v));
+  const sigue = cfg.dialogo.seguir_pads && cfg.pads.activo;
+  const escala = el("select", {disabled: sigue, onchange: () => { v.escala = escala.value; guardar(); }});
   for (const [val, t] of [["general", "La de Música"]].concat(ESCALAS)) escala.append(el("option", {value: val, textContent: t, selected: val === v.escala}));
-  return el("details", {className: "voz", open: abierto}, [
-    el("summary", {}, [el("span", {textContent: titulo}), estado]),
-    ...extra.filter(Boolean),
-    el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Destino (puerto)", destino]), numero("canal", "Canal MIDI", 1, 16)]),
-    el("h3", {style: "margin:20px 0 0;font-size:14px", textContent: "Tonalidad"}),
-    el("label", {className: "campo"}, ["Escala", escala]),
-    campo("Relación con la nota larga", segmentado(RELACIONES_CR, v.relacion, (x) => { v.relacion = x; guardar(); }, 3)),
-    el("div", {className: "dos"}, [numero("octava", "Octava", -3, 3), numero("velocidad", "Velocidad", 1, 127)]),
-    el("h3", {style: "margin:20px 0 0;font-size:14px", textContent: "Frase"}),
-    campo("Forma", segmentado([["motivo","Motivo corto"],["frase","Frase"]], v.forma, (x) => { v.forma = x; guardar(); }, 2)),
-    el("p", {className: "mut", style: "margin:0", textContent: "Motivo: la densidad elige la figura. Baja: 3 notas cortas · media: 3 cortas y una larga · alta: pequeño arpegio. Frase: una línea más elaborada."}),
-    campo("Movimiento", segmentado(MOVIMIENTOS, v.movimiento, (x) => { v.movimiento = x; movTexto.textContent = MOV_TEXTO[x]; guardar(); }, 3)),
-    movTexto,
+  return recordar(el("details", {className: "voz"}, [
+    el("summary", {}, [el("span", {textContent: titulo}), el("span", {className: "der"}, [estado])]),
+    densidad,
     deslizador(v, "oscuridad", "Luminoso ↔ Oscuro", 0, 1, 0.05, colorTexto),
-    campo("Contorno", segmentado(CONTORNOS, v.contorno, (x) => { v.contorno = x; guardar(); }, 5)),
-    deslizador(v, "ambito", "Ámbito", 2, 12, 1, (x) => x + " grados"),
-    campo("Ritmo", segmentado(RITMOS, v.ritmo, (x) => { v.ritmo = x; guardar(); }, 2)),
-    campo("Termina en", segmentado(FINALES, v.final, (x) => { v.final = x; guardar(); }, 2)),
-    deslizador(v, "densidad", "Densidad", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
-    deslizador(v, "gate", "Gate (largo de las notas)", 0.05, 1, 0.05, (x) => Math.round(x * 100) + " %"),
-    deslizador(v, "saltos", "Saltos", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
-    deslizador(v, "vel_random", "Matices de velocidad", 0, 1, 0.05, (x) => Math.round(x * 100) + " %"),
-  ]);
+    campo("Dibujo de la melodía", segmentado(CONTORNOS, v.contorno, (x) => { v.contorno = x; guardar(); }, 3)),
+    campo("Cómo salta entre notas", segmentado(MOVIMIENTOS, v.movimiento, (x) => { v.movimiento = x; movTexto.textContent = MOV_TEXTO[x]; guardar(); }, 3)),
+    movTexto,
+    campo("Cómo termina", segmentado(FINALES, v.final, (x) => { v.final = x; finTexto.textContent = FIN_TEXTO[x]; guardar(); }, 4)),
+    finTexto,
+    masAjustes(`mas-${clave}`, [
+      ...extra.filter(Boolean),
+      el("div", {className: "dos"}, [destinoDe(v, estado), numeroDe(v, "canal", "Canal MIDI", 1, 16)]),
+      campo("Forma", segmentado([["motivo","Motivo corto"],["frase","Frase larga"]], v.forma, (x) => {
+        v.forma = x; densidad.querySelector("span span").textContent = figuraTexto(v); guardar(); }, 2)),
+      ayuda("Motivo: una figura corta que elige la densidad, y luego silencio. Frase larga: una línea más elaborada."),
+      el("label", {className: "campo"}, ["Escala", escala]),
+      sigue ? ayuda("Mientras sigue a los pads usa la escala de los pads, para no chocar.") : null,
+      campo("Parte desde", segmentado(RELACIONES_CR, v.relacion, (x) => { v.relacion = x; guardar(); }, 3)),
+      el("div", {className: "dos"}, [numeroDe(v, "octava", "Octava", -3, 3), numeroDe(v, "velocidad", "Fuerza", 1, 127)]),
+      deslizador(v, "ambito", "Rango de notas", 2, 12, 1, (x) => `${x} notas de la escala`),
+      ayuda("Cuántas notas de la escala puede recorrer la melodía: poco = contenida, mucho = amplia."),
+      campo("Ritmo", segmentado(RITMOS, v.ritmo, (x) => { v.ritmo = x; guardar(); }, 2)),
+      deslizador(v, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
+      deslizador(v, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
+      deslizador(v, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
+    ]),
+  ]), clave, false);
 }
 
 function colorGeneral() {
@@ -406,52 +492,47 @@ function colorGeneral() {
 
 function renderDialogo() {
   const d = cfg.dialogo, cont = $("dialogo");
-  const abiertos = [...cont.querySelectorAll("details.voz")].map((x) => x.open);
-  cont.innerHTML = "";
   const vivo = d.modo === "en_vivo";
-  const activo = el("input", {type: "checkbox", checked: d.activo, onchange: () => { d.activo = activo.checked; guardar(); }});
-  const numero = (k, etiqueta, min, max) => {
-    const inp = el("input", {type: "number", min, max, value: d[k],
-      onchange: () => { const n = parseInt(inp.value); d[k] = isNaN(n) ? d[k] : Math.max(min, Math.min(max, n)); inp.value = d[k]; guardar(); }});
-    return el("label", {className: "campo"}, [etiqueta, inp]);
-  };
-  const seed = el("input", {type: "text", value: d.seed, "aria-label": "Seed del diálogo",
-    onchange: () => { d.seed = seed.value.trim() || d.seed; seed.value = d.seed; guardar(); }});
-  const compases = (k) => segmentado([["1","1"],["2","2"],["4","4"],["8","8"]], String(d[k]), (x) => { d[k] = parseInt(x); guardar(); }, 4);
-  const texto = el("p", {className: "mut", style: "margin:0", textContent: TRANSF_TEXTO[d.transformacion]});
+  const fase = el("span", {className: "pill", id: "dialogo_fase", textContent: "En silencio"});
+  const sub = `${vivo ? "Llamas tú" : "Llama el motor"} · ${TRANSFORMACIONES.find((t) => t[0] === d.transformacion)[1].toLowerCase()}`;
+  const texto = ayuda(TRANSF_TEXTO[d.transformacion]);
+  const sigue = el("input", {type: "checkbox", checked: d.seguir_pads, onchange: () => { d.seguir_pads = sigue.checked; renderDialogo(); guardar(); }});
   const mismo = el("button", {type: "button", textContent: vivo ? "Responder en el sinte donde toco" : "Responder en el mismo sinte que llama",
     onclick: () => {
       if (vivo) { cfg.respuesta.canal = d.escucha; }
       else { cfg.respuesta.salida = cfg.llamada.salida; cfg.respuesta.canal = cfg.llamada.canal; }
       renderDialogo(); guardar(); aviso("La respuesta va al mismo sinte");
     }});
+  const compases = (k) => segmentado([["1","1"],["2","2"],["4","4"],["8","8"]], String(d[k]), (x) => { d[k] = parseInt(x); guardar(); }, 4);
+  if (!cont._recordado) { recordar(cont, "dialogo", false); cont._recordado = true; }
+  cont.innerHTML = "";
   cont.append(...[
-    el("div", {className: "fila"}, [el("h2", {textContent: "Llamada y respuesta"}), el("span", {className: "pill", id: "dialogo_fase", textContent: "En silencio"})]),
-    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {style: "font-weight:550", textContent: "Activa"}), activo]),
+    cabecera("Llamada y respuesta", sub, [fase, interruptor(d.activo, (v) => { d.activo = v; guardar(); }, "Activar llamada y respuesta")]),
     campo("Quién llama", segmentado([["motor","El motor"],["en_vivo","Yo, en vivo"]], d.modo, (x) => { d.modo = x; renderDialogo(); guardar(); }, 2)),
-    vivo ? el("p", {className: "mut", style: "margin:0", textContent: "Toca tu frase en el canal de escucha. Cuando dejas de tocar, el motor espera el silencio que elijas y responde en el próximo tiempo. Mientras responde, no escucha."}) : null,
-    vivo ? numero("escucha", "Canal donde toco la llamada", 1, 16)
-         : numero("disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
-    campo("Cómo responde", segmentado(TRANSFORMACIONES, d.transformacion, (x) => { d.transformacion = x; texto.textContent = TRANSF_TEXTO[x]; guardar(); }, 4)),
+    vivo ? ayuda("Toca tu frase en el canal de escucha. Cuando paras, el motor espera el silencio que elijas y responde en el próximo tiempo.") : null,
+    vivo ? numeroDe(d, "escucha", "Canal donde toco la llamada", 1, 16) : null,
+    campo("Cómo responde", segmentado(TRANSFORMACIONES, d.transformacion, (x) => { d.transformacion = x; renderDialogo(); guardar(); }, 4)),
     texto,
-    deslizador(d, "parecido", "Parecido con la llamada (en variación)", 0, 1, 0.05,
-      (x) => x >= 0.5 ? `${Math.round(x * 100)} %: calca su ritmo` : `${Math.round(x * 100)} %: figura propia, contesta al revés`),
+    d.transformacion === "variacion" ? deslizador(d, "parecido", "Parecido con la llamada", 0, 1, 0.05,
+      (x) => x >= 0.5 ? `${porcentaje(x)} · copia su ritmo` : `${porcentaje(x)} · figura propia`) : null,
     colorGeneral(),
-    el("h3", {style: "margin:0;font-size:15px", textContent: "Espacio y tiempo"}),
-    campo(vivo ? "Largo máximo de mi llamada (compases)" : "Compases de llamada", compases("compases_llamada")),
-    campo(vivo ? "Largo máximo de la respuesta (compases)" : "Compases de respuesta", compases("compases_respuesta")),
-    deslizador(d, "pausa", vivo ? "Silencio antes de responder" : "Pausa entre llamada y respuesta", vivo ? 1 : 0, 16, 1,
-      (x) => x === 0 ? "sin pausa" : x === 1 ? "1 tiempo" : x + " tiempos"),
-    vivo ? null : deslizador(d, "descanso", "Descanso tras la respuesta", 0, 16, 1, (x) => x === 0 ? "sin descanso" : x === 1 ? "1 compás" : x + " compases"),
-    deslizador(d, "evolucion", "Evolución (cuánto cambia la frase en cada vuelta)", 0, 1, 0.05, (x) => x === 0 ? "se repite igual" : Math.round(x * 100) + " %"),
-    campo("Seed", el("div", {className: "seed"}, [seed,
-      el("button", {type: "button", textContent: "Otra", onclick: () => { d.seed = seedNueva(); seed.value = d.seed; guardar(); }})])),
-    el("button", {type: "button", className: "prim", textContent: "Guardar como clip",
-      onclick: () => guardarClipDialogo()}),
-    el("p", {className: "mut", style: "margin:0", textContent: "El clip guarda todo lo de esta sección: quién llama, destinos, tiempos y el carácter de cada voz. Al lanzarlo desde el disparador entra así, en el próximo compás."}),
-    vivo ? null : bloqueVoz(cfg.llamada, "Llamada", abiertos[0] ?? false),
-    bloqueVoz(cfg.respuesta, "Respuesta", abiertos[vivo ? 0 : 1] ?? false, [mismo,
-      vivo ? el("p", {className: "mut", style: "margin:0", textContent: "En vivo, ritmo y gate de la respuesta salen de lo que tocaste (salvo en Nueva). La densidad bajo 50 % quita algunas de tus notas."}) : null]),
+    deslizador(d, "evolucion", "Mutación (cuánto cambia en cada vuelta)", 0, 1, 0.05, (x) => x === 0 ? "se repite igual" : porcentaje(x)),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Sigue a los pads", el("br"),
+      el("span", {className: "mut", textContent: cfg.pads.activo ? "Usa su escala y se mueve con cada acorde" : "Los pads están apagados"})]), sigue]),
+    ...variante(d),
+    el("button", {type: "button", className: "prim", textContent: "Guardar como clip", onclick: () => guardarClipDialogo()}),
+    ayuda("El clip guarda todo este módulo y entra así, en el próximo compás, al lanzarlo desde el Disparador."),
+    vivo ? null : bloqueVoz(cfg.llamada, "Llamada", "voz-llamada"),
+    bloqueVoz(cfg.respuesta, "Respuesta", "voz-respuesta", [mismo,
+      vivo ? ayuda("En vivo, el ritmo de la respuesta sale de lo que tocaste (salvo en Nueva o con parecido bajo).") : null]),
+    masAjustes("dlg-tiempo", [
+      vivo ? null : numeroDe(d, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
+      campo(vivo ? "Largo máximo de mi llamada (compases)" : "Compases de la llamada", compases("compases_llamada")),
+      campo(vivo ? "Largo máximo de la respuesta (compases)" : "Compases de la respuesta", compases("compases_respuesta")),
+      deslizador(d, "pausa", vivo ? "Silencio antes de responder" : "Pausa antes de responder", vivo ? 1 : 0, 16, 1,
+        (x) => x === 0 ? "sin pausa" : x === 1 ? "1 tiempo" : x + " tiempos"),
+      vivo ? null : deslizador(d, "descanso", "Silencio después de la respuesta", 0, 16, 1, (x) => x === 0 ? "sin silencio" : x === 1 ? "1 compás" : x + " compases"),
+    ], "Espacio y tiempo"),
   ].filter(Boolean));
 }
 
@@ -619,6 +700,9 @@ $("agregar").onclick = () => {
   cfg.secuencia.push(Object.assign({}, base, {nombre: letra, seed: seedNueva(), activa: true}));
   render(); guardar();
 };
+
+document.querySelectorAll("main > details[data-mod]:not(#pads):not(#dialogo), details.mas[data-mod]").forEach((d) =>
+  recordar(d, d.dataset.mod, d.dataset.abierto === "1"));
 
 (async () => {
   try { cfg = await (await fetch("/api/config")).json(); render(); }
