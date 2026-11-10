@@ -116,9 +116,20 @@ una que sonaba bien, **Anterior** vuelve a ella (recuerda las últimas 20).
 
 ## Géneros y Pegado ↔ Desplazado
 
-En **Música**, un solo selector de género cambia la escala, los pads y la
-llamada y respuesta. Después puedes ajustar todo a mano; nunca toca destinos,
-canales, variantes ni las secuencias (el bajo queda como lo armaste).
+Cada motor tiene su propio selector de género, independiente: los pads, la
+llamada y respuesta y cada secuencia. Por ejemplo, pads ambient, un diálogo
+chillgressive y un bajo psy chill. Elegir un género escribe sus valores en ese
+motor y después puedes ajustar todo a mano; nunca toca destinos, canales,
+fuerza ni variantes. La escala es común a todos (en Música), para que nada
+choque.
+
+En **Música**, *Género para todo* es un atajo: pone la escala de ese género y
+el mismo género en todos los motores, también en las secuencias.
+
+En cada secuencia, el género filtra sus estilos: Goa (rolling, galope, arpegio
+de 3, ácido), psy chill (bombo, silencio, bajo, bajo), chillgressive (rolling,
+euclidiano 7 de 16), chillout (notas largas en 3 de 16, casi solo raíz y quinta)
+y ambient (notas muy largas en un patrón de 13 pasos que se desfasa).
 
 - **Goa:** frigio, i–♭II, diálogo en corcheas pegado al beat.
 - **Psy chill:** dórica, i–IV–i–♭VII con un pulso euclidiano suave en los pads.
@@ -131,10 +142,6 @@ notas se corren una semicorchea (nunca el uno de la llamada) y las semicorcheas
 débiles se atrasan un poco, como swing. Mueve la llamada, la respuesta y el
 pulso de los pads; las secuencias no se corren. Cada voz puede tener su propio
 ajuste (en sus "Más ajustes").
-
-**Pads desacoplados:** en "Más ajustes" de los pads, *Desacoplar del género*
-les da su propio selector, por ejemplo pads ambient bajo un diálogo
-chillgressive. Siguen usando la escala general para no chocar.
 
 ## Llamada y respuesta
 

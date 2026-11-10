@@ -167,7 +167,10 @@ function desplTexto(x) {
   const t = x === 0 ? "pegado al beat" : x < 0.35 ? "casi pegado" : x < 0.7 ? "algo desplazado" : "desplazado";
   return x === 0 ? t : `${t} (${Math.round(x * 100)} %)`;
 }
-const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"]];
+const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"],
+  ["psy_chill","Psy chill"],["euclidiano","Euclidiano"],["largas","Notas largas"],["ambient","Ambient"]];
+const ESTILOS_POR_GENERO = {goa: ["rolling","galope","arpegio3","acido"], psy_chill: ["psy_chill","galope","arpegio3"],
+  chillgressive: ["rolling","euclidiano","acido"], chillout: ["largas","euclidiano","arpegio3"], ambient: ["ambient","largas","arpegio3"]};
 const POSICIONES = [["onbeat","Con el bombo"],["offbeat","Entre bombos"],["todos","Todas"],["desplazado","Corrida"]];
 const POS_TEXTO = {onbeat: "Las notas caen junto al bombo.", offbeat: "Entre bombo y bombo: el clásico del psytrance.",
   todos: "Todas las semicorcheas.", desplazado: "Corrida una semicorchea: sensación de tropiezo."};
@@ -326,7 +329,8 @@ function tarjeta(s, i) {
   const candado = el("input", {type: "checkbox", checked: s.bloqueada, onchange: () => { s.bloqueada = candado.checked; guardar(); }});
   return recordar(el("details", {className: "card"}, [
     cab,
-    campo("Estilo", segmentado(ESTILOS, s.estilo, (v) => {
+    campo("Género", segmentado(GENEROS, s.genero, (v) => cambiarGenero(v, {parte: "secuencia", indice: i}), 3)),
+    campo("Estilo", segmentado([...new Set([...ESTILOS_POR_GENERO[s.genero], s.estilo])].map((v) => ESTILOS.find((x) => x[0] === v)), s.estilo, (v) => {
       s.estilo = v;
       if (v === "acido" && !s.slide && !s.acentos) { s.slide = 0.3; s.acentos = 0.3; s.largas = s.largas || 0.3; render(); }
       actualizar(); guardar();
@@ -404,20 +408,22 @@ function renderGenero() {
   const m = cfg.musica, caja = $("genero_caja");
   caja.innerHTML = "";
   caja.append(
-    campo("Género", segmentado(GENEROS, m.genero, (v) => cambiarGenero(v), 3)),
-    ayuda(GENERO_TEXTO[m.genero] + " Después puedes ajustar todo a mano."),
+    campo("Género para todo", segmentado(GENEROS, m.genero, (v) => cambiarGenero(v), 3)),
+    ayuda(GENERO_TEXTO[m.genero] + " Pone la escala y este género en los pads, la llamada y respuesta y todas las secuencias. Después cada motor tiene su propio selector."),
     deslizador(m, "desplazamiento", "Pegado ↔ Desplazado", 0, 1, 0.05, desplTexto),
     ayuda("Corre las notas de la llamada, la respuesta y el pulso de los pads. Las secuencias (el bajo) no se mueven."),
   );
 }
 
-async function cambiarGenero(genero, soloPads = false) {
+async function cambiarGenero(genero, motor = {}) {
+  // motor: {} = todo · {parte: "pads"} · {parte: "dialogo"} · {parte: "secuencia", indice}
+  const nombres = {pads: "Pads", dialogo: "Llamada y respuesta", secuencia: `Secuencia ${(cfg.secuencia[motor.indice] || {}).nombre}`};
   try {
     clearTimeout(temporizador);  // primero aplica lo último que cambiaste
     await api("/api/config", cfg);
-    await api("/api/genero", soloPads ? {genero, solo: "pads"} : {genero});
+    await api("/api/genero", Object.assign({genero}, motor));
     await recargar();
-    aviso((soloPads ? "Pads: " : "Género: ") + nombreGenero(genero));
+    aviso((motor.parte ? nombres[motor.parte] + ": " : "Todo en ") + nombreGenero(genero));
   } catch (e) { aviso(e.message, true); }
 }
 
@@ -440,17 +446,12 @@ function renderPads() {
     return s;
   };
   const drone = el("input", {type: "checkbox", checked: p.drone, onchange: () => { p.drone = drone.checked; guardar(); }});
-  const propio = el("input", {type: "checkbox", checked: p.genero_propio, onchange: () => {
-    p.genero_propio = propio.checked;
-    if (propio.checked) { renderPads(); guardar(); }
-    else cambiarGenero(cfg.musica.genero, true);  // vuelven a seguir al género general
-  }});
-  const generoPads = el("select", {onchange: () => cambiarGenero(generoPads.value, true)});
-  for (const [v, t] of GENEROS) generoPads.append(el("option", {value: v, textContent: t, selected: v === p.genero}));
+
   if (!cont._recordado) { recordar(cont, "pads", false); cont._recordado = true; }
   cont.innerHTML = "";
   cont.append(
     cab,
+    campo("Género", segmentado(GENEROS, p.genero, (v) => cambiarGenero(v, {parte: "pads"}), 3)),
     el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
     el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
     campo("Cambia de acorde cada (compases)", segmentado([["4","4"],["8","8"],["16","16"],["32","32"]], String(p.cambia_cada), (v) => { p.cambia_cada = parseInt(v); cab._sub.textContent = sub(); guardar(); }, 4)),
@@ -458,10 +459,7 @@ function renderPads() {
     ayuda("Con pulso, los acordes suenan en un ritmo euclidiano suave en corcheas, el primero en el uno."),
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Drone en la raíz", el("br"), el("span", {className: "mut", textContent: "Una nota grave sostenida bajo los acordes"})]), drone]),
     masAjustes("mas-pads", [
-      el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Desacoplar del género", el("br"),
-        el("span", {className: "mut", textContent: p.genero_propio ? "Los pads tienen su propio género" : `Siguen al género general (${nombreGenero(cfg.musica.genero)})`})]), propio]),
-      p.genero_propio ? el("label", {className: "campo"}, ["Género de los pads", generoPads]) : null,
-      p.genero_propio ? ayuda("Cambia solo los pads; siguen usando la escala general para no chocar.") : null,
+
       el("div", {className: "dos"}, [destinoDe(p, estado), numeroDe(p, "canal", "Canal MIDI", 1, 16)]),
       numeroDe(p, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
       campo("La progresión parte desde", segmentado([["nota","La nota larga"],["tonica","La tónica fija"]], p.base, (v) => { p.base = v; guardar(); }, 2)),
@@ -559,6 +557,7 @@ function renderDialogo() {
   cont.innerHTML = "";
   cont.append(...[
     cabecera("Llamada y respuesta", sub, [fase, interruptor(d.activo, (v) => { d.activo = v; guardar(); }, "Activar llamada y respuesta")]),
+    campo("Género", segmentado(GENEROS, d.genero, (v) => cambiarGenero(v, {parte: "dialogo"}), 3)),
     campo("Quién llama", segmentado([["motor","El motor"],["en_vivo","Yo, en vivo"]], d.modo, (x) => { d.modo = x; rehacer(); }, 2)),
     vivo ? ayuda("El motor escucha dónde tocas en cada compás y en el siguiente responde en tus huecos.") : null,
     vivo ? numeroDe(d, "escucha", "Canal donde toco la llamada", 1, 16) : null,

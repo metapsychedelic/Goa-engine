@@ -1,15 +1,17 @@
-"""Perfiles de género: un solo selector cambia escala, pads y llamada y respuesta.
+"""Perfiles de género para cada motor: pads, llamada y respuesta y cada secuencia.
 
-Elegir un género escribe sus valores en la configuración, así después se puede
-ajustar cualquier cosa a mano. Nunca toca destinos, canales, fuerza ni variantes,
-ni las secuencias (el bajo queda como lo armaste).
+Cada motor tiene su propio selector de género, independiente de los demás: se
+puede tener pads ambient, un diálogo chillgressive y un bajo psy chill. Elegir
+un género escribe sus valores en la configuración de ese motor, así después se
+ajusta todo a mano. Nunca toca destinos, canales, fuerza ni variantes.
 
-Si los pads están desacoplados (`pads.genero_propio`), el género general no los
-cambia y tienen su propio selector, que solo cambia los pads (siguen usando la
-escala general, para no chocar con lo demás).
+La escala es común a todos (en Música), para que nada choque. El género de
+Música es un atajo: pone la escala y el mismo género en todos los motores.
 """
 
 import copy
+
+from .generador import ESTILOS_POR_GENERO
 
 GENEROS = {
     "goa": {
@@ -59,21 +61,45 @@ GENEROS = {
     },
 }
 
+# Carácter de una secuencia por género (el estilo es el primero de su lista).
+SECUENCIAS = {
+    "goa": {"posicion": "offbeat", "largo": 16, "gate": 0.55, "pedal": 0.5, "swing": 0.0, "largas": 0.0},
+    "psy_chill": {"posicion": "offbeat", "largo": 16, "gate": 0.5, "pedal": 0.6, "swing": 0.05, "largas": 0.0},
+    "chillgressive": {"posicion": "offbeat", "largo": 16, "gate": 0.45, "pedal": 0.55, "swing": 0.0, "largas": 0.0},
+    "chillout": {"posicion": "todos", "largo": 16, "gate": 0.9, "pedal": 0.5, "swing": 0.1, "largas": 0.6},
+    "ambient": {"posicion": "todos", "largo": 13, "gate": 1.0, "pedal": 0.4, "swing": 0.0, "largas": 1.0},
+}
+for _g, _s in SECUENCIAS.items():
+    _s["estilo"] = ESTILOS_POR_GENERO[_g][0]
+
 ORDEN = tuple(GENEROS)
+PARTES = ("pads", "dialogo", "secuencia")
 
 
-def aplicar(cfg, genero, solo_pads=False):
-    """Copia de `cfg` con el perfil del género aplicado."""
+def aplicar(cfg, genero, parte=None, indice=None):
+    """Copia de `cfg` con el perfil del género aplicado.
+
+    parte = None: atajo de Música (escala, desplazamiento y todos los motores).
+    parte = "pads", "dialogo" o "secuencia" (con su índice): solo ese motor."""
     if genero not in GENEROS:
         raise ValueError(f"Género desconocido: {genero!r}. Opciones: {', '.join(ORDEN)}")
+    if parte is not None and parte not in PARTES:
+        raise ValueError(f"Motor desconocido: {parte!r}. Opciones: {', '.join(PARTES)}")
     perfil = GENEROS[genero]
     nueva = copy.deepcopy(cfg)
-    if solo_pads:
+    if parte in (None, "pads"):
         nueva["pads"].update(perfil["pads"], genero=genero)
-        return nueva
-    nueva["musica"].update(perfil["musica"], genero=genero)
-    for seccion in ("dialogo", "llamada", "respuesta"):
-        nueva[seccion].update(perfil[seccion])
-    if not nueva["pads"].get("genero_propio"):
-        nueva["pads"].update(perfil["pads"], genero=genero)
+    if parte in (None, "dialogo"):
+        nueva["dialogo"].update(perfil["dialogo"], genero=genero)
+        for voz in ("llamada", "respuesta"):
+            nueva[voz].update(perfil[voz])
+    if parte == "secuencia":
+        secuencias = nueva.get("secuencia") or []
+        if not isinstance(indice, int) or not 0 <= indice < len(secuencias):
+            raise ValueError("Secuencia desconocida")
+        secuencias[indice].update(SECUENCIAS[genero], genero=genero)
+    if parte is None:
+        nueva["musica"].update(perfil["musica"], genero=genero)
+        for s in nueva.get("secuencia") or []:
+            s.update(SECUENCIAS[genero], genero=genero)
     return nueva

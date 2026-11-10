@@ -41,21 +41,64 @@ if __name__ == "__main__":
     cfg = con_genero("ambient")
     todo &= ok(cfg["musica"]["escala"] == "lidio" and cfg["pads"]["drone"] and cfg["pads"]["rasgueo"] == 24,
                "ambient: lidia, drone y voces que entran de a una")
-    todo &= ok(cfg["secuencia"] == original["secuencia"], "el género no toca las secuencias")
+    todo &= ok(all(s["genero"] == "ambient" and s["estilo"] == "ambient" for s in cfg["secuencia"]),
+               "el género para todo también pone el género en las secuencias")
     todo &= ok(all(cfg[v][k] == original[v][k] for v in ("llamada", "respuesta") for k in ("salida", "canal", "velocidad"))
+               and all(a[k] == b[k] for a, b in zip(cfg["secuencia"], original["secuencia"]) for k in ("salida", "canal", "seed"))
                and cfg["pads"]["salida"] == original["pads"]["salida"] and cfg["dialogo"]["seed"] == original["dialogo"]["seed"],
                "ni los destinos, canales, fuerza ni variantes")
 
-    desacoplado = base()
-    desacoplado["pads"]["genero_propio"] = True
-    cfg = generos.aplicar(desacoplado, "chillout")
-    todo &= ok(cfg["pads"] == desacoplado["pads"] and cfg["musica"]["genero"] == "chillout",
-               "pads desacoplados: el género general no los cambia")
-    cfg = generos.aplicar(cfg, "ambient", solo_pads=True)
-    todo &= ok(cfg["pads"]["progresion"] == "pedal_I_II" and cfg["pads"]["genero"] == "ambient"
-               and cfg["musica"]["escala"] == "menor" and cfg["dialogo"]["rejilla"] == "corcheas",
-               "su propio género cambia solo los pads (ambient sobre chillout)")
-    todo &= ok(normalizar(tomllib.loads(a_toml(normalizar(cfg)))) == normalizar(cfg), "se guarda y se lee igual")
+    print("\nUn género por motor, independiente")
+    cfg = generos.aplicar(base(), "chillout")
+    cfg = generos.aplicar(cfg, "ambient", parte="pads")
+    cfg = generos.aplicar(cfg, "chillgressive", parte="dialogo")
+    cfg = generos.aplicar(cfg, "psy_chill", parte="secuencia", indice=0)
+    s0, s1 = cfg["secuencia"][0], cfg["secuencia"][1]
+    todo &= ok(cfg["pads"]["genero"] == "ambient" and cfg["pads"]["progresion"] == "pedal_I_II", "pads ambient")
+    todo &= ok(cfg["dialogo"]["genero"] == "chillgressive" and cfg["dialogo"]["rejilla"] == "semicorcheas"
+               and cfg["llamada"]["golpes"] == 5, "llamada y respuesta chillgressive")
+    todo &= ok(s0["genero"] == "psy_chill" and s0["estilo"] == "psy_chill", "secuencia 1 psy chill")
+    todo &= ok(s1["genero"] == "chillout" and s1["estilo"] == "largas", "secuencia 2 sigue en chillout")
+    todo &= ok(cfg["musica"]["escala"] == "menor" and cfg["musica"]["genero"] == "chillout",
+               "la escala es común: no la cambia ningún motor por su cuenta")
+    cfg = normalizar(cfg)
+    cfg["pads"].update(activo=True, disparo=2)
+    salida, _ = correr(cfg)
+    escala = set(Tonalidad(cfg["musica"]["tonica"], cfg["musica"]["escala"]).intervalos)
+    ons = [n for _, _, tipo, _, n, _ in salida if tipo == "note_on"]
+    todo &= ok(ons and all((n - 5) % 12 in escala for n in ons) and colgadas(salida) == 0,
+               f"suenan juntos: {len(ons)} notas, todas en la escala, sin colgadas")
+    todo &= ok(normalizar(tomllib.loads(a_toml(cfg))) == cfg, "se guarda y se lee igual")
+    try:
+        generos.aplicar(base(), "goa", parte="secuencia", indice=9)
+        todo &= ok(False, "una secuencia que no existe da error")
+    except ValueError:
+        todo &= ok(True, "una secuencia que no existe da error")
+
+    print("\nEstilos de secuencia por género")
+    from goa import generador
+    for genero, estilos in generador.ESTILOS_POR_GENERO.items():
+        for estilo in estilos:
+            for largo in (16, 13, 7):
+                patron = generador.generar("prueba", estilo, largo, 0.5)
+                assert len(patron) == largo and any(p["suena"] for p in patron), (estilo, largo)
+    psy = generador.generar("x", "psy_chill", 16)
+    todo &= ok([i for i, p in enumerate(psy) if p["suena"]] == [2, 3, 6, 7, 10, 11, 14, 15],
+               "psy chill: bombo, silencio, bajo, bajo")
+    largas = generador.generar("x", "largas", 16)
+    todo &= ok([i for i, p in enumerate(largas) if p["suena"]] == [0, 6, 11] and largas[0]["grado"] == 0,
+               "notas largas: 3 de 16 desde el uno, empezando en la raíz")
+    amb = generador.generar("x", "ambient", 13)
+    todo &= ok(sum(p["suena"] for p in amb) == 2 and amb[0]["suena"], "ambient: 2 notas en 13 pasos")
+    for genero in generos.ORDEN:
+        cfg = generos.aplicar(base(), genero)
+        cfg["dialogo"]["activo"] = False
+        cfg["secuencia"] = cfg["secuencia"][:1]
+        cfg["secuencia"][0].update(activa=True, disparo=2)
+        salida, _ = correr(normalizar(cfg))
+        ons = sum(1 for e in salida if e[2] == "note_on")
+        todo &= ok(ons > 0 and colgadas(salida) == 0,
+                   f"secuencia {generos.GENEROS[genero]['nombre']:<14} {cfg['secuencia'][0]['estilo']:<10} · {ons} notas, sin colgadas")
 
     print("\nPegado ↔ Desplazado (llamada y respuesta)")
     cfg = base()

@@ -28,7 +28,8 @@ escala = "frigio"         # frigio, menor_armonica, frigio_dominante, menor, hun
 cambio_de_nota = "paso"   # "paso": cambia al siguiente paso · "compas": espera al siguiente compás
 adaptacion = "escala"     # "escala": se ajusta a la tonalidad · "transponer": mueve el patrón igual
 seguir_pads = false       # true: las secuencias toman como base la raíz del acorde de los pads
-# Género: elegirlo en la app escribe su escala, pads y llamada y respuesta (después se ajusta a mano).
+# Género para todo: en la app pone la escala y este género en todos los motores.
+# Cada motor (pads, llamada y respuesta, cada secuencia) tiene además su propio género.
 genero = "goa"            # goa, psy_chill, chillgressive, chillout, ambient
 # Pegado ↔ Desplazado: 0 = todo justo en la rejilla · 1 = notas corridas a semicorcheas débiles, swing y humano.
 # Mueve la llamada, la respuesta y el pulso de los pads; las secuencias (el bajo) nunca se corren.
@@ -51,8 +52,7 @@ ataque = "ligado"         # ligado: mantiene las notas en común · reatacar: vu
 drone = false             # nota grave sostenida en la raíz
 rasgueo = 1               # pulsos entre la entrada de cada voz (0 = juntas · 24 = una voz por tiempo)
 pulso = 0                 # 0 = acordes sostenidos · 1 a 8 = golpes euclidianos en corcheas por compás
-genero_propio = false     # true: los pads no siguen al género general (desacoplados)
-genero = "goa"            # género propio de los pads, si están desacoplados
+genero = "goa"            # género de los pads (independiente de los otros motores)
 velocidad = 80
 seed = "P-1C88"
 disparo = 1               # canal de su nota larga (pista Synth 1): mutearla apaga solo los pads
@@ -71,6 +71,7 @@ seguir_pads = true        # si los pads suenan: su escala y la raíz de cada aco
 evolucion = 0.5           # mutación: probabilidad de cambiar una nota o girar el patrón
 mutar_cada = 4            # compases
 seed = "CR-0001"
+genero = "goa"            # género de la llamada y respuesta
 
 # Cada voz: cuántos golpes reparte y su color. La respuesta puede ir al mismo sinte.
 [llamada]
@@ -101,7 +102,9 @@ activa = true
 disparo = 2               # canal de su nota larga (pista Synth 2); 0 = el general
 salida = "FM-1"           # parte del nombre del puerto (míralo con goa-ports); en modo dongle: "CH345"
 canal = 4                 # FM-1 en canal 4 (pista MIDI 2 de la Circuit)
-estilo = "rolling"        # rolling, galope, arpegio3, acido
+genero = "goa"            # género de esta secuencia: elige su estilo y carácter en la app
+estilo = "rolling"        # goa: rolling, galope, arpegio3, acido · psy_chill: psy_chill
+                          # chillgressive: euclidiano · chillout: largas · ambient: ambient
 posicion = "offbeat"      # onbeat, offbeat, todos, desplazado
 relacion = "unisono"      # unisono, tercera, quinta, octava
 octava = 0                # sube o baja octavas completas (-2 a 2)

@@ -173,10 +173,10 @@ def crear_servidor(ctx, puerto):
             self._responder(aviso)
 
         def _genero(self, datos):
-            """Aplica un perfil de género. Con solo = "pads", cambia solo los pads (desacoplados)."""
+            """Aplica un perfil de género: a todo, o a un motor (parte = pads, dialogo o secuencia + indice)."""
             genero = str(datos.get("genero", ""))
             with ctx.candado:
-                nueva = normalizar(generos.aplicar(ctx.config, genero, solo_pads=datos.get("solo") == "pads"))
+                nueva = normalizar(generos.aplicar(ctx.config, genero, datos.get("parte"), datos.get("indice")))
                 Motor(nueva, lambda *a: None)  # valida antes de tocar nada
                 aviso = self._aplicar(nueva)
             self._responder(aviso, genero=genero)

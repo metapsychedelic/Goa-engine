@@ -48,7 +48,6 @@ ESQUEMA_SECCIONES = {
         "drone": (bool, False, None, None),
         "rasgueo": (int, 1, 0, 24),
         "pulso": (int, 0, 0, 8),
-        "genero_propio": (bool, False, None, None),
         "genero": (str, "goa", None, generos.ORDEN),
         "velocidad": (int, 80, 1, 127),
         "seed": (str, "P-1C88", None, None),
@@ -67,6 +66,7 @@ ESQUEMA_SECCIONES = {
         "evolucion": (float, 0.5, 0.0, 1.0),
         "mutar_cada": (int, 4, 1, 16),
         "seed": (str, "CR-0001", None, None),
+        "genero": (str, "goa", None, generos.ORDEN),
     },
 }
 
@@ -104,6 +104,7 @@ ESQUEMA_SECUENCIA = {
     "activa": (bool, True, None, None),
     "salida": (str, "FM-1", None, None),
     "canal": (int, 1, 1, 16),
+    "genero": (str, "goa", None, generos.ORDEN),
     "estilo": (str, "rolling", None, generador.ESTILOS),
     "posicion": (str, "offbeat", None, generador.POSICIONES),
     "relacion": (str, "unisono", None, tuple(generador.RELACIONES)),

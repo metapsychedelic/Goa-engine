@@ -37,7 +37,20 @@ TRANSICIONES_ACIDO = {
     7: {6: 2.0, 0: 3.0, 4: 1.0},
 }
 
-ESTILOS = ("rolling", "galope", "arpegio3", "acido")
+ESTILOS = ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano", "largas", "ambient")
+
+# Estilos que muestra cada género (el primero es el que pone al elegir el género).
+ESTILOS_POR_GENERO = {
+    "goa": ("rolling", "galope", "arpegio3", "acido"),
+    "psy_chill": ("psy_chill", "galope", "arpegio3"),
+    "chillgressive": ("rolling", "euclidiano", "acido"),
+    "chillout": ("largas", "euclidiano", "arpegio3"),
+    "ambient": ("ambient", "largas", "arpegio3"),
+}
+
+# Notas para los estilos lentos: casi siempre raíz y quinta, algo de octava y color.
+PESOS_LARGAS = {0: 4.0, 4: 3.0, 7: 1.5, 2: 1.0, 6: 0.7}
+PESOS_AMBIENT = {0: 3.0, 4: 2.5, 7: 2.0, 1: 1.0, 2: 1.0, 6: 1.0}
 POSICIONES = ("onbeat", "offbeat", "todos", "desplazado")
 RELACIONES = {"unisono": 0, "tercera": 2, "quinta": 4, "octava": 7}
 
@@ -147,8 +160,20 @@ def _ritmo(estilo, largo, rng):
             pasos.append((i % 4 != 1, i % 4 == 0))
         elif estilo == "arpegio3":
             pasos.append((True, i % 3 == 0))
+        elif estilo == "psy_chill":                 # bombo, silencio, bajo, bajo
+            pasos.append((i % 4 in (2, 3), i % 4 == 2))
+        elif estilo in ("euclidiano", "largas", "ambient"):
+            pasos.append(None)
         else:
             raise ValueError(f"Estilo desconocido: {estilo!r}. Opciones: {', '.join(ESTILOS)}")
+    if pasos and pasos[0] is None:
+        # Euclidiano: 7 de 16 en cualquier lugar; largas: 3 de 16 desde el uno;
+        # ambient: 1 de cada 8, para notas muy largas (con largo primo se desfasa).
+        proporcion, rotar = {"euclidiano": (7 / 16, True), "largas": (3 / 16, False), "ambient": (1 / 8, False)}[estilo]
+        golpes = max(1, round(largo * proporcion))
+        patron = euclidiano(golpes, largo, rng.randrange(largo) if rotar else 0)
+        primero = patron.index(True)
+        pasos = [(suena, i == primero) for i, suena in enumerate(patron)]
     return pasos
 
 
@@ -181,6 +206,8 @@ def generar(seed, estilo="rolling", largo=16, pedal=0.5):
     for i, (suena, acento) in enumerate(ritmo):
         if estilo == "arpegio3":
             grado = arpegio[i % 3]
+        elif estilo in ("largas", "ambient"):
+            grado = 0 if i == 0 else _elegir(rng, PESOS_AMBIENT if estilo == "ambient" else PESOS_LARGAS)
         elif i == 0:
             grado = 0
         else:
