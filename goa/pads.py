@@ -69,6 +69,27 @@ def _limitar(n):
     return n
 
 
+def _sin_semitonos(notas, piso=36, techo=96):
+    """Evita medio tono o ♭9 entre dos voces cualquiera (p. ej. la séptima mayor bajo
+    la raíz de un acorde maj7): la nota de arriba baja hasta quedar bajo la otra
+    (queda séptima mayor, que suena abierta); si no cabe, la de abajo sube.
+    Medio tono entre voces de un pad suena a batido turbio, más con filtro compartido."""
+    notas = sorted(set(notas))
+    for _ in range(len(notas) * 3):
+        par = next(((a, b) for i, a in enumerate(notas) for b in notas[i + 1:] if (b - a) % 12 == 1), None)
+        if par is None:
+            break
+        a, b = par
+        notas.remove(b)
+        if a - 11 >= piso and a - 11 not in notas:
+            notas.append(a - 11)        # b una séptima mayor bajo a
+        elif b + 11 <= techo:
+            notas.remove(a)
+            notas += [b, b + 11]        # a una séptima mayor sobre b
+        notas = sorted(set(notas))
+    return notas
+
+
 def euclides(golpes, lugares):
     """`golpes` repartidos parejo en `lugares`, con el primero en el uno."""
     golpes = max(0, min(golpes, lugares))
@@ -132,17 +153,26 @@ class Pads:
             return _cerca(raiz % 12, centro)
         return _cerca(self.tonalidad.tonica, centro)
 
+    @property
+    def voces_acorde(self):
+        """Voces para el acorde: el drone ocupa una voz del sinte (la MicroFreak toca 4 en total)."""
+        return max(2, self.voces - 1) if self.drone else self.voces
+
     def _voicing(self, raiz_acorde):
+        voces = self.voces_acorde
         pasos = list(self.acorde)
-        while len(pasos) < self.voces:  # dobla raíz y quinta una octava arriba
+        while len(pasos) < voces:  # dobla raíz y quinta una octava arriba
             pasos.append(pasos[len(pasos) - len(self.acorde)] + 7)
-        notas = sorted(self.tonalidad.nota(raiz_acorde, p, "escala") for p in pasos[:self.voces])
+        notas = [self.tonalidad.nota(raiz_acorde, p, "escala") for p in pasos[:voces]]
+        # La segunda o novena de la escala a veces es ♭9 (en frigio, o sobre el v en
+        # menor): medio tono contra la raíz, áspero en un pad. Se cambia por la raíz.
+        notas = sorted({n - 1 if (n - raiz_acorde) % 12 == 1 else n for n in notas})
         if self.apertura in ("abierta", "amplia"):
             notas = [n + 12 if i % 2 == 1 else n for i, n in enumerate(notas)]
         if self.apertura == "amplia" and len(notas) > 3:
             notas[3] += 12
         notas = sorted(_limitar(n) for n in notas)
-        return self._mover_minimo(notas)
+        return _sin_semitonos(self._mover_minimo(notas))
 
     def _mover_minimo(self, notas):
         """Elige la inversión que menos mueve las voces respecto al acorde que suena."""

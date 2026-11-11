@@ -156,6 +156,25 @@ if __name__ == "__main__":
     propio["dialogo"]["armonia"] = "libre"
     todo &= ok(correr(libre)[0] == correr(propio)[0], "el diálogo en libre aunque el general sea guiada")
 
+    print("\nVoicing de los pads (MicroFreak: 4 voces, filtro compartido)")
+    from goa import generos
+    for genero in generos.ORDEN:
+        cfg = normalizar(generos.aplicar(base(), genero))
+        cfg["dialogo"]["activo"] = False
+        cfg["pads"].update(activo=True, disparo=2)
+        salida, motor = correr(cfg, compases=64)
+        sonando, maximo, choques = set(), 0, 0
+        largo = cfg["pads"]["cambia_cada"] * 96
+        for t, sal, ti, c, n, _ in salida:
+            if sal != cfg["pads"]["salida"] or c != cfg["pads"]["canal"] - 1:
+                continue
+            (sonando.add if ti == "note_on" else sonando.discard)(n)
+            maximo = max(maximo, len(sonando))
+            if t % largo >= 96:  # pasado el primer compás del acorde (las suspensiones ya resolvieron)
+                choques += any((b - a) % 12 == 1 for a in sonando for b in sonando if b > a)
+        todo &= ok(maximo <= cfg["pads"]["voces"] and not choques,
+                   f"{generos.GENEROS[genero]['nombre']:<14} máx. {maximo} notas (drone incluido), sin medio tono ni ♭9 entre voces")
+
     print("\nConfiguración")
     cfg = normalizar(armar(suenan=False, suspensiones=0.7))
     cfg["dialogo"]["armonia"] = "libre"
