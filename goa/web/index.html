@@ -340,6 +340,7 @@ function tarjeta(s, i) {
     ...variante(s, `sec-${s.nombre}`),
     el("button", {type: "button", textContent: "Guardar como clip", onclick: () => guardarClip(i, s)}),
     masAjustes(`mas-sec-${s.nombre}`, [
+      armoniaPropia(s),
       campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
       deslizador(s, "densidad", "Densidad (cantidad de notas)", 0, 1, 0.05, porcentaje),
       deslizador(s, "mutacion", "Mutación (cuánto cambia con el tiempo)", 0, 1, 0.05, (v) => v === 0 ? "fija" : porcentaje(v)),
@@ -396,23 +397,49 @@ function render() {
   ta.onchange = () => { cfg.thru.activo = ta.checked; resumenes(); guardar(); };
   const ts = $("thru_salida"); ts.value = cfg.thru.salida;
   ts.onchange = () => { cfg.thru.salida = ts.value.trim() || cfg.thru.salida; ts.value = cfg.thru.salida; guardar(); };
-  const cont = $("secuencias"); cont.innerHTML = "";
-  cfg.secuencia.forEach((s, i) => cont.append(tarjeta(s, i)));
+  renderSecuencias();
   $("agregar").disabled = cfg.secuencia.length >= 8;
   $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
   resumenes();
   renderGrilla();
 }
 
+function renderSecuencias() {
+  const cont = $("secuencias"); cont.innerHTML = "";
+  cfg.secuencia.forEach((s, i) => cont.append(tarjeta(s, i)));
+}
+
 function renderGenero() {
   const m = cfg.musica, caja = $("genero_caja");
   caja.innerHTML = "";
-  caja.append(
+  caja.append(...[
     campo("Género para todo", segmentado(GENEROS, m.genero, (v) => cambiarGenero(v), 3)),
     ayuda(GENERO_TEXTO[m.genero] + " Pone la escala y este género en los pads, la llamada y respuesta y todas las secuencias. Después cada motor tiene su propio selector."),
     deslizador(m, "desplazamiento", "Pegado ↔ Desplazado", 0, 1, 0.05, desplTexto),
     ayuda("Corre las notas de la llamada, la respuesta y el pulso de los pads. Las secuencias (el bajo) no se mueven."),
-  );
+    campo("Armonía", segmentado([["guiada","Guiada"],["libre","Libre"]], m.armonia, (v) => { m.armonia = v; renderGenero(); renderSecuencias(); renderDialogo(); guardar(); }, 2)),
+    ayuda(m.armonia === "guiada"
+      ? "Los pads guían: las secuencias y la llamada y respuesta saben qué acorde suena y cuál viene. Sin pads activos, siguen el acorde de tu nota larga."
+      : "Cada motor cuenta sus notas desde su raíz, sin mirar el acorde (como antes)."),
+    m.armonia === "guiada" ? deslizador(m, "tension", "Tensión", 0, 1, 0.05,
+      (x) => x === 0 ? "solo notas del acorde" : x < 0.4 ? `pocas notas de paso (${porcentaje(x)})` : x < 0.7 ? `algunas notas de paso (${porcentaje(x)})` : `muchas notas de paso (${porcentaje(x)})`) : null,
+    m.armonia === "guiada" ? ayuda("En las secuencias, cuántas notas fuera del acorde quedan en los tiempos débiles. En los fuertes siempre cae una nota del acorde.") : null,
+    m.armonia === "guiada" ? casilla(m, "anticipar", "Anticipar los cambios de acorde", "La última nota antes del cambio lleva al acorde que viene") : null,
+  ].filter(Boolean));
+  const sp = $("seguir_pads").closest("label");
+  if (sp) sp.style.display = m.armonia === "guiada" ? "none" : "";
+}
+
+function casilla(obj, k, titulo, detalle, alCambiar) {
+  const chk = el("input", {type: "checkbox", checked: !!obj[k], onchange: () => { obj[k] = chk.checked; if (alCambiar) alCambiar(); guardar(); }});
+  return el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, [titulo, el("br"), el("span", {className: "mut", textContent: detalle})]), chk]);
+}
+
+function armoniaPropia(obj, alCambiar) {
+  // Cada motor usa la armonía general (en Música) o una propia.
+  const general = cfg.musica.armonia === "guiada" ? "Guiada" : "Libre";
+  return campo("Armonía", segmentado([["general", `General (${general})`],["guiada","Guiada"],["libre","Libre"]], obj.armonia || "general",
+    (v) => { obj.armonia = v; if (alCambiar) alCambiar(); guardar(); }, 3));
 }
 
 async function cambiarGenero(genero, motor = {}) {
@@ -452,6 +479,7 @@ function renderPads() {
   cont.append(
     cab,
     campo("Género", segmentado(GENEROS, p.genero, (v) => cambiarGenero(v, {parte: "pads"}), 3)),
+    casilla(p, "suenan", "Suenan", p.suenan ? "Tocan los acordes y guían la armonía" : "Callados: solo guían la armonía de los demás", () => renderPads()),
     el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
     el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
     campo("Cambia de acorde cada (compases)", segmentado([["4","4"],["8","8"],["16","16"],["32","32"]], String(p.cambia_cada), (v) => { p.cambia_cada = parseInt(v); cab._sub.textContent = sub(); guardar(); }, 4)),
@@ -465,7 +493,9 @@ function renderPads() {
       campo("La progresión parte desde", segmentado([["nota","La nota larga"],["tonica","La tónica fija"]], p.base, (v) => { p.base = v; guardar(); }, 2)),
       ayuda("Con la nota larga, si cambias de nota en la Circuit la progresión se mueve con ella."),
       campo("Separación de las voces", segmentado([["cerrada","Juntas"],["abierta","Abiertas"],["amplia","Muy abiertas"]], p.apertura, (v) => { p.apertura = v; guardar(); }, 3)),
-      campo("Al cambiar de acorde", segmentado([["ligado","Ligado"],["reatacar","Vuelve a atacar"]], p.ataque, (v) => { p.ataque = v; guardar(); }, 2)),
+      campo("Al cambiar de acorde", segmentado([["ligado","Ligado"],["reatacar","Vuelve a atacar"]], p.ataque, (v) => { p.ataque = v; renderPads(); guardar(); }, 2)),
+      p.ataque === "ligado" && !p.pulso ? deslizador(p, "suspensiones", "Suspensiones", 0, 1, 0.05, (x) => x === 0 ? "nunca" : `${porcentaje(x)} de los cambios`) : null,
+      p.ataque === "ligado" && !p.pulso ? ayuda("Al cambiar de acorde, una voz se queda colgada y resuelve un tiempo después.") : null,
       el("div", {className: "dos"}, [numeroDe(p, "voces", "Notas por acorde (MicroFreak: 4)", 2, 6), numeroDe(p, "octava", "Octava", -2, 2)]),
       deslizador(p, "variacion", "Sorpresas en la progresión", 0, 1, 0.05, porcentaje),
       ayuda("A veces cambia un acorde por uno emparentado que comparte dos notas."),
@@ -539,6 +569,10 @@ function colorGeneral() {
   return control;
 }
 
+function guiadaDe(obj) {
+  return (obj.armonia && obj.armonia !== "general" ? obj.armonia : cfg.musica.armonia) === "guiada";
+}
+
 function renderDialogo() {
   const d = cfg.dialogo, cont = $("dialogo");
   const vivo = d.modo === "en_vivo";
@@ -578,7 +612,9 @@ function renderDialogo() {
     bloqueVoz(cfg.respuesta, "Respuesta", "respuesta", [mismo]),
     el("button", {type: "button", textContent: "Guardar como clip", onclick: () => guardarClipDialogo()}),
     masAjustes("dlg-mas", [
-      el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Sigue a los pads", el("br"),
+      armoniaPropia(d, () => renderDialogo()),
+      guiadaDe(d) ? ayuda("Guiada: se mueve con cada acorde de los pads y cada voz cierra su motivo en el acorde (ultra oscuro queda colgado a propósito).") : null,
+      guiadaDe(d) ? null : el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Sigue a los pads", el("br"),
         el("span", {className: "mut", textContent: cfg.pads.activo ? "Usa su escala y se mueve con cada acorde" : "Los pads están apagados"})]), sigue]),
       vivo ? null : numeroDe(d, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
       numeroDe(d, "mutar_cada", "Mutar cada (compases)", 1, 16, () => renderDialogo()),

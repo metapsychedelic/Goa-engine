@@ -143,6 +143,33 @@ débiles se atrasan un poco, como swing. Mueve la llamada, la respuesta y el
 pulso de los pads; las secuencias no se corren. Cada voz puede tener su propio
 ajuste (en sus "Más ajustes").
 
+## Armonía guiada
+
+Los pads son la guía armónica: saben qué acorde suena, cuál viene y en cuántos
+pasos llega. En **Música → Armonía**:
+
+- **Guiada** (por defecto): las secuencias y la llamada y respuesta siguen cada
+  acorde. Los motivos conservan su ritmo y su forma; solo se ajustan las alturas.
+  En las secuencias, los tiempos fuertes caen en notas del acorde y la **tensión**
+  decide cuántas notas de paso quedan en los débiles. En el diálogo, las notas
+  salen de su color (Luminoso ↔ Oscuro) y cada voz cierra su motivo en el acorde;
+  ultra oscuro queda colgado a propósito.
+- **Anticipar los cambios:** la última nota antes de un cambio de acorde lleva
+  al que viene (una nota común se queda; si no, un paso de escala junto a él).
+- **Libre:** cada motor cuenta sus notas desde su raíz, como antes.
+
+Cada secuencia y la llamada y respuesta pueden tener su propia armonía (en sus
+"Más ajustes"). Todo queda siempre dentro de la escala.
+
+En los pads, **Suenan** apagado los deja callados pero guiando: útil para
+escenas minimal donde el bajo y las secuencias caminan antes de que entren los
+acordes. **Suspensiones** (en "Más ajustes", con ataque ligado): al cambiar de
+acorde, una voz se queda colgada y resuelve un tiempo después.
+
+Sin pads activos, la armonía es el acorde de la escala sobre tu nota larga: se
+sigue, pero no se puede anticipar. Tus cambios de nota larga en vivo tampoco se
+anticipan; el motor los sigue.
+
 ## Llamada y respuesta
 
 Dos voces que conversan con **ritmos euclidianos**: cada una reparte sus golpes
@@ -177,6 +204,8 @@ python3 -m pruebas.simular
 
 Simula la Circuit y muestra las notas generadas en una grilla por compás.
 `python3 -m pruebas.dialogo` prueba la llamada y respuesta en los dos modos.
+`python3 -m pruebas.armonia` prueba la armonía guiada, el modo libre, los pads
+que solo guían y las suspensiones.
 `python3 -m pruebas.generos` prueba los perfiles de género, el pulso de los pads
 y el control Pegado ↔ Desplazado.
 `python3 -m pruebas.mutaciones` prueba que las mutaciones avancen y que mover

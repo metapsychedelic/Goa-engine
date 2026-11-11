@@ -5,7 +5,7 @@ import os
 import tempfile
 import tomllib
 
-from . import dialogo, generador, generos, pads
+from . import armonia, dialogo, generador, generos, pads
 from .escalas import ESCALAS, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -31,6 +31,9 @@ ESQUEMA_SECCIONES = {
         "seguir_pads": (bool, False, None, None),
         "genero": (str, "goa", None, generos.ORDEN),
         "desplazamiento": (float, 0.0, 0.0, 1.0),
+        "armonia": (str, "guiada", None, armonia.MODOS),
+        "tension": (float, 0.3, 0.0, 1.0),
+        "anticipar": (bool, True, None, None),
     },
     "pads": {
         "activo": (bool, False, None, None),
@@ -48,6 +51,8 @@ ESQUEMA_SECCIONES = {
         "drone": (bool, False, None, None),
         "rasgueo": (int, 1, 0, 24),
         "pulso": (int, 0, 0, 8),
+        "suenan": (bool, True, None, None),
+        "suspensiones": (float, 0.3, 0.0, 1.0),
         "genero": (str, "goa", None, generos.ORDEN),
         "velocidad": (int, 80, 1, 127),
         "seed": (str, "P-1C88", None, None),
@@ -67,6 +72,7 @@ ESQUEMA_SECCIONES = {
         "mutar_cada": (int, 4, 1, 16),
         "seed": (str, "CR-0001", None, None),
         "genero": (str, "goa", None, generos.ORDEN),
+        "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     },
 }
 
@@ -105,6 +111,7 @@ ESQUEMA_SECUENCIA = {
     "salida": (str, "FM-1", None, None),
     "canal": (int, 1, 1, 16),
     "genero": (str, "goa", None, generos.ORDEN),
+    "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     "estilo": (str, "rolling", None, generador.ESTILOS),
     "posicion": (str, "offbeat", None, generador.POSICIONES),
     "relacion": (str, "unisono", None, tuple(generador.RELACIONES)),

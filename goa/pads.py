@@ -8,10 +8,16 @@ Opcionalmente sostiene un drone grave en la raíz.
 Con `pulso` > 0 los acordes no se sostienen: suenan en un ritmo euclidiano
 suave (golpes repartidos en las corcheas del compás, el primero en el uno),
 que se puede correr con el control Pegado ↔ Desplazado.
+
+Los pads son la guía armónica del motor (ver armonia.py): `momento()` dice qué
+acorde suena, cuál viene y cuándo. Con `suenan` en falso callan pero siguen
+guiando. Con suspensiones, al cambiar de acorde una voz que se mueve por paso
+se queda colgada y resuelve un tiempo después.
 """
 
 import random
 
+from .armonia import Momento
 from .escalas import nombre_midi
 
 TICKS_POR_PASO = 6
@@ -87,6 +93,8 @@ class Pads:
         self.rasgueo = max(0, min(24, int(cfg.get("rasgueo", 1))))
         self.pulso = max(0, min(8, int(cfg.get("pulso", 0))))
         self.desplazamiento = max(0.0, min(1.0, float(desplazamiento)))
+        self.suenan = bool(cfg.get("suenan", True))
+        self.suspensiones = max(0.0, min(1.0, float(cfg.get("suspensiones", 0.0))))
         self.velocidad = int(cfg.get("velocidad", 80))
         self.seed = str(cfg.get("seed", "pads"))
         for nombre, valor, opciones in (("apertura", self.apertura, APERTURAS),
@@ -100,6 +108,7 @@ class Pads:
         self.apagados = []          # (tick, nota): fin de cada golpe del pulso
         self.programados = set()    # pasos del pulso ya programados
         self.acorde_pulso = []      # notas del acorde que toca el pulso
+        self.resoluciones = []      # (tick, colgada, destino) de las suspensiones
         self.clave = None           # (cambio, base) del acorde actual
         self.raiz_acorde = None
 
@@ -172,6 +181,21 @@ class Pads:
         clases = {self.tonalidad.nota(raiz_acorde, p, "escala") % 12 for p in self.acorde}
         return raiz_acorde, clases
 
+    def _clases(self, raiz_acorde):
+        """Notas del acorde para guiar a los otros motores (sin la novena ni dobles)."""
+        return frozenset(self.tonalidad.nota(raiz_acorde, p, "escala") % 12 for p in self.acorde if p < 7)
+
+    def momento(self, paso, raiz):
+        """Momento armónico en `paso`: acorde actual, el que viene y cuántos pasos faltan."""
+        base = self._base(raiz) if self.activo else None
+        if base is None:
+            return None
+        largo = self.cambia_cada * PASOS_POR_COMPAS
+        cambio = paso // largo
+        actual = self.tonalidad.nota(base, self._grado(cambio), "escala")
+        siguiente = self.tonalidad.nota(base, self._grado(cambio + 1), "escala")
+        return Momento(actual, self._clases(actual), siguiente, self._clases(siguiente), (cambio + 1) * largo - paso)
+
     # --- Tiempo ---
 
     def actualizar(self, paso, raiz, tick, enviar):
@@ -179,7 +203,7 @@ class Pads:
         if not self.activo:
             return
         base = self._base(raiz)
-        if base is None:
+        if base is None or not self.suenan:  # en silencio igual guían: momento() no depende de esto
             self.apagar(enviar)
             return
         # Con pulso, los pads miran un paso adelante: así el golpe del uno del compás
@@ -193,6 +217,7 @@ class Pads:
             self.tick(tick, enviar)
 
     def _cambiar_acorde(self, clave, cambio, base, tick, enviar):
+        self._resolver(tick, enviar, todas=True)  # una suspensión anterior resuelve antes del cambio
         self.clave = clave
         raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
         self.raiz_acorde = raiz_acorde
@@ -220,12 +245,48 @@ class Pads:
             quitar = self.sonando - set(nuevas)
             poner = [n for n in nuevas if n not in self.sonando]
             self.pendientes = [(t, n) for t, n in self.pendientes if n in nuevas]
+        colgada = self._suspension(cambio, quitar, poner)
         for n in quitar:
-            enviar(self.salida, "note_off", self.canal, n, 0)
+            if colgada is None or n != colgada[0]:
+                enviar(self.salida, "note_off", self.canal, n, 0)
+        poner = [n for n in poner if colgada is None or n != colgada[1]]
         for i, n in enumerate(sorted(poner)):
             self.pendientes.append((tick + i * self.rasgueo, n))
         self.sonando = set(nuevas)
+        if colgada is not None:
+            vieja, destino = colgada
+            self.sonando.discard(destino)
+            self.sonando.add(vieja)
+            # Resuelve un tiempo después (dos si los acordes duran 8 compases o más).
+            self.resoluciones.append((tick + (48 if self.cambia_cada >= 8 else 24), vieja, destino))
         self.tick(tick, enviar)
+
+    def _suspension(self, cambio, quitar, poner):
+        """(nota que se queda, nota a la que resuelve) o None.
+
+        Solo una voz que se mueve por paso (1 o 2 semitonos), en ataque ligado."""
+        if not self.suspensiones or self.ataque != "ligado" or not quitar or not poner:
+            return None
+        if random.Random(f"suspension:{self.seed}:{cambio}").random() >= self.suspensiones:
+            return None
+        pares = [(abs(q - p), q, p) for q in quitar for p in poner if 1 <= abs(q - p) <= 2 and q not in poner]
+        if not pares:
+            return None
+        _, q, p = min(pares)
+        return q, p
+
+    def _resolver(self, tick, enviar, todas=False):
+        listas = [r for r in self.resoluciones if todas or r[0] <= tick]
+        if not listas:
+            return
+        self.resoluciones = [r for r in self.resoluciones if r not in listas]
+        for _, vieja, destino in listas:
+            if vieja in self.sonando:
+                enviar(self.salida, "note_off", self.canal, vieja, 0)
+                self.sonando.discard(vieja)
+            if destino not in self.sonando:
+                enviar(self.salida, "note_on", self.canal, destino, self.velocidad)
+                self.sonando.add(destino)
 
     # --- Pulso euclidiano ---
 
@@ -272,6 +333,8 @@ class Pads:
     # --- Tiempo ---
 
     def tick(self, tick, enviar):
+        if self.resoluciones:
+            self._resolver(tick, enviar)
         if self.apagados:
             fin = [p for p in self.apagados if p[0] <= tick]
             self.apagados = [p for p in self.apagados if p[0] > tick]
@@ -299,6 +362,7 @@ class Pads:
         self.nota_drone = None
         self.pendientes = []
         self.apagados = []
+        self.resoluciones = []
         self.programados = set()
         self.acorde_pulso = []
         self.clave = None

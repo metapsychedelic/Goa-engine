@@ -190,6 +190,15 @@ def pasa_posicion(posicion, i):
     raise ValueError(f"Posición desconocida: {posicion!r}. Opciones: {', '.join(POSICIONES)}")
 
 
+# Lugar fuerte de cada tiempo según la posición: ahí la armonía guiada pone una nota
+# del acorde. Entre bombos no suena el tiempo, así que el fuerte es el contratiempo.
+FUERTE = {"onbeat": 0, "todos": 0, "offbeat": 2, "desplazado": 1}
+
+
+def es_fuerte(posicion, i):
+    return i % 4 == FUERTE[posicion]
+
+
 def generar(seed, estilo="rolling", largo=16, pedal=0.5):
     """Devuelve una lista de pasos: dict(suena, grado, acento).
 

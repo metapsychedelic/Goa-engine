@@ -34,6 +34,11 @@ genero = "goa"            # goa, psy_chill, chillgressive, chillout, ambient
 # Pegado ↔ Desplazado: 0 = todo justo en la rejilla · 1 = notas corridas a semicorcheas débiles, swing y humano.
 # Mueve la llamada, la respuesta y el pulso de los pads; las secuencias (el bajo) nunca se corren.
 desplazamiento = 0.0
+# Armonía: guiada = los pads guían (las secuencias y el diálogo saben qué acorde suena y cuál viene);
+# libre = cada motor cuenta sus notas desde su raíz, sin mirar el acorde. Cada motor puede tener la suya.
+armonia = "guiada"        # guiada, libre
+tension = 0.3             # secuencias: cuántas notas fuera del acorde quedan en los tiempos débiles (0 = ninguna)
+anticipar = true          # la última nota antes de un cambio de acorde lleva al acorde que viene
 
 [pads]
 activo = false
@@ -52,6 +57,8 @@ ataque = "ligado"         # ligado: mantiene las notas en común · reatacar: vu
 drone = false             # nota grave sostenida en la raíz
 rasgueo = 1               # pulsos entre la entrada de cada voz (0 = juntas · 24 = una voz por tiempo)
 pulso = 0                 # 0 = acordes sostenidos · 1 a 8 = golpes euclidianos en corcheas por compás
+suenan = true             # false: los pads callan pero siguen guiando la armonía
+suspensiones = 0.3        # al cambiar de acorde, una voz se queda colgada y resuelve un tiempo después (ligado)
 genero = "goa"            # género de los pads (independiente de los otros motores)
 velocidad = 80
 seed = "P-1C88"
@@ -72,6 +79,7 @@ evolucion = 0.5           # mutación: probabilidad de cambiar una nota o girar 
 mutar_cada = 4            # compases
 seed = "CR-0001"
 genero = "goa"            # género de la llamada y respuesta
+armonia = "general"       # general (la de Música), guiada o libre
 
 # Cada voz: cuántos golpes reparte y su color. La respuesta puede ir al mismo sinte.
 [llamada]
@@ -103,6 +111,7 @@ disparo = 2               # canal de su nota larga (pista Synth 2); 0 = el gener
 salida = "FM-1"           # parte del nombre del puerto (míralo con goa-ports); en modo dongle: "CH345"
 canal = 4                 # FM-1 en canal 4 (pista MIDI 2 de la Circuit)
 genero = "goa"            # género de esta secuencia: elige su estilo y carácter en la app
+armonia = "general"       # general (la de Música), guiada o libre
 estilo = "rolling"        # goa: rolling, galope, arpegio3, acido · psy_chill: psy_chill
                           # chillgressive: euclidiano · chillout: largas · ambient: ambient
 posicion = "offbeat"      # onbeat, offbeat, todos, desplazado

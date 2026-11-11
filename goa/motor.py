@@ -10,7 +10,7 @@ import random
 import time
 from collections import deque
 
-from . import generador
+from . import armonia, generador
 from .dialogo import Dialogo
 from .escalas import Tonalidad, nombre_midi
 from .pads import Pads, _cerca
@@ -50,6 +50,7 @@ class Secuencia:
         self.saltos = float(cfg.get("saltos", 0.0))
         self.repeticion = float(cfg.get("repeticion", 0.0))
         self.largas = float(cfg.get("largas", 0.0))
+        self.armonia = cfg.get("armonia", "general")  # general, guiada o libre
         self.sonando = {}       # nota -> tick en que se apaga
         self.pendientes = []    # (tick, nota, velocidad, duración) por swing y repeticiones
         self.slide_previo = False
@@ -138,14 +139,13 @@ class Motor:
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
         desplazamiento = musica.get("desplazamiento", 0.0)
         pads = Pads(config.get("pads", {}), tonalidad, desplazamiento)
-        dialogo = Dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}),
-                          musica.get("tonica", "F"), musica.get("escala", "frigio"), musica.get("adaptacion", "escala"),
-                          desplazamiento)
+        self.musica = musica
+        self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
+        dialogo = self._crear_dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}))
         self.apagar_todo()
         if self.dialogo is not None:
             dialogo.clip = self.dialogo.clip  # recuerda qué clip de diálogo sonaba
             dialogo.continuar_de(self.dialogo)  # sigue la conversación sin callarse ni perder lo mutado
-        self.musica = musica
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
@@ -162,7 +162,6 @@ class Motor:
                     # control de la app devolvía la secuencia a su patrón original.
                     s.patron = vieja.patron
         pads.disparo = self._canal_de(config.get("pads", {}))
-        dialogo.disparo = self._canal_de(config.get("dialogo", {}))
         canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, self.canal_disparo}
         anteriores = self.disparos
         self.disparos = {c: anteriores.get(c) or Disparo(c) for c in canales}
@@ -170,6 +169,12 @@ class Motor:
         self.pads = pads
         self.dialogo = dialogo
         self.seguir_pads = bool(musica.get("seguir_pads", False))
+        self.tension = float(musica.get("tension", 0.3))
+        self.anticipar = bool(musica.get("anticipar", True))
+
+    def _modo_armonia(self, propio):
+        """Modo efectivo de un motor: el suyo, o el general de Música."""
+        return propio if propio in armonia.MODOS else self.musica.get("armonia", "guiada")
 
     def _canal_de(self, c):
         return int(c["disparo"]) - 1 if c.get("disparo") else self.canal_disparo
@@ -209,6 +214,9 @@ class Motor:
         nuevo = Dialogo(dialogo, llamada, respuesta, m.get("tonica", "F"), m.get("escala", "frigio"),
                         m.get("adaptacion", "escala"), m.get("desplazamiento", 0.0))
         nuevo.disparo = self._canal_de(dialogo)
+        nuevo.guiada = self._modo_armonia(dialogo.get("armonia", "general")) == "guiada"
+        nuevo.tension = float(m.get("tension", 0.3))
+        nuevo.anticipar = bool(m.get("anticipar", True))
         return nuevo
 
     def _aplicar_cola_dialogo(self):
@@ -269,7 +277,7 @@ class Motor:
             "raiz": " · ".join(raices.values()) or None,
             "raices": raices,
             "compas": paso // PASOS_POR_COMPAS + 1 if self.corriendo else None,
-            "acorde": self.pads.descripcion() if self.pads and self.pads.activo else None,
+            "acorde": self._acorde_estado(paso),
             "dialogo": self.dialogo.fase if self.dialogo and self.dialogo.activo and self.corriendo else None,
             "filas": [{"clip": s.clip, "activa": s.activa,
                        "cola": (None if i not in self.cola else
@@ -279,6 +287,14 @@ class Motor:
                              "cola": (None if self.cola_dialogo is False else
                                       ("detener" if self.cola_dialogo is None else self.cola_dialogo[1]))},
         }
+
+    def _acorde_estado(self, paso):
+        if not self.pads or not self.pads.activo:
+            return None
+        if self.pads.suenan:
+            return self.pads.descripcion()
+        m = self.pads.momento(paso, self.disparos[self.pads.disparo].raiz)
+        return None if m is None else f"{nombre_midi(m.raiz)} (solo guía)"
 
     def _olvidar_notas(self):
         for d in self.disparos.values():
@@ -366,6 +382,14 @@ class Motor:
         self._tocar_paso(paso)
         self._paso_dialogo(paso)
 
+    def _momento(self, paso, raiz):
+        """Momento armónico en `paso`: el de los pads, o el acorde sobre la nota larga `raiz`."""
+        if self.pads.activo:
+            m = self.pads.momento(paso, self.disparos[self.pads.disparo].raiz)
+            if m is not None:
+                return m
+        return None if raiz is None else armonia.de_nota_larga(raiz, self.tonalidad)
+
     def _raiz_con_pads(self, raiz):
         if raiz is not None and self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
             # Toma como base la raíz del acorde que suena, cerca de su nota larga.
@@ -375,6 +399,15 @@ class Motor:
     def _paso_dialogo(self, paso):
         raiz = self.disparos[self.dialogo.disparo].raiz
         acorde = None
+        if self.dialogo.guiada:
+            momento = self._momento(paso, raiz if self.dialogo.modo == "motor" else self.dialogo.raiz_vivo)
+            if momento is not None and self.pads.activo and momento.siguiente is not None:
+                if self.dialogo.modo == "motor":
+                    raiz = None if raiz is None else _cerca(momento.raiz % 12, raiz)
+                else:
+                    raiz = momento.raiz
+            self.dialogo.paso(paso, self.tick, raiz, self.enviar, momento)
+            return
         if self.dialogo.seguir_pads and self.pads.activo:
             # Sigue la progresión de los pads: la raíz del acorde y sus notas.
             raiz_acorde, acorde = self.pads.acorde_en(paso, self.disparos[self.pads.disparo].raiz)
@@ -386,7 +419,7 @@ class Motor:
                     raiz = raiz_acorde  # en vivo solo importa la clase: el registro lo pones tú
         else:
             raiz = self._raiz_con_pads(raiz)
-        self.dialogo.paso(paso, self.tick, raiz, self.enviar, acorde)
+        self.dialogo.paso(paso, self.tick, raiz, self.enviar)
 
     def _tocar_paso(self, paso, solo_canal=None):
         for s in self.secuencias:
@@ -400,11 +433,21 @@ class Motor:
                     or not p["suena"] or x["densidad"] >= s.densidad):
                 s.slide_previo = False
                 continue
-            if self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
+            guiada = self._modo_armonia(s.armonia) == "guiada"
+            momento = self._momento(paso, raiz) if guiada else None
+            if momento is not None and momento.siguiente is not None:
+                # Guiada con pads: la base es la raíz del acorde, cerca de su nota larga.
+                raiz = _cerca(momento.raiz % 12, raiz)
+            elif not guiada and self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
                 # Toma como base la raíz del acorde que suena, cerca de su nota larga.
                 raiz = _cerca(self.pads.raiz_acorde % 12, raiz)
             octava = s.octava + p.get("octava", 0) + (x["direccion"] if x["salto"] < s.saltos else 0)
             nota = self.tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * octava
+            if momento is not None:
+                azar_arm = random.Random(f"{s.seed}:armonia:{i}").random()
+                ultima = momento.cambia_pronto and self._ultima_antes_del_cambio(s, paso, momento.falta)
+                nota = armonia.ajustar(nota, momento, self.tonalidad, generador.es_fuerte(s.posicion, paso), ultima,
+                                       self.tension, self.anticipar, azar_arm)
             nota = max(0, min(127, nota))
             if "pref_acento" in p:
                 # Ácido 303: la cantidad de acentos y slides la regula el usuario;
@@ -443,6 +486,18 @@ class Motor:
             else:
                 self._programar(s, inicio, nota, velocidad, duracion)
             s.slide_previo = slide
+
+    @staticmethod
+    def _ultima_antes_del_cambio(s, paso, falta):
+        """True si ninguna otra nota de la secuencia suena antes del cambio de acorde."""
+        for k in range(1, falta):
+            q = paso + k
+            j = q % s.largo
+            pq = s.patron[j]
+            if (pq["suena"] and generador.pasa_posicion(s.posicion, q)
+                    and s.extra[pq.get("fuente", j)]["densidad"] < s.densidad):
+                return False
+        return True
 
     def _programar(self, s, tick, nota, velocidad, duracion):
         if tick <= self.tick:

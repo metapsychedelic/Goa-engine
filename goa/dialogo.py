@@ -18,6 +18,10 @@ escala desde la raíz del acorde de los pads (o de la nota larga). Cada voz
 repite su orden de notas, y la mutación cambia una nota o gira el patrón
 cada cierto número de compases, como las secuencias.
 
+Armonía guiada: sigue la raíz del acorde de los pads, la última nota de cada
+voz en el compás cierra en una nota del acorde (salvo ultra oscuro) y, con
+anticipar, la última antes de un cambio de acorde lleva al que viene.
+
 Pegado ↔ Desplazado: en 0 todo cae justo en la rejilla. Al subirlo, algunas
 notas se corren una semicorchea (nunca el uno de la llamada), y las que caen en
 semicorcheas débiles se atrasan un pulso (swing) o se humanizan. Cada voz usa el
@@ -25,6 +29,8 @@ valor general o uno propio.
 """
 
 import random
+
+from . import armonia
 
 from .escalas import Tonalidad
 
@@ -84,7 +90,8 @@ class Voz:
         self.desplazamiento = float(cfg.get("desplazamiento", -1.0))  # menos de 0 = el general
         self.rng = random.Random(f"{papel}:{seed}")          # notas y mutaciones
         self.rng_vel = random.Random(f"fuerza:{papel}:{seed}")  # matices de fuerza, aparte
-        self.grados = NOTAS[color(self.oscuridad)][papel]
+        self.color = color(self.oscuridad)
+        self.grados = NOTAS[self.color][papel]
         # El ancla primero; después cada otra nota del color al menos una vez (si caben),
         # para que el color se escuche siempre; el resto, al azar dentro del color.
         otras = list(dict.fromkeys(g for g in self.grados[1:] if g != self.grados[0])) or [self.grados[0]]
@@ -110,6 +117,9 @@ class Dialogo:
     def __init__(self, cfg, cfg_llamada, cfg_respuesta, tonica, escala, adaptacion, desplazamiento=0.0):
         self.activo = bool(cfg.get("activo", False))
         self.desplazamiento = max(0.0, min(1.0, float(desplazamiento)))
+        self.guiada = False   # armonía guiada: el motor lo decide (ver motor._crear_dialogo)
+        self.tension = 0.3
+        self.anticipar = True
         self.modo = cfg.get("modo", "motor")
         self.forma = cfg.get("forma", "entrelazado")
         self.rejilla = cfg.get("rejilla", "corcheas")
@@ -277,12 +287,12 @@ class Dialogo:
 
     # --- Llamado por el motor en cada paso ---
 
-    def paso(self, paso, tick, raiz, enviar, acorde=None):
+    def paso(self, paso, tick, raiz, enviar, momento=None):
         if not self.activo or paso == self.ultimo_paso:
             return
         if self.modo == "en_vivo":
             self.ultimo_paso = paso
-            self._paso_vivo(paso, raiz, enviar)
+            self._paso_vivo(paso, raiz, enviar, momento)
             return
         if raiz is None:
             # Sin marcar el paso: si la nota larga llega un pulso tarde, el motor vuelve
@@ -300,9 +310,9 @@ class Dialogo:
             compas = paso // PASOS_POR_COMPAS - self.inicio
             self._mutar(compas)
             self._compas(compas, paso)
-        self._tocar(paso, raiz, enviar)
+        self._tocar(paso, raiz, enviar, momento)
 
-    def _paso_vivo(self, paso, raiz, enviar):
+    def _paso_vivo(self, paso, raiz, enviar, momento=None):
         if paso % PASOS_POR_COMPAS == 0:
             tocado, self.tocado = self.tocado, set()
             if tocado:
@@ -313,16 +323,25 @@ class Dialogo:
             self.notas_vivo = []
             self._mutar(paso // PASOS_POR_COMPAS)
             self._compas(paso // PASOS_POR_COMPAS, paso, sorted(tocado))
-        self._tocar(paso, self.raiz_vivo, enviar)
+        self._tocar(paso, self.raiz_vivo, enviar, momento)
 
-    def _tocar(self, paso, raiz, enviar):
+    def _tocar(self, paso, raiz, enviar, momento=None):
         if raiz is None:
             return
         for evento in [e for e in self.plan if e[0] == paso]:
             _, voz, grado, dur, vel, retraso = evento
             # Grados contados en la escala desde la raíz (la del acorde de los pads si
             # los sigue): nunca sale de la escala.
-            nota = max(0, min(127, self.tonalidad.nota(raiz, grado, "escala") + 12 * voz.octava))
+            nota = self.tonalidad.nota(raiz, grado, "escala") + 12 * voz.octava
+            if self.guiada and momento is not None:
+                despues = [e for e in self.plan if e[0] > paso]
+                # Las notas salen del color (Luminoso ↔ Oscuro), que ya es la tensión del
+                # diálogo: no se tocan. Solo la última nota de cada voz en el compás cierra
+                # su motivo en el acorde, salvo en ultra oscuro, que queda colgado a propósito.
+                cierra = not any(e[1] is voz for e in despues) and voz.color != "ultra"
+                ultima = momento.cambia_pronto and not any(e[0] < paso + momento.falta for e in despues)
+                nota = armonia.ajustar(nota, momento, self.tonalidad, cierra, ultima, 1.0, self.anticipar, 0.0)
+            nota = max(0, min(127, nota))
             inicio = paso * TICKS_POR_PASO + retraso
             if retraso:
                 self.pendientes.append((inicio, voz, nota, dur, vel))
