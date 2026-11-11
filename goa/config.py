@@ -5,7 +5,7 @@ import os
 import tempfile
 import tomllib
 
-from . import armonia, dialogo, generador, generos, pads
+from . import armonia, bajo, dialogo, generador, generos, pads
 from .escalas import ESCALAS, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -93,6 +93,23 @@ def _esquema_voz(salida, canal, golpes, gate, velocidad):
 
 ESQUEMA_SECCIONES["llamada"] = _esquema_voz("FM-1", 4, 3, 0.5, 100)
 ESQUEMA_SECCIONES["respuesta"] = _esquema_voz("MicroFreak", 3, 2, 0.6, 92)
+ESQUEMA_SECCIONES["bajo"] = {
+    "activo": (bool, False, None, None),
+    "salida": (str, "CH345", None, None),
+    "canal": (int, 4, 1, 16),
+    "disparo": (int, 0, 0, 16),            # canal de su nota larga; 0 = el general
+    "genero": (str, "goa", None, generos.ORDEN),
+    "estilo": (str, "rolling", None, bajo.ESTILOS),
+    "armonia": (str, "general", None, armonia.MODOS_MOTOR),
+    "movimiento": (float, 0.3, 0.0, 1.0),
+    "remates": (bool, True, None, None),
+    "frase": (int, 4, 1, 8),
+    "octava": (int, 0, -2, 2),
+    "gate": (float, 0.6, 0.05, 1.0),
+    "velocidad": (int, 100, 1, 127),
+    "vel_random": (float, 0.1, 0.0, 1.0),
+    "seed": (str, "B-0001", None, None),
+}
 
 # Un clip de diálogo guarda la conversación completa, con quién llama y los destinos,
 # para que al lanzarlo entre tal como se armó. Las voces van con prefijo para que

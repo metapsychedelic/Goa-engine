@@ -64,6 +64,25 @@ velocidad = 80
 seed = "P-1C88"
 disparo = 1               # canal de su nota larga (pista Synth 1): mutearla apaga solo los pads
 
+[bajo]
+# Generador de líneas de bajo: sigue la armonía de los pads (raíz, quinta, octava,
+# notas de paso) y antes de cada cambio de acorde lleva a la raíz que viene.
+activo = false
+salida = "CH345"
+canal = 4                 # 4 = FM-1
+disparo = 0               # canal de su nota larga; 0 = el general
+genero = "goa"            # goa, psy_chill, chillgressive, chillout, ambient (pone estilo y carácter)
+estilo = "rolling"        # rolling, psy_chill (bombo, silencio, bajo, bajo), chillgressive, dub, sub
+armonia = "general"       # general (la de Música), guiada o libre
+movimiento = 0.3          # 0 = solo la raíz · 1 = salta a la octava, la quinta y notas de paso
+remates = true            # el último compás de cada frase cierra con un remate (alterna entre dos)
+frase = 4                 # compases por frase
+octava = 0
+gate = 0.6                # largo de las notas cortas
+velocidad = 100
+vel_random = 0.1
+seed = "B-0001"
+
 [dialogo]
 # Llamada y respuesta euclidiana: dos voces que reparten sus golpes parejo en el compás.
 activo = false

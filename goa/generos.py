@@ -72,15 +72,24 @@ SECUENCIAS = {
 for _g, _s in SECUENCIAS.items():
     _s["estilo"] = ESTILOS_POR_GENERO[_g][0]
 
+# Bajo por género: su estilo y cuánto camina.
+BAJO = {
+    "goa": {"estilo": "rolling", "gate": 0.6, "movimiento": 0.3, "frase": 4, "octava": 0},
+    "psy_chill": {"estilo": "psy_chill", "gate": 0.7, "movimiento": 0.4, "frase": 4, "octava": 0},
+    "chillgressive": {"estilo": "chillgressive", "gate": 0.45, "movimiento": 0.3, "frase": 8, "octava": 0},
+    "chillout": {"estilo": "dub", "gate": 0.9, "movimiento": 0.5, "frase": 4, "octava": 0},
+    "ambient": {"estilo": "sub", "gate": 1.0, "movimiento": 0.0, "frase": 4, "octava": -1},
+}
+
 ORDEN = tuple(GENEROS)
-PARTES = ("pads", "dialogo", "secuencia")
+PARTES = ("pads", "dialogo", "secuencia", "bajo")
 
 
 def aplicar(cfg, genero, parte=None, indice=None):
     """Copia de `cfg` con el perfil del género aplicado.
 
     parte = None: atajo de Música (escala, desplazamiento y todos los motores).
-    parte = "pads", "dialogo" o "secuencia" (con su índice): solo ese motor."""
+    parte = "pads", "dialogo", "bajo" o "secuencia" (con su índice): solo ese motor."""
     if genero not in GENEROS:
         raise ValueError(f"Género desconocido: {genero!r}. Opciones: {', '.join(ORDEN)}")
     if parte is not None and parte not in PARTES:
@@ -93,6 +102,8 @@ def aplicar(cfg, genero, parte=None, indice=None):
         nueva["dialogo"].update(perfil["dialogo"], genero=genero)
         for voz in ("llamada", "respuesta"):
             nueva[voz].update(perfil[voz])
+    if parte in (None, "bajo") and "bajo" in nueva:
+        nueva["bajo"].update(BAJO[genero], genero=genero)
     if parte == "secuencia":
         secuencias = nueva.get("secuencia") or []
         if not isinstance(indice, int) or not 0 <= indice < len(secuencias):

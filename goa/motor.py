@@ -11,6 +11,7 @@ import time
 from collections import deque
 
 from . import armonia, generador
+from .bajo import Bajo
 from .dialogo import Dialogo
 from .escalas import Tonalidad, nombre_midi
 from .pads import Pads, _cerca
@@ -126,6 +127,7 @@ class Motor:
         self.relojes = deque(maxlen=48)
         self.pads = None
         self.dialogo = None
+        self.bajo = None
         self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
         self.cola_dialogo = False  # False = nada en cola · None = detener · (secciones, nombre) = lanzar
         self.musica = {}
@@ -139,6 +141,7 @@ class Motor:
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
         desplazamiento = musica.get("desplazamiento", 0.0)
         pads = Pads(config.get("pads", {}), tonalidad, desplazamiento)
+        bajo = Bajo(config.get("bajo", {}), tonalidad)
         self.musica = musica
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
         dialogo = self._crear_dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}))
@@ -162,12 +165,14 @@ class Motor:
                     # control de la app devolvía la secuencia a su patrón original.
                     s.patron = vieja.patron
         pads.disparo = self._canal_de(config.get("pads", {}))
-        canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, self.canal_disparo}
+        bajo.disparo = self._canal_de(config.get("bajo", {}))
+        canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, bajo.disparo, self.canal_disparo}
         anteriores = self.disparos
         self.disparos = {c: anteriores.get(c) or Disparo(c) for c in canales}
         self.secuencias = secuencias
         self.pads = pads
         self.dialogo = dialogo
+        self.bajo = bajo
         self.seguir_pads = bool(musica.get("seguir_pads", False))
         self.tension = float(musica.get("tension", 0.3))
         self.anticipar = bool(musica.get("anticipar", True))
@@ -331,6 +336,7 @@ class Motor:
         self._apagar_vencidas()
         self.dialogo.tick(self.tick, self.enviar)
         self.pads.tick(self.tick, self.enviar)
+        self.bajo.tick(self.tick, self.enviar)
         if self.tick % TICKS_POR_PASO == 0:
             self._paso(self.tick // TICKS_POR_PASO)
         elif self.tick % TICKS_POR_PASO == 2:
@@ -358,6 +364,8 @@ class Motor:
                 self._tocar_paso(paso, solo_canal=canal)
                 if self.dialogo.disparo == canal:
                     self._paso_dialogo(paso)
+                if self.bajo.disparo == canal:
+                    self._paso_bajo(paso)
 
     def nota_off(self, canal, nota):
         if canal == self.dialogo.escucha:
@@ -381,6 +389,7 @@ class Motor:
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
         self._tocar_paso(paso)
         self._paso_dialogo(paso)
+        self._paso_bajo(paso)
 
     def _momento(self, paso, raiz):
         """Momento armónico en `paso`: el de los pads, o el acorde sobre la nota larga `raiz`."""
@@ -389,6 +398,19 @@ class Motor:
             if m is not None:
                 return m
         return None if raiz is None else armonia.de_nota_larga(raiz, self.tonalidad)
+
+    def _paso_bajo(self, paso):
+        """El bajo toca la raíz del acorde (guiada) o la de su nota larga (libre)."""
+        raiz = self.disparos[self.bajo.disparo].raiz
+        if raiz is None:
+            return
+        if self._modo_armonia(self.bajo.armonia) == "guiada":
+            momento = self._momento(paso, raiz)
+            if momento is not None and momento.siguiente is not None:
+                raiz = _cerca(momento.raiz % 12, raiz)
+            self.bajo.paso(paso, self.tick, raiz, momento, self.anticipar, self.enviar)
+        else:
+            self.bajo.paso(paso, self.tick, raiz, None, False, self.enviar)
 
     def _raiz_con_pads(self, raiz):
         if raiz is not None and self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
@@ -534,3 +556,5 @@ class Motor:
             self.pads.apagar(self.enviar)
         if self.dialogo is not None:
             self.dialogo.apagar(self.enviar)
+        if self.bajo is not None:
+            self.bajo.apagar(self.enviar)

@@ -133,6 +133,8 @@ details.voz>*:not(summary){margin-top:14px}
 
   <details class="card" id="pads" data-mod="pads"></details>
 
+  <details class="card" id="bajo" data-mod="bajo"></details>
+
   <details class="card" id="dialogo" data-mod="dialogo"></details>
 
   <details class="card" data-mod="conexion">
@@ -390,6 +392,7 @@ function render() {
   const sp = $("seguir_pads"); sp.checked = cfg.musica.seguir_pads;
   sp.onchange = () => { cfg.musica.seguir_pads = sp.checked; guardar(); };
   renderPads();
+  renderBajo();
   renderDialogo();
   const ep = $("entrada_puerto"); ep.value = cfg.entrada.puerto;
   ep.onchange = () => { cfg.entrada.puerto = ep.value.trim() || cfg.entrada.puerto; ep.value = cfg.entrada.puerto; resumenes(); guardar(); };
@@ -414,10 +417,10 @@ function renderGenero() {
   caja.innerHTML = "";
   caja.append(...[
     campo("Género para todo", segmentado(GENEROS, m.genero, (v) => cambiarGenero(v), 3)),
-    ayuda(GENERO_TEXTO[m.genero] + " Pone la escala y este género en los pads, la llamada y respuesta y todas las secuencias. Después cada motor tiene su propio selector."),
+    ayuda(GENERO_TEXTO[m.genero] + " Pone la escala y este género en los pads, el bajo, la llamada y respuesta y todas las secuencias. Después cada motor tiene su propio selector."),
     deslizador(m, "desplazamiento", "Pegado ↔ Desplazado", 0, 1, 0.05, desplTexto),
     ayuda("Corre las notas de la llamada, la respuesta y el pulso de los pads. Las secuencias (el bajo) no se mueven."),
-    campo("Armonía", segmentado([["guiada","Guiada"],["libre","Libre"]], m.armonia, (v) => { m.armonia = v; renderGenero(); renderSecuencias(); renderDialogo(); guardar(); }, 2)),
+    campo("Armonía", segmentado([["guiada","Guiada"],["libre","Libre"]], m.armonia, (v) => { m.armonia = v; renderGenero(); renderSecuencias(); renderBajo(); renderDialogo(); guardar(); }, 2)),
     ayuda(m.armonia === "guiada"
       ? "Los pads guían: las secuencias y la llamada y respuesta saben qué acorde suena y cuál viene. Sin pads activos, siguen el acorde de tu nota larga."
       : "Cada motor cuenta sus notas desde su raíz, sin mirar el acorde (como antes)."),
@@ -444,7 +447,7 @@ function armoniaPropia(obj, alCambiar) {
 
 async function cambiarGenero(genero, motor = {}) {
   // motor: {} = todo · {parte: "pads"} · {parte: "dialogo"} · {parte: "secuencia", indice}
-  const nombres = {pads: "Pads", dialogo: "Llamada y respuesta", secuencia: `Secuencia ${(cfg.secuencia[motor.indice] || {}).nombre}`};
+  const nombres = {pads: "Pads", bajo: "Bajo", dialogo: "Llamada y respuesta", secuencia: `Secuencia ${(cfg.secuencia[motor.indice] || {}).nombre}`};
   try {
     clearTimeout(temporizador);  // primero aplica lo último que cambiaste
     await api("/api/config", cfg);
@@ -461,6 +464,46 @@ function resumenes() {
 }
 
 // --- Pads ---
+
+const ESTILOS_BAJO = [["rolling","Rolling"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["dub","Dub"],["sub","Sub"]];
+const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa.",
+  psy_chill: "Bombo, silencio, bajo, bajo: más espaciado.",
+  chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
+  dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
+  sub: "Una nota grave por acorde, ligada: casi un drone."};
+
+function renderBajo() {
+  const b = cfg.bajo, cont = $("bajo");
+  if (!b) return;
+  const estado = el("span", {className: "pill", "data-salida": b.salida});
+  const sub = () => `${ESTILOS_BAJO.find((x) => x[0] === b.estilo)[1]} · frases de ${b.frase} compases`;
+  const cab = cabecera("Bajo", sub(), [estado, interruptor(b.activo, (v) => { b.activo = v; guardar(); }, "Activar bajo")]);
+  if (!cont._recordado) { recordar(cont, "bajo", false); cont._recordado = true; }
+  cont.innerHTML = "";
+  cont.append(
+    cab,
+    campo("Género", segmentado(GENEROS, b.genero, (v) => cambiarGenero(v, {parte: "bajo"}), 3)),
+    campo("Estilo", segmentado(ESTILOS_BAJO, b.estilo, (v) => { b.estilo = v; renderBajo(); guardar(); }, 3)),
+    ayuda(TEXTO_BAJO[b.estilo]),
+    deslizador(b, "movimiento", "Movimiento", 0, 1, 0.05,
+      (x) => x === 0 ? "solo la raíz" : x < 0.4 ? `camina poco (${porcentaje(x)})` : x < 0.7 ? `camina (${porcentaje(x)})` : `camina mucho (${porcentaje(x)})`),
+    ayuda("Cuánto salta a la octava, la quinta o una nota de paso. El bajo se repite igual en cada compás de la frase."),
+    casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate (alterna entre dos)", () => renderBajo()),
+    b.remates ? campo("Frase de (compases)", segmentado([["2","2"],["4","4"],["8","8"]], String(b.frase), (v) => { b.frase = parseInt(v); cab._sub.textContent = sub(); guardar(); }, 3)) : null,
+    ayuda(guiadaDe(b)
+      ? "Armonía guiada: sigue cada acorde de los pads" + (cfg.musica.anticipar ? " y antes de cada cambio va una nota que lleva a la raíz que viene." : ".")
+      : "Armonía libre: toca sobre la raíz de su nota larga, sin mirar el acorde."),
+    masAjustes("mas-bajo", [
+      el("div", {className: "dos"}, [destinoDe(b, estado), numeroDe(b, "canal", "Canal MIDI", 1, 16)]),
+      numeroDe(b, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
+      armoniaPropia(b, () => renderBajo()),
+      el("div", {className: "dos"}, [numeroDe(b, "octava", "Octava", -2, 2), numeroDe(b, "velocidad", "Fuerza", 1, 127)]),
+      deslizador(b, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
+      deslizador(b, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
+      ...variante(b, "bajo"),
+    ].filter(Boolean)),
+  );
+}
 
 function renderPads() {
   const p = cfg.pads, cont = $("pads");
@@ -791,7 +834,7 @@ $("agregar").onclick = () => {
   render(); guardar();
 };
 
-document.querySelectorAll("main > details[data-mod]:not(#pads):not(#dialogo), details.mas[data-mod]").forEach((d) =>
+document.querySelectorAll("main > details[data-mod]:not(#pads):not(#dialogo):not(#bajo), details.mas[data-mod]").forEach((d) =>
   recordar(d, d.dataset.mod, d.dataset.abierto === "1"));
 
 (async () => {

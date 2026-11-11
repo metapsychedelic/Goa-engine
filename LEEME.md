@@ -170,6 +170,26 @@ Sin pads activos, la armonía es el acorde de la escala sobre tu nota larga: se
 sigue, pero no se puede anticipar. Tus cambios de nota larga en vivo tampoco se
 anticipan; el motor los sigue.
 
+## Bajo
+
+La tarjeta **Bajo** es un generador de líneas de bajo que sabe hacia dónde va
+la armonía: toca la raíz del acorde de los pads y, según el **movimiento**,
+salta a la octava, la quinta o una nota de paso. Con armonía guiada y
+"anticipar", la última nota antes de un cambio de acorde lleva a la raíz que
+viene. Sin pads, o en armonía libre, sigue su nota larga.
+
+Estilos (el género los elige, y puedes cambiarlos a mano):
+
+- **Rolling** (Goa): bombo, bajo, bajo, bajo.
+- **Psy chill:** bombo, silencio, bajo, bajo.
+- **Chillgressive:** rolling oscuro, notas cortas y un acento que se mueve.
+- **Dub** (chillout): en el uno, antes del tres y en el tres; notas largas.
+- **Sub** (ambient): una nota grave por acorde, ligada.
+
+En los estilos psy nunca cae en el tiempo del bombo. Los compases de una frase
+se repiten igual y, con **remates**, el último cierra con un remate que alterna
+entre dos variantes. Es monofónico: nunca suenan dos notas juntas.
+
 ## Llamada y respuesta
 
 Dos voces que conversan con **ritmos euclidianos**: cada una reparte sus golpes
@@ -204,6 +224,7 @@ python3 -m pruebas.simular
 
 Simula la Circuit y muestra las notas generadas en una grilla por compás.
 `python3 -m pruebas.dialogo` prueba la llamada y respuesta en los dos modos.
+`python3 -m pruebas.bajo` prueba el generador de bajo en todos los géneros.
 `python3 -m pruebas.armonia` prueba la armonía guiada, el modo libre, los pads
 que solo guían y las suspensiones.
 `python3 -m pruebas.generos` prueba los perfiles de género, el pulso de los pads
