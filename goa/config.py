@@ -102,6 +102,14 @@ ESQUEMA_SECCIONES["bajo"] = {
     "estilo": (str, "rolling", None, bajo.ESTILOS),
     "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     "movimiento": (float, 0.3, 0.0, 1.0),
+    "evolucion": (float, 0.0, 0.0, 1.0),
+    "mutar_cada": (int, 4, 1, 16),
+    "transponer": (int, 0, -7, 7),       # grados de escala
+    "densidad": (float, 1.0, 0.0, 1.0),
+    "swing": (float, 0.0, 0.0, 0.5),
+    "slide": (float, 0.0, 0.0, 1.0),
+    "acentos": (float, 0.2, 0.0, 1.0),
+    "fantasmas": (float, 0.0, 0.0, 1.0),
     "remates": (bool, True, None, None),
     "frase": (int, 4, 1, 8),
     "octava": (int, 0, -2, 2),
@@ -191,6 +199,8 @@ def normalizar(cfg):
     if not isinstance(cfg, dict):
         raise ConfigError("La configuración debe ser un objeto")
     limpia = {}
+    if isinstance(cfg.get("bajo"), dict) and cfg["bajo"].get("estilo") in bajo.ALIAS:
+        cfg = dict(cfg, bajo=dict(cfg["bajo"], estilo=bajo.ALIAS[cfg["bajo"]["estilo"]]))
     for seccion, esquema in ESQUEMA_SECCIONES.items():
         datos = cfg.get(seccion) or {}
         limpia[seccion] = {k: _valor(k, datos.get(k), e) for k, e in esquema.items()}

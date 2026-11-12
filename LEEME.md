@@ -178,13 +178,27 @@ salta a la octava, la quinta o una nota de paso. Con armonía guiada y
 "anticipar", la última nota antes de un cambio de acorde lleva a la raíz que
 viene. Sin pads, o en armonía libre, sigue su nota larga.
 
-Estilos (el género los elige, y puedes cambiarlos a mano):
+Estilos (el género muestra los suyos, y puedes cambiarlos al vuelo):
 
-- **Rolling** (Goa): bombo, bajo, bajo, bajo.
-- **Psy chill:** bombo, silencio, bajo, bajo.
+- **Rolling:** K B B B, el clásico del Goa y el full-on.
+- **Full-on:** rolling con una celda melódica por tiempo (raíz, quinta, octava, ♭2).
+- **Tresillo:** bombo y dos notas en tresillo.
+- **Galope:** K · B B.
+- **Saltado:** K B · B.
+- **Offbeat:** una corchea a contratiempo (progressive, psy chill).
 - **Chillgressive:** rolling oscuro, notas cortas y un acento que se mueve.
 - **Dub** (chillout): en el uno, antes del tres y en el tres; notas largas.
 - **Sub** (ambient): una nota grave por acorde, ligada.
+
+Con el motor andando, cualquier cambio del bajo (el estilo, por ejemplo) entra
+justo en el próximo compás. Si el patrón de base es el mismo, sigue con lo que
+ya había mutado.
+
+**Variación:** *Evolución* cambia un golpe cada *mutar cada* compases (otra
+nota, un silencio, uno nuevo o corrido) y se acumula, con algunos que vuelven a
+como eran. *Transponer* corre el bajo en grados de escala (4 = la quinta). En
+"Más ajustes": densidad, swing, slide (para un sinte en legato con glide),
+acentos y notas fantasma.
 
 En los estilos psy nunca cae en el tiempo del bombo. Los compases de una frase
 se repiten igual y, con **remates**, el último cierra con un remate que alterna

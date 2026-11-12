@@ -465,9 +465,18 @@ function resumenes() {
 
 // --- Pads ---
 
-const ESTILOS_BAJO = [["rolling","Rolling"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["dub","Dub"],["sub","Sub"]];
-const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa.",
-  psy_chill: "Bombo, silencio, bajo, bajo: más espaciado.",
+const ESTILOS_BAJO = [["rolling","Rolling · K B B B"],["fullon","Full-on · K B B B melódico"],["tresillo","Tresillo · K ³B B"],
+  ["galope","Galope · K · B B"],["saltado","Saltado · K B · B"],["offbeat","Offbeat · K · B ·"],
+  ["chillgressive","Chillgressive"],["dub","Dub"],["sub","Sub"]];
+const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat"],
+  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","rolling","offbeat","galope"],
+  chillout: ["dub","offbeat","sub"], ambient: ["sub","dub"]};
+const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa y el full-on.",
+  fullon: "Rolling con una celda melódica por tiempo (raíz, quinta, octava y el ♭2 en frigio).",
+  tresillo: "Bombo y dos notas en tresillo: un balanceo más oscuro, muy Goa de los 90.",
+  galope: "Bombo, silencio, bajo, bajo: el galope, más espaciado.",
+  saltado: "Bombo, bajo, silencio, bajo: rolling con aire, minimal.",
+  offbeat: "Una corchea a contratiempo: el bajo del progressive y del psy chill.",
   chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
   dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
   sub: "Una nota grave por acorde, ligada: casi un drone."};
@@ -483,11 +492,16 @@ function renderBajo() {
   cont.append(
     cab,
     campo("Género", segmentado(GENEROS, b.genero, (v) => cambiarGenero(v, {parte: "bajo"}), 3)),
-    campo("Estilo", segmentado(ESTILOS_BAJO, b.estilo, (v) => { b.estilo = v; renderBajo(); guardar(); }, 3)),
-    ayuda(TEXTO_BAJO[b.estilo]),
+    campo("Estilo", segmentado([...new Set([...ESTILOS_BAJO_POR_GENERO[b.genero], b.estilo])].map((v) => ESTILOS_BAJO.find((x) => x[0] === v)),
+      b.estilo, (v) => { b.estilo = v; renderBajo(); guardar(); if (ultimoEstado && ultimoEstado.corriendo && b.activo) aviso("El bajo cambia en el próximo compás"); }, 2)),
+    ayuda(TEXTO_BAJO[b.estilo] + " Con el motor andando, cualquier cambio del bajo entra justo en el próximo compás."),
     deslizador(b, "movimiento", "Movimiento", 0, 1, 0.05,
       (x) => x === 0 ? "solo la raíz" : x < 0.4 ? `camina poco (${porcentaje(x)})` : x < 0.7 ? `camina (${porcentaje(x)})` : `camina mucho (${porcentaje(x)})`),
-    ayuda("Cuánto salta a la octava, la quinta o una nota de paso. El bajo se repite igual en cada compás de la frase."),
+    ayuda("Cuánto salta a la octava, la quinta o una nota de paso."),
+    deslizador(b, "evolucion", "Evolución", 0, 1, 0.05,
+      (x) => x === 0 ? "fijo: no cambia" : x < 0.4 ? `cambia de a poco (${porcentaje(x)})` : x < 0.7 ? `va cambiando (${porcentaje(x)})` : `cambia mucho (${porcentaje(x)})`),
+    ayuda(`Cada ${b.mutar_cada} compases puede cambiar un golpe (otra nota, un silencio, uno nuevo o corrido) y los cambios se acumulan. A veces uno vuelve a como era.`),
+    deslizador(b, "transponer", "Transponer", -7, 7, 1, (x) => x === 0 ? "desde la raíz" : `${x > 0 ? "+" : ""}${x} grado${Math.abs(x) > 1 ? "s" : ""} de escala${x === 4 ? " (la quinta)" : x === 2 ? " (la tercera)" : ""}`),
     casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate (alterna entre dos)", () => renderBajo()),
     b.remates ? campo("Frase de (compases)", segmentado([["2","2"],["4","4"],["8","8"]], String(b.frase), (v) => { b.frase = parseInt(v); cab._sub.textContent = sub(); guardar(); }, 3)) : null,
     ayuda(guiadaDe(b)
@@ -497,6 +511,14 @@ function renderBajo() {
       el("div", {className: "dos"}, [destinoDe(b, estado), numeroDe(b, "canal", "Canal MIDI", 1, 16)]),
       numeroDe(b, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
       armoniaPropia(b, () => renderBajo()),
+      campo("Mutar cada (compases)", segmentado([["1","1"],["2","2"],["4","4"],["8","8"],["16","16"]], String(b.mutar_cada), (v) => { b.mutar_cada = parseInt(v); renderBajo(); guardar(); }, 5)),
+      deslizador(b, "densidad", "Densidad", 0, 1, 0.05, (x) => x === 1 ? "todos los golpes" : `${porcentaje(x)} de los golpes`),
+      deslizador(b, "swing", "Swing", 0, 0.5, 0.05, (x) => x === 0 ? "recto" : porcentaje(x * 2)),
+      deslizador(b, "slide", "Slide", 0, 1, 0.05, (x) => x === 0 ? "nunca" : `${porcentaje(x)} de las notas`),
+      ayuda("Las notas con slide se pisan un instante con la siguiente: en un sinte en legato con glide, se deslizan."),
+      deslizador(b, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
+      deslizador(b, "fantasmas", "Notas fantasma", 0, 1, 0.05, (x) => x === 0 ? "ninguna" : porcentaje(x)),
+      ayuda("Golpes suaves en los huecos (nunca en el bombo)."),
       el("div", {className: "dos"}, [numeroDe(b, "octava", "Octava", -2, 2), numeroDe(b, "velocidad", "Fuerza", 1, 127)]),
       deslizador(b, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
       deslizador(b, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),

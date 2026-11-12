@@ -74,11 +74,25 @@ for _g, _s in SECUENCIAS.items():
 
 # Bajo por género: su estilo y cuánto camina.
 BAJO = {
-    "goa": {"estilo": "rolling", "gate": 0.6, "movimiento": 0.3, "frase": 4, "octava": 0},
-    "psy_chill": {"estilo": "psy_chill", "gate": 0.7, "movimiento": 0.4, "frase": 4, "octava": 0},
-    "chillgressive": {"estilo": "chillgressive", "gate": 0.45, "movimiento": 0.3, "frase": 8, "octava": 0},
-    "chillout": {"estilo": "dub", "gate": 0.9, "movimiento": 0.5, "frase": 4, "octava": 0},
-    "ambient": {"estilo": "sub", "gate": 1.0, "movimiento": 0.0, "frase": 4, "octava": -1},
+    "goa": {"estilo": "rolling", "gate": 0.6, "movimiento": 0.3, "frase": 4, "octava": 0,
+            "evolucion": 0.3, "swing": 0.0, "slide": 0.0},
+    "psy_chill": {"estilo": "galope", "gate": 0.7, "movimiento": 0.4, "frase": 4, "octava": 0,
+                  "evolucion": 0.3, "swing": 0.05, "slide": 0.1},
+    "chillgressive": {"estilo": "chillgressive", "gate": 0.45, "movimiento": 0.3, "frase": 8, "octava": 0,
+                      "evolucion": 0.2, "swing": 0.0, "slide": 0.0},
+    "chillout": {"estilo": "dub", "gate": 0.9, "movimiento": 0.5, "frase": 4, "octava": 0,
+                 "evolucion": 0.3, "swing": 0.1, "slide": 0.0},
+    "ambient": {"estilo": "sub", "gate": 1.0, "movimiento": 0.0, "frase": 4, "octava": -1,
+                "evolucion": 0.2, "swing": 0.0, "slide": 0.0},
+}
+
+# Estilos de bajo que muestra cada género (el primero es el que pone al elegir el género).
+ESTILOS_BAJO_POR_GENERO = {
+    "goa": ("rolling", "fullon", "tresillo", "galope", "saltado", "offbeat"),
+    "psy_chill": ("galope", "offbeat", "saltado", "dub"),
+    "chillgressive": ("chillgressive", "rolling", "offbeat", "galope"),
+    "chillout": ("dub", "offbeat", "sub"),
+    "ambient": ("sub", "dub"),
 }
 
 ORDEN = tuple(GENEROS)

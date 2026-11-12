@@ -128,6 +128,7 @@ class Motor:
         self.pads = None
         self.dialogo = None
         self.bajo = None
+        self.cola_bajo = None  # bajo nuevo que entra en el próximo compás (cambio al vuelo)
         self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
         self.cola_dialogo = False  # False = nada en cola · None = detener · (secciones, nombre) = lanzar
         self.musica = {}
@@ -172,7 +173,13 @@ class Motor:
         self.secuencias = secuencias
         self.pads = pads
         self.dialogo = dialogo
-        self.bajo = bajo
+        if self.bajo is not None:
+            bajo.continuar_de(self.cola_bajo or self.bajo)
+        if self.bajo is not None and self.corriendo and self.tick >= 0:
+            # Al vuelo: el bajo nuevo entra justo en el próximo compás, sin cortar la frase.
+            self.cola_bajo = bajo
+        else:
+            self.bajo, self.cola_bajo = bajo, None
         self.seguir_pads = bool(musica.get("seguir_pads", False))
         self.tension = float(musica.get("tension", 0.3))
         self.anticipar = bool(musica.get("anticipar", True))
@@ -288,6 +295,8 @@ class Motor:
                        "cola": (None if i not in self.cola else
                                 ("detener" if self.cola[i] is None else self.cola[i][1]))}
                       for i, s in enumerate(self.secuencias)],
+            "bajo": {"estilo": self.bajo.estilo, "activo": self.bajo.activo,
+                     "cola": self.cola_bajo.estilo if self.cola_bajo is not None else None} if self.bajo else None,
             "fila_dialogo": {"clip": self.dialogo.clip, "activa": self.dialogo.activo,
                              "cola": (None if self.cola_dialogo is False else
                                       ("detener" if self.cola_dialogo is None else self.cola_dialogo[1]))},
@@ -314,6 +323,9 @@ class Motor:
         for s in self.secuencias:
             s.reiniciar()
         self.dialogo.reiniciar()
+        if self.cola_bajo is not None:
+            self.bajo, self.cola_bajo = self.cola_bajo, None
+        self.bajo.reiniciar()
         self.corriendo = True
         self.tick = -1
 
@@ -385,6 +397,11 @@ class Motor:
             compas = paso // PASOS_POR_COMPAS
             for s in self.secuencias:
                 s.evolucionar(compas)
+            if self.cola_bajo is not None:
+                self.bajo.apagar(self.enviar)
+                self.bajo, self.cola_bajo = self.cola_bajo, None
+                log.info("Entra el bajo nuevo (%s)", self.bajo.estilo)
+            self.bajo.evolucionar(compas)
         for d in self.disparos.values():
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
         self._tocar_paso(paso)

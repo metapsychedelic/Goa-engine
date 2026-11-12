@@ -72,9 +72,18 @@ salida = "CH345"
 canal = 4                 # 4 = FM-1
 disparo = 0               # canal de su nota larga; 0 = el general
 genero = "goa"            # goa, psy_chill, chillgressive, chillout, ambient (pone estilo y carácter)
-estilo = "rolling"        # rolling, psy_chill (bombo, silencio, bajo, bajo), chillgressive, dub, sub
+estilo = "rolling"        # psy: rolling (K B B B), fullon (rolling melódico), tresillo (K + 2 en tresillo),
+                          # galope (K · B B), saltado (K B · B), offbeat (K · B ·), chillgressive · dub · sub
 armonia = "general"       # general (la de Música), guiada o libre
 movimiento = 0.3          # 0 = solo la raíz · 1 = salta a la octava, la quinta y notas de paso
+evolucion = 0.0           # 0 = fijo · 1 = cada "mutar_cada" compases cambia un golpe (se acumula)
+mutar_cada = 4
+transponer = 0            # grados de escala (4 = arranca en la quinta)
+densidad = 1.0            # menos de 1 quita golpes (siempre los mismos)
+swing = 0.0               # atrasa las semicorcheas débiles (hasta 0.5)
+slide = 0.0               # notas que se pisan con la siguiente (sinte en legato con glide)
+acentos = 0.2
+fantasmas = 0.0           # golpes suaves en los huecos, nunca en el bombo
 remates = true            # el último compás de cada frase cierra con un remate (alterna entre dos)
 frase = 4                 # compases por frase
 octava = 0
