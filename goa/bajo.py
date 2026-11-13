@@ -283,6 +283,14 @@ class Bajo:
         enviar(self.salida, "note_on", self.canal, nota, vel)
         self.sonando[nota] = fin
 
+    def heredar_notas(self, viejo, enviar):
+        """Al reemplazar el bajo: la nota que suena termina sola (o se liga, en sub)."""
+        if (viejo.salida, viejo.canal) == (self.salida, self.canal):
+            self.sonando, self.pendientes = dict(viejo.sonando), list(viejo.pendientes)
+            viejo.sonando, viejo.pendientes = {}, []
+        else:
+            viejo.apagar(enviar)
+
     def tick(self, tick, enviar):
         for nota, fin in list(self.sonando.items()):
             if fin <= tick:

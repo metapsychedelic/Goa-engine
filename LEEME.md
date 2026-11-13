@@ -114,6 +114,19 @@ Arriba quedan los controles para tocar en vivo; lo demás está en "Más ajustes
 Para encontrar una buena secuencia, prueba variantes con **Otra**; si saltaste
 una que sonaba bien, **Anterior** vuelve a ella (recuerda las últimas 20).
 
+## Cambios en vivo
+
+Con el motor andando, nada se dispara de golpe al tocar la app:
+
+- **Las secuencias** cambian al tiempo: una variante o un estilo nuevo se
+  escucha de inmediato.
+- **Todo lo demás** (pads, bajo, llamada y respuesta, tónica, escala, armonía,
+  géneros) entra en el primer paso del **próximo compás**. Mientras espera, el
+  compás en la app dice "entra al compás".
+- En ese cambio nada se corta: las notas que suenan terminan solas, el sub del
+  bajo sigue ligado y los pads pasan al acorde nuevo en ligado (las notas
+  comunes siguen sonando, solo se mueven las otras).
+
 ## Géneros y Pegado ↔ Desplazado
 
 Cada motor tiene su propio selector de género, independiente: los pads, la

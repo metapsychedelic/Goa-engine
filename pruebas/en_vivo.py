@@ -49,6 +49,7 @@ def de_pads(ev, desde, hasta):
 if __name__ == "__main__":
     todo = True
     CAMBIO = 96 + 40  # a mitad del compás 2 (el acorde cambia cada 4 compases)
+    COMPAS = 2 * 96   # los cambios que no son de secuencias entran acá
 
     print("Pads al mover otras cosas")
     for nombre, cambio in [
@@ -65,23 +66,49 @@ if __name__ == "__main__":
     todo &= ok(not de_pads(ev, CAMBIO, 4 * 96), "la fuerza: no vuelve a atacar (se nota en el próximo acorde)")
     antes = tocar(armar(), {})
     ev = tocar(armar(), {CAMBIO: lambda c: (c["pads"].update(acorde="quintas"), c)[1]})
-    cambiados = de_pads(ev, CAMBIO, CAMBIO + 12)
+    todo &= ok(not de_pads(ev, CAMBIO, COMPAS), "el acorde nuevo espera al próximo compás")
+    cambiados = de_pads(ev, COMPAS, COMPAS + 12)
     sonando = {n for t, ti, n in de_pads(antes, 0, CAMBIO) if ti == "note_on"}
     nuevos = {n for t, ti, n in cambiados if ti == "note_on"}
     apagados = {n for t, ti, n in cambiados if ti == "note_off"}
-    todo &= ok(cambiados and not (nuevos & sonando) and apagados <= sonando and len(apagados) < len(sonando),
+    todo &= ok(bool(cambiados) and not (nuevos & sonando) and apagados <= sonando and len(apagados) < len(sonando),
                f"el acorde: pasa en ligado, las notas comunes siguen ({len(sonando - apagados)} se quedan)")
     reatacar = armar()
     reatacar["pads"]["ataque"] = "reatacar"
     ev = tocar(reatacar, {CAMBIO: lambda c: (c["secuencia"][0].update(gate=0.3), c)[1]})
     todo &= ok(not de_pads(ev, CAMBIO, 4 * 96), "con 'vuelve a atacar' tampoco se reataca por mover otra cosa")
     ev = tocar(armar(), {CAMBIO: lambda c: (c["pads"].update(canal=5), c)[1]})
-    cortes = [n for t, ti, n in de_pads(ev, CAMBIO, CAMBIO + 1) if ti == "note_off"]
+    cortes = [n for t, ti, n in de_pads(ev, COMPAS, COMPAS + 3) if ti == "note_off"]
     todo &= ok(len(cortes) == len(sonando), "cambiar el canal: apaga las notas del canal de antes")
     ev = tocar(armar(), {CAMBIO: lambda c: (c["pads"].update(suenan=False), c)[1]})
     todo &= ok(colgadas([(t, s, ti, 0, n, 0) for t, s, ti, n in ev]) == 0 and
-               not [1 for t, ti, n in de_pads(ev, CAMBIO + 1, 6 * 96) if ti == "note_on"],
+               not [1 for t, ti, n in de_pads(ev, COMPAS, 6 * 96) if ti == "note_on"],
                "callarlos: se apagan y no quedan notas colgadas")
+
+    print("\nTodo entra en el próximo compás, sin cortar notas (salvo las secuencias)")
+    def notas(ev, salida, desde, hasta, tipo="note_on"):
+        return [(t, n) for t, s, ti, n in ev if s == salida and ti == tipo and desde <= t < hasta]
+    ev = tocar(armar(), {CAMBIO: lambda c: (c["musica"].update(tonica="A", escala="menor"), c)[1]})
+    antes = tocar(armar(), {})
+    todo &= ok(notas(ev, "SEC", 0, COMPAS) == notas(antes, "SEC", 0, COMPAS) and not de_pads(ev, CAMBIO, COMPAS),
+               "cambiar la tónica y la escala: el compás en curso sigue en la tonalidad de antes")
+    pasan = de_pads(ev, COMPAS, COMPAS + 12)
+    sigue = {n for t, ti, n in de_pads(antes, 0, CAMBIO) if ti == "note_on"} - {n for t, ti, n in pasan if ti == "note_off"}
+    todo &= ok(bool(pasan) and bool(sigue), "y en el próximo compás los pads pasan a la nueva en ligado (las notas comunes siguen)")
+    ev = tocar(armar(), {CAMBIO: lambda c: (c["secuencia"][0].update(seed="OTRA-7"), c)[1]})
+    todo &= ok(notas(ev, "SEC", CAMBIO, COMPAS) != notas(antes, "SEC", CAMBIO, COMPAS),
+               "una variante nueva de secuencia sí suena al tiempo")
+    largas = armar()
+    largas["secuencia"][0].update(gate=1.0, largas=1.0)
+    ev = tocar(largas, {CAMBIO + 1: lambda c: (c["secuencia"][0].update(swing=0.2), c)[1]})
+    ref = tocar(largas, {})
+    todo &= ok(notas(ev, "SEC", CAMBIO, CAMBIO + 6, "note_off") == notas(ref, "SEC", CAMBIO, CAMBIO + 6, "note_off"),
+               "mover un control de la secuencia no corta la nota que suena")
+    sub = armar()
+    sub["bajo"].update(activo=True, disparo=2, salida="BAJO", estilo="sub", evolucion=0)
+    ev = tocar(sub, {CAMBIO: lambda c: (c["bajo"].update(velocidad=80), c)[1], CAMBIO + 10: lambda c: (c["pads"].update(velocidad=60), c)[1]})
+    todo &= ok(not notas(ev, "BAJO", CAMBIO, 4 * 96, "note_off") and len(notas(ev, "BAJO", 0, 4 * 96)) == 1,
+               "el sub del bajo sigue ligado aunque cambies el bajo o los pads")
 
     print("\nEl género de una secuencia o del bajo no mueve tus ajustes")
     cfg = normalizar(base())

@@ -141,7 +141,7 @@ if __name__ == "__main__":
         if tick == 96 + 30:  # a mitad del compás 2
             cfg2 = normalizar(dict(cfg, bajo=dict(cfg["bajo"], estilo="offbeat")))
             m.aplicar_config(cfg2)
-            todo &= ok(m.estado()["bajo"]["cola"] == "offbeat", "el estilo nuevo queda en cola")
+            todo &= ok(m.estado()["cambios_en_cola"], "el estilo nuevo queda en cola")
     m.stop()
     ons = [(t, n) for t, s, ti, n in ev if s == "BAJO" and ti == "note_on"]
     resto = [(t % 96) // 6 for t, _ in ons if 96 + 36 <= t < 192]

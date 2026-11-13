@@ -5,6 +5,7 @@ una función `enviar(salida, tipo, canal, nota, velocidad)`, para poder
 probarlo sin hardware.
 """
 
+import copy
 import logging
 import random
 import time
@@ -128,6 +129,9 @@ class Motor:
         self.pads = None
         self.dialogo = None
         self.bajo = None
+        self.config = None
+        self.config_aplicada = None
+        self.config_en_cola = None  # cambios que entran en el próximo compás
         self.cola_bajo = None  # bajo nuevo que entra en el próximo compás (cambio al vuelo)
         self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
         self.cola_dialogo = False  # False = nada en cola · None = detener · (secciones, nombre) = lanzar
@@ -135,22 +139,52 @@ class Motor:
         self.aplicar_config(config)
 
     def aplicar_config(self, config):
-        """Cambia la configuración en vivo, sin detener el reloj."""
+        """Cambia la configuración en vivo, sin detener el reloj ni cortar nada.
+
+        Con el motor andando, las secuencias cambian al tiempo (una variante o un estilo
+        nuevo se escucha de inmediato). Todo lo demás (pads, bajo, diálogo, tónica,
+        escala, armonía…) entra en el primer paso del próximo compás, y en ese cambio
+        las notas que suenan terminan solas y los pads pasan en ligado."""
+        if self.corriendo and self.tick >= 0 and self.config is not None:
+            config = copy.deepcopy(config)
+            ahora = dict(self.config, secuencia=config.get("secuencia", []))
+            self._aplicar(ahora)
+            self.config_en_cola = None if config == ahora else config
+        else:
+            self.config_en_cola = None
+            self._aplicar(config)
+
+    def _aplicar(self, config):
+        config = copy.deepcopy(config)  # una copia propia: si quien llama la modifica, no se confunde
+        self.config = config
         musica = config.get("musica", {})
         entrada = config.get("entrada", {})
         tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
         desplazamiento = musica.get("desplazamiento", 0.0)
-        pads = Pads(config.get("pads", {}), tonalidad, desplazamiento)
-        bajo = Bajo(config.get("bajo", {}), tonalidad)
+        anterior = self.config_aplicada or {}
+        mismo = lambda *secciones: all(anterior.get(k) == config.get(k) for k in secciones)  # noqa: E731
         self.musica = musica
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
-        dialogo = self._crear_dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}))
-        self.apagar_todo(pads=False)  # los pads siguen sonando: los retoma pads.continuar_de
-        pads.continuar_de(self.pads, self.enviar)
-        if self.dialogo is not None:
-            dialogo.clip = self.dialogo.clip  # recuerda qué clip de diálogo sonaba
-            dialogo.continuar_de(self.dialogo)  # sigue la conversación sin callarse ni perder lo mutado
+        if self.pads is not None and mismo("pads", "musica", "entrada"):
+            pads = self.pads  # nada de los pads cambió: siguen exactamente igual
+        else:
+            pads = Pads(config.get("pads", {}), tonalidad, desplazamiento)
+            pads.continuar_de(self.pads, self.enviar)  # en ligado, sin volver a atacar
+        if self.bajo is not None and mismo("bajo", "musica", "entrada"):
+            bajo = self.cola_bajo or self.bajo
+        else:
+            bajo = Bajo(config.get("bajo", {}), tonalidad)
+        if self.dialogo is not None and mismo("dialogo", "llamada", "respuesta", "musica", "entrada"):
+            dialogo = self.dialogo
+        else:
+            dialogo = self._crear_dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}))
+            if self.dialogo is not None:
+                dialogo.clip = self.dialogo.clip  # recuerda qué clip de diálogo sonaba
+                dialogo.continuar_de(self.dialogo)  # sigue la conversación sin callarse ni perder lo mutado
+                # Las notas que suenan terminan solas (cada una sabe a qué salida y canal va).
+                dialogo.sonando, dialogo.pendientes = self.dialogo.sonando, self.dialogo.pendientes
+        self.config_aplicada = config
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
@@ -162,6 +196,11 @@ class Motor:
             if i < len(self.secuencias):
                 vieja = self.secuencias[i]
                 s.clip = vieja.clip  # recuerda qué clip sonaba en esa fila
+                if (vieja.salida, vieja.canal) == (s.salida, s.canal):
+                    # Las notas que suenan terminan solas, sin cortarse.
+                    s.sonando, s.pendientes, s.slide_previo = vieja.sonando, vieja.pendientes, vieja.slide_previo
+                else:
+                    self._callar(vieja)
                 if (vieja.seed, vieja.estilo, vieja.largo, vieja.pedal) == (s.seed, s.estilo, s.largo, s.pedal):
                     # Mismo patrón de base: conserva lo que ya mutó. Antes, mover cualquier
                     # control de la app devolvía la secuencia a su patrón original.
@@ -171,15 +210,23 @@ class Motor:
         canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, bajo.disparo, self.canal_disparo}
         anteriores = self.disparos
         self.disparos = {c: anteriores.get(c) or Disparo(c) for c in canales}
+        for vieja in self.secuencias[len(secuencias):]:
+            self._callar(vieja)
         self.secuencias = secuencias
         self.pads = pads
         self.dialogo = dialogo
-        if self.bajo is not None:
+        if self.bajo is not None and bajo is not (self.cola_bajo or self.bajo):
             bajo.continuar_de(self.cola_bajo or self.bajo)
-        if self.bajo is not None and self.corriendo and self.tick >= 0:
+        if bajo is self.bajo:
+            self.cola_bajo = None
+        elif bajo is self.cola_bajo:
+            pass
+        elif self.bajo is not None and self.corriendo and self.tick >= 0:
             # Al vuelo: el bajo nuevo entra justo en el próximo compás, sin cortar la frase.
             self.cola_bajo = bajo
         else:
+            if self.bajo is not None:
+                bajo.heredar_notas(self.bajo, self.enviar)
             self.bajo, self.cola_bajo = bajo, None
         self.seguir_pads = bool(musica.get("seguir_pads", False))
         self.tension = float(musica.get("tension", 0.3))
@@ -296,6 +343,7 @@ class Motor:
                        "cola": (None if i not in self.cola else
                                 ("detener" if self.cola[i] is None else self.cola[i][1]))}
                       for i, s in enumerate(self.secuencias)],
+            "cambios_en_cola": self.config_en_cola is not None,
             "bajo": {"estilo": self.bajo.estilo, "activo": self.bajo.activo,
                      "cola": self.cola_bajo.estilo if self.cola_bajo is not None else None} if self.bajo else None,
             "fila_dialogo": {"clip": self.dialogo.clip, "activa": self.dialogo.activo,
@@ -319,6 +367,9 @@ class Motor:
 
     def start(self):
         log.info("Start")
+        if self.config_en_cola is not None:
+            config, self.config_en_cola = self.config_en_cola, None
+            self._aplicar(config)
         self.apagar_todo()
         self._olvidar_notas()  # la Circuit vuelve a mandar sus notas desde el primer paso
         for s in self.secuencias:
@@ -391,6 +442,10 @@ class Motor:
 
     def _paso(self, paso):
         if paso % PASOS_POR_COMPAS == 0:
+            if self.config_en_cola is not None:
+                config, self.config_en_cola = self.config_en_cola, None
+                self._aplicar(config)  # los cambios de la app entran justo en el compás
+                log.info("Entran los cambios de la app")
             if self.cola:
                 self._aplicar_cola()  # los clips entran justo en el primer paso del compás
             if self.cola_dialogo is not False:
@@ -399,7 +454,7 @@ class Motor:
             for s in self.secuencias:
                 s.evolucionar(compas)
             if self.cola_bajo is not None:
-                self.bajo.apagar(self.enviar)
+                self.cola_bajo.heredar_notas(self.bajo, self.enviar)  # la nota que suena termina sola
                 self.bajo, self.cola_bajo = self.cola_bajo, None
                 log.info("Entra el bajo nuevo (%s)", self.bajo.estilo)
             self.bajo.evolucionar(compas)
@@ -550,6 +605,12 @@ class Motor:
             self.enviar(s.salida, "note_off", s.canal, nota, 0)
         self.enviar(s.salida, "note_on", s.canal, nota, velocidad)
         s.sonando[nota] = fin
+
+    def _callar(self, s):
+        for nota in list(s.sonando):
+            self.enviar(s.salida, "note_off", s.canal, nota, 0)
+        s.sonando.clear()
+        s.pendientes = []
 
     def _apagar_vencidas(self):
         for s in self.secuencias:

@@ -825,7 +825,7 @@ async function estado() {
     else { p.textContent = "Detenido"; p.className = "pill"; }
     $("bpm").textContent = d.bpm ? Math.round(d.bpm) : "–";
     $("raiz").textContent = d.raiz || "–";
-    $("compas").textContent = d.compas || "–";
+    $("compas").textContent = (d.compas || "–") + (d.cambios_en_cola ? " · entra al compás" : "");
     $("ver").textContent = "v" + d.version;
     $("acorde").textContent = d.acorde ? "Pads: " + d.acorde : "";
     const fase = $("dialogo_fase");
