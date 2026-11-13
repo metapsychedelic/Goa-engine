@@ -158,7 +158,9 @@ En **Tocar**:
   evolución, la fuerza, el pulso de los pads (y sus suspensiones, más en la
   calma), el espacio y los golpes del diálogo y la tensión armónica. Nunca
   salta: llega como mucho 10 por compás (arriba dice, por ejemplo, 40 → 80).
-  Cada escena guarda su energía.
+  La densidad y las notas fantasma se multiplican (del 40 % en calma al 160 %
+  en clímax): una densidad baja sigue siendo baja con la energía arriba, y lo
+  que tienes en 0 queda en 0. Cada escena guarda su energía.
 
 ## Piloto automático
 

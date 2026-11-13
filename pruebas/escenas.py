@@ -60,6 +60,13 @@ if __name__ == "__main__":
     s0, s1 = baja["secuencia"][0], alta["secuencia"][0]
     todo &= ok(s0["densidad"] < cfg["secuencia"][0]["densidad"] < s1["densidad"],
                f"densidad: calma {s0['densidad']} < normal {cfg['secuencia'][0]['densidad']} < clímax {s1['densidad']}")
+    poca = copy.deepcopy(cfg)
+    poca["secuencia"][0]["densidad"] = 0.2
+    todo &= ok(forma.energizar(poca, 1.0)["secuencia"][0]["densidad"] <= 0.35 and forma.energizar(poca, 0.9)["secuencia"][0]["densidad"] < 0.35,
+               "una densidad baja sigue siendo baja con la energía arriba (tu ajuste manda)")
+    cero = copy.deepcopy(cfg)
+    cero["bajo"]["fantasmas"] = 0.0
+    todo &= ok(forma.energizar(cero, 1.0)["bajo"]["fantasmas"] == 0.0, "sin notas fantasma, la energía no las inventa")
     todo &= ok(baja["dialogo"]["espacio"] > alta["dialogo"]["espacio"], "en la calma el diálogo deja más espacio")
     todo &= ok(baja["musica"]["tension"] < alta["musica"]["tension"], "más energía, más tensión")
     todo &= ok(baja["pads"]["suspensiones"] > alta["pads"]["suspensiones"], "en la calma, más suspensiones en los pads")

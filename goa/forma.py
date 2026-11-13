@@ -93,9 +93,12 @@ def _limitar(x, a=0.0, b=1.0):
     return max(a, min(b, x))
 
 
-def _sube(x, f):
-    """f de -0,5 a 0,5: con f < 0 baja hasta el 40 %; con f > 0 sube hasta el máximo."""
-    return x * (1 + 1.2 * f) if f < 0 else x + (1 - x) * 2 * f
+def _escala(x, f):
+    """f de -0,5 a 0,5: multiplica tu ajuste, del 40 % (calma) al 160 % (clímax).
+
+    Multiplica, no rellena: una densidad baja sigue siendo baja con la energía
+    arriba, y en 0 queda en 0. Tu ajuste siempre manda."""
+    return x * (1 + 1.2 * f)
 
 
 def energizar(cfg, energia):
@@ -108,14 +111,14 @@ def energizar(cfg, energia):
     m = c["musica"]
     m["tension"] = round(_limitar(m["tension"] + 0.4 * f), 3)
     for s in c["secuencia"]:
-        s["densidad"] = round(_limitar(_sube(s["densidad"], f)), 3)
+        s["densidad"] = round(_limitar(_escala(s["densidad"], f)), 3)
         s["acentos"] = round(_limitar(s["acentos"] + 0.3 * f), 3)
         s["velocidad"] = int(_limitar(s["velocidad"] + round(20 * f), 1, 127))
         if s["mutacion"] > 0:
             s["mutacion"] = round(_limitar(s["mutacion"] + 0.3 * alto), 3)
     b = c["bajo"]
-    b["densidad"] = round(_limitar(_sube(b["densidad"], f)), 3)
-    b["fantasmas"] = round(_limitar(b["fantasmas"] + 0.5 * alto), 3)
+    b["densidad"] = round(_limitar(_escala(b["densidad"], f)), 3)
+    b["fantasmas"] = round(_limitar(_escala(b["fantasmas"], f)), 3)
     b["acentos"] = round(_limitar(b["acentos"] + 0.3 * f), 3)
     b["velocidad"] = int(_limitar(b["velocidad"] + round(16 * f), 1, 127))
     if b["evolucion"] > 0:
