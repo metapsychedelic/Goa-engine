@@ -126,7 +126,20 @@ def main():
     except OSError as e:
         log.error("No pude abrir la app web: %s", e)
 
+    errores = set()
+
     def al_recibir(msg):
+        try:
+            procesar(msg)
+        except Exception as e:  # noqa: BLE001
+            # Un error en un paso no debe dejar el motor sordo: se anota (una vez por
+            # tipo de error) y el siguiente pulso sigue normal.
+            clave = f"{type(e).__name__}: {e}"
+            if clave not in errores:
+                errores.add(clave)
+                log.exception("Error procesando %s (el motor sigue)", msg.type)
+
+    def procesar(msg):
         with candado:
             t = msg.type
             thru = ctx.config["thru"]

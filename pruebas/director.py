@@ -91,5 +91,41 @@ if __name__ == "__main__":
     _, efectos32, _, _ = correr(armar(periodo=32), 80)
     todo &= ok(not efectos32[20] and bool(efectos32[40]), "con períodos de 32, el primer cambio llega en el compás 33")
 
+    print("\nClips con el director andando")
+    fallas, entraron = 0, 0
+    for largo in (8, 16, 32):
+        for estilo in ("rolling", "acido", "arpegio3"):
+            cfg = armar()
+            m = Motor(cfg, lambda *a: None)
+            m.start()
+            try:
+                for tick in range(60 * 96):
+                    m.reloj()
+                    if tick % 96 == 1:
+                        m.nota_on(1, 41)
+                    if tick % (7 * 96) == 300:  # a mitad de un período, con cambios del director puestos
+                        for fila in (0, 1):
+                            nueva = dict(cfg["secuencia"][fila], estilo=estilo, largo=largo, seed=f"{tick:04X}-CLIP")
+                            m.lanzar(fila, nueva, "clip")
+                            entraron += 1
+            except Exception:  # noqa: BLE001
+                fallas += 1
+    todo &= ok(fallas == 0 and entraron > 0, f"un clip con otro largo o estilo entra sin romper nada ({entraron} clips)")
+    cfg = armar()
+    m = Motor(cfg, lambda *a: None)
+    m.start()
+    pegados = 0
+    for tick in range(60 * 96):
+        m.reloj()
+        if tick % 96 == 1:
+            m.nota_on(1, 41)
+        if tick == 20 * 96 + 50:
+            m.lanzar(1, dict(cfg["secuencia"][1], seed="OTRO-CLIP"), "clip")
+        if tick % 96 == 10 and tick > 21 * 96:
+            s = m.secuencias[1]
+            if 21 * 96 < tick < 32 * 96:  # el período en que entró el clip
+                pegados += getattr(s, "_director_patron", None) is not None
+    todo &= ok(pegados == 0, "un cambio pensado para el patrón anterior no se pega encima del clip nuevo")
+
     print("\nTODO BIEN" if todo else "\nHAY ERRORES")
     raise SystemExit(0 if todo else 1)

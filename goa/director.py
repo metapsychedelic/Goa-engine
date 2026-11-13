@@ -30,6 +30,12 @@ TIPOS = ("hermana", "recuerdo", "octava", "roles", "pads_guian", "protagonista")
 TRANSFORMACIONES = ("corrido", "tercera", "espejo")
 
 
+def firma(s):
+    """Lo que define el patrón de base de una secuencia: si cambia (otro clip, estilo,
+    seed o largo), un cambio pensado para el patrón anterior ya no le corresponde."""
+    return (s.seed, s.estilo, s.largo, s.pedal)
+
+
 def transformar(patron, como):
     """Un motivo que vuelve, cambiado: corrido en el tiempo, una tercera arriba o en espejo."""
     nuevo = [dict(p) for p in patron]
@@ -94,7 +100,12 @@ class Director:
             clave = (tipo, objetivo)
             if tipo in ("hermana", "recuerdo"):
                 if objetivo < len(motor.secuencias):
-                    self._poner_patron(motor.secuencias[objetivo], clave, extra)
+                    s = motor.secuencias[objetivo]
+                    base, patron = extra
+                    # Si en la fila entró otro clip (u otro estilo, seed o largo), el patrón
+                    # preparado era del anterior: no se pega encima del nuevo.
+                    if base == firma(s) and len(patron) == len(s.patron):
+                        self._poner_patron(s, clave, patron)
             elif tipo == "octava":
                 if objetivo < len(motor.secuencias):
                     s = motor.secuencias[objetivo]
@@ -174,11 +185,11 @@ class Director:
             extra = None
             if tipo == "hermana":
                 s = motor.secuencias[objetivo]
-                extra = generador.mutar(s.patron, f"{s.seed}~hermana", compas, 0.2, s.pedal)
+                extra = (firma(s), generador.mutar(s.patron, f"{s.seed}~hermana", compas, 0.2, s.pedal))
             elif tipo == "recuerdo":
                 s = motor.secuencias[objetivo]
                 viejos = [p for p in list(self.memoria[objetivo])[:-1] if len(p) == len(s.patron) and p != s.patron]
-                extra = transformar(viejos[0], rng.choice(TRANSFORMACIONES))
+                extra = (firma(s), transformar(viejos[0], rng.choice(TRANSFORMACIONES)))
             elif tipo == "protagonista":
                 objetivo = rng.choice(candidatos)
             efectos.append((tipo, objetivo, extra))
