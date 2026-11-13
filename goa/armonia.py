@@ -74,3 +74,42 @@ def ajustar(nota, momento, tonalidad, fuerte, ultima, tension, anticipar, azar):
     if fuerte or azar >= tension:
         return nota_del_acorde(nota, momento.clases)
     return nota
+
+
+def clases_de(tonalidad):
+    """Clases de altura de una tonalidad (sus 7 notas)."""
+    return frozenset((tonalidad.tonica + i) % 12 for i in tonalidad.intervalos)
+
+
+def parentesco(vieja, nueva):
+    """Cuántas notas comparten dos tonalidades (7 = las mismas)."""
+    return len(clases_de(vieja) & clases_de(nueva))
+
+
+def triada(tonalidad, raiz):
+    return frozenset(tonalidad.nota(raiz, g, "escala") % 12 for g in (0, 2, 4))
+
+
+# Grados (de la tonalidad nueva) que sirven de puente, en orden de preferencia:
+# V, ♭III, iv, ♭VI, ♭VII, ii. El i no: llegar a la tónica antes de tiempo le quita el efecto.
+GRADOS_PUENTE = (4, 2, 3, 5, 6, 1)
+
+
+def puente(vieja, nueva, raiz_nueva, falta):
+    """Momento del acorde puente entre dos tonalidades.
+
+    Es un acorde de la tonalidad nueva cuyas tres notas también están en la vieja:
+    suena bien antes del cambio (es de la escala que todavía suena) y lleva a la
+    nueva. Si no hay ninguno común, se usa su V (la dominante). `raiz_nueva` es la
+    nota (MIDI) donde va el i de la tonalidad nueva; `falta`, los pasos hasta el cambio."""
+    comunes = clases_de(vieja)
+    tonica = nueva.nota(raiz_nueva, 0, "escala")
+    raiz = None
+    for grado in GRADOS_PUENTE:
+        candidata = nueva.nota(tonica, grado, "escala")
+        if triada(nueva, candidata) <= comunes:
+            raiz = candidata
+            break
+    if raiz is None:
+        raiz = nueva.nota(tonica, 4, "escala")
+    return Momento(raiz, triada(nueva, raiz), tonica, triada(nueva, tonica), falta)

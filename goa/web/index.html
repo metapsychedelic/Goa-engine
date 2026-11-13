@@ -108,6 +108,27 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 @keyframes titila{50%{opacity:.5}}
 .clip.parar{flex:0 0 auto;min-width:72px;color:var(--mut)}
 .estadolinea{display:flex;flex-direction:column;gap:2px}
+.escenas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.escena{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--txt);text-align:left;min-height:76px;min-width:0}
+.escena .t{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;font-size:13px;font-weight:650}
+.escena .t span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.escena .d{font-size:11px;color:var(--mut);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.escena .e{font-size:10px;font-weight:650;border-radius:999px;padding:2px 8px;flex:none}
+.escena .barra{height:4px;width:100%;background:#2A2B28;border-radius:4px;overflow:hidden}
+.escena .barra i{display:block;height:100%;background:#6B675F;border-radius:4px}
+.escena.actual{border:2px solid var(--acc)}
+.escena.actual .e{background:var(--acc);color:#1A1408}
+.escena.actual .barra i,.escena.cola .barra i{background:var(--acc)}
+.escena.cola{border:2px dashed var(--acc)}
+.escena.cola .e{color:var(--acc);padding:2px 0}
+.escena.nueva{align-items:center;justify-content:center;color:var(--mut);border-style:dashed;font-size:13px}
+.energia{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.energia .n{font-size:28px;font-weight:700;color:var(--acc);line-height:1}
+.energia input[type=range]{min-height:36px}
+.energia .ley{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--mut)}
+.chips{display:flex;gap:4px}
+.chips button{min-height:32px;padding:0 10px;border-radius:999px;font-size:12px;border-color:var(--line)}
+.chips button[aria-pressed=true]{border-color:var(--acc);color:var(--acc);background:var(--accbg)}
 .guardado{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:6;max-width:calc(100vw - 32px)}
 .guardado.ver{opacity:1}
 .guardado.error{color:var(--bad);border-color:#8C3B32}
@@ -148,6 +169,7 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 
   <section class="vista" id="v-armonia" aria-label="Armonía" hidden>
     <div class="card" id="armonia_caja"></div>
+    <div class="card" id="puente_caja"></div>
   </section>
 
   <section class="vista" id="v-ajustes" aria-label="Ajustes" hidden>
@@ -910,6 +932,32 @@ function renderArmonia() {
   ].filter(Boolean));
 }
 
+const INTERVALOS = {frigio: [0,1,3,5,7,8,10], menor_armonica: [0,2,3,5,7,8,11], frigio_dominante: [0,1,4,5,7,8,10],
+  menor: [0,2,3,5,7,8,10], hungara_menor: [0,2,3,6,7,8,11], dorico: [0,2,3,5,7,9,10], lidio: [0,2,4,6,7,9,11]};
+function notasDe(tonica, escala) {
+  const i = TONICAS.findIndex((x) => x[0] === String(tonica).toUpperCase());
+  return new Set((INTERVALOS[escala] || []).map((n) => (n + Math.max(i, 0)) % 12));
+}
+
+function renderPuente() {
+  const caja = $("puente_caja"); caja.innerHTML = "";
+  const actual = notasDe(cfg.musica.tonica, cfg.musica.escala);
+  caja.append(el("h2", {textContent: "Entre escenas"}),
+    ayuda("Al lanzar una escena con otra tonalidad, en los dos compases antes del cambio suena un acorde puente que es de las dos escalas (si no hay ninguno, la dominante de la nueva). Después, la progresión nueva parte en su i. Lo demás se mueve de a poco durante la transición."));
+  if (!cfg.escena.length) { caja.append(el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay escenas (se guardan en Tocar)."})); return; }
+  cfg.escena.forEach((e, i) => {
+    let m = {};
+    try { m = JSON.parse(e.datos).musica || {}; } catch (x) {}
+    const comunes = [...notasDe(m.tonica, m.escala)].filter((n) => actual.has(n)).length;
+    const misma = m.tonica === cfg.musica.tonica && m.escala === cfg.musica.escala;
+    const texto = misma ? "misma tonalidad" : comunes >= 6 ? `muy emparentada (${comunes} de 7 notas)` : comunes >= 5 ? `emparentada (${comunes} de 7)` : `lejana (${comunes} de 7): el puente ayuda, mejor con transición larga`;
+    caja.append(el("div", {className: "fila", style: "min-height:36px"}, [
+      el("span", {textContent: `${i + 1} · ${e.nombre}`, style: "font-weight:600"}),
+      el("span", {className: "mut", style: "text-align:right", textContent: `${m.tonica || "?"} ${((ESCALAS.find((x) => x[0] === m.escala) || ["", ""])[1]).toLowerCase()} · ${texto}`}),
+    ]));
+  });
+}
+
 // --- Ajustes ---
 
 function renderAjustes() {
@@ -932,11 +980,135 @@ function render() {
   renderTocar();
   renderMotores();
   renderArmonia();
+  renderPuente();
   renderAjustes();
 }
 
 function renderTocar() {
+  const caja = $("tocar_extra"); caja.innerHTML = "";
+  caja.append(bloqueEscenas(), bloqueEnergia());
   renderMutes();
+  if (ultimoEstado) pintarTocar(ultimoEstado);
+}
+
+// --- Escenas ---
+
+let editarEscenas = false;
+
+function resumenEscena(e) {
+  let d = {};
+  try { d = JSON.parse(e.datos); } catch (x) {}
+  const suenan = [];
+  if ((d.pads || {}).activo) suenan.push("pads");
+  if ((d.bajo || {}).activo) suenan.push("bajo");
+  for (const s of d.secuencia || []) if (s.activa) suenan.push(s.nombre);
+  if ((d.dialogo || {}).activo) suenan.push("diálogo");
+  const m = d.musica || {};
+  return `${nombreGenero(m.genero || "")} · ${m.tonica || ""} ${((ESCALAS.find((x) => x[0] === m.escala) || ["", ""])[1]).toLowerCase()} · ${suenan.join(", ") || "silencio"}`;
+}
+
+function bloqueEscenas() {
+  const f = cfg.forma;
+  const grilla = el("div", {className: "escenas", id: "escenas"});
+  cfg.escena.forEach((e, i) => {
+    const barra = el("i", {style: `width:${Math.round(e.energia * 100)}%`});
+    const boton = el("button", {type: "button", className: "escena", "data-escena": i, onclick: () => editarEscenas ? null : lanzarEscena(i)}, [
+      el("span", {className: "t"}, [el("span", {textContent: `${i + 1} · ${e.nombre}`}), el("span", {className: "e"})]),
+      el("span", {className: "d", textContent: resumenEscena(e)}),
+      el("span", {className: "barra"}, [barra]),
+    ]);
+    if (editarEscenas) {
+      grilla.append(el("div", {style: "display:flex;flex-direction:column;gap:4px;min-width:0"}, [boton,
+        el("div", {className: "dos", style: "gap:4px"}, [
+          el("button", {type: "button", textContent: "Guardar aquí", style: "font-size:12px;padding:0 6px", onclick: () => guardarEscena(i)}),
+          el("button", {type: "button", textContent: "Borrar", style: "font-size:12px;padding:0 6px;color:var(--bad)", onclick: () => borrarEscena(i)}),
+        ])]));
+    } else grilla.append(boton);
+  });
+  if (cfg.escena.length < 8) {
+    grilla.append(el("button", {type: "button", className: "escena nueva", onclick: () => guardarEscena(null)}, ["+ Guardar lo que suena"]));
+  }
+  const chips = el("div", {className: "chips", role: "group", "aria-label": "Compases de transición"});
+  for (const n of [1, 4, 8, 16]) chips.append(el("button", {type: "button", textContent: n === 1 ? "al compás" : String(n), "aria-pressed": f.transicion === n ? "true" : "false",
+    onclick: () => { f.transicion = n; renderTocar(); guardar(); }}));
+  return el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [
+    el("div", {className: "fila"}, [h3("Escenas"), cfg.escena.length ? el("button", {type: "button", textContent: editarEscenas ? "Listo" : "Editar",
+      style: "min-height:32px;padding:0 12px;font-size:12px", onclick: () => { editarEscenas = !editarEscenas; renderTocar(); }}) : null]),
+    grilla,
+    el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Transición (compases)"}), chips]),
+    cfg.escena.length ? null : ayuda("Una escena guarda cómo suena todo ahora (géneros, estilos, variantes, qué motores suenan y la energía). Al lanzarla, el motor llega a ella de a poco, sin cortar."),
+  ]);
+}
+
+async function lanzarEscena(i) {
+  try {
+    clearTimeout(temporizador); await api("/api/config", cfg);
+    await api("/api/escena/lanzar", {indice: i}); await recargar(); estado();
+    aviso(cfg.forma.transicion > 1 ? `Hacia ${cfg.escena[i].nombre} en ${cfg.forma.transicion} compases` : `${cfg.escena[i].nombre} en el próximo compás`);
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function guardarEscena(i) {
+  const actual = i === null ? `Escena ${cfg.escena.length + 1}` : cfg.escena[i].nombre;
+  const nombre = prompt(i === null ? "Nombre de la escena" : "Guardar lo que suena ahora en esta escena. Nombre:", actual);
+  if (nombre === null) return;
+  try {
+    clearTimeout(temporizador); await api("/api/config", cfg);
+    await api("/api/escena/guardar", i === null ? {nombre} : {nombre, indice: i}); await recargar(); aviso("Escena guardada");
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function borrarEscena(i) {
+  if (!confirm(`¿Borrar la escena ${cfg.escena[i].nombre}?`)) return;
+  try { await api("/api/escena/borrar", {indice: i}); await recargar(); } catch (e) { aviso(e.message, true); }
+}
+
+// --- Energía ---
+
+let energiaTocando = 0, energiaTemp = null;
+
+function textoEnergia(x) {
+  return x < 0.2 ? "calma" : x < 0.4 ? "tranquilo" : x < 0.6 ? "normal" : x < 0.8 ? "arriba" : "clímax";
+}
+
+function bloqueEnergia() {
+  const f = cfg.forma;
+  const numero = el("span", {className: "n", id: "energia_n", textContent: Math.round(f.energia * 100)});
+  const r = el("input", {type: "range", min: 0, max: 100, step: 1, value: Math.round(f.energia * 100), id: "energia", "aria-label": "Energía",
+    oninput: () => {
+      energiaTocando = Date.now();
+      f.energia = parseInt(r.value) / 100; numero.textContent = r.value;
+      clearTimeout(energiaTemp);
+      energiaTemp = setTimeout(() => api("/api/energia", {energia: f.energia}).catch((e) => aviso(e.message, true)), 250);
+    }});
+  return el("div", {className: "energia"}, [
+    el("div", {className: "fila"}, [el("label", {htmlFor: "energia", style: "font-size:13px;font-weight:650;color:var(--txt2)"}, ["Energía ", el("span", {className: "mut", id: "energia_t", textContent: "· " + textoEnergia(f.energia)})]), numero]),
+    r,
+    el("div", {className: "ley"}, [el("span", {textContent: "calma"}), el("span", {textContent: "50 = tus ajustes", style: "text-align:center"}), el("span", {textContent: "clímax"})]),
+  ]);
+}
+
+function pintarTocar(d) {
+  const f = d.forma;
+  if (!f || !cfg) return;
+  const tr = f.transicion;
+  document.querySelectorAll("#escenas [data-escena]").forEach((b) => {
+    const i = parseInt(b.dataset.escena);
+    const cola = tr && tr.escena === i;
+    const actual = !cola && f.escena === i;
+    b.classList.toggle("cola", !!cola);
+    b.classList.toggle("actual", actual);
+    b.querySelector(".e").textContent = cola ? (tr.puente ? "puente…" : `en ${tr.faltan + 1} comp.`) : actual ? "sonando" : "";
+  });
+  if (Date.now() - energiaTocando > 1500) {
+    const r = $("energia");
+    const real = Math.round(f.energia * 100), pedida = Math.round(f.pedida * 100);
+    if (r && document.activeElement !== r) r.value = pedida;
+    const n = $("energia_n");
+    if (n) n.textContent = real === pedida ? real : `${real} → ${pedida}`;
+    const t2 = $("energia_t");
+    if (t2) t2.textContent = "· " + textoEnergia(f.energia);
+  }
 }
 
 async function api(ruta, datos) {

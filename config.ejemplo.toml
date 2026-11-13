@@ -132,6 +132,13 @@ velocidad = 92
 vel_random = 0.15
 desplazamiento = -1.0
 
+[forma]
+# Escenas y energía (pestaña Tocar). Las escenas se guardan desde la app,
+# abajo de todo como [[escena]]: cada una es una foto de lo musical, sin destinos.
+energia = 0.5             # 0 calma … 1 clímax; 0.5 = cada motor tal como lo dejaste
+transicion = 8            # compases para pasar a una escena (1 = en el próximo compás)
+escena = -1               # la última escena lanzada (-1 = ninguna)
+
 [[secuencia]]
 nombre = "A"
 activa = true

@@ -121,6 +121,38 @@ entra en el próximo compás; mientras espera, titila.
 **Proyectos** (en Ajustes): guardar, guardar como, abrir y borrar proyectos
 completos. Se guardan en `~/.config/goa/proyectos/`.
 
+## Escenas y energía
+
+En **Tocar**:
+
+- **Escenas** (hasta 8): "+ Guardar lo que suena" guarda una foto de todo lo
+  musical: géneros, tónica y escala, progresión, estilos, variantes, ajustes de
+  cada motor, cuáles suenan y la energía. No guarda destinos ni canales, así que
+  sigue sirviendo si cambias cables. En **Editar** puedes guardar encima de una o
+  borrarla.
+- Al tocar una escena, el motor **llega a ella de a poco** en los compases de
+  *Transición* (al compás, 4, 8 o 16), empezando en el próximo compás:
+  - lo continuo (densidad, largo de notas, oscuridad, swing, tensión, fuerza…)
+    se mueve un poco en cada compás;
+  - lo que no se puede mover de a poco (estilo, variante, progresión, escala)
+    cambia en el último compás de la transición;
+  - los motores que se prenden **entran de a uno** (primero los pads, después
+    las secuencias, el diálogo y al final el bajo) y los que se apagan salen de
+    a uno;
+  - si cambia la **tonalidad**, los dos compases antes del cambio suena un
+    **acorde puente** que es de las dos escalas (de F frigio a C menor, por
+    ejemplo, Fm: el iv de la nueva) y después la progresión nueva parte en su i.
+    En Armonía › *Entre escenas* ves qué tan emparentada es cada escena con lo
+    que suena.
+  Mientras llega, la escena titila y dice cuántos compases faltan. Lo que
+  cambies en la app durante la transición se suma al destino.
+- **Energía** (0 a 100; 50 = cada motor tal como lo dejaste): mueve juntas la
+  densidad y los acentos de las secuencias y el bajo, las notas fantasma, la
+  evolución, la fuerza, el pulso de los pads (y sus suspensiones, más en la
+  calma), el espacio y los golpes del diálogo y la tensión armónica. Nunca
+  salta: llega como mucho 10 por compás (arriba dice, por ejemplo, 40 → 80).
+  Cada escena guarda su energía.
+
 ## Cambios en vivo
 
 Con el motor andando, nada se dispara de golpe al tocar la app:
@@ -229,7 +261,7 @@ ya había mutado.
 
 **Variación:** *Evolución* cambia un golpe cada *mutar cada* compases (otra
 nota, un silencio, uno nuevo o corrido) y se acumula, con algunos que vuelven a
-como eran. *Transponer* corre el bajo en grados de escala (4 = la quinta). En
+como eran. *Transponer* corre el bajo en grados de escala (4 = la quinta). En los
 grupos Ritmo y Notas: densidad, swing, slide (para un sinte en legato con glide),
 acentos y notas fantasma.
 
@@ -280,4 +312,6 @@ que solo guían y las suspensiones.
 y el control Pegado ↔ Desplazado.
 `python3 -m pruebas.mutaciones` prueba que las mutaciones avancen y que mover
 un control en la app no las borre.
+`python3 -m pruebas.escenas` prueba las escenas: la transición gradual, que los motores
+entren de a uno, el acorde puente al cambiar de tonalidad y que la energía llegue de a poco.
 `python3 -m pruebas.app` levanta la app con una Circuit simulada en http://localhost:8080.

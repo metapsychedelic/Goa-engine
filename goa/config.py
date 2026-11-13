@@ -1,11 +1,12 @@
 """Leer, validar y guardar la configuración (config.toml)."""
 
-import json
 import os
 import tempfile
 import tomllib
 
-from . import armonia, bajo, dialogo, generador, generos, pads
+import json
+
+from . import armonia, bajo, dialogo, forma, generador, generos, pads
 from .escalas import ESCALAS, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -120,6 +121,18 @@ ESQUEMA_SECCIONES["bajo"] = {
     "seed": (str, "B-0001", None, None),
 }
 
+ESQUEMA_SECCIONES["forma"] = {
+    "energia": (float, 0.5, 0.0, 1.0),       # 0,5 = cada motor tal como lo dejaste
+    "transicion": (int, 8, 1, 16),           # compases para pasar de una escena a otra
+    "escena": (int, -1, -1, forma.MAX_ESCENAS - 1),  # la última escena lanzada (-1 = ninguna)
+}
+
+ESQUEMA_ESCENA = {
+    "nombre": (str, "Escena", None, None),
+    "energia": (float, 0.5, 0.0, 1.0),
+}
+MAX_DATOS_ESCENA = 60000
+
 # Un clip de diálogo guarda la conversación completa, con quién llama y los destinos,
 # para que al lanzarlo entre tal como se armó. Las voces van con prefijo para que
 # quede plano en el archivo: llamada_salida, respuesta_escala...
@@ -226,6 +239,31 @@ def normalizar(cfg):
         raise ConfigError("clip_dialogo debe ser una lista")
     limpia["clip_dialogo"] = [{k: _valor(k, (s or {}).get(k), e) for k, e in ESQUEMA_CLIP_DIALOGO.items()}
                               for s in clips[:MAX_CLIPS]]
+    escenas = cfg.get("escena") or []
+    if not isinstance(escenas, list):
+        raise ConfigError("escena debe ser una lista")
+    limpia["escena"] = [_escena(e) for e in escenas[:forma.MAX_ESCENAS]]
+    if limpia["forma"]["escena"] >= len(limpia["escena"]):
+        limpia["forma"]["escena"] = -1
+    return limpia
+
+
+def _escena(e):
+    """Una escena: nombre, energía y su foto (JSON, ver forma.foto)."""
+    if not isinstance(e, dict):
+        raise ConfigError("Escena inválida")
+    limpia = {k: _valor(k, e.get(k), esq) for k, esq in ESQUEMA_ESCENA.items()}
+    datos = e.get("datos", "{}")
+    if not isinstance(datos, str):
+        datos = json.dumps(datos, ensure_ascii=False, separators=(",", ":"))
+    if len(datos) > MAX_DATOS_ESCENA:
+        raise ConfigError("Escena demasiado grande")
+    try:
+        if not isinstance(json.loads(datos), dict):
+            raise ValueError
+    except ValueError:
+        raise ConfigError(f"La escena {limpia['nombre']} está dañada")
+    limpia["datos"] = datos
     return limpia
 
 
@@ -297,6 +335,10 @@ def a_toml(cfg):
         lineas.append("")
     for s in cfg.get("clip_dialogo", []):
         lineas.append("[[clip_dialogo]]")
+        lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
+        lineas.append("")
+    for s in cfg.get("escena", []):
+        lineas.append("[[escena]]")
         lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
         lineas.append("")
     return "\n".join(lineas)

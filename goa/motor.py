@@ -11,7 +11,7 @@ import random
 import time
 from collections import deque
 
-from . import armonia, generador
+from . import armonia, forma, generador
 from .bajo import Bajo
 from .dialogo import Dialogo
 from .escalas import Tonalidad, nombre_midi
@@ -136,6 +136,10 @@ class Motor:
         self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
         self.cola_dialogo = False  # False = nada en cola · None = detener · (secciones, nombre) = lanzar
         self.musica = {}
+        self.base = None            # la configuración que pidió la app (sin energía ni transición)
+        self.conductor = forma.Conductor()
+        self.origen_progresion = 0  # compás donde parte la progresión de los pads
+        self.puente = None          # (tonalidad nueva, base de los pads, paso del cambio) durante un acorde puente
         self.aplicar_config(config)
 
     def aplicar_config(self, config):
@@ -145,14 +149,41 @@ class Motor:
         nuevo se escucha de inmediato). Todo lo demás (pads, bajo, diálogo, tónica,
         escala, armonía…) entra en el primer paso del próximo compás, y en ese cambio
         las notas que suenan terminan solas y los pads pasan en ligado."""
+        config = copy.deepcopy(config)
+        config.setdefault("forma", {"energia": 0.5})
+        self.base = config
+        tr = self.conductor.transicion
+        if tr is not None:
+            # Lo que cambias durante una transición va al destino; la transición sigue.
+            tr.destino = copy.deepcopy(config)
+            tr.umbrales = tr._umbrales()
         if self.corriendo and self.tick >= 0 and self.config is not None:
-            config = copy.deepcopy(config)
-            ahora = dict(self.config, secuencia=config.get("secuencia", []))
+            efectiva = self.conductor.efectiva(config, self._compas_actual())
+            ahora = dict(self.config, secuencia=efectiva.get("secuencia", []))
             self._aplicar(ahora)
-            self.config_en_cola = None if config == ahora else config
+            self.config_en_cola = None if efectiva == ahora else efectiva
         else:
             self.config_en_cola = None
-            self._aplicar(config)
+            self.conductor.energia = None  # detenido: la energía queda donde la pediste
+            self._aplicar(self.conductor.efectiva(config, 0))
+
+    def _compas_actual(self):
+        return max(self.tick, 0) // (TICKS_POR_PASO * PASOS_POR_COMPAS)
+
+    def lanzar_escena(self, destino, compases, indice=None):
+        """Pasa a la configuración `destino` (una escena) en `compases` compases, desde el próximo."""
+        destino = copy.deepcopy(destino)
+        if not (self.corriendo and self.tick >= 0):
+            self.conductor.reiniciar()
+            self.aplicar_config(destino)
+            return
+        compas = self._compas_actual()
+        tr = self.conductor.transicion
+        origen = tr.config(compas) if tr is not None else self.base
+        self.conductor.lanzar(origen, destino, compas + 1, compases, indice)
+        self.base = destino
+        self.config_en_cola = destino
+        log.info("Escena %s: transición de %d compases", indice, compases)
 
     def _aplicar(self, config):
         config = copy.deepcopy(config)  # una copia propia: si quien llama la modifica, no se confunde
@@ -164,18 +195,22 @@ class Motor:
         desplazamiento = musica.get("desplazamiento", 0.0)
         anterior = self.config_aplicada or {}
         mismo = lambda *secciones: all(anterior.get(k) == config.get(k) for k in secciones)  # noqa: E731
+        # La tensión y anticipar solo los leen las secuencias, el bajo y el diálogo en cada paso:
+        # moverlos (la energía lo hace) no rehace los pads ni el bajo.
+        sin_tension = lambda c: {k: v for k, v in c.get("musica", {}).items() if k not in ("tension", "anticipar")}  # noqa: E731
+        musica_igual = sin_tension(anterior) == sin_tension(config)
         self.musica = musica
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
-        if self.pads is not None and mismo("pads", "musica", "entrada"):
+        if self.pads is not None and mismo("pads", "entrada") and musica_igual:
             pads = self.pads  # nada de los pads cambió: siguen exactamente igual
         else:
             pads = Pads(config.get("pads", {}), tonalidad, desplazamiento)
             pads.continuar_de(self.pads, self.enviar)  # en ligado, sin volver a atacar
-        if self.bajo is not None and mismo("bajo", "musica", "entrada"):
+        if self.bajo is not None and mismo("bajo", "entrada") and musica_igual:
             bajo = self.cola_bajo or self.bajo
         else:
             bajo = Bajo(config.get("bajo", {}), tonalidad)
-        if self.dialogo is not None and mismo("dialogo", "llamada", "respuesta", "musica", "entrada"):
+        if self.dialogo is not None and mismo("dialogo", "llamada", "respuesta", "entrada") and musica_igual:
             dialogo = self.dialogo
         else:
             dialogo = self._crear_dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}))
@@ -231,6 +266,8 @@ class Motor:
         self.seguir_pads = bool(musica.get("seguir_pads", False))
         self.tension = float(musica.get("tension", 0.3))
         self.anticipar = bool(musica.get("anticipar", True))
+        self.dialogo.tension, self.dialogo.anticipar = self.tension, self.anticipar
+        self.pads.origen = self.origen_progresion
 
     def _modo_armonia(self, propio):
         """Modo efectivo de un motor: el suyo, o el general de Música."""
@@ -344,6 +381,7 @@ class Motor:
                                 ("detener" if self.cola[i] is None else self.cola[i][1]))}
                       for i, s in enumerate(self.secuencias)],
             "cambios_en_cola": self.config_en_cola is not None,
+            "forma": self._forma_estado(),
             "motores": dict({"pads": bool(self.pads and self.pads.activo), "bajo": bool(self.bajo and self.bajo.activo),
                              "dialogo": bool(self.dialogo and self.dialogo.activo)},
                             **{f"sec{i}": s.activa for i, s in enumerate(self.secuencias)}),
@@ -352,6 +390,20 @@ class Motor:
             "fila_dialogo": {"clip": self.dialogo.clip, "activa": self.dialogo.activo,
                              "cola": (None if self.cola_dialogo is False else
                                       ("detener" if self.cola_dialogo is None else self.cola_dialogo[1]))},
+        }
+
+    def _forma_estado(self):
+        tr = self.conductor.transicion
+        compas = self._compas_actual()
+        base = (self.base or {}).get("forma", {})
+        return {
+            "energia": self.conductor.energia if self.conductor.energia is not None else base.get("energia", 0.5),
+            "pedida": self.conductor.objetivo(self.base, compas) if self.base else 0.5,
+            "escena": base.get("escena", -1),
+            "transicion": None if tr is None or not self.corriendo else {
+                "escena": tr.escena, "compases": tr.compases,
+                "faltan": max(0, tr.fin - compas) if compas >= tr.inicio else tr.compases,
+                "puente": self.puente is not None},
         }
 
     def _acorde_estado(self, paso):
@@ -370,9 +422,11 @@ class Motor:
 
     def start(self):
         log.info("Start")
-        if self.config_en_cola is not None:
-            config, self.config_en_cola = self.config_en_cola, None
-            self._aplicar(config)
+        # Una transición a medias termina de una vez: arranca en la escena pedida.
+        self.conductor.reiniciar()
+        self.origen_progresion, self.puente = 0, None
+        self.config_en_cola = None
+        self._aplicar(self.conductor.efectiva(self.base, 0))
         self.apagar_todo()
         self._olvidar_notas()  # la Circuit vuelve a mandar sus notas desde el primer paso
         for s in self.secuencias:
@@ -411,6 +465,9 @@ class Motor:
             # justo en el cambio de compás, su note_off ya llegó y no suena un acorde suelto.
             d = self.disparos[self.pads.disparo]
             raiz = None if d.pendiente is None else (d.raiz if d.raiz is not None else d.pendiente)
+            paso = self.tick // TICKS_POR_PASO
+            self.pads.forzado = (self._momento_puente(paso, raiz).raiz % 12
+                                 if self.puente is not None and raiz is not None else None)
             self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
 
     def nota_on(self, canal, nota, velocidad=100):
@@ -445,10 +502,7 @@ class Motor:
 
     def _paso(self, paso):
         if paso % PASOS_POR_COMPAS == 0:
-            if self.config_en_cola is not None:
-                config, self.config_en_cola = self.config_en_cola, None
-                self._aplicar(config)  # los cambios de la app entran justo en el compás
-                log.info("Entran los cambios de la app")
+            self._compas_forma(paso // PASOS_POR_COMPAS)
             if self.cola:
                 self._aplicar_cola()  # los clips entran justo en el primer paso del compás
             if self.cola_dialogo is not False:
@@ -467,8 +521,39 @@ class Motor:
         self._paso_dialogo(paso)
         self._paso_bajo(paso)
 
+    def _compas_forma(self, compas):
+        """Primer paso de cada compás: entran los cambios de la app, la energía da un paso
+        y avanza la transición entre escenas."""
+        self.conductor.avanzar(self.base, compas)
+        tr = self.conductor.transicion
+        self.puente = None
+        if tr is not None:
+            if tr.puente(compas):
+                d = tr.destino
+                self.puente = (Tonalidad(d["musica"]["tonica"], d["musica"]["escala"]), d["pads"].get("base", "nota"),
+                               (tr.fin) * PASOS_POR_COMPAS)
+            if compas == tr.fin and forma.cambia_armonia(tr.origen, tr.destino):
+                self.origen_progresion = compas  # la progresión nueva parte en su i
+        efectiva = self.conductor.efectiva(self.base, compas)
+        if efectiva != self.config:
+            self._aplicar(efectiva)  # los cambios entran justo en el compás
+            log.info("Entran los cambios (compás %d)", compas + 1)
+        self.pads.origen = self.origen_progresion
+        self.config_en_cola = None
+        self.conductor.terminar_si_corresponde(compas)
+
+    def _momento_puente(self, paso, raiz):
+        nueva, base, cambio = self.puente
+        raiz_nueva = _cerca(nueva.tonica, raiz) if base == "tonica" else raiz
+        return armonia.puente(self.tonalidad, nueva, raiz_nueva, max(1, cambio - paso))
+
     def _momento(self, paso, raiz):
         """Momento armónico en `paso`: el de los pads, o el acorde sobre la nota larga `raiz`."""
+        if self.puente is not None:
+            r = self.disparos[self.pads.disparo].raiz if self.pads.activo else None
+            r = r if r is not None else raiz
+            if r is not None:
+                return self._momento_puente(paso, r)
         if self.pads.activo:
             m = self.pads.momento(paso, self.disparos[self.pads.disparo].raiz)
             if m is not None:

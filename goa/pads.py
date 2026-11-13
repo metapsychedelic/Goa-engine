@@ -139,6 +139,8 @@ class Pads:
         self.resoluciones = []      # (tick, colgada, destino) de las suspensiones
         self.clave = None           # (cambio, base) del acorde actual
         self.raiz_acorde = None
+        self.origen = 0             # compás donde arranca la progresión (una escena nueva parte en su i)
+        self.forzado = None         # clase de altura de un acorde puente (entre escenas), o None
 
     # --- Armado de acordes ---
 
@@ -241,8 +243,11 @@ class Pads:
         base = self._base(raiz) if self.activo else None
         if base is None:
             return None, None
-        cambio = (paso // 16) // self.cambia_cada
-        raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
+        if self.forzado is not None:
+            raiz_acorde = _cerca(self.forzado, base)
+        else:
+            cambio = (paso // 16 - self.origen) // self.cambia_cada
+            raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
         clases = {self.tonalidad.nota(raiz_acorde, p, "escala") % 12 for p in self.acorde}
         return raiz_acorde, clases
 
@@ -256,10 +261,11 @@ class Pads:
         if base is None:
             return None
         largo = self.cambia_cada * PASOS_POR_COMPAS
-        cambio = paso // largo
+        relativo = paso - self.origen * PASOS_POR_COMPAS
+        cambio = relativo // largo
         actual = self.tonalidad.nota(base, self._grado(cambio), "escala")
         siguiente = self.tonalidad.nota(base, self._grado(cambio + 1), "escala")
-        return Momento(actual, self._clases(actual), siguiente, self._clases(siguiente), (cambio + 1) * largo - paso)
+        return Momento(actual, self._clases(actual), siguiente, self._clases(siguiente), (cambio + 1) * largo - relativo)
 
     # --- Tiempo ---
 
@@ -273,10 +279,16 @@ class Pads:
             return
         # Con pulso, los pads miran un paso adelante: así el golpe del uno del compás
         # que viene sale a tiempo, ya con su acorde (este llamado llega 2 pulsos tarde).
-        cambio = ((paso + (1 if self.pulso else 0)) // 16) // self.cambia_cada
-        clave = (cambio, base)
-        if clave != self.clave:
-            self._cambiar_acorde(clave, cambio, base, tick, enviar)
+        cambio = ((paso + (1 if self.pulso else 0)) // 16 - self.origen) // self.cambia_cada
+        if self.forzado is not None:
+            # Acorde puente entre escenas: lo pone el motor, común a las dos tonalidades.
+            clave = ("puente", self.forzado, base)
+            if clave != self.clave:
+                self._cambiar_acorde(clave, cambio, base, tick, enviar, raiz=_cerca(self.forzado, base))
+        else:
+            clave = (cambio, base)
+            if clave != self.clave:
+                self._cambiar_acorde(clave, cambio, base, tick, enviar)
         if self.pulso:
             self._programar_pulso(paso, tick)
             self.tick(tick, enviar)
@@ -309,10 +321,10 @@ class Pads:
         self.clave = None  # recalcula el acorde en el próximo paso, en ligado
         self.transicion = True
 
-    def _cambiar_acorde(self, clave, cambio, base, tick, enviar):
+    def _cambiar_acorde(self, clave, cambio, base, tick, enviar, raiz=None):
         self._resolver(tick, enviar, todas=True)  # una suspensión anterior resuelve antes del cambio
         self.clave = clave
-        raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
+        raiz_acorde = raiz if raiz is not None else self.tonalidad.nota(base, self._grado(cambio), "escala")
         self.raiz_acorde = raiz_acorde
         self.base_actual = base
         nuevas = sorted(set(self._voicing(raiz_acorde)))  # sin notas repetidas al doblar voces

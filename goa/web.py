@@ -8,14 +8,14 @@ import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, generos
+from . import __version__, forma, generos
 from .config import (MAX_CLIPS, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
 log = logging.getLogger("goa")
 PAGINA = Path(__file__).parent / "web" / "index.html"
-MAX_CUERPO = 64 * 1024
+MAX_CUERPO = 1024 * 1024  # la configuración trae las escenas
 
 
 class Contexto:
@@ -124,6 +124,10 @@ def crear_servidor(ctx, puerto):
                 "/api/dialogo/clip/borrar": self._dialogo_clip_borrar,
                 "/api/dialogo/lanzar": self._dialogo_lanzar,
                 "/api/dialogo/detener": self._dialogo_detener,
+                "/api/escena/guardar": self._escena_guardar,
+                "/api/escena/lanzar": self._escena_lanzar,
+                "/api/escena/borrar": self._escena_borrar,
+                "/api/energia": self._energia,
                 "/api/proyecto/guardar": self._proyecto_guardar,
                 "/api/proyecto/abrir": self._proyecto_abrir,
                 "/api/proyecto/borrar": self._proyecto_borrar,
@@ -166,6 +170,10 @@ def crear_servidor(ctx, puerto):
             self._json(dict({"ok": True, "aviso": aviso} if aviso else {"ok": True}, **extra))
 
         def _config(self, datos):
+            if isinstance(datos, dict):
+                with ctx.candado:
+                    # Las escenas solo cambian con sus botones: una configuración vieja no las borra.
+                    datos = dict(datos, escena=ctx.config["escena"])
             nueva = normalizar(datos)
             Motor(nueva, lambda *a: None)  # valida antes de tocar nada
             with ctx.candado:
@@ -244,6 +252,59 @@ def crear_servidor(ctx, puerto):
             with ctx.candado:
                 ctx.motor.detener_dialogo()
                 ctx.config["dialogo"]["activo"] = False
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _escena_guardar(self, datos):
+            """Guarda cómo suena todo ahora como escena (nueva, o encima de `indice`)."""
+            with ctx.candado:
+                escenas = ctx.config["escena"]
+                escena = forma.escena_de(ctx.config, str(datos.get("nombre", "")))
+                indice = datos.get("indice")
+                if indice is None:
+                    if len(escenas) >= forma.MAX_ESCENAS:
+                        raise ValueError(f"Máximo {forma.MAX_ESCENAS} escenas")
+                    escenas.append(escena)
+                    indice = len(escenas) - 1
+                else:
+                    indice = int(indice)
+                    escena["nombre"] = str(datos.get("nombre") or escenas[indice]["nombre"])[:24]
+                    escenas[indice] = escena
+                ctx.config["forma"]["escena"] = indice
+                ctx.motor.base["forma"]["escena"] = indice
+                aviso = self._guardar_activa()
+            self._responder(aviso, indice=indice)
+
+        def _escena_lanzar(self, datos):
+            """Pasa a una escena en los compases de transición (desde el próximo compás)."""
+            with ctx.candado:
+                indice = int(datos["indice"])
+                escena = ctx.config["escena"][indice]
+                nueva = normalizar(forma.mezclar(ctx.config, escena))
+                nueva["forma"]["escena"] = indice
+                compases = int(datos.get("compases") or nueva["forma"]["transicion"])
+                Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+                ctx.motor.lanzar_escena(nueva, compases, indice)
+                ctx.config = nueva
+                ctx.puertos.cambiar_salidas(salidas(nueva))
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _escena_borrar(self, datos):
+            with ctx.candado:
+                indice = int(datos["indice"])
+                del ctx.config["escena"][indice]
+                actual = ctx.config["forma"]["escena"]
+                ctx.config["forma"]["escena"] = -1 if actual == indice else actual - (1 if actual > indice else 0)
+                ctx.motor.base["forma"]["escena"] = ctx.config["forma"]["escena"]
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _energia(self, datos):
+            """Solo la energía (el control grande de Tocar): llega de a poco, sin mandar toda la configuración."""
+            with ctx.candado:
+                ctx.config["forma"]["energia"] = max(0.0, min(1.0, float(datos["energia"])))
+                ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
