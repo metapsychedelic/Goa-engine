@@ -26,6 +26,7 @@ def correr(ajuste=None, dialogo=None, compases=48, tocar=None):
     if ajuste is not None:
         cfg["secuencia"][0].update(ajuste)
     cfg["dialogo"].update(activo=dialogo is not None, disparo=0, **(dialogo or {}))
+    cfg["forma"]["variacion"] = 0.0  # sin director: acá se mide solo la mutación
     porcompas = {}
     m = Motor(cfg, lambda sal, t, c, n, v: t == "note_on" and porcompas.setdefault(m.tick // 96, []).append(((m.tick % 96) // 6, n)))
     m.start()

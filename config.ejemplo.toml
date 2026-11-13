@@ -138,6 +138,8 @@ desplazamiento = -1.0
 energia = 0.5             # 0 calma … 1 clímax; 0.5 = cada motor tal como lo dejaste
 transicion = 8            # compases para pasar a una escena (1 = en el próximo compás)
 escena = -1               # la última escena lanzada (-1 = ninguna)
+variacion = 0.4           # director: cuánto cambia en cada período (0 = nada)
+periodo = 16              # compases de cada período del director (16 o 32)
 
 [[secuencia]]
 nombre = "A"

@@ -986,7 +986,7 @@ function render() {
 
 function renderTocar() {
   const caja = $("tocar_extra"); caja.innerHTML = "";
-  caja.append(bloqueEscenas(), bloqueEnergia());
+  caja.append(bloqueEscenas(), bloqueEnergia(), bloqueForma());
   renderMutes();
   if (ultimoEstado) pintarTocar(ultimoEstado);
 }
@@ -1088,7 +1088,25 @@ function bloqueEnergia() {
   ]);
 }
 
+// --- Forma: variación larga (y piloto) ---
+
+function bloqueForma() {
+  const f = cfg.forma;
+  const chips = el("div", {className: "chips", role: "group", "aria-label": "Compases de cada período"});
+  for (const n of [16, 32]) chips.append(el("button", {type: "button", textContent: String(n), "aria-pressed": f.periodo === n ? "true" : "false",
+    onclick: () => { f.periodo = n; renderTocar(); guardar(); }}));
+  return el("div", {className: "energia", id: "forma_caja"}, [
+    deslizador(f, "variacion", "Variación larga", 0, 1, 0.05, (x) => x === 0 ? "apagada" : x < 0.35 ? `poca (${porcentaje(x)})` : x < 0.7 ? `media (${porcentaje(x)})` : `mucha (${porcentaje(x)})`),
+    el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Cambia cada (compases)"}), chips]),
+    el("span", {className: "mut", id: "director_linea", textContent: ""}),
+  ]);
+}
+
 function pintarTocar(d) {
+  const dl = $("director_linea");
+  if (dl && d.forma) dl.textContent = !cfg.forma.variacion ? "Sin variación larga: todo suena tal como lo armaste."
+    : d.forma.director && d.forma.director.length ? "Este período: " + d.forma.director.join(" · ")
+    : "Este período: tal como lo armaste. Variantes hermanas, motivos que vuelven, octavas, cambio de roles y pads que solo guían entran al empezar cada período.";
   const f = d.forma;
   if (!f || !cfg) return;
   const tr = f.transicion;

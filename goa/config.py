@@ -125,6 +125,8 @@ ESQUEMA_SECCIONES["forma"] = {
     "energia": (float, 0.5, 0.0, 1.0),       # 0,5 = cada motor tal como lo dejaste
     "transicion": (int, 8, 1, 16),           # compases para pasar de una escena a otra
     "escena": (int, -1, -1, forma.MAX_ESCENAS - 1),  # la última escena lanzada (-1 = ninguna)
+    "variacion": (float, 0.4, 0.0, 1.0),     # cuánto cambia el director en cada período
+    "periodo": (int, 16, 8, 32),             # compases de cada período del director
 }
 
 ESQUEMA_ESCENA = {

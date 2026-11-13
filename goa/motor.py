@@ -14,6 +14,7 @@ from collections import deque
 from . import armonia, forma, generador
 from .bajo import Bajo
 from .dialogo import Dialogo
+from .director import Director
 from .escalas import Tonalidad, nombre_midi
 from .pads import Pads, _cerca
 
@@ -138,6 +139,7 @@ class Motor:
         self.musica = {}
         self.base = None            # la configuración que pidió la app (sin energía ni transición)
         self.conductor = forma.Conductor()
+        self.director = Director()
         self.origen_progresion = 0  # compás donde parte la progresión de los pads
         self.puente = None          # (tonalidad nueva, base de los pads, paso del cambio) durante un acorde puente
         self.aplicar_config(config)
@@ -240,6 +242,7 @@ class Motor:
                     # Mismo patrón de base: conserva lo que ya mutó. Antes, mover cualquier
                     # control de la app devolvía la secuencia a su patrón original.
                     s.patron = vieja.patron
+                    s._director_patron = getattr(vieja, "_director_patron", None)  # un cambio del director viaja con su patrón
         pads.disparo = self._canal_de(config.get("pads", {}))
         bajo.disparo = self._canal_de(config.get("bajo", {}))
         canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, bajo.disparo, self.canal_disparo}
@@ -268,6 +271,7 @@ class Motor:
         self.anticipar = bool(musica.get("anticipar", True))
         self.dialogo.tension, self.dialogo.anticipar = self.tension, self.anticipar
         self.pads.origen = self.origen_progresion
+        self.director.aplicar(self)  # los cambios del período siguen en los motores recién armados
 
     def _modo_armonia(self, propio):
         """Modo efectivo de un motor: el suyo, o el general de Música."""
@@ -400,6 +404,7 @@ class Motor:
             "energia": self.conductor.energia if self.conductor.energia is not None else base.get("energia", 0.5),
             "pedida": self.conductor.objetivo(self.base, compas) if self.base else 0.5,
             "escena": base.get("escena", -1),
+            "director": self.director.descripcion(self) if self.corriendo else [],
             "transicion": None if tr is None or not self.corriendo else {
                 "escena": tr.escena, "compases": tr.compases,
                 "faltan": max(0, tr.fin - compas) if compas >= tr.inicio else tr.compases,
@@ -424,6 +429,7 @@ class Motor:
         log.info("Start")
         # Una transición a medias termina de una vez: arranca en la escena pedida.
         self.conductor.reiniciar()
+        self.director.reiniciar()
         self.origen_progresion, self.puente = 0, None
         self.config_en_cola = None
         self._aplicar(self.conductor.efectiva(self.base, 0))
@@ -541,6 +547,9 @@ class Motor:
         self.pads.origen = self.origen_progresion
         self.config_en_cola = None
         self.conductor.terminar_si_corresponde(compas)
+        f = self.base.get("forma", {})
+        self.director.compas(self, compas, float(f.get("variacion", 0.0)), max(1, int(f.get("periodo", 16))),
+                             self.base.get("pads", {}).get("seed", ""))
 
     def _momento_puente(self, paso, raiz):
         nueva, base, cambio = self.puente

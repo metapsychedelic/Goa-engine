@@ -153,6 +153,25 @@ En **Tocar**:
   salta: llega como mucho 10 por compás (arriba dice, por ejemplo, 40 → 80).
   Cada escena guarda su energía.
 
+## Variación larga (el director)
+
+Para que nada suene igual durante mucho rato sin perder la identidad, en Tocar
+está **Variación larga**. Cada 16 o 32 compases (en el borde de la frase), el
+director deshace lo que hizo en el período anterior y, según cuánta variación
+pediste, elige uno o dos cambios para el período que empieza:
+
+- **variante hermana:** una secuencia cambia un 20 % de sus notas, con el mismo ritmo;
+- **vuelve un motivo:** una secuencia retoma un patrón de hace uno o más
+  períodos, transformado (corrido, una tercera arriba o en espejo);
+- **una octava arriba** en una secuencia;
+- **cambio de roles:** la llamada pasa al sinte de la respuesta y al revés;
+- **pads que solo guían:** se callan un período y siguen guiando la armonía;
+- **protagonista:** un motor queda adelante y los demás tocan menos notas.
+
+No cambia tu configuración: todo vuelve solo al terminar el período. Una
+secuencia **congelada** queda fuera. Debajo dice qué está haciendo en este
+período. Es determinista: la misma configuración hace el mismo viaje.
+
 ## Cambios en vivo
 
 Con el motor andando, nada se dispara de golpe al tocar la app:
@@ -314,4 +333,6 @@ y el control Pegado ↔ Desplazado.
 un control en la app no las borre.
 `python3 -m pruebas.escenas` prueba las escenas: la transición gradual, que los motores
 entren de a uno, el acorde puente al cambiar de tonalidad y que la energía llegue de a poco.
+`python3 -m pruebas.director` prueba la variación larga: que entre solo en el borde de cada
+período, que todo vuelva al terminar y que respete las secuencias congeladas.
 `python3 -m pruebas.app` levanta la app con una Circuit simulada en http://localhost:8080.
