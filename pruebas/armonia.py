@@ -175,6 +175,35 @@ if __name__ == "__main__":
         todo &= ok(maximo <= cfg["pads"]["voces"] and not choques,
                    f"{generos.GENEROS[genero]['nombre']:<14} máx. {maximo} notas (drone incluido), sin medio tono ni ♭9 entre voces")
 
+    print("\nTexturas de los pads")
+    def sonando_en(salida, cfg, marcas):
+        cur, i, ev, out = set(), 0, [e for e in salida if e[1] == cfg["pads"]["salida"]], []
+        for mk in marcas:
+            while i < len(ev) and ev[i][0] <= mk:
+                t, s, ti, c, n, _ = ev[i]
+                (cur.add if ti == "note_on" else cur.discard)(n)
+                i += 1
+            out.append((mk, sorted(cur)))
+        return out
+    marcas = range(96, 16 * 96, 192)
+    cfg = armar(secuencia=False, textura="nota", rasgueo=0)
+    salida, motor = correr(cfg, compases=16)
+    snaps = sonando_en(salida, cfg, marcas)
+    todo &= ok(all(len(n) == 1 and n[0] % 12 == motor.pads.momento(t // 6, NOTA_LARGA).raiz % 12 for t, n in snaps)
+               and colgadas(salida) == 0, "nota sola: una nota, la raíz de cada acorde")
+    todo &= ok(all(n[0] < 48 for t, n in snaps), "y grave (bajo C3)")
+    for drone in (False, True):
+        cfg = armar(secuencia=False, textura="raiz_acorde", rasgueo=0, drone=drone)
+        salida, motor = correr(cfg, compases=16)
+        snaps = sonando_en(salida, cfg, marcas)
+        bien = all(len(n) <= cfg["pads"]["voces"] for t, n in snaps)
+        raiz = all(n[1 if drone else 0] % 12 == motor.pads.momento(t // 6, NOTA_LARGA).raiz % 12 for t, n in snaps if len(n) > 1)
+        registro = max(n[1 if drone else 0] for t, n in snaps) - min(n[1 if drone else 0] for t, n in snaps) <= 12
+        if drone:
+            raiz &= all(n[0] < n[1] for t, n in snaps)  # el drone queda abajo de todo
+        todo &= ok(bien and raiz and registro and colgadas(salida) == 0,
+                   "raíz grave + acorde" + (" + drone" if drone else "") + ": la raíz abajo, sin pasar de 4 voces ni irse de registro")
+
     print("\nConfiguración")
     cfg = normalizar(armar(suenan=False, suspensiones=0.7))
     cfg["dialogo"]["armonia"] = "libre"

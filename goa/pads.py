@@ -53,6 +53,7 @@ APERTURAS = ("cerrada", "abierta", "amplia")
 ATAQUES = ("ligado", "reatacar")
 BASES = ("nota", "tonica")
 CENTRO = 48  # C3: centro del registro de los pads
+TEXTURAS = ("acordes", "nota", "raiz_acorde")
 
 
 def _cerca(clase, referencia):
@@ -118,6 +119,9 @@ class Pads:
         self.pulso = max(0, min(8, int(cfg.get("pulso", 0))))
         self.desplazamiento = max(0.0, min(1.0, float(desplazamiento)))
         self.suenan = bool(cfg.get("suenan", True))
+        self.textura = cfg.get("textura", "acordes")  # acordes, nota (sola) o raiz_acorde
+        if self.textura not in TEXTURAS:
+            raise ValueError(f"Textura desconocida: {self.textura!r}. Opciones: {', '.join(TEXTURAS)}")
         self.suspensiones = max(0.0, min(1.0, float(cfg.get("suspensiones", 0.0))))
         self.velocidad = int(cfg.get("velocidad", 80))
         self.seed = str(cfg.get("seed", "pads"))
@@ -158,10 +162,37 @@ class Pads:
 
     @property
     def voces_acorde(self):
-        """Voces para el acorde: el drone ocupa una voz del sinte (la MicroFreak toca 4 en total)."""
-        return max(2, self.voces - 1) if self.drone else self.voces
+        """Voces para el acorde: el drone y la raíz grave ocupan una voz cada uno
+        (la MicroFreak toca 4 en total)."""
+        ocupadas = (1 if self.drone else 0) + (1 if self.textura == "raiz_acorde" else 0)
+        return max(2, self.voces - ocupadas)
 
     def _voicing(self, raiz_acorde):
+        base = getattr(self, "base_actual", raiz_acorde)
+        # Con drone, la raíz va sobre él (dos notas graves a un tono suenan turbias).
+        piso = _limitar(base - 12) + 1 if self.drone else 28
+        anterior = getattr(self, "raiz_grave", None)
+        if self.textura == "nota":
+            # Nota sola: la raíz de cada acorde, grave, moviéndose lo menos posible (como un bajo).
+            n = _cerca(raiz_acorde % 12, anterior if anterior is not None else base - 12)
+            while n < piso:
+                n += 12
+            while n > 47 and n - 12 >= piso:
+                n -= 12
+            self.raiz_grave = n
+            return [n]
+        notas = self._voicing_acorde(raiz_acorde)
+        if self.textura == "raiz_acorde":
+            raiz = _cerca(raiz_acorde % 12, anterior if anterior is not None else base - 12)
+            while raiz >= min(notas) and raiz - 12 >= piso:
+                raiz -= 12
+            while raiz < piso:
+                raiz += 12
+            self.raiz_grave = raiz
+            notas = sorted({raiz} | set(notas))
+        return notas
+
+    def _voicing_acorde(self, raiz_acorde):
         voces = self.voces_acorde
         pasos = list(self.acorde)
         while len(pasos) < voces:  # dobla raíz y quinta una octava arriba
@@ -180,6 +211,7 @@ class Pads:
     def _mover_minimo(self, notas):
         """Elige la inversión que menos mueve las voces respecto al acorde que suena."""
         referencia = self.sonando or set(self.acorde_pulso)  # con pulso, entre golpes no suena nada
+        referencia = set(referencia) - {getattr(self, "raiz_grave", None)}  # la raíz grave no cuenta para las voces
         if not referencia:
             return notas
         anterior = sorted(referencia)
@@ -262,7 +294,9 @@ class Pads:
             viejo.apagar(enviar)
             return
         for k in ("sonando", "nota_drone", "raiz_acorde", "pendientes", "apagados", "resoluciones",
-                  "programados", "acorde_pulso", "clave"):
+                  "programados", "acorde_pulso", "clave", "raiz_grave", "base_actual"):
+            if not hasattr(viejo, k):
+                continue
             setattr(self, k, getattr(viejo, k))
         igual = (viejo.cfg == self.cfg and viejo.desplazamiento_cfg == self.desplazamiento_cfg
                  and (viejo.tonalidad.tonica, tuple(viejo.tonalidad.intervalos))
@@ -280,6 +314,7 @@ class Pads:
         self.clave = clave
         raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
         self.raiz_acorde = raiz_acorde
+        self.base_actual = base
         nuevas = sorted(set(self._voicing(raiz_acorde)))  # sin notas repetidas al doblar voces
 
         if self.drone:

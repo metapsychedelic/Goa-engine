@@ -114,6 +114,7 @@ details.voz>*:not(summary){margin-top:14px}
       <label class="campo">Tónica <select data-k="musica.tonica" id="tonica"></select></label>
       <label class="campo">Escala <select data-k="musica.escala" id="escala"></select></label>
     </div>
+    <p class="ayuda" id="circuit_escala"></p>
     <details class="mas" data-mod="mas-musica">
       <summary>Más ajustes</summary>
       <div class="campo" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#C9CBC3">Cuando cambias la nota larga, el motor cambia
@@ -157,6 +158,21 @@ details.voz>*:not(summary){margin-top:14px}
 const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# · Re#"],["E","E · Mi"],["F","F · Fa"],["F#","F# · Fa#"],["G","G · Sol"],["G#","G# · Sol#"],["A","A · La"],["A#","A# · La#"],["B","B · Si"]];
 const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"],["i_IV","i – IV · con dórica, abierta (psy chill)"],["i_IV_i_bVII","i – IV – i – ♭VII · psy chill"],["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive"],["i_bVI_iv_v","i – ♭VI – iv – v · chillout"],["pedal_I_II","I – II sobre la raíz · con lidia, galáctica (ambient)"]];
 const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"],["septima","Séptima (m7 / maj7)"],["novena","Novena (con 5 voces)"]];
+// Escala equivalente en la Circuit (botón Scales): [escala de la Circuit, semitonos a sumar a la tónica].
+// Frigio dominante = menor armónica una quinta abajo; lidia = mayor una quinta arriba (mismas notas).
+const ESCALA_CIRCUIT = {frigio: ["Phrygian", 0], menor_armonica: ["Harmonic Minor", 0], frigio_dominante: ["Harmonic Minor", 5],
+  menor: ["Natural Minor", 0], hungara_menor: ["Hungarian Minor", 0], dorico: ["Dorian", 0], lidio: ["Major", 7]};
+function escalaCircuit() {
+  const caja = $("circuit_escala");
+  if (!caja) return;
+  const nombres = TONICAS.map((t) => t[0]);
+  const i = nombres.indexOf(String(cfg.musica.tonica).toUpperCase());
+  const [escala, salto] = ESCALA_CIRCUIT[cfg.musica.escala] || ["Chromatic", 0];
+  const tonica = i < 0 ? cfg.musica.tonica : nombres[(i + salto) % 12];
+  caja.textContent = `En la Circuit (botón Scales): tónica ${tonica}, escala ${escala}. Así todo lo que toques queda dentro de la escala del motor`
+    + (salto ? " (son las mismas notas, con otra tónica)." : ".");
+}
+
 const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"],["dorico","Dórica"],["lidio","Lidia"]];
 const GENEROS = [["goa","Goa"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["chillout","Chillout"],["ambient","Ambient"]];
 const GENERO_TEXTO = {goa: "Frigio, i – ♭II, llamada y respuesta en corcheas, pegada al beat.",
@@ -380,8 +396,9 @@ function render() {
   const ES = {DO: "C", RE: "D", MI: "E", FA: "F", SOL: "G", LA: "A", SI: "B"};
   let ton = cfg.musica.tonica.toUpperCase().replace(/^(DO|RE|MI|FA|SOL|LA|SI)/, (m) => ES[m]);
   renderGenero();
-  sel("tonica", TONICAS, ton, (v) => cfg.musica.tonica = v);
-  sel("escala", ESCALAS, cfg.musica.escala, (v) => cfg.musica.escala = v);
+  sel("tonica", TONICAS, ton, (v) => { cfg.musica.tonica = v; escalaCircuit(); });
+  sel("escala", ESCALAS, cfg.musica.escala, (v) => { cfg.musica.escala = v; escalaCircuit(); });
+  escalaCircuit();
   $("cambio").replaceWith(Object.assign(segmentado([["paso","Al tiro"],["compas","En el próximo compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2), {id: "cambio"}));
   $("adaptacion").replaceWith(Object.assign(segmentado([["escala","Se quedan en la escala"],["transponer","Se transponen iguales"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2), {id: "adaptacion"}));
   const cd = $("canal_disparo"); cd.value = cfg.entrada.canal_disparo;
@@ -543,6 +560,10 @@ function renderPads() {
   cont.append(
     cab,
     campo("Género", segmentado(GENEROS, p.genero, (v) => cambiarGenero(v, {parte: "pads"}), 3)),
+    campo("Textura", segmentado([["acordes","Acordes"],["nota","Nota sola"],["raiz_acorde","Raíz + acorde"]], p.textura || "acordes",
+      (v) => { p.textura = v; renderPads(); guardar(); }, 3)),
+    ayuda(p.textura === "nota" ? "Solo la raíz de cada acorde, grave: una guía clara de la progresión para programar encima."
+      : p.textura === "raiz_acorde" ? "El acorde con su raíz una octava abajo. Ocupa una voz del sinte." : "Acordes completos, como siempre."),
     casilla(p, "suenan", "Suenan", p.suenan ? "Tocan los acordes y guían la armonía" : "Callados: solo guían la armonía de los demás", () => renderPads()),
     el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
     el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),

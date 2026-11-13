@@ -49,6 +49,7 @@ ESQUEMA_SECCIONES = {
         "variacion": (float, 0.15, 0.0, 1.0),
         "ataque": (str, "ligado", None, pads.ATAQUES),
         "drone": (bool, False, None, None),
+        "textura": (str, "acordes", None, pads.TEXTURAS),
         "rasgueo": (int, 1, 0, 24),
         "pulso": (int, 0, 0, 8),
         "suenan": (bool, True, None, None),

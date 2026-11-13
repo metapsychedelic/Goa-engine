@@ -177,6 +177,16 @@ pasos llega. En **Música → Armonía**:
 Cada secuencia y la llamada y respuesta pueden tener su propia armonía (en sus
 "Más ajustes"). Todo queda siempre dentro de la escala.
 
+**Textura de los pads:** *Acordes* (como siempre), *Nota sola* (solo la raíz
+de cada acorde, grave, moviéndose como un bajo: una guía clara para programar
+tus secuencias encima) o *Raíz + acorde* (el acorde con su raíz una octava
+abajo; ocupa una voz del sinte).
+
+**Escala en la Circuit:** bajo la tónica y la escala, la app dice qué poner en
+el botón Scales de la Circuit para que todo lo que toques quede dentro de la
+escala del motor. Frigio dominante y lidia no existen en la Circuit: se usan la
+menor armónica una quinta abajo y la mayor una quinta arriba (mismas notas).
+
 En los pads, **Suenan** apagado los deja callados pero guiando: útil para
 escenas minimal donde el bajo y las secuencias caminan antes de que entren los
 acordes. **Suspensiones** (en "Más ajustes", con ataque ligado): al cambiar de
