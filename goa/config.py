@@ -53,6 +53,7 @@ ESQUEMA_SECCIONES = {
         "textura": (str, "acordes", None, pads.TEXTURAS),
         "rasgueo": (int, 1, 0, 24),
         "pulso": (int, 0, 0, 8),
+        "golpe": (float, 0.35, 0.1, 1.0),   # largo de cada golpe del pulso (1 = hasta el siguiente)
         "suenan": (bool, True, None, None),
         "suspensiones": (float, 0.3, 0.0, 1.0),
         "genero": (str, "goa", None, generos.ORDEN),

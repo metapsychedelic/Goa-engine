@@ -495,6 +495,8 @@ function panelPads() {
     for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === p[k]}));
     return s;
   };
+  const pulso = deslizador(p, "pulso", "Pulso", 0, 8, 1, (v) => v === 0 ? "sostenidos" : `${v} golpe${v > 1 ? "s" : ""} por compás`);
+  pulso.querySelector("input").addEventListener("change", () => renderMotores());
   return [
     cabMotor("Pads y drones", `${p.salida} · canal ${p.canal} · ${p.suenan ? "guían la armonía" : "callados, solo guían"}`, p, "activo"),
     campo("Género", segmentado(GENEROS, p.genero, (v) => cambiarGenero(v, {parte: "pads"}), 3)),
@@ -506,7 +508,10 @@ function panelPads() {
     el("div", {className: "card principales"}, [
       el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
       el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
-      deslizador(p, "pulso", "Pulso", 0, 8, 1, (v) => v === 0 ? "sostenidos" : `${v} golpe${v > 1 ? "s" : ""} por compás`),
+      pulso,
+      p.pulso ? deslizador(p, "golpe", "Largo del golpe", 0.1, 1, 0.05,
+        (x) => x < 0.3 ? `corto (${porcentaje(x)})` : x < 0.6 ? `medio (${porcentaje(x)})` : x < 0.95 ? `largo (${porcentaje(x)})` : "hasta el siguiente") : null,
+      p.pulso ? ayuda("Cuánto del hueco hasta el golpe siguiente dura cada golpe. Corto se oye como pulso; largo, casi como un pad continuo. Si igual suena pegado, baja el release del sinte.") : null,
     ]),
     el("div", {className: "grupos"}, [
       grupo("g-pads-ritmo", "Ritmo", `cambia cada ${p.cambia_cada} · ${p.ataque === "ligado" ? "ligado" : "reataca"} · rasgueo ${p.rasgueo}`, [

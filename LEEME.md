@@ -91,6 +91,13 @@ Con "Las secuencias siguen al acorde" (en Armonía, con armonía libre), las sec
 de nota base junto con los pads. Pads en la MicroFreak (canal 3, hasta 4 voces)
 y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la vez.
 
+
+**Pulso:** con pulso, los acordes suenan en golpes euclidianos en corcheas.
+*Largo del golpe* (aparece al subir el pulso) dice cuánto del hueco hasta el
+golpe siguiente dura cada golpe: corto (35 %, por defecto) se oye como pulso;
+al máximo, casi como un pad continuo. Si igual suena pegado, baja el release
+del sinte.
+
 ## La app
 
 Cuatro pestañas abajo:

@@ -128,5 +128,24 @@ if __name__ == "__main__":
     todo &= ok(todo_cfg["bajo"]["estilo"] == "dub" and todo_cfg["secuencia"][0]["swing"] != 0.2,
                "el 'Género para todo' de Música sí pone el perfil completo (es el atajo)")
 
+    print("\nPulso de los pads")
+
+    def ocupacion(golpe):
+        cfg = armar()
+        cfg["pads"].update(pulso=3, golpe=golpe)
+        ev = sorted(tocar(cfg, {}, compases=4), key=lambda e: e[0])
+        sonando, ticks, j = set(), 0, 0
+        for t in range(96, 4 * 96):
+            while j < len(ev) and ev[j][0] <= t:
+                _, s, tipo, n = ev[j]
+                if s == "PADS":
+                    (sonando.add if tipo == "note_on" else sonando.discard)(n)
+                j += 1
+            ticks += bool(sonando)
+        return ticks / (3 * 96)
+    corto, largo = ocupacion(0.35), ocupacion(1.0)
+    todo &= ok(corto < 0.5, f"golpe corto (por defecto): los pads suenan el {corto:.0%} del compás, se oye el pulso")
+    todo &= ok(largo > 0.9, f"golpe hasta el siguiente: suenan el {largo:.0%}, casi continuo")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

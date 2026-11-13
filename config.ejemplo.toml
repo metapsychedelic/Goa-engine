@@ -57,6 +57,7 @@ ataque = "ligado"         # ligado: mantiene las notas en común · reatacar: vu
 drone = false             # nota grave sostenida en la raíz
 rasgueo = 1               # pulsos entre la entrada de cada voz (0 = juntas · 24 = una voz por tiempo)
 pulso = 0                 # 0 = acordes sostenidos · 1 a 8 = golpes euclidianos en corcheas por compás
+golpe = 0.35              # con pulso: largo de cada golpe (0.1 muy corto … 1 hasta el siguiente)
 suenan = true             # false: los pads callan pero siguen guiando la armonía
 suspensiones = 0.3        # al cambiar de acorde, una voz se queda colgada y resuelve un tiempo después (ligado)
 genero = "goa"            # género de los pads (independiente de los otros motores)

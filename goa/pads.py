@@ -117,6 +117,9 @@ class Pads:
         self.drone = bool(cfg.get("drone", False))
         self.rasgueo = max(0, min(24, int(cfg.get("rasgueo", 1))))
         self.pulso = max(0, min(8, int(cfg.get("pulso", 0))))
+        # Largo de cada golpe del pulso, como parte del hueco hasta el siguiente:
+        # corto = staccato (se oye el pulso), 1 = hasta el golpe siguiente (casi un pad continuo).
+        self.golpe = max(0.1, min(1.0, float(cfg.get("golpe", 0.35))))
         self.desplazamiento = max(0.0, min(1.0, float(desplazamiento)))
         self.suenan = bool(cfg.get("suenan", True))
         self.textura = cfg.get("textura", "acordes")  # acordes, nota (sola) o raiz_acorde
@@ -430,12 +433,14 @@ class Pads:
             sigue = next((g for g in orden if g > lugar), PASOS_POR_COMPAS)
             inicio = max(tick, p * TICKS_POR_PASO + golpes[lugar])
             # Dura hasta antes del golpe siguiente (como mucho una negra), sin pisarlo.
-            dur = min((sigue - lugar) * TICKS_POR_PASO * 0.85, 4 * TICKS_POR_PASO)
-            dur = max(2, round(min(dur, (sigue - lugar) * TICKS_POR_PASO - golpes[lugar] - 1)))
+            hueco = (sigue - lugar) * TICKS_POR_PASO
+            limite = hueco - golpes[lugar] - 1  # nunca pisa el golpe siguiente
+            dur = max(2, min(round(hueco * self.golpe), limite))
             for i, n in enumerate(self.acorde_pulso):
-                desfase = i * min(self.rasgueo, 2)  # rasgueo corto: un golpe no es un arpegio
+                # Rasgueo corto (un golpe no es un arpegio), y cada voz dura lo mismo desde que entra.
+                desfase = min(i * min(self.rasgueo, 2), max(0, limite - 2))
                 self.pendientes.append((inicio + desfase, n))
-                self.apagados.append((inicio + dur, n))
+                self.apagados.append((inicio + desfase + max(2, min(dur, limite - desfase)), n))
 
     # --- Tiempo ---
 
