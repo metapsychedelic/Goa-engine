@@ -95,6 +95,9 @@ ESTILOS_BAJO_POR_GENERO = {
     "ambient": ("sub", "dub"),
 }
 
+# Estilos de secuencia que necesitan sonar también en el tiempo.
+POSICION_NECESARIA = {"largas": "todos", "ambient": "todos"}
+
 ORDEN = tuple(GENEROS)
 PARTES = ("pads", "dialogo", "secuencia", "bajo")
 
@@ -102,8 +105,9 @@ PARTES = ("pads", "dialogo", "secuencia", "bajo")
 def aplicar(cfg, genero, parte=None, indice=None):
     """Copia de `cfg` con el perfil del género aplicado.
 
-    parte = None: atajo de Música (escala, desplazamiento y todos los motores).
-    parte = "pads", "dialogo", "bajo" o "secuencia" (con su índice): solo ese motor."""
+    parte = None: atajo de Música (escala, desplazamiento y el perfil completo de todos los motores).
+    parte = "pads" o "dialogo": el perfil de ese motor (su género son sus acordes o su diálogo).
+    parte = "bajo" o "secuencia" (con su índice): solo cambia el estilo; tus ajustes se quedan."""
     if genero not in GENEROS:
         raise ValueError(f"Género desconocido: {genero!r}. Opciones: {', '.join(ORDEN)}")
     if parte is not None and parte not in PARTES:
@@ -116,13 +120,20 @@ def aplicar(cfg, genero, parte=None, indice=None):
         nueva["dialogo"].update(perfil["dialogo"], genero=genero)
         for voz in ("llamada", "respuesta"):
             nueva[voz].update(perfil[voz])
-    if parte in (None, "bajo") and "bajo" in nueva:
+    if parte is None and "bajo" in nueva:
         nueva["bajo"].update(BAJO[genero], genero=genero)
+    if parte == "bajo" and "bajo" in nueva:
+        # El género de la tarjeta solo cambia el estilo: tus ajustes (swing, largo,
+        # movimiento…) se quedan como los dejaste.
+        nueva["bajo"].update(estilo=BAJO[genero]["estilo"], genero=genero)
     if parte == "secuencia":
         secuencias = nueva.get("secuencia") or []
         if not isinstance(indice, int) or not 0 <= indice < len(secuencias):
             raise ValueError("Secuencia desconocida")
-        secuencias[indice].update(SECUENCIAS[genero], genero=genero)
+        s = secuencias[indice]
+        s.update(estilo=SECUENCIAS[genero]["estilo"], genero=genero)
+        if s["estilo"] in POSICION_NECESARIA:  # sin esto, sus notas en el tiempo no sonarían
+            s["posicion"] = POSICION_NECESARIA[s["estilo"]]
     if parte is None:
         nueva["musica"].update(perfil["musica"], genero=genero)
         for s in nueva.get("secuencia") or []:

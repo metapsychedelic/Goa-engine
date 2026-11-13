@@ -126,7 +126,10 @@ choque.
 En **Música**, *Género para todo* es un atajo: pone la escala de ese género y
 el mismo género en todos los motores, también en las secuencias.
 
-En cada secuencia, el género filtra sus estilos: Goa (rolling, galope, arpegio
+En cada secuencia y en el bajo, el género solo cambia el estilo (y muestra los
+suyos): tu swing, largo y demás ajustes se quedan como los dejaste. El
+*Género para todo* de Música sí pone el perfil completo. En cada secuencia, el
+género filtra sus estilos: Goa (rolling, galope, arpegio
 de 3, ácido), psy chill (bombo, silencio, bajo, bajo), chillgressive (rolling,
 euclidiano 7 de 16), chillout (notas largas en 3 de 16, casi solo raíz y quinta)
 y ambient (notas muy largas en un patrón de 13 pasos que se desfasa).
@@ -238,6 +241,8 @@ python3 -m pruebas.simular
 
 Simula la Circuit y muestra las notas generadas en una grilla por compás.
 `python3 -m pruebas.dialogo` prueba la llamada y respuesta en los dos modos.
+`python3 -m pruebas.en_vivo` prueba que mover algo en la app no vuelva a atacar los pads
+y que el género de una secuencia o del bajo no mueva tus ajustes.
 `python3 -m pruebas.bajo` prueba el generador de bajo en todos los géneros.
 `python3 -m pruebas.armonia` prueba la armonía guiada, el modo libre, los pads
 que solo guían y las suspensiones.

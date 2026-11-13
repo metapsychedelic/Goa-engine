@@ -146,7 +146,8 @@ class Motor:
         self.musica = musica
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
         dialogo = self._crear_dialogo(config.get("dialogo", {}), config.get("llamada", {}), config.get("respuesta", {}))
-        self.apagar_todo()
+        self.apagar_todo(pads=False)  # los pads siguen sonando: los retoma pads.continuar_de
+        pads.continuar_de(self.pads, self.enviar)
         if self.dialogo is not None:
             dialogo.clip = self.dialogo.clip  # recuerda qué clip de diálogo sonaba
             dialogo.continuar_de(self.dialogo)  # sigue la conversación sin callarse ni perder lo mutado
@@ -562,14 +563,14 @@ class Motor:
                 for _, nota, velocidad, duracion in listas:
                     self._encender(s, nota, velocidad, self.tick + duracion)
 
-    def apagar_todo(self):
+    def apagar_todo(self, pads=True):
         for s in self.secuencias:
             for nota in list(s.sonando):
                 self.enviar(s.salida, "note_off", s.canal, nota, 0)
             s.sonando.clear()
             s.pendientes = []
             s.slide_previo = False
-        if self.pads is not None:
+        if pads and self.pads is not None:
             self.pads.apagar(self.enviar)
         if self.dialogo is not None:
             self.dialogo.apagar(self.enviar)

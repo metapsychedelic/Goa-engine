@@ -98,6 +98,9 @@ def euclides(golpes, lugares):
 
 class Pads:
     def __init__(self, cfg, tonalidad, desplazamiento=0.0):
+        self.cfg = dict(cfg)
+        self.desplazamiento_cfg = desplazamiento
+        self.transicion = False  # el próximo cambio de acorde viene de un cambio de configuración
         self.activo = bool(cfg.get("activo", False))
         self.salida = cfg.get("salida", "CH345")
         self.canal = int(cfg.get("canal", 3)) - 1
@@ -246,6 +249,32 @@ class Pads:
             self._programar_pulso(paso, tick)
             self.tick(tick, enviar)
 
+    def continuar_de(self, viejo, enviar):
+        """Al cambiar la configuración en vivo: sigue sonando sin volver a atacar el acorde.
+
+        Si nada de los pads cambió, sigue igual. Si cambió algo, al próximo paso pasa al
+        acorde nuevo en ligado: las notas comunes siguen sonando y solo cambian las otras.
+        Si cambió el destino, el canal o el pulso, apaga lo de antes y empieza de cero."""
+        if viejo is None:
+            return
+        mismo_lugar = (viejo.salida, viejo.canal) == (self.salida, self.canal)
+        if not mismo_lugar or not self.activo or not self.suenan or bool(viejo.pulso) != bool(self.pulso):
+            viejo.apagar(enviar)
+            return
+        for k in ("sonando", "nota_drone", "raiz_acorde", "pendientes", "apagados", "resoluciones",
+                  "programados", "acorde_pulso", "clave"):
+            setattr(self, k, getattr(viejo, k))
+        igual = (viejo.cfg == self.cfg and viejo.desplazamiento_cfg == self.desplazamiento_cfg
+                 and (viejo.tonalidad.tonica, tuple(viejo.tonalidad.intervalos))
+                 == (self.tonalidad.tonica, tuple(self.tonalidad.intervalos)))
+        if igual:
+            return
+        if not self.drone and self.nota_drone is not None:
+            enviar(self.salida, "note_off", self.canal, self.nota_drone, 0)
+            self.nota_drone = None
+        self.clave = None  # recalcula el acorde en el próximo paso, en ligado
+        self.transicion = True
+
     def _cambiar_acorde(self, clave, cambio, base, tick, enviar):
         self._resolver(tick, enviar, todas=True)  # una suspensión anterior resuelve antes del cambio
         self.clave = clave
@@ -268,14 +297,15 @@ class Pads:
             self.pendientes = [p for p in self.pendientes if p[1] in nuevas]
             return
 
-        if self.ataque == "reatacar":
+        transicion, self.transicion = self.transicion, False
+        if self.ataque == "reatacar" and not transicion:
             quitar, poner = set(self.sonando), list(nuevas)
             self.pendientes = []
         else:
             quitar = self.sonando - set(nuevas)
             poner = [n for n in nuevas if n not in self.sonando]
             self.pendientes = [(t, n) for t, n in self.pendientes if n in nuevas]
-        colgada = self._suspension(cambio, quitar, poner)
+        colgada = None if transicion else self._suspension(cambio, quitar, poner)
         for n in quitar:
             if colgada is None or n != colgada[0]:
                 enviar(self.salida, "note_off", self.canal, n, 0)

@@ -333,8 +333,7 @@ function tarjeta(s, i) {
     cab,
     campo("Género", segmentado(GENEROS, s.genero, (v) => cambiarGenero(v, {parte: "secuencia", indice: i}), 3)),
     campo("Estilo", segmentado([...new Set([...ESTILOS_POR_GENERO[s.genero], s.estilo])].map((v) => ESTILOS.find((x) => x[0] === v)), s.estilo, (v) => {
-      s.estilo = v;
-      if (v === "acido" && !s.slide && !s.acentos) { s.slide = 0.3; s.acentos = 0.3; s.largas = s.largas || 0.3; render(); }
+      s.estilo = v;  // solo el estilo: el swing, el largo y lo demás quedan como los dejaste
       actualizar(); guardar();
     }, 2)),
     campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; posTexto.textContent = POS_TEXTO[v]; guardar(); }, 2)),
