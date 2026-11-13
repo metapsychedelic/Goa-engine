@@ -74,7 +74,7 @@ disparo = 0               # canal de su nota larga; 0 = el general
 genero = "goa"            # goa, psy_chill, chillgressive, chillout, ambient (pone estilo y carácter)
 estilo = "rolling"        # psy: rolling (K B B B), fullon (rolling melódico), tresillo (K + 2 en tresillo),
                           # galope (K · B B), saltado (K B · B), offbeat (K · B ·), chillgressive · dub · sub
-armonia = "general"       # general (la de Música), guiada o libre
+armonia = "general"       # general (la de la pestaña Armonía), guiada o libre
 movimiento = 0.3          # 0 = solo la raíz · 1 = salta a la octava, la quinta y notas de paso
 evolucion = 0.0           # 0 = fijo · 1 = cada "mutar_cada" compases cambia un golpe (se acumula)
 mutar_cada = 4
@@ -107,7 +107,7 @@ evolucion = 0.5           # mutación: probabilidad de cambiar una nota o girar 
 mutar_cada = 4            # compases
 seed = "CR-0001"
 genero = "goa"            # género de la llamada y respuesta
-armonia = "general"       # general (la de Música), guiada o libre
+armonia = "general"       # general (la de la pestaña Armonía), guiada o libre
 
 # Cada voz: cuántos golpes reparte y su color. La respuesta puede ir al mismo sinte.
 [llamada]
@@ -139,7 +139,7 @@ disparo = 2               # canal de su nota larga (pista Synth 2); 0 = el gener
 salida = "FM-1"           # parte del nombre del puerto (míralo con goa-ports); en modo dongle: "CH345"
 canal = 4                 # FM-1 en canal 4 (pista MIDI 2 de la Circuit)
 genero = "goa"            # género de esta secuencia: elige su estilo y carácter en la app
-armonia = "general"       # general (la de Música), guiada o libre
+armonia = "general"       # general (la de la pestaña Armonía), guiada o libre
 estilo = "rolling"        # goa: rolling, galope, arpegio3, acido · psy_chill: psy_chill
                           # chillgressive: euclidiano · chillout: largas · ambient: ambient
 posicion = "offbeat"      # onbeat, offbeat, todos, desplazado

@@ -84,35 +84,42 @@ las opciones están explicadas en `config.ejemplo.toml`.
 
 ## Pads y drones
 
-Sección **Pads y drones** de la app: progresiones lentas de estilo Goa y
+En Motores › **Pads**: progresiones lentas de estilo Goa y
 psytrance (i–♭II frigio, épica, andaluza, drone modal...), con voces que se
 mueven lo mínimo entre acordes, drone opcional en la raíz, variación y rasgueo.
-Con "Las secuencias siguen al acorde" (en Música), las secuencias Goa cambian
+Con "Las secuencias siguen al acorde" (en Armonía, con armonía libre), las secuencias Goa cambian
 de nota base junto con los pads. Pads en la MicroFreak (canal 3, hasta 4 voces)
 y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la vez.
 
-## Disparador y proyectos
-
-- **Guardar como clip** (en cada secuencia) guarda su carácter: estilo, seed,
-  afinación y mutación.
-- **Disparador:** una fila por secuencia. Toca un clip y entra en el próximo
-  compás de la Circuit; mientras espera, titila. Los clips siguen mutando.
-- **Clips de diálogo:** en Llamada y respuesta, "Guardar como clip" guarda la
-  conversación completa: quién llama (motor o en vivo), destinos y canales,
-  tiempos, cómo responde y el carácter de cada voz. En el disparador aparecen en
-  la fila *Llamada y respuesta*; al lanzar uno entra en el próximo compás con
-  todo ese seteo, y la sección queda mostrando lo que suena.
-- **Proyectos:** guardar, guardar como, abrir y borrar proyectos completos.
-  Se guardan en `~/.config/goa/proyectos/`.
-
 ## La app
 
-Cada módulo (Proyecto, Disparador, Música, Pads, Llamada y respuesta, Conexión
-y cada secuencia) se abre y cierra tocando su título; la app recuerda cómo los
-dejaste. El interruptor del título prende o apaga el módulo sin abrirlo.
-Arriba quedan los controles para tocar en vivo; lo demás está en "Más ajustes".
-Para encontrar una buena secuencia, prueba variantes con **Otra**; si saltaste
-una que sonaba bien, **Anterior** vuelve a ella (recuerda las últimas 20).
+Cuatro pestañas abajo:
+
+- **Tocar:** lo que usas en vivo. Un botón por motor (Pads, Bajo, cada
+  secuencia y Diálogo) para prenderlo o apagarlo: entra o sale en el próximo
+  compás y mientras espera dice "entra" o "sale". Abajo, el acorde que suena.
+  Arriba a la derecha, el botón de pánico (apaga todas las notas).
+- **Motores:** un motor a la vez, elegido arriba (el **+** añade una
+  secuencia). Todos tienen la misma forma: activo, género, estilo (o textura en
+  los pads), variante, los tres controles principales y cuatro grupos plegados
+  con el resto: **Ritmo**, **Notas**, **Variación** y **Salida MIDI** (en el
+  diálogo, **Voces** en vez de Notas). Cada grupo cerrado muestra un resumen de
+  cómo está.
+- **Armonía:** género para todo, tónica, escala (y qué poner en la Circuit),
+  guiada o libre, tensión, anticipar y Pegado ↔ Desplazado.
+- **Ajustes:** proyecto, conexión MIDI, canal general de la nota larga y qué
+  pasa cuando cambia.
+
+Para encontrar una buena variante, prueba con **Otra variante**; si saltaste
+una que sonaba bien, **←** vuelve a ella (recuerda las últimas 20).
+
+**Clips:** están dentro de cada secuencia y del diálogo, en el grupo
+Variación. "Guardar como clip" guarda su carácter (estilo, variante, ajustes;
+en el diálogo, la conversación completa con sus destinos). Al tocar un clip
+entra en el próximo compás; mientras espera, titila.
+
+**Proyectos** (en Ajustes): guardar, guardar como, abrir y borrar proyectos
+completos. Se guardan en `~/.config/goa/proyectos/`.
 
 ## Cambios en vivo
 
@@ -133,15 +140,15 @@ Cada motor tiene su propio selector de género, independiente: los pads, la
 llamada y respuesta y cada secuencia. Por ejemplo, pads ambient, un diálogo
 chillgressive y un bajo psy chill. Elegir un género escribe sus valores en ese
 motor y después puedes ajustar todo a mano; nunca toca destinos, canales,
-fuerza ni variantes. La escala es común a todos (en Música), para que nada
+fuerza ni variantes. La escala es común a todos (en Armonía, con armonía libre), para que nada
 choque.
 
-En **Música**, *Género para todo* es un atajo: pone la escala de ese género y
+En **Armonía**, *Género para todo* es un atajo: pone la escala de ese género y
 el mismo género en todos los motores, también en las secuencias.
 
 En cada secuencia y en el bajo, el género solo cambia el estilo (y muestra los
 suyos): tu swing, largo y demás ajustes se quedan como los dejaste. El
-*Género para todo* de Música sí pone el perfil completo. En cada secuencia, el
+*Género para todo* (en Armonía) sí pone el perfil completo. En cada secuencia, el
 género filtra sus estilos: Goa (rolling, galope, arpegio
 de 3, ácido), psy chill (bombo, silencio, bajo, bajo), chillgressive (rolling,
 euclidiano 7 de 16), chillout (notas largas en 3 de 16, casi solo raíz y quinta)
@@ -157,12 +164,12 @@ y ambient (notas muy largas en un patrón de 13 pasos que se desfasa).
 notas se corren una semicorchea (nunca el uno de la llamada) y las semicorcheas
 débiles se atrasan un poco, como swing. Mueve la llamada, la respuesta y el
 pulso de los pads; las secuencias no se corren. Cada voz puede tener su propio
-ajuste (en sus "Más ajustes").
+ajuste (en su grupo Variación).
 
 ## Armonía guiada
 
 Los pads son la guía armónica: saben qué acorde suena, cuál viene y en cuántos
-pasos llega. En **Música → Armonía**:
+pasos llega. En la pestaña **Armonía**:
 
 - **Guiada** (por defecto): las secuencias y la llamada y respuesta siguen cada
   acorde. Los motivos conservan su ritmo y su forma; solo se ajustan las alturas.
@@ -175,7 +182,7 @@ pasos llega. En **Música → Armonía**:
 - **Libre:** cada motor cuenta sus notas desde su raíz, como antes.
 
 Cada secuencia y la llamada y respuesta pueden tener su propia armonía (en sus
-"Más ajustes"). Todo queda siempre dentro de la escala.
+grupo Variación). Todo queda siempre dentro de la escala.
 
 **Textura de los pads:** *Acordes* (como siempre), *Nota sola* (solo la raíz
 de cada acorde, grave, moviéndose como un bajo: una guía clara para programar
@@ -189,7 +196,7 @@ menor armónica una quinta abajo y la mayor una quinta arriba (mismas notas).
 
 En los pads, **Suenan** apagado los deja callados pero guiando: útil para
 escenas minimal donde el bajo y las secuencias caminan antes de que entren los
-acordes. **Suspensiones** (en "Más ajustes", con ataque ligado): al cambiar de
+acordes. **Suspensiones** (en el grupo Ritmo, con ataque ligado): al cambiar de
 acorde, una voz se queda colgada y resuelve un tiempo después.
 
 Sin pads activos, la armonía es el acorde de la escala sobre tu nota larga: se
@@ -223,7 +230,7 @@ ya había mutado.
 **Variación:** *Evolución* cambia un golpe cada *mutar cada* compases (otra
 nota, un silencio, uno nuevo o corrido) y se acumula, con algunos que vuelven a
 como eran. *Transponer* corre el bajo en grados de escala (4 = la quinta). En
-"Más ajustes": densidad, swing, slide (para un sinte en legato con glide),
+grupos Ritmo y Notas: densidad, swing, slide (para un sinte en legato con glide),
 acentos y notas fantasma.
 
 En los estilos psy nunca cae en el tiempo del bombo. Los compases de una frase

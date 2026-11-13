@@ -344,6 +344,9 @@ class Motor:
                                 ("detener" if self.cola[i] is None else self.cola[i][1]))}
                       for i, s in enumerate(self.secuencias)],
             "cambios_en_cola": self.config_en_cola is not None,
+            "motores": dict({"pads": bool(self.pads and self.pads.activo), "bajo": bool(self.bajo and self.bajo.activo),
+                             "dialogo": bool(self.dialogo and self.dialogo.activo)},
+                            **{f"sec{i}": s.activa for i, s in enumerate(self.secuencias)}),
             "bajo": {"estilo": self.bajo.estilo, "activo": self.bajo.activo,
                      "cola": self.cola_bajo.estilo if self.cola_bajo is not None else None} if self.bajo else None,
             "fila_dialogo": {"clip": self.dialogo.clip, "activa": self.dialogo.activo,
