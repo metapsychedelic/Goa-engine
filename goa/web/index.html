@@ -509,9 +509,10 @@ function panelPads() {
       el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
       el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
       pulso,
-      p.pulso ? deslizador(p, "golpe", "Largo del golpe", 0.1, 1, 0.05,
-        (x) => x < 0.3 ? `corto (${porcentaje(x)})` : x < 0.6 ? `medio (${porcentaje(x)})` : x < 0.95 ? `largo (${porcentaje(x)})` : "hasta el siguiente") : null,
-      p.pulso ? ayuda("Cuánto del hueco hasta el golpe siguiente dura cada golpe. Corto se oye como pulso; largo, casi como un pad continuo. Si igual suena pegado, baja el release del sinte.") : null,
+      deslizador(p, "golpe", "Largo del golpe", 0.1, 1, 0.05,
+        (x) => x < 0.3 ? `corto (${porcentaje(x)})` : x < 0.6 ? `medio (${porcentaje(x)})` : x < 0.95 ? `largo (${porcentaje(x)})` : "hasta el siguiente"),
+      ayuda(p.pulso ? "Cuánto dura cada golpe del pulso. Corto se oye como pulso; largo, casi como un pad continuo. Si igual suena pegado, baja el release del sinte."
+        : "Pulso en 0: los acordes suenan sostenidos y atacan solo al cambiar de acorde. El largo del golpe se usa cuando subes el pulso."),
     ]),
     el("div", {className: "grupos"}, [
       grupo("g-pads-ritmo", "Ritmo", `cambia cada ${p.cambia_cada} · ${p.ataque === "ligado" ? "ligado" : "reataca"} · rasgueo ${p.rasgueo}`, [
