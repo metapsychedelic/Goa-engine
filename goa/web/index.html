@@ -129,6 +129,12 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .chips{display:flex;gap:4px}
 .chips button{min-height:32px;padding:0 10px;border-radius:999px;font-size:12px;border-color:var(--line)}
 .chips button[aria-pressed=true]{border-color:var(--acc);color:var(--acc);background:var(--accbg)}
+.plan{display:flex;gap:4px}
+.plan button{flex:1 1 0;min-width:0;min-height:48px;padding:4px 0;border-radius:10px;border-color:var(--line);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:11.5px;font-weight:650}
+.plan button small{font-size:10px;color:var(--mut);font-weight:500}
+.plan button.hecho{color:#8C887F;background:#1F201D}
+.plan button.actual{border-color:var(--acc);background:var(--accbg);color:var(--acc)}
+.mute.piloto{border-style:dotted}
 .guardado{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:6;max-width:calc(100vw - 32px)}
 .guardado.ver{opacity:1}
 .guardado.error{color:var(--bad);border-color:#8C3B32}
@@ -156,6 +162,7 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="mutes" id="mutes"></div>
       <p class="ayuda" style="margin:0">Toca para prender o apagar. Entra o sale en el próximo compás, sin cortar notas.</p>
     </div>
+    <div id="tocar_forma"></div>
     <div class="card estadolinea">
       <span class="mut" id="acorde">Sin acorde</span>
       <span class="mut" id="dialogo_linea"></span>
@@ -986,7 +993,8 @@ function render() {
 
 function renderTocar() {
   const caja = $("tocar_extra"); caja.innerHTML = "";
-  caja.append(bloqueEscenas(), bloqueEnergia(), bloqueForma());
+  caja.append(bloqueEscenas(), bloqueEnergia(), bloquePiloto());
+  $("tocar_forma").replaceChildren(bloqueForma());
   renderMutes();
   if (ultimoEstado) pintarTocar(ultimoEstado);
 }
@@ -1090,6 +1098,32 @@ function bloqueEnergia() {
 
 // --- Forma: variación larga (y piloto) ---
 
+const PLAN = [["intro","Intro",16],["build","Build",16],["climax","Clímax",32],["break","Break",8],["drop","Drop",32]];
+const FACTOR = {corta: 0.5, normal: 1, larga: 2};
+
+function bloquePiloto() {
+  const f = cfg.forma;
+  const chk = el("input", {type: "checkbox", className: "switch", checked: f.piloto, "aria-label": "Piloto automático",
+    onchange: async () => { f.piloto = chk.checked; try { await api("/api/piloto", {activo: f.piloto}); renderTocar(); estado(); } catch (e) { aviso(e.message, true); } }});
+  const plan = el("div", {className: "plan", id: "plan"});
+  for (const [k, nombre, n] of PLAN) plan.append(el("button", {type: "button", "data-sec": k, "aria-label": `Saltar a ${nombre}`,
+    onclick: async () => { try { await api("/api/piloto", {seccion: k}); f.piloto = true; renderTocar(); aviso(`${nombre} en el próximo compás`); } catch (e) { aviso(e.message, true); } }},
+    [nombre, el("small", {textContent: String(Math.max(4, Math.floor(n * FACTOR[f.duracion])))})]));
+  const dur = el("div", {className: "chips", role: "group", "aria-label": "Duración de las secciones"});
+  for (const [k, t] of [["corta","corta"],["normal","normal"],["larga","larga"]]) dur.append(el("button", {type: "button", textContent: t, "aria-pressed": f.duracion === k ? "true" : "false",
+    onclick: async () => { f.duracion = k; try { await api("/api/piloto", {duracion: k}); renderTocar(); } catch (e) { aviso(e.message, true); } }}));
+  return el("div", {className: "energia"}, [
+    el("div", {className: "fila"}, [
+      el("div", {style: "display:flex;flex-direction:column;gap:2px;min-width:0"}, [
+        el("span", {style: "font-size:13px;font-weight:650;color:var(--txt2)", textContent: "Piloto automático"}),
+        el("span", {className: "mut", id: "piloto_linea", style: "font-size:12px", textContent: f.piloto ? "Arranca en el próximo borde de frase" : "Apagado: tú manejas la energía"})]),
+      chk]),
+    plan,
+    el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Secciones"}), dur]),
+    f.piloto ? null : ayuda("Arma la forma solo: intro, build, clímax, break y drop, moviendo la energía y quién suena. Toca una sección para saltar a ella. Si mueves la energía, el piloto se apaga y tomas el control."),
+  ]);
+}
+
 function bloqueForma() {
   const f = cfg.forma;
   const chips = el("div", {className: "chips", role: "group", "aria-label": "Compases de cada período"});
@@ -1103,6 +1137,25 @@ function bloqueForma() {
 }
 
 function pintarTocar(d) {
+  const pl = d.forma && d.forma.piloto;
+  if (!!pl !== !!cfg.forma.piloto && Date.now() - energiaTocando > 1500) { cfg.forma.piloto = !!pl; renderTocar(); return; }
+  const linea = $("piloto_linea");
+  if (linea && pl) {
+    const nombre = (k) => (PLAN.find((x) => x[0] === k) || [k, k])[1];
+    linea.textContent = pl.seccion ? `${nombre(pl.seccion)} · compás ${pl.compas} de ${pl.largo} · luego ${nombre(pl.siguiente)}` : "Arranca en el próximo borde de frase";
+    let pasada = true;
+    document.querySelectorAll("#plan [data-sec]").forEach((b) => {
+      const actual = b.dataset.sec === pl.seccion;
+      if (actual) pasada = false;
+      b.classList.toggle("actual", actual);
+      b.classList.toggle("hecho", !!pl.seccion && pasada && !actual);
+    });
+  }
+  document.querySelectorAll("#mutes .mute").forEach((b) => {
+    const calla = !!(pl && pl.calla && pl.calla.includes(b.dataset.motor));
+    b.classList.toggle("piloto", calla);
+    if (calla) { b.classList.remove("cola"); b.querySelector("span").textContent = "piloto"; }
+  });
   const dl = $("director_linea");
   if (dl && d.forma) dl.textContent = !cfg.forma.variacion ? "Sin variación larga: todo suena tal como lo armaste."
     : d.forma.director && d.forma.director.length ? "Este período: " + d.forma.director.join(" · ")

@@ -246,29 +246,109 @@ class Transicion:
         return c
 
 
+# --- Piloto automático ---
+
+# Cada sección: compases (con duración normal), energía al empezar y al terminar,
+# motores que calla y si la energía llega de golpe (el drop entra en el uno).
+SECCIONES_PILOTO = {
+    "intro": {"nombre": "Intro", "compases": 16, "energia": (0.2, 0.3), "callan": ("bajo", "dialogo")},
+    "build": {"nombre": "Build", "compases": 16, "energia": (0.35, 0.75), "callan_mitad": ("dialogo",)},
+    "climax": {"nombre": "Clímax", "compases": 32, "energia": (0.85, 0.85)},
+    "break": {"nombre": "Break", "compases": 8, "energia": (0.25, 0.15), "callan": ("bajo", "secuencias"), "golpe": True},
+    "drop": {"nombre": "Drop", "compases": 32, "energia": (0.9, 0.8), "golpe": True},
+}
+PLAN = ("intro", "build", "climax", "break", "drop")
+VUELTA = 1  # después del drop vuelve al build
+DURACIONES = {"corta": 0.5, "normal": 1.0, "larga": 2.0}
+
+
+def largo_seccion(clave, duracion):
+    return max(4, int(SECCIONES_PILOTO[clave]["compases"] * DURACIONES.get(duracion, 1.0)))
+
+
+def con_piloto(cfg, clave, avance):
+    """La configuración con las capas de la sección del piloto (calla motores, prepara el break)."""
+    s = SECCIONES_PILOTO[clave]
+    c = copy.deepcopy(cfg)
+    callan = set(s.get("callan", ()))
+    if avance < 0.5:
+        callan |= set(s.get("callan_mitad", ()))
+    for motor in callan:
+        if motor == "secuencias":
+            for sec in c["secuencia"]:
+                sec["activa"] = False
+        else:
+            c[motor][ACTIVO[motor]] = False
+    if clave == "break" and c["pads"]["activo"]:
+        # Break: los pads crecen, sostenidos, con más suspensiones y entrada escalonada.
+        p = c["pads"]
+        p.update(suenan=True, pulso=0, suspensiones=max(p["suspensiones"], 0.7), rasgueo=max(p["rasgueo"], 6))
+    return c
+
+
 class Conductor:
-    """Lleva la transición en curso y la energía, y da la configuración que suena."""
+    """Lleva la transición en curso, el piloto y la energía, y da la configuración que suena."""
 
     def __init__(self):
         self.transicion = None
         self.energia = None  # energía que suena (llega de a poco a la pedida)
+        self.piloto = None   # {"i": índice en PLAN, "inicio": compás} o None
+        self.saltar_a = None  # sección pedida desde la app
 
     def reiniciar(self):
         self.transicion = None
         self.energia = None
+        self.piloto = None
+        self.saltar_a = None
+
+    def _avanzar_piloto(self, base, compas):
+        f = base.get("forma", {})
+        if not f.get("piloto"):
+            self.piloto = None
+            return False
+        duracion = f.get("duracion", "normal")
+        antes = None if self.piloto is None else self.piloto["i"]
+        if self.saltar_a is not None:
+            self.piloto = {"i": PLAN.index(self.saltar_a), "inicio": compas}
+            self.saltar_a = None
+        elif self.piloto is None:
+            if compas % 4:
+                return False  # arranca en el borde de una frase
+            # Si ya suena con energía, parte en el build; si no, en la intro.
+            self.piloto = {"i": 1 if f.get("energia", 0.5) >= 0.5 else 0, "inicio": compas}
+        else:
+            while compas >= self.piloto["inicio"] + largo_seccion(PLAN[self.piloto["i"]], duracion):
+                self.piloto["inicio"] += largo_seccion(PLAN[self.piloto["i"]], duracion)
+                self.piloto["i"] = self.piloto["i"] + 1 if self.piloto["i"] + 1 < len(PLAN) else VUELTA
+        return self.piloto["i"] != antes  # True si empezó una sección
+
+    def seccion(self, base, compas):
+        """(clave, avance de 0 a 1, compás dentro de la sección, largo) o None."""
+        if self.piloto is None:
+            return None
+        clave = PLAN[self.piloto["i"]]
+        largo = largo_seccion(clave, base.get("forma", {}).get("duracion", "normal"))
+        dentro = max(0, compas - self.piloto["inicio"])
+        return clave, min(1.0, dentro / max(1, largo - 1)), dentro, largo
 
     def lanzar(self, origen, destino, inicio, compases, escena=None):
         self.transicion = Transicion(origen, destino, inicio, compases, escena)
 
     def objetivo(self, base, compas):
+        sec = self.seccion(base, compas)
+        if sec is not None:
+            a, b = SECCIONES_PILOTO[sec[0]]["energia"]
+            return round(a + (b - a) * sec[1], 4)
         cfg = self.transicion.config(compas) if self.transicion else base
         return cfg["forma"]["energia"]
 
     def avanzar(self, base, compas):
-        """Al inicio de cada compás: la energía da un paso hacia la pedida."""
+        """Al inicio de cada compás: avanza el piloto y la energía da un paso hacia la pedida."""
+        nueva_seccion = self._avanzar_piloto(base, compas)
         meta = self.objetivo(base, compas)
-        if self.energia is None:
-            self.energia = meta
+        golpe = nueva_seccion and SECCIONES_PILOTO[PLAN[self.piloto["i"]]].get("golpe")
+        if self.energia is None or golpe:
+            self.energia = meta  # el break y el drop entran de golpe, en el uno
         else:
             self.energia = round(self.energia + max(-PASO_ENERGIA, min(PASO_ENERGIA, meta - self.energia)), 4)
 
@@ -278,5 +358,8 @@ class Conductor:
 
     def efectiva(self, base, compas):
         cfg = self.transicion.config(compas) if self.transicion else base
+        sec = self.seccion(base, compas)
+        if sec is not None:
+            cfg = con_piloto(cfg, sec[0], sec[1])
         energia = self.energia if self.energia is not None else cfg["forma"]["energia"]
         return energizar(cfg, energia)

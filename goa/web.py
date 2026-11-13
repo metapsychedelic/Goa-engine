@@ -128,6 +128,7 @@ def crear_servidor(ctx, puerto):
                 "/api/escena/lanzar": self._escena_lanzar,
                 "/api/escena/borrar": self._escena_borrar,
                 "/api/energia": self._energia,
+                "/api/piloto": self._piloto,
                 "/api/proyecto/guardar": self._proyecto_guardar,
                 "/api/proyecto/abrir": self._proyecto_abrir,
                 "/api/proyecto/borrar": self._proyecto_borrar,
@@ -304,6 +305,24 @@ def crear_servidor(ctx, puerto):
             """Solo la energía (el control grande de Tocar): llega de a poco, sin mandar toda la configuración."""
             with ctx.candado:
                 ctx.config["forma"]["energia"] = max(0.0, min(1.0, float(datos["energia"])))
+                ctx.config["forma"]["piloto"] = False  # tomas el control: el piloto se apaga
+                ctx.motor.aplicar_config(ctx.config)
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _piloto(self, datos):
+            """Prende o apaga el piloto, cambia su duración o salta a una sección (en el próximo compás)."""
+            with ctx.candado:
+                f = ctx.config["forma"]
+                if "activo" in datos:
+                    f["piloto"] = bool(datos["activo"])
+                if "duracion" in datos:
+                    if datos["duracion"] not in forma.DURACIONES:
+                        raise ValueError("Duración desconocida")
+                    f["duracion"] = datos["duracion"]
+                if datos.get("seccion"):
+                    f["piloto"] = True
+                    ctx.motor.saltar_seccion(str(datos["seccion"]))
                 ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
             self._responder(aviso)

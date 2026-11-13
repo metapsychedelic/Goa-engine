@@ -127,6 +127,8 @@ ESQUEMA_SECCIONES["forma"] = {
     "escena": (int, -1, -1, forma.MAX_ESCENAS - 1),  # la última escena lanzada (-1 = ninguna)
     "variacion": (float, 0.4, 0.0, 1.0),     # cuánto cambia el director en cada período
     "periodo": (int, 16, 8, 32),             # compases de cada período del director
+    "piloto": (bool, False, None, None),     # piloto automático: intro, build, clímax, break, drop
+    "duracion": (str, "normal", None, tuple(forma.DURACIONES)),
 }
 
 ESQUEMA_ESCENA = {

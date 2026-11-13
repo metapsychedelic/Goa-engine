@@ -172,6 +172,12 @@ class Motor:
     def _compas_actual(self):
         return max(self.tick, 0) // (TICKS_POR_PASO * PASOS_POR_COMPAS)
 
+    def saltar_seccion(self, clave):
+        """Piloto: pasa a la sección `clave` en el próximo compás."""
+        if clave not in forma.PLAN:
+            raise ValueError(f"Sección desconocida: {clave}")
+        self.conductor.saltar_a = clave
+
     def lanzar_escena(self, destino, compases, indice=None):
         """Pasa a la configuración `destino` (una escena) en `compases` compases, desde el próximo."""
         destino = copy.deepcopy(destino)
@@ -400,7 +406,21 @@ class Motor:
         tr = self.conductor.transicion
         compas = self._compas_actual()
         base = (self.base or {}).get("forma", {})
+        sec = self.conductor.seccion(self.base, compas) if self.base and self.corriendo else None
+        duracion = base.get("duracion", "normal")
+        piloto = None
+        if base.get("piloto"):
+            piloto = {"plan": [{"clave": k, "nombre": forma.SECCIONES_PILOTO[k]["nombre"],
+                                "compases": forma.largo_seccion(k, duracion)} for k in forma.PLAN],
+                      "seccion": sec[0] if sec else None, "compas": sec[2] + 1 if sec else None,
+                      "largo": sec[3] if sec else None,
+                      "siguiente": (forma.PLAN[self.conductor.piloto["i"] + 1] if self.conductor.piloto["i"] + 1 < len(forma.PLAN)
+                                    else forma.PLAN[forma.VUELTA]) if sec else None}
+        if piloto is not None and sec is not None:
+            antes, ahora = forma._motores(self.base), forma._motores(forma.con_piloto(self.base, sec[0], sec[1]))
+            piloto["calla"] = [k for k, v in antes.items() if v and not ahora.get(k)]
         return {
+            "piloto": piloto,
             "energia": self.conductor.energia if self.conductor.energia is not None else base.get("energia", 0.5),
             "pedida": self.conductor.objetivo(self.base, compas) if self.base else 0.5,
             "escena": base.get("escena", -1),
