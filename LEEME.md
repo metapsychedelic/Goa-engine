@@ -252,6 +252,19 @@ cada una con patrones de 32 pasos).
 En modo canción la energía la maneja cada parte y el piloto automático queda
 apagado.
 
+**Plantillas:** *Cargar plantilla…* pone una estructura lista. **Template 1 ·
+slot 32** son 13 partes, 176 compases (unos 5 minutos a 140 BPM): Intro, Intro
+bombo, Build, Groove A y B, Break, Rise, Clímax A y B, Break 2, Drop, Groove C y
+Outro. Su gemelo en la Circuit es el proyecto 32 (percusión con el banco FROM GOA
+TO PSYT). Las partes vienen sin escena: elige qué suena en cada una con *Guardar
+lo que suena*.
+
+El proyecto de la Circuit se arma con `herramientas/circuit_cancion.py` (necesita
+`pip install circuit-tracks-tools`), que toma los nombres y compases de la misma
+plantilla (`goa/plantillas.py`). En la Circuit, Synth 1 es la «regla»: sus
+patrones van vacíos y marcan el largo de cada escena; la percusión va en las
+cuatro baterías.
+
 ## Parche por escena (Program Change)
 
 Cada motor tiene en Salida MIDI el campo **Parche (Program Change)**: 0 no

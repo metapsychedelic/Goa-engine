@@ -1238,6 +1238,19 @@ function bloqueParte(p, i) {
   return g;
 }
 
+async function cargarPlantilla() {
+  let lista = [];
+  try { lista = (await (await fetch("/api/plantillas")).json()).plantillas; } catch (e) { aviso("Sin conexión con la Pi", true); return; }
+  if (!lista.length) { aviso("No hay plantillas", true); return; }
+  const texto = lista.map((p, i) => `${i + 1}. ${p.nombre}: ${p.partes} partes, ${p.compases} compases. ${p.descripcion}`).join("\n");
+  const r = prompt(`¿Qué plantilla?\n${texto}\n\nEscribe el número:`, "1");
+  if (r === null) return;
+  const p = lista[parseInt(r) - 1];
+  if (!p) { aviso("Ese número no está en la lista", true); return; }
+  if (cfg.parte.length && !confirm(`Reemplaza las ${cfg.parte.length} partes que tienes por las de ${p.nombre}. Tus escenas no se borran. ¿Seguir?`)) return;
+  accionParte("/api/cancion/plantilla", {clave: p.clave}, `${p.nombre} cargada: elige qué suena en cada parte`);
+}
+
 async function nuevaParte() {
   const nombre = prompt("Nombre de la parte (guarda lo que suena ahora como su escena)", `Parte ${cfg.parte.length + 1}`);
   if (nombre === null) return;
@@ -1261,7 +1274,7 @@ function renderCancion() {
     el("div", {className: "energia"}, [
       el("div", {className: "fila"}, [
         el("div", {style: "display:flex;flex-direction:column;gap:2px;min-width:0"}, [
-          el("span", {style: "font-size:13px;font-weight:650;color:var(--txt2)", textContent: "Modo canción"}),
+          el("span", {style: "font-size:13px;font-weight:650;color:var(--txt2)", textContent: cfg.parte.length ? `Modo canción · ${c.nombre}` : "Modo canción"}),
           el("span", {className: "mut", id: "cancion_linea", style: "font-size:12px",
             textContent: !c.activa ? "Apagado: modo libre, como siempre" : cfg.parte.length ? "Parte desde el principio al dar Play en la Circuit" : "Agrega partes para empezar"})]),
         chk]),
@@ -1273,6 +1286,8 @@ function renderCancion() {
       h3("Partes"),
       ...cfg.parte.map(bloqueParte),
       cfg.parte.length < 32 ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null,
+      el("button", {type: "button", textContent: "Cargar plantilla…", onclick: cargarPlantilla}),
+      cfg.parte.some((p) => p.escena < 0) ? ayuda("Las partes sin escena siguen lo que suena. Para elegir qué suena en una: arma el sonido en modo libre y toca «Guardar lo que suena» en esa parte.") : null,
       ayuda("Arma cada parte en modo libre: deja sonando lo que quieres (secuencias, pads, bajo…) y toca «+ Parte con lo que suena», o «Guardar lo que suena» en una parte que ya existe. «Escuchar» la vuelve a poner para seguir armándola."),
       ayuda("Para tocar con la Circuit: prende el modo canción y arma su cadena de escenas con los mismos largos. Al dar Play en la Circuit los dos parten juntos. Si se desfasan (por ejemplo, saltaste una escena en la Circuit), usa «Saltar aquí» en la parte que corresponde."),
     ]),

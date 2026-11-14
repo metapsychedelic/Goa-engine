@@ -9,7 +9,7 @@ import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, forma, generos
+from . import __version__, forma, generos, plantillas
 from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
@@ -117,6 +117,8 @@ def crear_servidor(ctx, puerto):
                 with ctx.candado:
                     ctx.sincronizar()
                     self._json(dict(ctx.config, version_base=ctx.version_base))
+            elif self.path == "/api/plantillas":
+                self._json({"plantillas": plantillas.lista()})
             elif self.path == "/api/proyectos":
                 self._json({"proyectos": listar_proyectos(ctx)})
             else:
@@ -150,6 +152,7 @@ def crear_servidor(ctx, puerto):
                 "/api/energia": self._energia,
                 "/api/piloto": self._piloto,
                 "/api/cancion": self._cancion,
+                "/api/cancion/plantilla": self._cancion_plantilla,
                 "/api/parte/nueva": self._parte_nueva,
                 "/api/parte/guardar": self._parte_guardar,
                 "/api/parte/escuchar": self._parte_escuchar,
@@ -365,6 +368,19 @@ def crear_servidor(ctx, puerto):
                 ctx.motor.aplicar_config(ctx.config)
                 if datos.get("saltar") is not None:
                     ctx.motor.saltar_parte(int(datos["saltar"]))
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _cancion_plantilla(self, datos):
+            """Reemplaza las partes de la canción por las de una plantilla (sin escenas: las eliges tú)."""
+            clave = str(datos.get("clave", ""))
+            if clave not in plantillas.PLANTILLAS:
+                raise ValueError("Esa plantilla no existe")
+            with ctx.candado:
+                ctx.config["parte"] = plantillas.partes_de(clave)
+                ctx.config["cancion"]["nombre"] = plantillas.PLANTILLAS[clave]["nombre"]
+                ctx.config = normalizar(ctx.config)
+                ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
             self._responder(aviso)
 

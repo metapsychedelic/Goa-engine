@@ -139,5 +139,15 @@ if __name__ == "__main__":
     todo &= ok(leida["parte"] == armar()["parte"] and leida["cancion"]["activa"],
                "la canción se guarda y se vuelve a abrir igual")
 
+    print("\nPlantillas")
+    from goa import plantillas
+    t = normalizar(dict(armar(), parte=plantillas.partes_de("template1")))
+    todo &= ok(len(t["parte"]) == 13 and forma.total_cancion(t["parte"]) == 176 and all(p["escena"] == -1 for p in t["parte"]),
+               "Template 1: 13 partes, 176 compases, sin escenas (cada una sigue lo que suena)")
+    todo &= ok(all(p["compases"] in (8, 16) for p in t["parte"]),
+               "cada parte dura 8 o 16 compases, como sus escenas en la Circuit")
+    m, v, _ = correr(t, 40)
+    todo &= ok([x["parte"] for x in v][:34] == [0] * 16 + [1] * 16 + [2] * 2, "la plantilla avanza parte por parte")
+
     print("\nTODO BIEN" if todo else "\nHAY ERRORES")
     raise SystemExit(0 if todo else 1)
