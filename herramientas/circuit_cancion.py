@@ -106,6 +106,19 @@ P = [
     {},                                                       # 8 libre
 ]
 
+# --- MIDI 1 y MIDI 2: las notas largas que disparan el motor ---
+# MIDI 1 sale por el canal 3 (pads) y MIDI 2 por el canal 4 (secuencias), según el
+# Setup de la Circuit. La nota se vuelve a tocar en cada compás (en la Circuit una
+# nota dura como mucho 16 pasos); el motor tiene medio paso de gracia entre una y
+# otra, así que no se corta. Suena en todas las escenas: qué suena en cada parte lo
+# decide la canción del motor.
+NOTA_LARGA = 41  # F2, la tónica
+
+
+def nota_larga(nota=NOTA_LARGA):
+    return {"0": {"note": nota, "velocity": 100, "gate": 16}, "16": {"note": nota, "velocity": 100, "gate": 16}}
+
+
 # --- Cadenas de cada parte: {pista: (desde, hasta)} con patrones 1-8 ---
 # Los nombres y compases salen de la plantilla del motor (goa/plantillas.py), así la
 # canción del motor y la de la Circuit son siempre la misma.
@@ -143,6 +156,9 @@ def armar():
         for nombre, lista in (("drum1", K), ("drum2", C), ("drum3", H), ("drum4", P)):
             if lista[i]:
                 pistas[nombre] = {"steps": lista[i]}
+        if i == 0:  # las escenas usan el patrón 1 de MIDI 1 y MIDI 2
+            pistas["midi1"] = {"steps": nota_larga()}
+            pistas["midi2"] = {"steps": nota_larga()}
         patrones[f"p{i + 1}"] = {"length": PASOS, "tracks": pistas}
     cancion = {
         "name": NOMBRE, "bpm": BPM, "swing": 50, "scale": {"root": "F", "type": "phrygian"},
