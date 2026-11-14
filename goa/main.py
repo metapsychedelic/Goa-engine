@@ -171,6 +171,8 @@ def main():
                 puertos.revisar()
                 nombre_entrada = ctx.config["entrada"]["puerto"]
             disponibles = mido.get_input_names()
+            with candado:
+                ctx.entradas_disponibles = disponibles
             if entrada is not None and (entrada.name not in disponibles
                                         or nombre_entrada.lower() not in entrada.name.lower()):
                 log.warning("Se desconectó la entrada %s", entrada.name)

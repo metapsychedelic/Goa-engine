@@ -33,7 +33,7 @@ h3{margin:0;font-size:13px;font-weight:650;color:var(--txt2)}
 .pill{font-size:12px;font-weight:650;padding:4px 10px;border-radius:999px;background:var(--line);color:var(--mut);white-space:nowrap}
 .pill.ok{background:var(--acc);color:#1A1408}
 .pill.mal{background:#3A1E19;color:var(--bad)}
-label.campo{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--txt2)}
+label.campo,div.campo{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--txt2)}
 select,input[type=text],input[type=number]{min-height:44px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--txt);padding:0 12px;font:inherit;width:100%}
 input[type=range]{width:100%;accent-color:var(--acc);min-height:28px;margin:0}
 input[type=checkbox]{width:22px;height:22px;accent-color:var(--acc);margin:0;flex:none}
@@ -190,12 +190,12 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <div class="card">
       <h2>Conexión MIDI</h2>
       <span class="mut" id="puertos"></span>
-      <label class="campo">Entrada (puerto de la Circuit o del dongle)
-        <input type="text" list="salidas" id="entrada_puerto"></label>
+      <div class="campo">Entrada (puerto de la Circuit o del dongle)
+        <div id="entrada_puerto"></div></div>
       <label class="fila" style="min-height:44px"><span>Reenviar todo a la cadena MIDI<br><span class="mut">Modo dongle: la Circuit pasa por la Pi</span></span>
         <input type="checkbox" id="thru_activo"></label>
-      <label class="campo">Salida del reenvío
-        <input type="text" list="salidas" id="thru_salida"></label>
+      <div class="campo">Salida del reenvío
+        <div id="thru_salida"></div></div>
     </div>
     <div class="card">
       <h2>Nota larga</h2>
@@ -212,7 +212,6 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <p class="mut" id="ver" style="text-align:center;margin:0"></p>
   </section>
-  <datalist id="salidas"></datalist>
 </main>
 
 <nav class="tabs" aria-label="Secciones"><div class="in" role="tablist">
@@ -395,11 +394,61 @@ function numeroDe(obj, k, etiqueta, min, max, alCambiar) {
   return el("label", {className: "campo"}, [etiqueta, inp]);
 }
 
+// --- Elegir puerto MIDI ---
+// Un menú con los puertos que ve la Pi ahora mismo (se actualiza solo al conectar
+// o desconectar algo). El puerto elegido sigue en la lista aunque esté
+// desconectado, y "Otro nombre…" deja escribirlo a mano.
+const selectoresPuerto = [];
+
+function puertoSelect(tipo, actual, alElegir) {
+  const sel = el("select", {});
+  const otro = el("input", {type: "text", placeholder: "Parte del nombre, p. ej. FM-1", style: "display:none;margin-top:6px"});
+  const caja = el("div", {}, [sel, otro]);
+  const info = {sel, tipo, actual};
+  info.pintar = () => {
+    if (document.activeElement === sel) return;  // no cambiarle las opciones mientras lo usas
+    const lista = (ultimoEstado && ultimoEstado[tipo === "entrada" ? "entradas" : "disponibles"]) || [];
+    const conectado = (n) => lista.some((x) => x.toLowerCase().includes(n.toLowerCase()));
+    const opciones = [...lista];
+    if (info.actual && !conectado(info.actual)) opciones.push(info.actual);
+    const firma = JSON.stringify([opciones, info.actual, lista]);
+    if (sel.dataset.firma === firma) return;
+    sel.dataset.firma = firma;
+    sel.replaceChildren();
+    for (const n of opciones) {
+      const texto = conectado(n) ? n : `${n} (desconectado)`;
+      sel.append(el("option", {value: n, textContent: texto}));
+    }
+    sel.append(el("option", {value: "\u0000otro", textContent: "Otro nombre…"}));
+    // El valor guardado puede ser parte del nombre ("CH345" de "USB2.0-MIDI CH345"): se marca el que lo contiene.
+    const elegido = opciones.find((n) => n === info.actual)
+      || opciones.find((n) => n.toLowerCase().includes((info.actual || "").toLowerCase()));
+    sel.value = elegido !== undefined ? elegido : "\u0000otro";
+  };
+  sel.onchange = () => {
+    if (sel.value === "\u0000otro") { otro.style.display = ""; otro.value = info.actual || ""; otro.focus(); return; }
+    otro.style.display = "none";
+    info.actual = sel.value; alElegir(sel.value);
+  };
+  otro.onchange = () => {
+    const v = otro.value.trim(); if (!v) return;
+    otro.style.display = "none"; info.actual = v; sel.dataset.firma = ""; info.pintar(); alElegir(v);
+  };
+  selectoresPuerto.push(info);
+  info.pintar();
+  return caja;
+}
+
+function pintarPuertos() {
+  for (let i = selectoresPuerto.length - 1; i >= 0; i--) {
+    if (!selectoresPuerto[i].sel.isConnected) selectoresPuerto.splice(i, 1);  // de un render anterior
+    else selectoresPuerto[i].pintar();
+  }
+}
+
 function destinoDe(obj, alCambiar) {
-  const inp = el("input", {type: "text", value: obj.salida,
-    onchange: () => { obj.salida = inp.value.trim() || obj.salida; inp.value = obj.salida; if (alCambiar) alCambiar(); guardar(); }});
-  inp.setAttribute("list", "salidas");
-  return el("label", {className: "campo"}, ["Destino (puerto)", inp]);
+  return el("label", {className: "campo"}, ["Destino (puerto)",
+    puertoSelect("salida", obj.salida, (v) => { obj.salida = v; if (alCambiar) alCambiar(); guardar(); })]);
 }
 
 function casilla(obj, k, titulo, detalle, alCambiar) {
@@ -994,12 +1043,10 @@ function renderAjustes() {
   nm.onchange = () => { const v = parseInt(nm.value); cfg.entrada.nota_maxima = isNaN(v) ? 4 : Math.max(0, Math.min(64, v)); nm.value = cfg.entrada.nota_maxima; guardar(); };
   $("cambio").replaceChildren(segmentado([["paso","Al tiro"],["compas","En el próximo compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2));
   $("adaptacion").replaceChildren(segmentado([["escala","Se quedan en la escala"],["transponer","Se transponen iguales"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2));
-  const ep = $("entrada_puerto"); ep.value = cfg.entrada.puerto;
-  ep.onchange = () => { cfg.entrada.puerto = ep.value.trim() || cfg.entrada.puerto; ep.value = cfg.entrada.puerto; guardar(); };
+  $("entrada_puerto").replaceChildren(puertoSelect("entrada", cfg.entrada.puerto, (v) => { cfg.entrada.puerto = v; guardar(); }));
   const ta = $("thru_activo"); ta.checked = cfg.thru.activo;
   ta.onchange = () => { cfg.thru.activo = ta.checked; guardar(); };
-  const ts = $("thru_salida"); ts.value = cfg.thru.salida;
-  ts.onchange = () => { cfg.thru.salida = ts.value.trim() || cfg.thru.salida; ts.value = cfg.thru.salida; guardar(); };
+  $("thru_salida").replaceChildren(puertoSelect("salida", cfg.thru.salida, (v) => { cfg.thru.salida = v; guardar(); }));
   $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
 }
 
@@ -1274,8 +1321,7 @@ async function estado() {
       const ok = d.salidas[e.dataset.salida];
       e.textContent = ok ? "Conectada" : "Sin cable"; e.className = "pill" + (ok ? " ok" : " mal");
     });
-    const dl = $("salidas"); dl.innerHTML = "";
-    for (const n of d.disponibles) dl.append(el("option", {value: n}));
+    pintarPuertos();
   } catch (e) {
     $("pill").textContent = "Sin conexión"; $("pill").className = "pill mal";
   }

@@ -67,8 +67,13 @@ goa-ports --escuchar Circuit      # dale Play: ¿aparece "reloj OK" con el BPM?
 goa-debug                         # mantén una nota en la pista Synth 2 y mira las notas
 ```
 
-Si los nombres de los puertos no contienen "Circuit" o "FM-1", edita
-`~/.config/goa/config.toml` con la parte del nombre que muestra `goa-ports`.
+Los puertos se eligen en la app: cada motor tiene un menú **Destino** (en
+Motores › Salida MIDI) y Ajustes › Conexión MIDI tiene la entrada y la salida
+del reenvío. Los menús muestran lo que la Pi ve conectado en ese momento y se
+actualizan solos al enchufar algo; un puerto elegido que no está enchufado
+aparece como "(desconectado)". Para cambiar una máquina de lugar (por ejemplo,
+la FM-1 por USB y la MC-101 por el cable MIDI), basta con elegir el puerto y el
+canal nuevos en cada motor.
 
 ## 5. La app en el celular
 

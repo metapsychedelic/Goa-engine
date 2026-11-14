@@ -28,6 +28,7 @@ class Contexto:
         self.ruta_config = ruta_config
         self.config = config
         self.entrada = None  # nombre de la entrada conectada, o None
+        self.entradas_disponibles = []  # puertos de entrada que ve la Pi
 
 
 def _carpeta_proyectos(ctx):
@@ -93,6 +94,8 @@ def crear_servidor(ctx, puerto):
                     estado["salidas"] = {clave: clave in ctx.puertos.abiertos for clave in ctx.puertos.salidas}
                     estado["disponibles"] = sorted({_nombre_corto(n) for n in ctx.puertos.disponibles
                                                     if "through" not in n.lower()})
+                    estado["entradas"] = sorted({_nombre_corto(n) for n in ctx.entradas_disponibles
+                                                 if "through" not in n.lower()})
                 self._json(estado)
             elif self.path == "/api/config":
                 with ctx.candado:

@@ -41,6 +41,7 @@ def main():
     puertos = PuertosFalsos(salidas(config))
     ctx = Contexto(motor, puertos, candado, ruta, config)
     ctx.entrada = "Circuit Tracks:Circuit Tracks MIDI 1 20:0"
+    ctx.entradas_disponibles = ["Circuit Tracks:Circuit Tracks MIDI 1 20:0", "CH345:CH345 MIDI 1 28:0"]
     crear_servidor(ctx, config["app"]["puerto"])
     print("App en http://localhost:%d · config: %s" % (config["app"]["puerto"], ruta))
     with candado:
