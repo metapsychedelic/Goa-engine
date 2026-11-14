@@ -146,6 +146,10 @@ if __name__ == "__main__":
                "Template 1: 16 partes (las 16 escenas de la Circuit), 232 compases, sin escenas")
     todo &= ok(all(p["compases"] in (8, 16) for p in t["parte"]),
                "cada parte dura 8 o 16 compases, como sus escenas en la Circuit")
+    buenas = all(len(x["partes"]) <= 16 and all(c in (8, 16) for _, c, *_ in x["partes"])
+                 and len({n for n, *_ in x["partes"]}) == len(x["partes"]) for x in plantillas.PLANTILLAS.values())
+    todo &= ok(buenas and len(plantillas.PLANTILLAS) >= 5,
+               f"las {len(plantillas.PLANTILLAS)} plantillas caben en la Circuit (hasta 16 escenas de 8 o 16 compases, nombres únicos)")
     m, v, _ = correr(t, 40)
     todo &= ok([x["parte"] for x in v][:34] == [0] * 16 + [1] * 16 + [2] * 2, "la plantilla avanza parte por parte")
 

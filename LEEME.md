@@ -252,12 +252,21 @@ cada una con patrones de 32 pasos).
 En modo canción la energía la maneja cada parte y el piloto automático queda
 apagado.
 
-**Plantillas:** *Cargar plantilla…* pone una estructura lista. **Template 1 ·
-slot 32** son 16 partes, 232 compases (unos 6:38 a 140 BPM): Intro, Intro bombo,
-Build, Groove A, B y C, Break, Rise, Clímax A y B, Groove D, Break 2, Rise 2,
-Drop, Groove E y Outro. Su gemelo en la Circuit es el proyecto 32 (percusión con el banco FROM GOA
-TO PSYT). Las partes vienen sin escena: elige qué suena en cada una con *Guardar
-lo que suena*.
+**Plantillas:** *Cargar plantilla…* pone una estructura lista. Cada una tiene su
+proyecto gemelo en la Circuit (percusión con el banco FROM GOA TO PSYT):
+
+- **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 partes, 232 compases (6:38).
+- **Template 2 · Dark minimal** (proyecto 33): 142 BPM, 15 partes, 224 compases
+  (6:19). Estilo Zenonesque: pocos elementos que entran de a uno, glitch, sub booms.
+- **Template 3 · Goa clásico** (proyecto 34): 140 BPM, 15 partes, 216 compases
+  (6:10). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
+- **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 14 partes, 200 compases
+  (5:43). Congas y toms, tambores antes del bombo, ceremonia a medio tiempo.
+- **Template 5 · Goa épico**: 140 BPM, 16 partes, 224 compases (6:24). Arcos
+  largos, redobles en dos olas, crash cada 8 compases.
+
+Las partes vienen sin escena: elige qué suena en cada una con *Guardar lo que
+suena*. En todos, el crash lleva reverb Hall y un poco de delay.
 
 El proyecto de la Circuit se arma con `herramientas/circuit_cancion.py` (necesita
 `pip install circuit-tracks-tools`), que toma los nombres y compases de la misma
