@@ -18,7 +18,7 @@ se queda colgada y resuelve un tiempo después.
 import random
 
 from .armonia import Momento
-from .escalas import nombre_midi
+from .escalas import ESCALAS, nombre_midi
 
 TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
@@ -36,7 +36,108 @@ PROGRESIONES = {
     "i_bVI_bVII_v": [0, 5, 6, 4],    # chillgressive: oscura y en movimiento
     "i_bVI_iv_v": [0, 5, 3, 4],      # chillout: suave, para acordes de séptima y novena
     "pedal_I_II": [0, 1],            # con lidia, I y II sobre la misma raíz: galáctico
+    "aleatoria": [0],                # se arma al azar con la seed y la escala (ver progresion_aleatoria)
 }
+
+# --- Progresión al azar ---
+#
+# Solo usa acordes con quinta justa y tercera mayor o menor: en cada escala quedan
+# fuera los disminuidos y aumentados (v° del frigio, ii° de la menor, III+ de la
+# armónica), que al azar suenan a error. Entre los que quedan, cada escala prefiere
+# los grados que le dan su color, y cada cambio favorece los acordes que comparten
+# notas con el anterior (suena ligado) y un último acorde que vuelva bien a la i.
+
+# Peso de cada grado (0 = i) por escala: los que le dan su color pesan más.
+COLOR = {
+    "frigio": {1: 4.5, 6: 2.0, 5: 1.5, 3: 1.5, 2: 0.8},             # ♭II, ♭vii, ♭VI, iv, ♭III
+    "frigio_dominante": {1: 4.5, 6: 2.0, 3: 1.5},                   # ♭II, ♭vii, iv
+    "menor": {5: 3.0, 6: 3.0, 3: 2.0, 4: 1.5, 2: 1.0},              # ♭VI, ♭VII, iv, v, ♭III
+    "menor_armonica": {4: 3.0, 5: 2.5, 3: 2.0},                     # V, ♭VI, iv
+    "hungara_menor": {4: 3.0, 5: 2.5, 6: 0.4},                      # V, ♭VI (vii, poco)
+    "dorico": {3: 3.0, 6: 2.5, 1: 1.5, 2: 1.0, 4: 1.0},             # IV, ♭VII, ii, ♭III, v
+    "lidio": {1: 3.0, 4: 2.0, 6: 1.5, 5: 1.5, 2: 1.0},              # II, V, vii, vi, iii
+}
+# Escalas modales "quietas": el frigio pide poca vuelta (i – ♭II es su gesto) y
+# vuelve seguido a la i; las demás aguantan progresiones de 3 o 4 acordes.
+QUIETAS = ("frigio", "frigio_dominante")
+_NUMERALES = ("I", "♭II", "II", "♭III", "III", "IV", "♯IV", "V", "♭VI", "VI", "♭VII", "VII")
+
+
+def _triada(intervalos, grado):
+    """Clases de altura (desde la tónica) de la tríada sobre `grado` de la escala."""
+    n = len(intervalos)
+    return [intervalos[(grado + k) % n] for k in (0, 2, 4)]
+
+
+def calidad(intervalos, grado):
+    raiz, tercera, quinta = _triada(intervalos, grado)
+    t, q = (tercera - raiz) % 12, (quinta - raiz) % 12
+    return {(4, 7): "M", (3, 7): "m", (3, 6): "dim", (4, 8): "aug"}.get((t, q), "otro")
+
+
+def consonante(intervalos, grado):
+    return calidad(intervalos, grado % len(intervalos)) in ("M", "m")
+
+
+def numeral(intervalos, grado):
+    """'♭II', 'iv', 'V'... del acorde sobre `grado` (minúscula si es menor)."""
+    g = grado % len(intervalos)
+    texto = _NUMERALES[intervalos[g] % 12]
+    return texto.replace("I", "i").replace("V", "v") if calidad(intervalos, g) == "m" else texto
+
+
+def nombre_escala(intervalos):
+    return next((n for n, iv in ESCALAS.items() if list(iv) == list(intervalos)), None)
+
+
+def progresion_aleatoria(intervalos, seed):
+    """Progresión al azar que suena bien en la escala: parte en la i, solo acordes
+    mayores o menores, con el color de la escala y un final que vuelve a la i."""
+    escala = nombre_escala(intervalos)
+    rng = random.Random(f"progresion:{seed}:{escala or tuple(intervalos)}")
+    color = COLOR.get(escala, {})
+    candidatos = [g for g in range(1, len(intervalos)) if consonante(intervalos, g)]
+    if not candidatos:
+        return [0]
+    # Formas: i–X, i–X–Y, i–X–Y–Z o i–X–i–Y (vuelve a casa a mitad de camino).
+    pesos = (4, 2, 2, 3) if escala in QUIETAS else (1, 2, 4, 2)
+    forma = rng.choices(("iX", "iXY", "iXYZ", "iXiY"), weights=pesos)[0]
+    # Cuatro acordes distintos solo si la escala tiene al menos tres con su color
+    # (la húngara menor tiene pocos: si no, se colaría un acorde raro).
+    if forma == "iXYZ" and sum(1 for g in candidatos if color.get(g, 0.6) >= 1) < 3:
+        forma = "iXiY"
+    if len(candidatos) < 2:
+        forma = "iX"
+
+    def peso(g, anterior, ultimo, usados):
+        w = color.get(g, 0.6)
+        comunes = len(set(_triada(intervalos, g)) & set(_triada(intervalos, anterior)))
+        w *= 1 + 0.3 * comunes  # comparte notas con el anterior: suena ligado
+        if ultimo:
+            distancia = min(intervalos[g] % 12, 12 - intervalos[g] % 12)
+            if distancia <= 2:          # a un paso de la i (♭II, II, ♭VII, VII): vuelve deslizando
+                w *= 1.8
+            elif intervalos[g] == 7 and calidad(intervalos, g) == "M":
+                w *= 2.0                # V mayor: cadencia
+            elif intervalos[g] == 5:
+                w *= 1.3                # iv / IV: vuelta plagal, suave
+        if g in usados:
+            w *= 0.15                   # mejor no repetir un acorde en la misma vuelta
+        return w
+
+    progresion = [0]
+    if forma == "iXiY":
+        x = rng.choices(candidatos, [peso(g, 0, False, ()) for g in candidatos])[0]
+        otros = [g for g in candidatos if g != x] or [x]
+        y = rng.choices(otros, [peso(g, 0, True, (x,)) for g in otros])[0]
+        return [0, x, 0, y]
+    cuantos = {"iX": 1, "iXY": 2, "iXYZ": 3}[forma]
+    for k in range(cuantos):
+        anterior = progresion[-1]
+        opciones = [g for g in candidatos if g != anterior]
+        ultimo = k == cuantos - 1
+        progresion.append(rng.choices(opciones, [peso(g, anterior, ultimo, progresion) for g in opciones])[0])
+    return progresion
 
 # Pasos de escala apilados desde la raíz del acorde.
 ACORDES = {
@@ -106,7 +207,12 @@ class Pads:
         self.salida = cfg.get("salida", "CH345")
         self.canal = int(cfg.get("canal", 3)) - 1
         self.base = cfg.get("base", "nota")
-        self.progresion = PROGRESIONES[cfg.get("progresion", "i_bII")]
+        self.aleatoria = cfg.get("progresion", "i_bII") == "aleatoria"
+        self.seed = str(cfg.get("seed", "pads"))
+        if self.aleatoria:
+            self.progresion = progresion_aleatoria(tonalidad.intervalos, self.seed)
+        else:
+            self.progresion = PROGRESIONES[cfg.get("progresion", "i_bII")]
         self.acorde = ACORDES[cfg.get("acorde", "menor_add9")]
         self.cambia_cada = max(1, int(cfg.get("cambia_cada", 16)))
         self.voces = max(2, min(6, int(cfg.get("voces", 4))))
@@ -127,7 +233,6 @@ class Pads:
             raise ValueError(f"Textura desconocida: {self.textura!r}. Opciones: {', '.join(TEXTURAS)}")
         self.suspensiones = max(0.0, min(1.0, float(cfg.get("suspensiones", 0.0))))
         self.velocidad = int(cfg.get("velocidad", 80))
-        self.seed = str(cfg.get("seed", "pads"))
         for nombre, valor, opciones in (("apertura", self.apertura, APERTURAS),
                                         ("ataque", self.ataque, ATAQUES), ("base", self.base, BASES)):
             if valor not in opciones:
@@ -147,15 +252,38 @@ class Pads:
 
     # --- Armado de acordes ---
 
-    def _grado(self, cambio):
+    def _grado(self, cambio, base=None):
         """Grado del acorde para el cambio número `cambio`, con variación determinista."""
         grado = self.progresion[cambio % len(self.progresion)]
         if self.variacion > 0 and cambio > 0:
             rng = random.Random(f"pads:{self.seed}:{cambio}")
             if rng.random() < self.variacion:
                 # Sustituto por terceras (relativo): comparte dos notas con el original.
-                grado += rng.choice((2, -2, 5))
+                sustituto = grado + rng.choice((2, -2, 5))
+                # Una sorpresa no cae en un acorde disminuido o aumentado.
+                if self._consonante(base, sustituto):
+                    grado = sustituto
+        if self.aleatoria and not self._consonante(base, grado):
+            # La progresión al azar se piensa desde la tónica: si la nota larga es otra
+            # nota de la escala, un acorde puede quedar disminuido; se corre al vecino
+            # que comparte notas con él.
+            for d in (2, -2, 1, -1, 3, -3):
+                if self._consonante(base, grado + d):
+                    return grado + d
         return grado
+
+    def _consonante(self, base, grado):
+        """True si el acorde sobre `grado` (contado desde `base`) es mayor o menor."""
+        iv = self.tonalidad.intervalos
+        desde = 0
+        if base is not None:
+            clase = (base - self.tonalidad.tonica) % 12
+            desde = min(range(len(iv)), key=lambda k: min((iv[k] - clase) % 12, (clase - iv[k]) % 12))
+        return consonante(iv, desde + grado)
+
+    def texto_progresion(self):
+        """La progresión en números romanos desde la tónica, p. ej. 'i – ♭II – ♭vii – iv'."""
+        return " – ".join(numeral(self.tonalidad.intervalos, g) for g in self.progresion)
 
     def _base(self, raiz):
         if raiz is None:  # sin nota larga, los pads se callan
@@ -250,7 +378,7 @@ class Pads:
             raiz_acorde = _cerca(self.forzado, base)
         else:
             cambio = (paso // 16 - self.origen) // self.cambia_cada
-            raiz_acorde = self.tonalidad.nota(base, self._grado(cambio), "escala")
+            raiz_acorde = self.tonalidad.nota(base, self._grado(cambio, base), "escala")
         clases = {self.tonalidad.nota(raiz_acorde, p, "escala") % 12 for p in self.acorde}
         return raiz_acorde, clases
 
@@ -266,8 +394,8 @@ class Pads:
         largo = self.cambia_cada * PASOS_POR_COMPAS
         relativo = paso - self.origen * PASOS_POR_COMPAS
         cambio = relativo // largo
-        actual = self.tonalidad.nota(base, self._grado(cambio), "escala")
-        siguiente = self.tonalidad.nota(base, self._grado(cambio + 1), "escala")
+        actual = self.tonalidad.nota(base, self._grado(cambio, base), "escala")
+        siguiente = self.tonalidad.nota(base, self._grado(cambio + 1, base), "escala")
         return Momento(actual, self._clases(actual), siguiente, self._clases(siguiente), (cambio + 1) * largo - relativo)
 
     # --- Tiempo ---
@@ -327,7 +455,7 @@ class Pads:
     def _cambiar_acorde(self, clave, cambio, base, tick, enviar, raiz=None):
         self._resolver(tick, enviar, todas=True)  # una suspensión anterior resuelve antes del cambio
         self.clave = clave
-        raiz_acorde = raiz if raiz is not None else self.tonalidad.nota(base, self._grado(cambio), "escala")
+        raiz_acorde = raiz if raiz is not None else self.tonalidad.nota(base, self._grado(cambio, base), "escala")
         self.raiz_acorde = raiz_acorde
         self.base_actual = base
         nuevas = sorted(set(self._voicing(raiz_acorde)))  # sin notas repetidas al doblar voces

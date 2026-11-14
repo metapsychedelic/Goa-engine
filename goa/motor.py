@@ -385,6 +385,7 @@ class Motor:
             "raices": raices,
             "compas": paso // PASOS_POR_COMPAS + 1 if self.corriendo else None,
             "acorde": self._acorde_estado(paso),
+            "progresion": self.pads.texto_progresion() if self.pads else None,
             "dialogo": self.dialogo.fase if self.dialogo and self.dialogo.activo and self.corriendo else None,
             "filas": [{"clip": s.clip, "activa": s.activa,
                        "cola": (None if i not in self.cola else
@@ -562,6 +563,8 @@ class Motor:
                 self.origen_progresion = compas  # la progresión nueva parte en su i
         efectiva = self.conductor.efectiva(self.base, compas)
         if efectiva != self.config:
+            if self.config is not None and forma.cambia_armonia(self.config, efectiva):
+                self.origen_progresion = compas  # otra progresión (o tonalidad) parte en su i
             self._aplicar(efectiva)  # los cambios entran justo en el compás
             log.info("Entran los cambios (compás %d)", compas + 1)
         self.pads.origen = self.origen_progresion

@@ -225,7 +225,17 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 
 <script>
 const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# · Re#"],["E","E · Mi"],["F","F · Fa"],["F#","F# · Fa#"],["G","G · Sol"],["G#","G# · Sol#"],["A","A · La"],["A#","A# · La#"],["B","B · Si"]];
-const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"],["i_IV","i – IV · con dórica, abierta (psy chill)"],["i_IV_i_bVII","i – IV – i – ♭VII · psy chill"],["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive"],["i_bVI_iv_v","i – ♭VI – iv – v · chillout"],["pedal_I_II","I – II sobre la raíz · con lidia, galáctica (ambient)"]];
+const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"],["i_IV","i – IV · con dórica, abierta (psy chill)"],["i_IV_i_bVII","i – IV – i – ♭VII · psy chill"],["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive"],["i_bVI_iv_v","i – ♭VI – iv – v · chillout"],["pedal_I_II","I – II sobre la raíz · con lidia, galáctica (ambient)"],["aleatoria","Al azar · según la escala"]];
+// Qué da cada escala con la progresión al azar (solo acordes mayores y menores).
+const AZAR_ESCALA = {
+  frigio: "Frigio: lo más Goa al azar. Usa i, ♭II, ♭III, iv, ♭VI y ♭vii; prefiere ♭II y vuelve seguido a la i.",
+  frigio_dominante: "Frigio dominante: oriental, pero tiene pocos acordes limpios (I, ♭II, iv, ♭vii): salen progresiones cortas.",
+  menor: "Menor natural: la más versátil al azar. ♭VI y ♭VII le dan el aire épico de trance.",
+  menor_armonica: "Menor armónica: el V mayor le da tensión que vuelve a la i. Usa i, iv, V y ♭VI.",
+  hungara_menor: "Húngara menor: muy exótica en melodías, pero solo tiene i, V, ♭VI y vii limpios: progresiones cortas.",
+  dorico: "Dórica: luminosa, ideal para psy chill. El IV mayor es su color.",
+  lidio: "Lidia: flotante y espacial (ambient). El II mayor es su color.",
+};
 const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"],["septima","Séptima (m7 / maj7)"],["novena","Novena (con 5 voces)"]];
 // Escala equivalente en la Circuit (botón Scales): [escala de la Circuit, semitonos a sumar a la tónica].
 // Frigio dominante = menor armónica una quinta abajo; lidia = mayor una quinta arriba (mismas notas).
@@ -506,7 +516,11 @@ function panelPads() {
       : p.textura === "raiz_acorde" ? "El acorde con su raíz una octava abajo. Ocupa una voz del sinte." : "Acordes completos."),
     campo("Variante", variante(p, "pads")),
     el("div", {className: "card principales"}, [
-      el("label", {className: "campo"}, ["Progresión", select(PROGRESIONES, "progresion")]),
+      el("label", {className: "campo"}, ["Progresión", (() => { const s = select(PROGRESIONES, "progresion");
+        s.addEventListener("change", () => renderMotores()); return s; })()]),
+      p.progresion === "aleatoria" ? el("p", {className: "ayuda"}, [
+        el("strong", {id: "prog_azar", textContent: (ultimoEstado && ultimoEstado.progresion) || ""}),
+        el("span", {textContent: " " + (AZAR_ESCALA[cfg.musica.escala] || "") + " Otra variante arma otra progresión; entra en el próximo cambio, partiendo en su i."})]) : null,
       el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
       pulso,
       deslizador(p, "golpe", "Largo del golpe", 0.1, 1, 0.05,
@@ -1244,6 +1258,8 @@ async function estado() {
     $("sub").textContent = partes.join(" · ") || "Esperando la Circuit";
     $("ver").textContent = "Motor Goa v" + d.version;
     $("acorde").textContent = d.acorde ? "Acorde: " + d.acorde : "Sin acorde";
+    const azar = document.getElementById("prog_azar");
+    if (azar) azar.textContent = d.progresion || "";
     $("dialogo_linea").textContent = d.dialogo ? "Diálogo: " + (FASES[d.dialogo] || "en silencio") : "";
     const fase = $("dialogo_fase");
     if (fase) { fase.textContent = FASES[d.dialogo] || "En silencio"; fase.className = "pill" + (d.dialogo && d.dialogo !== "espacio" ? " ok" : ""); }

@@ -172,7 +172,9 @@ def cambia_armonia(a, b):
     """True si la transición cambia la tonalidad o la progresión (la nueva parte en su i)."""
     ma, mb, pa, pb = a["musica"], b["musica"], a["pads"], b["pads"]
     return ((ma["tonica"], ma["escala"]) != (mb["tonica"], mb["escala"])
-            or any(pa[k] != pb[k] for k in ("progresion", "cambia_cada", "base")))
+            or any(pa[k] != pb[k] for k in ("progresion", "cambia_cada", "base"))
+            # Al azar, otra variante es otra progresión: la nueva también parte en su i.
+            or ("aleatoria" in (pa["progresion"], pb["progresion"]) and pa.get("seed") != pb.get("seed")))
 
 
 def cambia_tono(a, b):

@@ -91,6 +91,17 @@ Con "Las secuencias siguen al acorde" (en Armonía, con armonía libre), las sec
 de nota base junto con los pads. Pads en la MicroFreak (canal 3, hasta 4 voces)
 y Goa en la FM-1 (canal 4), o al revés: cada máquina toca un solo sonido a la vez.
 
+**Progresión al azar:** elige *Al azar · según la escala* y cada *Otra variante*
+arma una progresión nueva de 2 a 4 acordes que parte en la i. Solo usa acordes
+mayores y menores de la escala (deja fuera los disminuidos y aumentados), prefiere
+los que le dan color a cada escala y termina en un acorde que vuelve bien a la i.
+La app muestra la progresión en números romanos. Las escalas que mejor andan al
+azar: **frigio** (lo más Goa: i–♭II, cortas), **menor natural** (la más variada,
+♭VI y ♭VII épicos), **dórica** (luminosa, IV mayor) y **lidia** (flotante, II
+mayor). Frigio dominante y húngara menor tienen pocos acordes limpios: dan
+progresiones cortas. Una progresión nueva (al azar o elegida) entra en el próximo
+cambio y parte en su i.
+
 
 **Pulso:** con pulso, los acordes suenan en golpes euclidianos en corcheas.
 *Largo del golpe* (aparece al subir el pulso) dice cuánto del hueco hasta el
