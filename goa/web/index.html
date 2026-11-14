@@ -679,7 +679,7 @@ function panelSecuencia(i) {
     campo("Variante", variante(s, `sec-${s.nombre}`)),
     el("div", {className: "card principales"}, [
       deslizador(s, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas las notas" : porcentaje(v)),
-      deslizador(s, "mutacion", "Mutación", 0, 1, 0.05, (v) => v === 0 ? "fija" : `${porcentaje(v)} cada ${s.mutar_cada}`),
+      deslizador(s, "mutacion", "Mutación", 0, 1, 0.05, (v) => s.bloqueada ? "congelada (en Variación)" : v === 0 ? "fija" : `${porcentaje(v)} cada ${s.mutar_cada}`),
       deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
     ]),
     el("div", {className: "grupos"}, [
@@ -705,9 +705,9 @@ function panelSecuencia(i) {
         deslizador(s, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
         deslizador(s, "gate_random", "Variación del largo", 0, 1, 0.05, porcentaje),
       ]),
-      grupo(`g-sec-var`, "Variación", `${s.bloqueada ? "congelada" : `mutar cada ${s.mutar_cada}`} · ${armoniaTexto(s)} · ${cfg.clip.length} clips`, [
-        casilla(s, "bloqueada", "Congelar el patrón", "La mutación no lo cambia"),
-        numeroDe(s, "mutar_cada", "Mutar cada (compases)", 1, 64),
+      grupo(`g-sec-var`, "Variación", `${s.bloqueada ? "congelada" : s.mutacion === 0 ? "sin mutación" : `mutar cada ${s.mutar_cada}`} · ${armoniaTexto(s)} · ${cfg.clip.length} clips`, [
+        casilla(s, "bloqueada", "Congelar el patrón", "La mutación no lo cambia (un clip guardado congelado entra congelado)", () => renderMotores()),
+        numeroDe(s, "mutar_cada", "Mutar cada (compases)", 1, 64, () => renderMotores()),
         armoniaPropia(s, () => renderMotores()),
         h3("Clips"),
         ayuda("Un clip guarda el carácter de la secuencia (estilo, variante y ajustes). Al tocarlo, entra en el próximo compás."),

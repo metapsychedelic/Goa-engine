@@ -127,5 +127,29 @@ if __name__ == "__main__":
                 pegados += getattr(s, "_director_patron", None) is not None
     todo &= ok(pegados == 0, "un cambio pensado para el patrón anterior no se pega encima del clip nuevo")
 
+    print("\nLa mutación sigue con el director andando")
+    def bases(variacion):
+        cfg = armar()
+        for sec in cfg["secuencia"]:
+            sec.update(mutacion=0.5, mutar_cada=4)
+        cfg["forma"].update(variacion=variacion, periodo=8)
+        m = Motor(cfg, lambda *a: None)
+        m.start()
+        vistos = []
+        for tick in range(64 * 96):
+            m.reloj()
+            if tick % 96 == 1:
+                m.nota_on(1, 41)
+            if tick % 96 == 50:
+                propios = []
+                for sq in m.secuencias:
+                    g = getattr(sq, "_director_patron", None)
+                    propios.append(g[1] if g is not None else sq.patron)
+                vistos.append(propios)
+        return vistos
+    sin, con = bases(0.0), bases(1.0)
+    todo &= ok(sin == con, "el patrón propio de cada secuencia muta igual con o sin variación larga "
+                           "(al terminar una variante del director vuelve evolucionado)")
+
     print("\nTODO BIEN" if todo else "\nHAY ERRORES")
     raise SystemExit(0 if todo else 1)

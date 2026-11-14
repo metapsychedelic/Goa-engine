@@ -69,6 +69,12 @@ class Secuencia:
     def evolucionar(self, compas):
         if not self.bloqueada and self.mutacion > 0 and compas > 0 and compas % self.mutar_cada == 0:
             self.patron = generador.mutar(self.patron, self.seed, compas, self.mutacion, self.pedal)
+            guardado = getattr(self, "_director_patron", None)
+            if guardado is not None:
+                # Mientras suena una variante del director, el patrón propio sigue mutando
+                # por debajo: al terminar el período vuelve evolucionado, no al de antes.
+                clave, propio = guardado
+                self._director_patron = (clave, generador.mutar(propio, self.seed, compas, self.mutacion, self.pedal))
 
 
 class Disparo:
