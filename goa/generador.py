@@ -241,6 +241,70 @@ def extras(seed, largo):
              "repeticion": rng.random(), "larga": rng.random()} for _ in range(largo)]
 
 
+def mutar_ritmo(patron, seed, compas, probabilidad, posicion, ritmo_base):
+    """Mutación de ritmo: mueve una nota a un lugar vecino, agrega o quita una, o
+    devuelve un lugar a como estaba. Determinista por seed y compás.
+
+    Respeta dónde caen las notas (offbeat no pasa al bombo) y no se aleja demasiado
+    de la cantidad de notas original: entre la mitad y una vez y media."""
+    if probabilidad <= 0 or not patron:
+        return patron
+    rng = random.Random(f"ritmo:{seed}:{compas}")
+    veces = (1 if rng.random() < probabilidad else 0) + (1 if rng.random() < probabilidad - 0.5 else 0)
+    if not veces:
+        return patron
+    largo = len(patron)
+    # Con largo múltiplo de 4 cada paso cae siempre en el mismo lugar del compás;
+    # con 13, 11 o 7 va girando, así que cualquier paso suena en algún momento.
+    valido = (lambda i: pasa_posicion(posicion, i)) if largo % 4 == 0 else (lambda i: True)
+    nuevo = [dict(p) for p in patron]
+    originales = max(1, sum(1 for i, b in enumerate(ritmo_base) if b and valido(i)))
+    for _ in range(veces):
+        notas = [i for i, p in enumerate(nuevo) if p["suena"] and valido(i)]
+        vacios = [i for i, p in enumerate(nuevo) if not p["suena"] and valido(i)]
+        distintos = [i for i in range(largo) if bool(nuevo[i]["suena"]) != bool(ritmo_base[i]) and valido(i)]
+        vecinos = lambda i: [j % largo for j in (i - 1, i + 1, i - 2, i + 2)]  # noqa: E731
+        ops = []
+        if any(not nuevo[j]["suena"] and valido(j) for i in notas for j in vecinos(i)):
+            ops += ["mover"] * 3
+        if vacios and len(notas) < originales * 1.5:
+            ops += ["agregar"] * 2
+        if len(notas) > max(1, originales * 0.5):
+            ops += ["quitar"] * 2
+        if distintos:
+            ops += ["volver"]
+        if not ops:
+            break
+        op = rng.choice(ops)
+        silencio = lambda p: dict(p, suena=False, acento=False, slide=False)  # noqa: E731
+        if op == "mover":
+            origenes = [i for i in notas if any(not nuevo[j]["suena"] and valido(j) for j in vecinos(i))]
+            i = rng.choice(origenes)
+            j = rng.choice([j for j in vecinos(i) if not nuevo[j]["suena"] and valido(j)])
+            nota = dict(nuevo[i])
+            nota.pop("fuente", None)  # la densidad sigue al lugar nuevo
+            nuevo[j], nuevo[i] = nota, silencio(nuevo[i])
+        elif op == "agregar":
+            cerca = [j for j in vacios if any(nuevo[k]["suena"] for k in vecinos(j))] or vacios
+            j = rng.choice(cerca)
+            modelo = next((nuevo[k] for k in vecinos(j) if nuevo[k]["suena"]), None)
+            nota = dict(modelo or nuevo[j], suena=True, acento=False, slide=False)
+            nota["grado"] = modelo["grado"] if modelo and rng.random() < 0.5 else 0
+            nota.pop("fuente", None)
+            nuevo[j] = nota
+        elif op == "quitar":
+            i = rng.choice(notas)
+            nuevo[i] = silencio(nuevo[i])
+        else:  # volver: un lugar vuelve al ritmo original
+            i = rng.choice(distintos)
+            if ritmo_base[i]:
+                nuevo[i] = dict(nuevo[i], suena=True, grado=nuevo[i].get("grado", 0))
+                nuevo[i].pop("fuente", None)
+            else:
+                nuevo[i] = silencio(nuevo[i])
+    return nuevo
+
+
 def mutar(patron, seed, compas, probabilidad, pedal=0.5):
     """Evolución tipo Turing Machine, determinista para cada seed y compás."""
     if probabilidad <= 0:

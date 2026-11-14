@@ -331,10 +331,11 @@ function campo(texto, control) {
   return el("div", {style: "display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--txt2)"}, [texto, control]);
 }
 
-function deslizador(s, k, texto, min, max, paso, formato) {
+function deslizador(s, k, texto, min, max, paso, formato, alSoltar) {
   const valor = el("span", {textContent: formato(s[k]), style: "color:var(--mut)"});
   const r = el("input", {type: "range", min, max, step: paso, value: s[k], "aria-label": texto,
-    oninput: () => { s[k] = parseFloat(r.value); valor.textContent = formato(s[k]); guardar(); }});
+    oninput: () => { s[k] = parseFloat(r.value); valor.textContent = formato(s[k]); guardar(); },
+    onchange: () => { if (alSoltar) alSoltar(); }});
   return el("label", {className: "campo"}, [el("span", {className: "fila", style: "gap:8px"}, [el("b", {textContent: texto, style: "font-weight:600"}), valor]), r]);
 }
 
@@ -679,7 +680,7 @@ function panelSecuencia(i) {
     campo("Variante", variante(s, `sec-${s.nombre}`)),
     el("div", {className: "card principales"}, [
       deslizador(s, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas las notas" : porcentaje(v)),
-      deslizador(s, "mutacion", "Mutación", 0, 1, 0.05, (v) => s.bloqueada ? "congelada (en Variación)" : v === 0 ? "fija" : `${porcentaje(v)} cada ${s.mutar_cada}`),
+      deslizador(s, "mutacion", "Mutación de notas", 0, 1, 0.05, (v) => s.bloqueada ? "congelada (en Variación)" : v === 0 ? "fija" : `${porcentaje(v)} cada ${s.mutar_cada}`, () => renderMotores()),
       deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
     ]),
     el("div", {className: "grupos"}, [
@@ -705,9 +706,11 @@ function panelSecuencia(i) {
         deslizador(s, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
         deslizador(s, "gate_random", "Variación del largo", 0, 1, 0.05, porcentaje),
       ]),
-      grupo(`g-sec-var`, "Variación", `${s.bloqueada ? "congelada" : s.mutacion === 0 ? "sin mutación" : `mutar cada ${s.mutar_cada}`} · ${armoniaTexto(s)} · ${cfg.clip.length} clips`, [
+      grupo(`g-sec-var`, "Variación", `${s.bloqueada ? "congelada" : (s.mutacion === 0 && !s.mutacion_ritmo) ? "sin mutación" : `mutar cada ${s.mutar_cada}${s.mutacion_ritmo ? " · con ritmo" : ""}`} · ${armoniaTexto(s)} · ${cfg.clip.length} clips`, [
         casilla(s, "bloqueada", "Congelar el patrón", "La mutación no lo cambia (un clip guardado congelado entra congelado)", () => renderMotores()),
         numeroDe(s, "mutar_cada", "Mutar cada (compases)", 1, 64, () => renderMotores()),
+        deslizador(s, "mutacion_ritmo", "Mutación de ritmo", 0, 1, 0.05, (v) => s.bloqueada ? "congelada" : v === 0 ? "apagada" : `${porcentaje(v)} cada ${s.mutar_cada}`, () => renderMotores()),
+        ayuda("Además de las notas, el ritmo cambia de a poco: mueve una nota a un lugar vecino, agrega o quita una, o vuelve al ritmo original. Respeta dónde caen las notas y la cantidad se mantiene cerca de la original."),
         armoniaPropia(s, () => renderMotores()),
         h3("Clips"),
         ayuda("Un clip guarda el carácter de la secuencia (estilo, variante y ajustes). Al tocarlo, entra en el próximo compás."),
@@ -728,7 +731,7 @@ function h3(texto) { return el("h3", {textContent: texto}); }
 
 function agregarSecuencia() {
   const base = cfg.secuencia[cfg.secuencia.length - 1] || {salida: "FM-1", canal: 2, estilo: "rolling", posicion: "offbeat", relacion: "unisono",
-    octava: 0, largo: 16, gate: 0.55, pedal: 0.5, mutacion: 0, mutar_cada: 8, bloqueada: false, velocidad: 96, acento: 124, genero: cfg.musica.genero};
+    octava: 0, largo: 16, gate: 0.55, pedal: 0.5, mutacion: 0, mutar_cada: 8, mutacion_ritmo: 0, bloqueada: false, velocidad: 96, acento: 124, genero: cfg.musica.genero};
   const usadas = new Set(cfg.secuencia.map((s) => s.nombre));
   let letra = "A";
   for (let k = 0; k < 26; k++) { letra = String.fromCharCode(65 + k); if (!usadas.has(letra)) break; }

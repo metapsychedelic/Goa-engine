@@ -116,6 +116,8 @@ def energizar(cfg, energia):
         s["velocidad"] = int(_limitar(s["velocidad"] + round(20 * f), 1, 127))
         if s["mutacion"] > 0:
             s["mutacion"] = round(_limitar(s["mutacion"] + 0.3 * alto), 3)
+        if s.get("mutacion_ritmo", 0) > 0:
+            s["mutacion_ritmo"] = round(_limitar(s["mutacion_ritmo"] + 0.2 * alto), 3)
     b = c["bajo"]
     b["densidad"] = round(_limitar(_escala(b["densidad"], f)), 3)
     b["fantasmas"] = round(_limitar(_escala(b["fantasmas"], f)), 3)

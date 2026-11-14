@@ -105,5 +105,55 @@ if __name__ == "__main__":
     todo &= ok(not pegados, "cada mutación cambia al menos una nota, en todos los estilos, aunque el pedal sea alto"
                + (f" (pegados: {pegados[:3]})" if pegados else ""))
 
+    print("\nMutación de ritmo")
+    ritmo = lambda pat: [bool(p["suena"]) for p in pat]  # noqa: E731
+    fuera, lejos, cambia, quieto = 0, 0, 0, 0
+    for estilo in generador.ESTILOS:
+        for posicion in generador.POSICIONES:
+            for largo in (16, 13, 7):
+                p = generador.generar("R1", estilo, largo, 0.5)
+                base = ritmo(p)
+                validos = lambda pat: [i for i, x in enumerate(pat) if x["suena"]  # noqa: E731
+                                       and (largo % 4 or generador.pasa_posicion(posicion, i))]
+                n0 = max(1, len(validos(p)))
+                quieto += ritmo(generador.mutar(p, "R1", 4, 0.5, 0.5)) != base  # sin ritmo, el ritmo no se toca
+                for compas in range(4, 200, 4):
+                    q = generador.mutar_ritmo(p, "R1", compas, 0.7, posicion, base)
+                    cambia += ritmo(q) != ritmo(p)
+                    if largo % 4 == 0:
+                        fuera += sum(1 for i, x in enumerate(q) if x["suena"] and not base[i]
+                                     and not generador.pasa_posicion(posicion, i))
+                    n = len(validos(q))
+                    lejos += n0 > 1 and not (n0 * 0.5 - 1 <= n <= n0 * 1.5 + 1)
+                    p = q
+    todo &= ok(quieto == 0, "con la mutación de ritmo apagada, el ritmo no cambia (como antes)")
+    todo &= ok(cambia > 1000, f"con la mutación de ritmo, el ritmo cambia ({cambia} veces)")
+    todo &= ok(fuera == 0, "nunca agrega ni mueve una nota a un lugar donde no suena (el offbeat no pasa al bombo)")
+    todo &= ok(lejos == 0, "la cantidad de notas se queda entre la mitad y una vez y media de la original")
+
+    cfg = copy.deepcopy(BASE)
+    for sec in cfg["secuencia"]:
+        sec.update(activa=True, mutacion=0.3, mutacion_ritmo=0.6, mutar_cada=2)
+    def ritmos(variacion, congelar=False):
+        c = copy.deepcopy(cfg)
+        c["forma"].update(variacion=variacion, periodo=8)
+        for sec in c["secuencia"]:
+            sec["bloqueada"] = congelar
+        m = Motor(normalizar(c), lambda *a: None)
+        m.start()
+        vistos = []
+        for tick in range(48 * 96):
+            m.reloj()
+            if tick % 96 == 1:
+                m.nota_on(m.canal_disparo, 41)
+            if tick % 96 == 50:
+                g = getattr(m.secuencias[0], "_director_patron", None)
+                vistos.append(ritmo(g[1] if g is not None else m.secuencias[0].patron))
+        return vistos
+    r = ritmos(0.0)
+    todo &= ok(len({tuple(x) for x in r}) > 5, "en el motor, el ritmo de la secuencia evoluciona")
+    todo &= ok(r == ritmos(1.0), "y evoluciona igual con la variación larga andando")
+    todo &= ok(len({tuple(x) for x in ritmos(0.0, congelar=True)}) == 1, "congelada, el ritmo no cambia")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

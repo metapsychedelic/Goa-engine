@@ -166,6 +166,7 @@ ESQUEMA_SECUENCIA = {
     "seed": (str, "goa", None, None),
     "mutacion": (float, 0.0, 0.0, 1.0),
     "mutar_cada": (int, 8, 1, 64),
+    "mutacion_ritmo": (float, 0.0, 0.0, 1.0),
     "bloqueada": (bool, False, None, None),
     "velocidad": (int, 96, 1, 127),
     "acento": (int, 124, 1, 127),

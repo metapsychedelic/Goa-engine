@@ -40,6 +40,7 @@ class Secuencia:
         self.seed = str(cfg.get("seed", "goa"))
         self.mutacion = float(cfg.get("mutacion", 0.0))
         self.mutar_cada = max(1, int(cfg.get("mutar_cada", 8)))
+        self.mutacion_ritmo = float(cfg.get("mutacion_ritmo", 0.0))
         self.bloqueada = bool(cfg.get("bloqueada", False))
         self.velocidad = int(cfg.get("velocidad", 100))
         self.acento = int(cfg.get("acento", 120))
@@ -64,17 +65,27 @@ class Secuencia:
         if self.posicion not in generador.POSICIONES:
             raise ValueError(f"Posición desconocida: {self.posicion!r}. Opciones: {', '.join(generador.POSICIONES)}")
         self.patron = generador.generar(self.seed, self.estilo, self.largo, self.pedal)
+        self.ritmo_base = [bool(p["suena"]) for p in self.patron]
         self.extra = generador.extras(self.seed, self.largo)
 
     def evolucionar(self, compas):
-        if not self.bloqueada and self.mutacion > 0 and compas > 0 and compas % self.mutar_cada == 0:
-            self.patron = generador.mutar(self.patron, self.seed, compas, self.mutacion, self.pedal)
-            guardado = getattr(self, "_director_patron", None)
-            if guardado is not None:
-                # Mientras suena una variante del director, el patrón propio sigue mutando
-                # por debajo: al terminar el período vuelve evolucionado, no al de antes.
-                clave, propio = guardado
-                self._director_patron = (clave, generador.mutar(propio, self.seed, compas, self.mutacion, self.pedal))
+        if self.bloqueada or compas <= 0 or compas % self.mutar_cada:
+            return
+        if self.mutacion <= 0 and self.mutacion_ritmo <= 0:
+            return
+        self.patron = self._mutado(self.patron, compas)
+        guardado = getattr(self, "_director_patron", None)
+        if guardado is not None:
+            # Mientras suena una variante del director, el patrón propio sigue mutando
+            # por debajo: al terminar el período vuelve evolucionado, no al de antes.
+            clave, propio = guardado
+            self._director_patron = (clave, self._mutado(propio, compas))
+
+    def _mutado(self, patron, compas):
+        nuevo = generador.mutar(patron, self.seed, compas, self.mutacion, self.pedal)
+        if self.mutacion_ritmo > 0 and len(nuevo) == len(self.ritmo_base):
+            nuevo = generador.mutar_ritmo(nuevo, self.seed, compas, self.mutacion_ritmo, self.posicion, self.ritmo_base)
+        return nuevo
 
 
 class Disparo:
@@ -254,6 +265,7 @@ class Motor:
                     # Mismo patrón de base: conserva lo que ya mutó. Antes, mover cualquier
                     # control de la app devolvía la secuencia a su patrón original.
                     s.patron = vieja.patron
+                    s.ritmo_base = vieja.ritmo_base
                     s._director_patron = getattr(vieja, "_director_patron", None)  # un cambio del director viaja con su patrón
         pads.disparo = self._canal_de(config.get("pads", {}))
         bajo.disparo = self._canal_de(config.get("bajo", {}))

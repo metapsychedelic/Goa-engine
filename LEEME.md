@@ -219,6 +219,22 @@ No cambia tu configuración: todo vuelve solo al terminar el período. Una
 secuencia **congelada** queda fuera. Debajo dice qué está haciendo en este
 período. Es determinista: la misma configuración hace el mismo viaje.
 
+## Mutación de las secuencias
+
+Cada secuencia evoluciona cada *Mutar cada* compases (en Motores › Variación):
+
+- **Mutación de notas** cambia la altura de algunas notas. Cada mutación cambia
+  al menos una, así el patrón nunca se queda pegado en la nota larga.
+- **Mutación de ritmo** (opcional, apagada por defecto) cambia el ritmo de a
+  poco: mueve una nota a un lugar vecino, agrega o quita una, o devuelve un
+  lugar a como estaba. Respeta dónde caen las notas (el offbeat no pasa al
+  bombo) y la cantidad se queda entre la mitad y una vez y media de la original.
+- Con la **Variación larga**, tu patrón sigue mutando por debajo mientras suena
+  una variante del director, y vuelve evolucionado.
+- No muta si está **congelado**, si las dos mutaciones están en 0 o si el pedal
+  está en 100 % (solo la nota larga). Otra variante, otro estilo u otro largo, o
+  Stop y Play, parten de nuevo desde el patrón original.
+
 ## Cambios en vivo
 
 Con el motor andando, nada se dispara de golpe al tocar la app:
