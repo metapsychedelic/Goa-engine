@@ -30,7 +30,7 @@ DISCRETOS = frozenset((("secuencia", "pedal"), ("bajo", "movimiento")))
 # Enteros que sí se mueven de a poco.
 ENTEROS_CONTINUOS = frozenset(("velocidad", "acento", "golpes", "rasgueo"))
 TRANSICIONES = (1, 4, 8, 16)
-MAX_ESCENAS = 8
+MAX_ESCENAS = 16
 PASO_ENERGIA = 0.1  # lo más que se mueve la energía en un compás
 
 # Orden en que entran (y, al revés, salen) los motores en una transición:
@@ -189,13 +189,17 @@ class Transicion:
     En el compás inicio + i el avance es (i + 1) / compases: el último compás
     (inicio + compases - 1) ya es el destino completo."""
 
-    def __init__(self, origen, destino, inicio, compases, escena=None):
+    def __init__(self, origen, destino, inicio, compases, escena=None, escalonar=True):
         self.origen = copy.deepcopy(origen)
         self.destino = copy.deepcopy(destino)
         self.inicio = inicio
         self.compases = max(1, int(compases))
         self.escena = escena
         self.umbrales = self._umbrales()
+        if not escalonar:
+            # Canción: los motores entran y salen justo en el uno de la parte nueva
+            # (junto con la Circuit); solo lo continuo se mueve de a poco antes.
+            self.umbrales = {k: 1.0 for k in self.umbrales}
 
     @property
     def fin(self):
@@ -293,6 +297,56 @@ def con_piloto(cfg, clave, avance):
     return c
 
 
+# --- Modo canción ---
+#
+# La canción es una lista de partes con sus compases. Cuenta desde el Start de la
+# Circuit (la Circuit no avisa por MIDI cuando cambia de escena), así que su cadena
+# de escenas tiene que tener los mismos largos. Cada parte puede tener una escena:
+# la transición termina justo en el uno de la parte (lo continuo se mueve antes, lo
+# demás entra en el uno). "Golpe" entra de una, como un drop.
+
+
+def total_cancion(partes):
+    return sum(p["compases"] for p in partes)
+
+
+def ubicar(partes, pos, al_final="repetir"):
+    """Dónde cae el compás `pos` (contado desde el inicio de la canción).
+
+    Devuelve (índice, compás dentro de la parte, largo, vuelta) o None si no hay
+    partes. Al terminar repite (como la cadena de escenas de la Circuit) o se queda
+    en la última parte."""
+    total = total_cancion(partes)
+    if not partes or total <= 0 or pos < 0:
+        return None
+    vuelta = 0
+    if pos >= total:
+        if al_final == "quedarse":
+            ultima = len(partes) - 1
+            largo = partes[ultima]["compases"]
+            return ultima, largo - 1, largo, 0
+        vuelta, pos = divmod(pos, total)
+    inicio = 0
+    for i, p in enumerate(partes):
+        if pos < inicio + p["compases"]:
+            return i, pos - inicio, p["compases"], vuelta
+        inicio += p["compases"]
+    return None
+
+
+def inicio_parte(partes, indice):
+    """Compás (desde el inicio de la canción) en que empieza la parte `indice`."""
+    return sum(p["compases"] for p in partes[:indice])
+
+
+def cancion_activa(base):
+    return bool(base.get("cancion", {}).get("activa")) and bool(base.get("parte"))
+
+
+def segundos(compases, bpm):
+    return compases * 4 * 60.0 / max(1.0, bpm)
+
+
 class Conductor:
     """Lleva la transición en curso, el piloto y la energía, y da la configuración que suena."""
 
@@ -301,16 +355,32 @@ class Conductor:
         self.energia = None  # energía que suena (llega de a poco a la pedida)
         self.piloto = None   # {"i": índice en PLAN, "inicio": compás} o None
         self.saltar_a = None  # sección pedida desde la app
+        self.cancion = None   # {"origen": compás donde empezó, "lanzada": compás de la última parte lanzada}
 
     def reiniciar(self):
         self.transicion = None
         self.energia = None
         self.piloto = None
         self.saltar_a = None
+        self.cancion = None
+
+    def parte(self, base, compas):
+        """La parte de la canción que suena en `compas`: dict con índice, compás dentro,
+        largo, avance (0 a 1) y vuelta; o None (modo libre o aún no empieza)."""
+        if not cancion_activa(base) or self.cancion is None:
+            return None
+        pos = compas - self.cancion["origen"]
+        if pos < 0:
+            return None
+        donde = ubicar(base["parte"], pos, base["cancion"].get("al_final", "repetir"))
+        if donde is None:
+            return None
+        i, dentro, largo, vuelta = donde
+        return {"i": i, "dentro": dentro, "largo": largo, "avance": dentro / max(1, largo - 1), "vuelta": vuelta}
 
     def _avanzar_piloto(self, base, compas):
         f = base.get("forma", {})
-        if not f.get("piloto"):
+        if not f.get("piloto") or cancion_activa(base):  # la canción manda sobre el piloto
             self.piloto = None
             return False
         duracion = f.get("duracion", "normal")
@@ -338,10 +408,14 @@ class Conductor:
         dentro = max(0, compas - self.piloto["inicio"])
         return clave, min(1.0, dentro / max(1, largo - 1)), dentro, largo
 
-    def lanzar(self, origen, destino, inicio, compases, escena=None):
-        self.transicion = Transicion(origen, destino, inicio, compases, escena)
+    def lanzar(self, origen, destino, inicio, compases, escena=None, escalonar=True):
+        self.transicion = Transicion(origen, destino, inicio, compases, escena, escalonar)
 
     def objetivo(self, base, compas):
+        parte = self.parte(base, compas)
+        if parte is not None:
+            p = base["parte"][parte["i"]]
+            return round(p["energia"] + (p["energia_fin"] - p["energia"]) * parte["avance"], 4)
         sec = self.seccion(base, compas)
         if sec is not None:
             a, b = SECCIONES_PILOTO[sec[0]]["energia"]
@@ -354,6 +428,9 @@ class Conductor:
         nueva_seccion = self._avanzar_piloto(base, compas)
         meta = self.objetivo(base, compas)
         golpe = nueva_seccion and SECCIONES_PILOTO[PLAN[self.piloto["i"]]].get("golpe")
+        parte = self.parte(base, compas)
+        if parte is not None and parte["dentro"] == 0 and base["parte"][parte["i"]]["entrada"] == "golpe":
+            golpe = True  # una parte "de golpe" llega con su energía en el uno
         if self.energia is None or golpe:
             self.energia = meta  # el break y el drop entran de golpe, en el uno
         else:

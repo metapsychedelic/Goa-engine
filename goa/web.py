@@ -1,5 +1,6 @@
 """App web: la Pi sirve una página para controlar el motor desde el celular."""
 
+import copy
 import json
 import logging
 import re
@@ -9,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, forma, generos
-from .config import (MAX_CLIPS, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -29,6 +30,19 @@ class Contexto:
         self.config = config
         self.entrada = None  # nombre de la entrada conectada, o None
         self.entradas_disponibles = []  # puertos de entrada que ve la Pi
+        self.version_base = 0  # la última parte de la canción que la app ya conoce
+
+    def sincronizar(self):
+        """Modo canción: si el motor pasó a otra parte, lo que muestra la app (y se guarda)
+        pasa a ser la escena de esa parte. Llamar con el candado tomado. True si cambió."""
+        if self.motor.version_base == self.version_base:
+            return False
+        self.version_base = self.motor.version_base
+        nueva = copy.deepcopy(self.motor.base)
+        # Las escenas y la canción las edita la app: se quedan como están acá.
+        nueva["escena"], nueva["parte"], nueva["cancion"] = self.config["escena"], self.config["parte"], self.config["cancion"]
+        self.config = nueva
+        return True
 
 
 def _carpeta_proyectos(ctx):
@@ -88,6 +102,8 @@ def crear_servidor(ctx, puerto):
                 self.wfile.write(cuerpo)
             elif self.path == "/api/estado":
                 with ctx.candado:
+                    if ctx.sincronizar():
+                        self._guardar_activa()
                     estado = ctx.motor.estado()
                     estado["version"] = __version__
                     estado["entrada"] = ctx.entrada
@@ -99,7 +115,8 @@ def crear_servidor(ctx, puerto):
                 self._json(estado)
             elif self.path == "/api/config":
                 with ctx.candado:
-                    self._json(ctx.config)
+                    ctx.sincronizar()
+                    self._json(dict(ctx.config, version_base=ctx.version_base))
             elif self.path == "/api/proyectos":
                 self._json({"proyectos": listar_proyectos(ctx)})
             else:
@@ -132,6 +149,10 @@ def crear_servidor(ctx, puerto):
                 "/api/escena/borrar": self._escena_borrar,
                 "/api/energia": self._energia,
                 "/api/piloto": self._piloto,
+                "/api/cancion": self._cancion,
+                "/api/parte/nueva": self._parte_nueva,
+                "/api/parte/guardar": self._parte_guardar,
+                "/api/parte/escuchar": self._parte_escuchar,
                 "/api/proyecto/guardar": self._proyecto_guardar,
                 "/api/proyecto/abrir": self._proyecto_abrir,
                 "/api/proyecto/borrar": self._proyecto_borrar,
@@ -140,6 +161,8 @@ def crear_servidor(ctx, puerto):
             if accion is None:
                 self._json({"error": "no existe"}, 404)
                 return
+            with ctx.candado:
+                ctx.sincronizar()
             try:
                 accion(datos)
             except FileNotFoundError:
@@ -176,6 +199,11 @@ def crear_servidor(ctx, puerto):
         def _config(self, datos):
             if isinstance(datos, dict):
                 with ctx.candado:
+                    vista = datos.get("version_base")
+                    if vista is not None and int(vista) != ctx.version_base:
+                        # La canción pasó a otra parte mientras tocabas: lo que mandó la app es
+                        # de la parte anterior y la desharía. La app se recarga y lo vuelves a hacer.
+                        raise ValueError("La canción pasó a otra parte: vuelve a hacer el cambio")
                     # Las escenas solo cambian con sus botones: una configuración vieja no las borra.
                     datos = dict(datos, escena=ctx.config["escena"])
             nueva = normalizar(datos)
@@ -276,6 +304,7 @@ def crear_servidor(ctx, puerto):
                     escenas[indice] = escena
                 ctx.config["forma"]["escena"] = indice
                 ctx.motor.base["forma"]["escena"] = indice
+                ctx.motor.base["escena"] = copy.deepcopy(escenas)  # la canción usa la escena recién guardada
                 aviso = self._guardar_activa()
             self._responder(aviso, indice=indice)
 
@@ -298,6 +327,10 @@ def crear_servidor(ctx, puerto):
             with ctx.candado:
                 indice = int(datos["indice"])
                 del ctx.config["escena"][indice]
+                for p in ctx.config["parte"]:  # las partes de la canción siguen apuntando bien
+                    p["escena"] = -1 if p["escena"] == indice else p["escena"] - (1 if p["escena"] > indice else 0)
+                ctx.motor.base["parte"] = copy.deepcopy(ctx.config["parte"])
+                ctx.motor.base["escena"] = copy.deepcopy(ctx.config["escena"])
                 actual = ctx.config["forma"]["escena"]
                 ctx.config["forma"]["escena"] = -1 if actual == indice else actual - (1 if actual > indice else 0)
                 ctx.motor.base["forma"]["escena"] = ctx.config["forma"]["escena"]
@@ -312,6 +345,76 @@ def crear_servidor(ctx, puerto):
                 ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
             self._responder(aviso)
+
+        # --- Modo canción ---
+
+        def _cancion(self, datos):
+            """Prende o apaga el modo canción, cambia qué pasa al final o salta a una parte."""
+            with ctx.candado:
+                c = ctx.config["cancion"]
+                if "activa" in datos:
+                    c["activa"] = bool(datos["activa"])
+                    if c["activa"]:
+                        ctx.config["forma"]["piloto"] = False  # la canción manda sobre el piloto
+                if "al_final" in datos:
+                    if datos["al_final"] not in ("repetir", "quedarse"):
+                        raise ValueError("Opción desconocida")
+                    c["al_final"] = datos["al_final"]
+                if "nombre" in datos:
+                    c["nombre"] = str(datos["nombre"]).strip()[:40] or c["nombre"]
+                ctx.motor.aplicar_config(ctx.config)
+                if datos.get("saltar") is not None:
+                    ctx.motor.saltar_parte(int(datos["saltar"]))
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _parte_nueva(self, datos):
+            """Agrega una parte a la canción con lo que suena ahora como su escena."""
+            with ctx.candado:
+                if len(ctx.config["parte"]) >= MAX_PARTES:
+                    raise ValueError(f"Máximo {MAX_PARTES} partes")
+                escenas = ctx.config["escena"]
+                if len(escenas) >= forma.MAX_ESCENAS:
+                    raise ValueError(f"Ya hay {forma.MAX_ESCENAS} escenas: borra una o usa una que ya exista")
+                nombre = str(datos.get("nombre") or f"Parte {len(ctx.config['parte']) + 1}").strip()[:24]
+                escenas.append(forma.escena_de(ctx.config, nombre))
+                energia = ctx.config["forma"]["energia"]
+                ctx.config["parte"].append({"nombre": nombre, "compases": max(1, min(256, int(datos.get("compases") or 16))),
+                                            "escena": len(escenas) - 1, "energia": energia, "energia_fin": energia,
+                                            "entrada": "suave"})
+                ctx.config = normalizar(ctx.config)
+                ctx.motor.aplicar_config(ctx.config)
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _parte_guardar(self, datos):
+            """Guarda lo que suena ahora en la escena de la parte (si no tiene, le crea una)."""
+            with ctx.candado:
+                p = ctx.config["parte"][int(datos["indice"])]
+                escena = forma.escena_de(ctx.config, p["nombre"])
+                if p["escena"] < 0:
+                    if len(ctx.config["escena"]) >= forma.MAX_ESCENAS:
+                        raise ValueError(f"Ya hay {forma.MAX_ESCENAS} escenas: elige una que ya exista para esta parte")
+                    ctx.config["escena"].append(escena)
+                    p["escena"] = len(ctx.config["escena"]) - 1
+                else:
+                    ctx.config["escena"][p["escena"]] = escena
+                ctx.motor.aplicar_config(ctx.config)
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _parte_escuchar(self, datos):
+            """Modo libre: suena la escena de la parte (para armarla). Modo canción: salta a ella."""
+            indice = int(datos["indice"])
+            with ctx.candado:
+                p = ctx.config["parte"][indice]
+                if ctx.config["cancion"]["activa"]:
+                    ctx.motor.saltar_parte(indice)
+                    self._responder()
+                    return
+                if p["escena"] < 0:
+                    raise ValueError("Esta parte no tiene escena todavía")
+            self._escena_lanzar({"indice": p["escena"], "compases": 1})
 
         def _piloto(self, datos):
             """Prende o apaga el piloto, cambia su duración o salta a una sección (en el próximo compás)."""

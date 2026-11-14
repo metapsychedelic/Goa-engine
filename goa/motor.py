@@ -159,6 +159,9 @@ class Motor:
         self.director = Director()
         self.origen_progresion = 0  # compás donde parte la progresión de los pads
         self.puente = None          # (tonalidad nueva, base de los pads, paso del cambio) durante un acorde puente
+        self.version_base = 0       # sube cuando la canción cambia de parte (la app se recarga)
+        self.programas = {}         # (salida, canal) -> último Program Change mandado
+        self.saltar_parte_a = None  # parte pedida desde la app (entra en el próximo compás)
         self.aplicar_config(config)
 
     def aplicar_config(self, config):
@@ -194,6 +197,67 @@ class Motor:
         if clave not in forma.PLAN:
             raise ValueError(f"Sección desconocida: {clave}")
         self.conductor.saltar_a = clave
+
+    def saltar_parte(self, indice):
+        """Canción: pasa a la parte `indice` en el próximo compás (para volver a cuadrar con la Circuit)."""
+        if not (0 <= indice < len(self.base.get("parte", []))):
+            raise ValueError("Esa parte no existe")
+        self.saltar_parte_a = indice
+
+    def _config_parte(self, indice):
+        """La configuración de la parte `indice`: lo que suena ahora con el carácter de su escena."""
+        from .config import normalizar  # aquí para no importar en círculo
+        p = self.base["parte"][indice]
+        if p["escena"] < 0 or p["escena"] >= len(self.base.get("escena", [])):
+            return None  # sin escena: sigue lo que suena
+        destino = normalizar(forma.mezclar(self.base, self.base["escena"][p["escena"]]))
+        destino["forma"]["escena"] = p["escena"]
+        return destino
+
+    def _avanzar_cancion(self, compas):
+        """Primer paso de cada compás, en modo canción: lanza cada parte para que llegue
+        completa justo en su primer compás (junto con la escena de la Circuit)."""
+        c = self.conductor
+        if not forma.cancion_activa(self.base):
+            c.cancion = None
+            self.saltar_parte_a = None
+            return
+        partes = self.base["parte"]
+        if self.saltar_parte_a is not None:
+            c.cancion = {"origen": compas - forma.inicio_parte(partes, self.saltar_parte_a), "lanzada": None}
+            self.saltar_parte_a = None
+        if c.cancion is None:
+            c.cancion = {"origen": compas, "lanzada": None}  # la canción parte aquí (en el Start, compás 0)
+        ahora = c.parte(self.base, compas)
+        if ahora is None:
+            return
+        inicio_actual = compas - ahora["dentro"]
+        objetivo = None
+        if ahora["dentro"] == 0 and c.cancion["lanzada"] != compas:
+            objetivo = (ahora["i"], compas)  # la parte empieza ya y nadie la lanzó (inicio o salto)
+        else:
+            fin = inicio_actual + ahora["largo"]  # primer compás de la parte siguiente
+            siguiente = c.parte(self.base, fin)
+            if siguiente is not None and fin != c.cancion["lanzada"] and (siguiente["i"], siguiente["vuelta"]) != (ahora["i"], ahora["vuelta"]):
+                p = partes[siguiente["i"]]
+                # Suave: la transición ocupa como mucho la mitad de la parte que suena (que
+                # se alcance a escuchar tal como es). Golpe: entra de una en el uno.
+                largo_tr = 1 if p["entrada"] == "golpe" else max(1, min(int(self.base["forma"].get("transicion", 8)), ahora["largo"] // 2))
+                if compas >= fin - largo_tr + 1:
+                    objetivo = (siguiente["i"], fin)
+        if objetivo is None:
+            return
+        indice, llega = objetivo
+        c.cancion["lanzada"] = llega
+        destino = self._config_parte(indice)
+        if destino is None:
+            return
+        tr = c.transicion
+        origen = tr.config(compas) if tr is not None else self.base
+        c.lanzar(origen, destino, compas, llega - compas + 1, partes[indice]["escena"], escalonar=False)
+        self.base = destino
+        self.version_base += 1
+        log.info("Canción: %s llega en el compás %d", partes[indice]["nombre"], llega + 1)
 
     def lanzar_escena(self, destino, compases, indice=None):
         """Pasa a la configuración `destino` (una escena) en `compases` compases, desde el próximo."""
@@ -245,6 +309,7 @@ class Motor:
                 # Las notas que suenan terminan solas (cada una sabe a qué salida y canal va).
                 dialogo.sonando, dialogo.pendientes = self.dialogo.sonando, self.dialogo.pendientes
         self.config_aplicada = config
+        self._programas(config)
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
@@ -411,6 +476,8 @@ class Motor:
                       for i, s in enumerate(self.secuencias)],
             "cambios_en_cola": self.config_en_cola is not None,
             "forma": self._forma_estado(),
+            "cancion": self._cancion_estado(),
+            "version_base": self.version_base,
             "motores": dict({"pads": bool(self.pads and self.pads.activo), "bajo": bool(self.bajo and self.bajo.activo),
                              "dialogo": bool(self.dialogo and self.dialogo.activo)},
                             **{f"sec{i}": s.activa for i, s in enumerate(self.secuencias)}),
@@ -420,6 +487,22 @@ class Motor:
                              "cola": (None if self.cola_dialogo is False else
                                       ("detener" if self.cola_dialogo is None else self.cola_dialogo[1]))},
         }
+
+    def _cancion_estado(self):
+        """Dónde va la canción, para la app (None en modo libre)."""
+        if not self.base or not forma.cancion_activa(self.base):
+            return None
+        partes = self.base["parte"]
+        compas = self._compas_actual()
+        ahora = self.conductor.parte(self.base, compas) if self.corriendo else None
+        if ahora is None:
+            return {"parte": None, "total": forma.total_cancion(partes),
+                    "pedida": self.saltar_parte_a}
+        siguiente = self.conductor.parte(self.base, compas + ahora["largo"] - ahora["dentro"])
+        pos = sum(p["compases"] for p in partes[:ahora["i"]]) + ahora["dentro"]
+        return {"parte": ahora["i"], "compas": ahora["dentro"] + 1, "largo": ahora["largo"],
+                "vuelta": ahora["vuelta"] + 1, "posicion": pos + 1, "total": forma.total_cancion(partes),
+                "siguiente": siguiente["i"] if siguiente else None, "pedida": self.saltar_parte_a}
 
     def _forma_estado(self):
         tr = self.conductor.transicion
@@ -464,8 +547,30 @@ class Motor:
 
     # --- Eventos que llegan de la Circuit ---
 
+    def _programas(self, config):
+        """Program Change: cada motor puede pedir un parche (1-128) a su sinte. Se manda
+        solo cuando cambia (una escena o una parte nueva lo cambian en su uno) y otra vez
+        en cada Start. Si dos motores van al mismo sinte y canal, manda el que suena."""
+        fuentes = [(s, s.get("activa")) for s in config.get("secuencia", [])]
+        fuentes += [(config.get("pads", {}), config.get("pads", {}).get("activo")),
+                    (config.get("bajo", {}), config.get("bajo", {}).get("activo"))]
+        hay_dialogo = config.get("dialogo", {}).get("activo")
+        fuentes += [(config.get("llamada", {}), hay_dialogo and config["dialogo"].get("modo") == "motor"),
+                    (config.get("respuesta", {}), hay_dialogo)]
+        pedidos = {}
+        for seccion, suena in sorted(fuentes, key=lambda f: not f[1]):  # primero los que suenan
+            programa = int(seccion.get("programa", 0) or 0)
+            if programa > 0 and seccion.get("salida"):
+                pedidos.setdefault((seccion["salida"], int(seccion.get("canal", 1)) - 1), programa)
+        for (salida, canal), programa in pedidos.items():
+            if self.programas.get((salida, canal)) != programa:
+                self.programas[(salida, canal)] = programa
+                self.enviar(salida, "program_change", canal, programa - 1, 0)
+                log.info("Program Change %d a %s canal %d", programa, salida, canal + 1)
+
     def start(self):
         log.info("Start")
+        self.programas = {}  # en cada Start se vuelven a mandar (por si cambiaste el parche a mano)
         # Una transición a medias termina de una vez: arranca en la escena pedida.
         self.conductor.reiniciar()
         self.director.reiniciar()
@@ -569,6 +674,7 @@ class Motor:
     def _compas_forma(self, compas):
         """Primer paso de cada compás: entran los cambios de la app, la energía da un paso
         y avanza la transición entre escenas."""
+        self._avanzar_cancion(compas)
         self.conductor.avanzar(self.base, compas)
         tr = self.conductor.transicion
         self.puente = None

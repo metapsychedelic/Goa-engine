@@ -219,6 +219,48 @@ No cambia tu configuración: todo vuelve solo al terminar el período. Una
 secuencia **congelada** queda fuera. Debajo dice qué está haciendo en este
 período. Es determinista: la misma configuración hace el mismo viaje.
 
+## Modo canción
+
+Pestaña **Canción**. Apagado (lo normal), el motor funciona en **modo libre**,
+igual que siempre.
+
+**Armar la canción:** en modo libre, deja sonando lo que quieres para una parte
+(secuencias, pads, bajo…) y toca **+ Parte con lo que suena**: le pones nombre
+(Intro, Build…) y cuántos compases dura, y guarda lo que suena como su escena.
+Cada parte tiene:
+
+- **Escena:** lo que suena en esa parte. Varias partes pueden usar la misma.
+- **Energía al empezar y al terminar:** la curva de la parte (por ejemplo, un
+  build que sube de 35 a 70).
+- **Entrada:** *suave* (llega de a poco en los compases antes, como mucho la
+  mitad de la parte anterior) o *de golpe* (entra de una en su primer compás,
+  como un drop). En los dos casos, los motores entran y salen justo en el
+  primer compás de la parte.
+- **Escuchar** pone la escena de la parte para seguir armándola, y **Guardar lo
+  que suena** la actualiza.
+
+**Tocarla con la Circuit:** prende el modo canción y arma en la Circuit su
+cadena de escenas con los **mismos largos**. Al dar Play en la Circuit los dos
+parten desde el principio y cambian de parte en el mismo compás. La Circuit no
+avisa por MIDI cuando cambia de escena, así que el motor cuenta compases desde
+el Play: si saltas una escena a mano en la Circuit, usa **Saltar aquí** en la
+parte que corresponde. Al terminar, la canción **repite** (como la cadena de la
+Circuit) o **se queda en la última** parte. La app muestra en qué parte va, el
+tiempo y cuántas escenas de la Circuit necesita (tiene 16, de hasta 16 compases
+cada una con patrones de 32 pasos).
+
+En modo canción la energía la maneja cada parte y el piloto automático queda
+apagado.
+
+## Parche por escena (Program Change)
+
+Cada motor tiene en Salida MIDI el campo **Parche (Program Change)**: 0 no
+cambia nada; de 1 a 128 le pide ese parche a su sinte. Se manda al dar Play y
+cada vez que una escena o una parte de la canción lo cambia, justo en su primer
+compás. Se guarda en las escenas, así cada parte puede tener su sonido. Si dos
+motores van al mismo sinte y canal, manda el que está sonando. Funciona con
+sintes que reciben Program Change (revisa que tu firmware lo tenga activo).
+
 ## Mutación de las secuencias
 
 Cada secuencia evoluciona cada *Mutar cada* compases (en Motores › Variación):

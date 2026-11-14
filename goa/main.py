@@ -66,7 +66,10 @@ class Puertos:
         if puerto is None:
             return
         try:
-            puerto.send(mido.Message(tipo, channel=canal, note=nota, velocity=velocidad))
+            if tipo == "program_change":
+                puerto.send(mido.Message("program_change", channel=canal, program=nota))
+            else:
+                puerto.send(mido.Message(tipo, channel=canal, note=nota, velocity=velocidad))
         except (OSError, ValueError) as e:
             log.warning("Error enviando a %r: %s", clave, e)
 

@@ -40,6 +40,7 @@ ESQUEMA_SECCIONES = {
         "activo": (bool, False, None, None),
         "salida": (str, "CH345", None, None),
         "canal": (int, 3, 1, 16),
+        "programa": (int, 0, 0, 128),           # Program Change del sinte (1-128); 0 = no lo cambia
         "base": (str, "nota", None, pads.BASES),
         "progresion": (str, "i_bII", None, tuple(pads.PROGRESIONES)),
         "acorde": (str, "menor_add9", None, tuple(pads.ACORDES)),
@@ -84,6 +85,7 @@ def _esquema_voz(salida, canal, golpes, gate, velocidad):
     return {
         "salida": (str, salida, None, None),
         "canal": (int, canal, 1, 16),
+        "programa": (int, 0, 0, 128),
         "golpes": (int, golpes, 1, 16),
         "octava": (int, 1, -3, 3),
         "oscuridad": (float, 0.7, 0.0, 1.0),
@@ -100,6 +102,7 @@ ESQUEMA_SECCIONES["bajo"] = {
     "activo": (bool, False, None, None),
     "salida": (str, "CH345", None, None),
     "canal": (int, 4, 1, 16),
+    "programa": (int, 0, 0, 128),
     "disparo": (int, 0, 0, 16),            # canal de su nota larga; 0 = el general
     "genero": (str, "goa", None, generos.ORDEN),
     "estilo": (str, "rolling", None, bajo.ESTILOS),
@@ -132,6 +135,23 @@ ESQUEMA_SECCIONES["forma"] = {
     "duracion": (str, "normal", None, tuple(forma.DURACIONES)),
 }
 
+# Modo canción: la canción es una lista de partes (intro, build, groove...), cada una
+# con sus compases, la escena que suena y su curva de energía. Ver forma.py.
+ESQUEMA_SECCIONES["cancion"] = {
+    "activa": (bool, False, None, None),     # False = modo libre (como siempre)
+    "nombre": (str, "Mi canción", None, None),
+    "al_final": (str, "repetir", None, ("repetir", "quedarse")),  # como la cadena de escenas de la Circuit
+}
+ESQUEMA_PARTE = {
+    "nombre": (str, "Parte", None, None),
+    "compases": (int, 16, 1, 256),
+    "escena": (int, -1, -1, forma.MAX_ESCENAS - 1),  # -1 = sigue lo que suena
+    "energia": (float, 0.5, 0.0, 1.0),               # energía al empezar la parte
+    "energia_fin": (float, 0.5, 0.0, 1.0),           # y al terminarla
+    "entrada": (str, "suave", None, ("suave", "golpe")),
+}
+MAX_PARTES = 32
+
 ESQUEMA_ESCENA = {
     "nombre": (str, "Escena", None, None),
     "energia": (float, 0.5, 0.0, 1.0),
@@ -154,6 +174,7 @@ ESQUEMA_SECUENCIA = {
     "activa": (bool, True, None, None),
     "salida": (str, "FM-1", None, None),
     "canal": (int, 1, 1, 16),
+    "programa": (int, 0, 0, 128),
     "genero": (str, "goa", None, generos.ORDEN),
     "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     "estilo": (str, "rolling", None, generador.ESTILOS),
@@ -251,6 +272,14 @@ def normalizar(cfg):
     limpia["escena"] = [_escena(e) for e in escenas[:forma.MAX_ESCENAS]]
     if limpia["forma"]["escena"] >= len(limpia["escena"]):
         limpia["forma"]["escena"] = -1
+    partes = cfg.get("parte") or []
+    if not isinstance(partes, list):
+        raise ConfigError("parte debe ser una lista")
+    limpia["parte"] = [{k: _valor(k, (p or {}).get(k), e) for k, e in ESQUEMA_PARTE.items()}
+                       for p in partes[:MAX_PARTES]]
+    for p in limpia["parte"]:
+        if p["escena"] >= len(limpia["escena"]):
+            p["escena"] = -1
     return limpia
 
 
@@ -297,14 +326,35 @@ def secciones_de_clip(clip):
     return dialogo, voces["llamada"], voces["respuesta"]
 
 
+def _suenan_en_cancion(cfg):
+    """Modo canción: qué motores (pads, bajo, diálogo) suenan en alguna parte, para
+    abrir sus puertos desde el principio y no perder las primeras notas de la parte."""
+    suenan = set()
+    if not cfg.get("cancion", {}).get("activa"):
+        return suenan
+    for p in cfg.get("parte", []):
+        if 0 <= p["escena"] < len(cfg["escena"]):
+            try:
+                datos = json.loads(cfg["escena"][p["escena"]]["datos"])
+            except ValueError:
+                continue
+            for motor in ("pads", "bajo", "dialogo"):
+                if (datos.get(motor) or {}).get("activo"):
+                    suenan.add(motor)
+    return suenan
+
+
 def salidas(cfg):
     """Todos los puertos de salida que usa la configuración."""
     claves = [s["salida"] for s in cfg["secuencia"]]
+    cancion = _suenan_en_cancion(cfg)
     if cfg["thru"]["activo"]:
         claves.append(cfg["thru"]["salida"])
-    if cfg["pads"]["activo"]:
+    if cfg["pads"]["activo"] or "pads" in cancion:
         claves.append(cfg["pads"]["salida"])
-    if cfg["dialogo"]["activo"]:
+    if cfg["bajo"]["activo"] or "bajo" in cancion:
+        claves.append(cfg["bajo"]["salida"])
+    if cfg["dialogo"]["activo"] or "dialogo" in cancion:
         if cfg["dialogo"]["modo"] == "motor":
             claves.append(cfg["llamada"]["salida"])
         claves.append(cfg["respuesta"]["salida"])
@@ -345,6 +395,10 @@ def a_toml(cfg):
         lineas.append("")
     for s in cfg.get("escena", []):
         lineas.append("[[escena]]")
+        lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
+        lineas.append("")
+    for s in cfg.get("parte", []):
+        lineas.append("[[parte]]")
         lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
         lineas.append("")
     return "\n".join(lineas)

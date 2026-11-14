@@ -21,7 +21,7 @@ main{max-width:560px;margin:0 auto;padding:14px 16px calc(96px + env(safe-area-i
 .vista{display:flex;flex-direction:column;gap:16px}
 .vista[hidden]{display:none}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card2);border-top:1px solid var(--line);padding:4px 8px max(10px,env(safe-area-inset-bottom))}
-nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 nav.tabs button{border:none;background:none;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--mut);font-size:11px;font-weight:500;padding:4px 0;border-radius:10px}
 nav.tabs button[aria-selected=true]{color:var(--acc);font-weight:650}
 nav.tabs svg{width:22px;height:22px}
@@ -117,6 +117,11 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .escena .barra{height:4px;width:100%;background:#2A2B28;border-radius:4px;overflow:hidden}
 .escena .barra i{display:block;height:100%;background:#6B675F;border-radius:4px}
 .escena.actual{border:2px solid var(--acc)}
+.cbarra{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden}
+.cbarra i{display:block;background:#3A3B37;min-width:3px}
+.cbarra i.hecho{background:#6B675F}
+.cbarra i.actual{background:var(--acc)}
+details.grupo.parte-actual{border-color:var(--acc)}
 .escena.actual .e{background:var(--acc);color:#1A1408}
 .escena.actual .barra i,.escena.cola .barra i{background:var(--acc)}
 .escena.cola{border:2px dashed var(--acc)}
@@ -179,6 +184,10 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <div class="card" id="puente_caja"></div>
   </section>
 
+  <section class="vista" id="v-cancion" aria-label="Canción" hidden>
+    <div id="cancion_caja" style="display:flex;flex-direction:column;gap:16px"></div>
+  </section>
+
   <section class="vista" id="v-ajustes" aria-label="Ajustes" hidden>
     <div class="card">
       <h2>Proyecto</h2>
@@ -218,6 +227,7 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
   <button type="button" role="tab" data-vista="tocar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>Tocar</button>
   <button type="button" role="tab" data-vista="motores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Motores</button>
   <button type="button" role="tab" data-vista="armonia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Armonía</button>
+  <button type="button" role="tab" data-vista="cancion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="6" height="16" rx="1"/><rect x="11" y="4" width="4" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>Canción</button>
   <button type="button" role="tab" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M1 12h4M19 12h4M4.2 19.8 7 17M17 7l2.8-2.8"/></svg>Ajustes</button>
 </div></nav>
 <div class="guardado" id="aviso" role="status" aria-live="polite"></div>
@@ -309,7 +319,7 @@ function guardar() {
     try {
       const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(cfg)});
       const d = await r.json();
-      if (!r.ok) aviso(d.error || "No se pudo aplicar", true);
+      if (!r.ok) { aviso(d.error || "No se pudo aplicar", true); if (r.status === 400 && /otra parte/.test(d.error || "")) recargar(); }
       else aviso(d.aviso || "Aplicado", !!d.aviso);
     } catch (e) { aviso("Sin conexión con la Pi", true); }
   }, 350);
@@ -393,6 +403,13 @@ function numeroDe(obj, k, etiqueta, min, max, alCambiar) {
   const inp = el("input", {type: "number", min, max, value: obj[k],
     onchange: () => { const n = parseInt(inp.value); obj[k] = isNaN(n) ? obj[k] : Math.max(min, Math.min(max, n)); inp.value = obj[k]; if (alCambiar) alCambiar(); guardar(); }});
   return el("label", {className: "campo"}, [etiqueta, inp]);
+}
+
+function programaDe(obj) {
+  return el("div", {style: "display:flex;flex-direction:column;gap:4px"}, [
+    numeroDe(obj, "programa", "Parche (Program Change, 0 = no cambia)", 0, 128),
+    ayuda("Le pide ese parche al sinte al dar Play y cada vez que una escena o una parte de la canción lo cambia (en su primer compás). Se guarda en las escenas."),
+  ]);
 }
 
 // --- Elegir puerto MIDI ---
@@ -604,6 +621,7 @@ function panelPads() {
       grupo("g-pads-midi", "Salida MIDI", salidaTexto(p), [
         el("div", {className: "dos"}, [destinoDe(p, renderMotores), numeroDe(p, "canal", "Canal MIDI", 1, 16, renderMotores)]),
         numeroDe(p, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
+        programaDe(p),
       ]),
     ]),
   ];
@@ -658,6 +676,7 @@ function panelBajo() {
       grupo("g-bajo-midi", "Salida MIDI", salidaTexto(b), [
         el("div", {className: "dos"}, [destinoDe(b, renderMotores), numeroDe(b, "canal", "Canal MIDI", 1, 16, renderMotores)]),
         numeroDe(b, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
+        programaDe(b),
       ]),
     ]),
   ];
@@ -720,6 +739,7 @@ function panelSecuencia(i) {
       grupo(`g-sec-midi`, "Salida MIDI", salidaTexto(s), [
         el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), destinoDe(s, renderMotores)]),
         el("div", {className: "dos"}, [numeroDe(s, "canal", "Canal MIDI", 1, 16, renderMotores), numeroDe(s, "disparo", "Canal de su nota larga (0 = general)", 0, 16, renderMotores)]),
+        programaDe(s),
         el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
           onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); motorSel = "pads"; render(); guardar(); } }}),
       ]),
@@ -731,7 +751,7 @@ function h3(texto) { return el("h3", {textContent: texto}); }
 
 function agregarSecuencia() {
   const base = cfg.secuencia[cfg.secuencia.length - 1] || {salida: "FM-1", canal: 2, estilo: "rolling", posicion: "offbeat", relacion: "unisono",
-    octava: 0, largo: 16, gate: 0.55, pedal: 0.5, mutacion: 0, mutar_cada: 8, mutacion_ritmo: 0, bloqueada: false, velocidad: 96, acento: 124, genero: cfg.musica.genero};
+    octava: 0, largo: 16, gate: 0.55, pedal: 0.5, mutacion: 0, mutar_cada: 8, mutacion_ritmo: 0, bloqueada: false, programa: 0, velocidad: 96, acento: 124, genero: cfg.musica.genero};
   const usadas = new Set(cfg.secuencia.map((s) => s.nombre));
   let letra = "A";
   for (let k = 0; k < 26; k++) { letra = String.fromCharCode(65 + k); if (!usadas.has(letra)) break; }
@@ -767,6 +787,7 @@ function bloqueVoz(v, titulo, papel, extra = []) {
       deslizador(v, "oscuridad", "Luminoso ↔ Oscuro", 0, 1, 0.05, colorTexto),
       ...extra.filter(Boolean),
       el("div", {className: "dos"}, [destinoDe(v, renderMotores), numeroDe(v, "canal", "Canal MIDI", 1, 16, renderMotores)]),
+      numeroDe(v, "programa", "Parche (Program Change, 0 = no cambia)", 0, 128),
       el("div", {className: "dos"}, [numeroDe(v, "octava", "Octava", -3, 3), numeroDe(v, "velocidad", "Fuerza", 1, 127)]),
       deslizador(v, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
       ayuda("Nunca pisa a la nota siguiente, de ninguna de las dos voces."),
@@ -1058,6 +1079,7 @@ function render() {
   renderMotores();
   renderArmonia();
   renderPuente();
+  renderCancion();
   renderAjustes();
 }
 
@@ -1103,7 +1125,7 @@ function bloqueEscenas() {
         ])]));
     } else grilla.append(boton);
   });
-  if (cfg.escena.length < 8) {
+  if (cfg.escena.length < 16) {
     grilla.append(el("button", {type: "button", className: "escena nueva", onclick: () => guardarEscena(null)}, ["+ Guardar lo que suena"]));
   }
   const chips = el("div", {className: "chips", role: "group", "aria-label": "Compases de transición"});
@@ -1141,6 +1163,142 @@ async function borrarEscena(i) {
   try { await api("/api/escena/borrar", {indice: i}); await recargar(); } catch (e) { aviso(e.message, true); }
 }
 
+// --- Canción ---
+// La canción es una lista de partes (intro, build...). Cada parte tiene sus compases,
+// una escena (lo que suena) y su energía. Con el modo canción prendido, al dar Play en
+// la Circuit parte desde el principio y cambia de parte justo en el compás, igual que
+// la cadena de escenas de la Circuit (con los mismos largos).
+
+function duracionTexto(compases, bpm) {
+  const t = Math.round(compases * 240 / bpm);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+}
+const bpmCancion = () => (ultimoEstado && ultimoEstado.bpm) || 140;
+const escenasCircuit = (partes) => partes.reduce((n, p) => n + Math.ceil(p.compases / 16), 0);
+
+function textoTotal() {
+  const total = cfg.parte.reduce((n, p) => n + p.compases, 0);
+  if (!total) return "";
+  const n = escenasCircuit(cfg.parte), bpm = bpmCancion();
+  return `${total} compases · ${duracionTexto(total, bpm)} a ${Math.round(bpm)} BPM · ${n} escena${n === 1 ? "" : "s"} de la Circuit` +
+    (n > 16 ? " (la Circuit tiene 16: acorta o junta partes)" : "");
+}
+
+function resumenParte(p) {
+  const esc = p.escena >= 0 && cfg.escena[p.escena] ? cfg.escena[p.escena].nombre : "sigue lo que suena";
+  const ener = Math.round(p.energia * 100) === Math.round(p.energia_fin * 100) ? `${Math.round(p.energia * 100)}`
+    : `${Math.round(p.energia * 100)}→${Math.round(p.energia_fin * 100)}`;
+  return `${p.compases} compases · ${esc} · ${p.entrada === "golpe" ? "de golpe" : "suave"} · energía ${ener}`;
+}
+
+async function accionParte(ruta, datos, mensaje) {
+  try {
+    clearTimeout(temporizador); await api("/api/config", cfg);
+    await api(ruta, datos); await recargar(); estado();
+    if (mensaje) aviso(mensaje);
+  } catch (e) { aviso(e.message, true); }
+}
+
+function bloqueParte(p, i) {
+  const c = cfg.cancion;
+  const nombre = el("input", {type: "text", value: p.nombre, maxLength: 24,
+    onchange: () => { p.nombre = nombre.value.trim() || p.nombre; renderCancion(); guardar(); }});
+  const escena = el("select", {"aria-label": "Escena de la parte",
+    onchange: () => { p.escena = parseInt(escena.value); renderCancion(); guardar(); }});
+  escena.append(el("option", {value: -1, textContent: "— Sigue lo que suena —"}));
+  cfg.escena.forEach((e, j) => escena.append(el("option", {value: j, textContent: `${j + 1} · ${e.nombre}`})));
+  escena.value = String(p.escena);
+  const mover = (d) => { const j = i + d; if (j < 0 || j >= cfg.parte.length) return;
+    [cfg.parte[i], cfg.parte[j]] = [cfg.parte[j], cfg.parte[i]]; renderCancion(); guardar(); };
+  const g = grupo(`g-parte-${i}`, `${i + 1} · ${p.nombre}`, resumenParte(p), [
+    el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Nombre", nombre]),
+      numeroDe(p, "compases", "Compases", 1, 256, renderCancion)]),
+    el("label", {className: "campo"}, ["Escena (lo que suena)", escena]),
+    el("div", {className: "dos"}, [
+      el("button", {type: "button", textContent: c.activa ? "Saltar aquí" : "Escuchar",
+        onclick: () => accionParte("/api/parte/escuchar", {indice: i}, c.activa ? `${p.nombre} en el próximo compás` : `Suena ${p.nombre}`)}),
+      el("button", {type: "button", textContent: "Guardar lo que suena",
+        onclick: () => { if (p.escena < 0 || confirm(`¿Guardar lo que suena ahora en la escena de ${p.nombre}? Cambia en todas las partes que usan esa escena.`))
+          accionParte("/api/parte/guardar", {indice: i}, `Guardado en ${p.nombre}`); }}),
+    ]),
+    deslizador(p, "energia", "Energía al empezar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
+    deslizador(p, "energia_fin", "Energía al terminar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
+    campo("Entrada", segmentado([["suave", "Suave"], ["golpe", "De golpe"]], p.entrada, (v) => { p.entrada = v; renderCancion(); guardar(); }, 2)),
+    ayuda(p.entrada === "golpe" ? "Entra de una en su primer compás, con su energía (como un drop)."
+      : `Llega de a poco en los compases antes (los de Transición en Tocar, como mucho la mitad de la parte anterior). Los motores entran y salen justo en su primer compás.`),
+    el("div", {className: "dos"}, [
+      el("div", {className: "dos", style: "gap:4px"}, [
+        el("button", {type: "button", textContent: "↑", "aria-label": "Subir", disabled: i === 0, onclick: () => mover(-1)}),
+        el("button", {type: "button", textContent: "↓", "aria-label": "Bajar", disabled: i === cfg.parte.length - 1, onclick: () => mover(1)})]),
+      el("button", {type: "button", textContent: "Borrar parte", style: "color:var(--bad)",
+        onclick: () => { if (confirm(`¿Borrar la parte ${p.nombre}? (su escena no se borra)`)) { cfg.parte.splice(i, 1); renderCancion(); guardar(); } }}),
+    ]),
+  ]);
+  g.dataset.parte = i;
+  return g;
+}
+
+async function nuevaParte() {
+  const nombre = prompt("Nombre de la parte (guarda lo que suena ahora como su escena)", `Parte ${cfg.parte.length + 1}`);
+  if (nombre === null) return;
+  const compases = parseInt(prompt("¿Cuántos compases dura?", "16"));
+  if (isNaN(compases)) return;
+  accionParte("/api/parte/nueva", {nombre, compases}, `${nombre} agregada`);
+}
+
+function renderCancion() {
+  const caja = $("cancion_caja");
+  if (!caja || !cfg) return;
+  const c = cfg.cancion;
+  const chk = el("input", {type: "checkbox", className: "switch", checked: c.activa, "aria-label": "Modo canción",
+    onchange: async () => { try { await api("/api/cancion", {activa: chk.checked}); await recargar(); estado();
+      aviso(chk.checked ? "Modo canción: parte desde el principio al dar Play en la Circuit" : "Modo libre"); } catch (e) { aviso(e.message, true); } }});
+  const barra = el("div", {className: "cbarra", id: "cancion_barra"}, cfg.parte.map((p, i) => el("i", {style: `flex:${p.compases}`, "data-i": i})));
+  const fin = el("div", {className: "chips", role: "group", "aria-label": "Al terminar"});
+  for (const [k, t] of [["repetir", "repite"], ["quedarse", "se queda en la última"]]) fin.append(el("button", {type: "button", textContent: t, "aria-pressed": c.al_final === k ? "true" : "false",
+    onclick: async () => { c.al_final = k; renderCancion(); try { await api("/api/cancion", {al_final: k}); } catch (e) { aviso(e.message, true); } }}));
+  caja.replaceChildren(
+    el("div", {className: "energia"}, [
+      el("div", {className: "fila"}, [
+        el("div", {style: "display:flex;flex-direction:column;gap:2px;min-width:0"}, [
+          el("span", {style: "font-size:13px;font-weight:650;color:var(--txt2)", textContent: "Modo canción"}),
+          el("span", {className: "mut", id: "cancion_linea", style: "font-size:12px",
+            textContent: !c.activa ? "Apagado: modo libre, como siempre" : cfg.parte.length ? "Parte desde el principio al dar Play en la Circuit" : "Agrega partes para empezar"})]),
+        chk]),
+      cfg.parte.length ? barra : null,
+      el("span", {className: "mut", id: "cancion_total", style: "font-size:12px", textContent: textoTotal()}),
+      cfg.parte.length ? el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Al terminar"}), fin]) : null,
+    ]),
+    el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [
+      h3("Partes"),
+      ...cfg.parte.map(bloqueParte),
+      cfg.parte.length < 32 ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null,
+      ayuda("Arma cada parte en modo libre: deja sonando lo que quieres (secuencias, pads, bajo…) y toca «+ Parte con lo que suena», o «Guardar lo que suena» en una parte que ya existe. «Escuchar» la vuelve a poner para seguir armándola."),
+      ayuda("Para tocar con la Circuit: prende el modo canción y arma su cadena de escenas con los mismos largos. Al dar Play en la Circuit los dos parten juntos. Si se desfasan (por ejemplo, saltaste una escena en la Circuit), usa «Saltar aquí» en la parte que corresponde."),
+    ]),
+  );
+  if (ultimoEstado) pintarCancion(ultimoEstado);
+}
+
+function pintarCancion(d) {
+  const c = d.cancion;
+  const linea = $("cancion_linea");
+  document.querySelectorAll("#cancion_barra i").forEach((b) => {
+    const i = parseInt(b.dataset.i);
+    b.classList.toggle("actual", !!c && c.parte === i);
+    b.classList.toggle("hecho", !!c && c.parte !== null && i < c.parte);
+  });
+  document.querySelectorAll("#cancion_caja details[data-parte]").forEach((g) => g.classList.toggle("parte-actual", !!c && c.parte === parseInt(g.dataset.parte)));
+  const total = $("cancion_total");
+  if (total) total.textContent = textoTotal();
+  if (!linea || !c || !cfg.cancion.activa) return;
+  if (c.pedida !== null && c.pedida !== undefined) { linea.textContent = `${cfg.parte[c.pedida].nombre} en el próximo compás`; return; }
+  if (c.parte === null) { linea.textContent = "Parte desde el principio al dar Play en la Circuit"; return; }
+  const p = cfg.parte[c.parte], sig = c.siguiente !== null ? cfg.parte[c.siguiente] : null;
+  linea.textContent = `${p ? p.nombre : "?"} · compás ${c.compas} de ${c.largo}` + (sig ? ` · luego ${sig.nombre}` : "") +
+    ` · ${duracionTexto(c.posicion - 1, bpmCancion())} de ${duracionTexto(c.total, bpmCancion())}` + (c.vuelta > 1 ? ` · vuelta ${c.vuelta}` : "");
+}
+
 // --- Energía ---
 
 let energiaTocando = 0, energiaTemp = null;
@@ -1159,9 +1317,11 @@ function bloqueEnergia() {
       clearTimeout(energiaTemp);
       energiaTemp = setTimeout(() => api("/api/energia", {energia: f.energia}).catch((e) => aviso(e.message, true)), 250);
     }});
+  if (cfg.cancion.activa && cfg.parte.length) r.disabled = true;  // en modo canción la maneja cada parte
   return el("div", {className: "energia"}, [
     el("div", {className: "fila"}, [el("label", {htmlFor: "energia", style: "font-size:13px;font-weight:650;color:var(--txt2)"}, ["Energía ", el("span", {className: "mut", id: "energia_t", textContent: "· " + textoEnergia(f.energia)})]), numero]),
     r,
+    r.disabled ? ayuda("En modo canción la energía la maneja cada parte (pestaña Canción).") : null,
     el("div", {className: "ley"}, [el("span", {textContent: "calma"}), el("span", {textContent: "50 = tus ajustes", style: "text-align:center"}), el("span", {textContent: "clímax"})]),
   ]);
 }
@@ -1315,6 +1475,11 @@ async function estado() {
     if (fase) { fase.textContent = FASES[d.dialogo] || "En silencio"; fase.className = "pill" + (d.dialogo && d.dialogo !== "espacio" ? " ok" : ""); }
     pintarClips(); pintarMutes();
     if (typeof pintarTocar === "function") pintarTocar(d);
+    pintarCancion(d);
+    // Modo canción: si el motor pasó a otra parte, la app muestra lo que suena ahora
+    // (si estás escribiendo en un campo, espera a que termines).
+    const escribiendo = document.activeElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName) && document.activeElement.type !== "range";
+    if (cfg && d.version_base !== undefined && d.version_base !== cfg.version_base && !escribiendo) { await recargar(); }
     const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
     $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";
     document.querySelectorAll("[data-salida]").forEach((e) => {
