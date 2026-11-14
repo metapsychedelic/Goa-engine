@@ -89,5 +89,21 @@ if __name__ == "__main__":
     d_golpes = correr(dialogo=dlg, tocar={9: mas_golpes})
     todo &= ok(len(d_golpes[10]) > len(d_sin[10]), "más golpes en la llamada se escuchan desde el compás siguiente")
 
+    from goa import generador
+    pegados = []
+    for estilo in generador.ESTILOS:
+        for pedal in (0.0, 0.5, 0.8, 0.95):
+            for seed in ("A1", "B2", "C3"):
+                patron = generador.generar(seed, estilo, 16, pedal)
+                if not any(p["suena"] for p in patron):
+                    continue
+                for compas in range(4, 64, 4):
+                    nuevo = generador.mutar(patron, seed, compas, 0.2, pedal)
+                    if [p["grado"] for p in nuevo] == [p["grado"] for p in patron]:
+                        pegados.append((estilo, pedal, seed, compas))
+                    patron = nuevo
+    todo &= ok(not pegados, "cada mutación cambia al menos una nota, en todos los estilos, aunque el pedal sea alto"
+               + (f" (pegados: {pegados[:3]})" if pegados else ""))
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

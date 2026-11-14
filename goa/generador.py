@@ -251,4 +251,16 @@ def mutar(patron, seed, compas, probabilidad, pedal=0.5):
         if paso["suena"] and rng.random() < probabilidad:
             anterior = nuevo[i - 1]["grado"] if i > 0 else 0
             paso["grado"] = _siguiente_grado(rng, anterior, pedal)
+    sonando = [i for i, p in enumerate(nuevo) if p["suena"]]
+    if sonando and pedal < 1 and all(a["grado"] == b["grado"] for a, b in zip(nuevo, patron)):
+        # Cada mutación cambia al menos una nota. Sin esto, un patrón de pocas notas
+        # con el pedal alto se quedaba pegado en la nota larga y dejaba de evolucionar.
+        i = rng.choice(sonando)
+        actual = nuevo[i]["grado"]
+        anterior = nuevo[i - 1]["grado"] if i > 0 else 0
+        for _ in range(12):
+            g = _siguiente_grado(rng, anterior, pedal if actual != 0 else 0.0)
+            if g != actual:
+                nuevo[i]["grado"] = g
+                break
     return nuevo
