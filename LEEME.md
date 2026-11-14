@@ -253,9 +253,9 @@ En modo canción la energía la maneja cada parte y el piloto automático queda
 apagado.
 
 **Plantillas:** *Cargar plantilla…* pone una estructura lista. **Template 1 ·
-slot 32** son 13 partes, 176 compases (unos 5 minutos a 140 BPM): Intro, Intro
-bombo, Build, Groove A y B, Break, Rise, Clímax A y B, Break 2, Drop, Groove C y
-Outro. Su gemelo en la Circuit es el proyecto 32 (percusión con el banco FROM GOA
+slot 32** son 16 partes, 232 compases (unos 6:38 a 140 BPM): Intro, Intro bombo,
+Build, Groove A, B y C, Break, Rise, Clímax A y B, Groove D, Break 2, Rise 2,
+Drop, Groove E y Outro. Su gemelo en la Circuit es el proyecto 32 (percusión con el banco FROM GOA
 TO PSYT). Las partes vienen sin escena: elige qué suena en cada una con *Guardar
 lo que suena*.
 

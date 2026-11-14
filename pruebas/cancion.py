@@ -142,8 +142,8 @@ if __name__ == "__main__":
     print("\nPlantillas")
     from goa import plantillas
     t = normalizar(dict(armar(), parte=plantillas.partes_de("template1")))
-    todo &= ok(len(t["parte"]) == 13 and forma.total_cancion(t["parte"]) == 176 and all(p["escena"] == -1 for p in t["parte"]),
-               "Template 1: 13 partes, 176 compases, sin escenas (cada una sigue lo que suena)")
+    todo &= ok(len(t["parte"]) == 16 and forma.total_cancion(t["parte"]) == 232 and all(p["escena"] == -1 for p in t["parte"]),
+               "Template 1: 16 partes (las 16 escenas de la Circuit), 232 compases, sin escenas")
     todo &= ok(all(p["compases"] in (8, 16) for p in t["parte"]),
                "cada parte dura 8 o 16 compases, como sus escenas en la Circuit")
     m, v, _ = correr(t, 40)
