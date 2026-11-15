@@ -306,6 +306,24 @@ def con_piloto(cfg, clave, avance):
 # demás entra en el uno). "Golpe" entra de una, como un drop.
 
 
+def con_subida_pads(cfg, avance):
+    """Los pads acompañan la subida (opcional, por parte): a lo largo de la parte el
+    pulso acelera (2, 4, 6 y 8 golpes por compás), los golpes se acortan, suben de
+    fuerza y en la segunda mitad suman una voz. En la parte siguiente vuelven a
+    como estaban en su escena."""
+    c = copy.deepcopy(cfg)
+    p = c["pads"]
+    p["activo"] = True
+    p["suenan"] = True
+    tramo = min(3, int(avance * 4))
+    p["pulso"] = max(int(p.get("pulso", 0)), (2, 4, 6, 8)[tramo])
+    p["golpe"] = round(max(0.2, 0.55 - 0.3 * avance), 2)
+    p["velocidad"] = int(_limitar(round(p["velocidad"] * (0.8 + 0.45 * avance)), 1, 127))
+    if avance >= 0.5:
+        p["voces"] = min(6, int(p["voces"]) + 1)
+    return c
+
+
 def total_cancion(partes):
     return sum(p["compases"] for p in partes)
 
@@ -446,4 +464,8 @@ class Conductor:
         if sec is not None:
             cfg = con_piloto(cfg, sec[0], sec[1])
         energia = self.energia if self.energia is not None else cfg["forma"]["energia"]
-        return energizar(cfg, energia)
+        cfg = energizar(cfg, energia)
+        parte = self.parte(base, compas)
+        if parte is not None and base["parte"][parte["i"]].get("pads_suben"):
+            cfg = con_subida_pads(cfg, parte["avance"])
+        return cfg

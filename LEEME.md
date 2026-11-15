@@ -236,6 +236,10 @@ Cada parte tiene:
   mitad de la parte anterior) o *de golpe* (entra de una en su primer compás,
   como un drop). En los dos casos, los motores entran y salen justo en el
   primer compás de la parte.
+- **Los pads acompañan la subida** (opcional, apagado por defecto): a lo largo de
+  la parte el pulso de los pads acelera (2, 4, 6 y 8 golpes por compás), los
+  golpes se acortan, suben de fuerza y suman una voz al final. Ideal para los
+  rises. En la parte siguiente vuelven a lo de su escena.
 - **Escuchar** pone la escena de la parte para seguir armándola, y **Guardar lo
   que suena** la actualiza.
 

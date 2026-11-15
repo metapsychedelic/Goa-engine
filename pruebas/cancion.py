@@ -106,6 +106,31 @@ if __name__ == "__main__":
     todo &= ok(v[3]["activas"] == [True, False] and v[8]["activas"] == [False, True],
                "aunque la transición sea larga, cada parte se escucha tal como es")
 
+    print("\nPads en la subida (opcional)")
+    def pulsos(cfg, compases):
+        m = Motor(cfg, lambda *a: None)
+        m.start()
+        vistos = []
+        for tick in range(compases * 96):
+            m.reloj()
+            if tick % 96 == 1:
+                m.nota_on(1, 41)
+            if tick % 96 == 5:
+                p = m.config["pads"]
+                vistos.append((p["pulso"], p["velocidad"], p["voces"]))
+        return vistos
+    sube = armar()
+    sube["parte"][1]["pads_suben"] = True        # Groove (8 compases) con los pads subiendo
+    v_sube = pulsos(normalizar(sube), 18)
+    v_igual = pulsos(armar(), 18)
+    todo &= ok([x[0] for x in v_sube[8:16]] == [2, 2, 4, 4, 6, 6, 8, 8],
+               f"el pulso acelera a lo largo de la parte: 2, 4, 6, 8 ({[x[0] for x in v_sube[8:16]]})")
+    todo &= ok(v_sube[15][1] > v_sube[8][1] and v_sube[15][2] == v_sube[8][2] + 1,
+               "suben de fuerza y suman una voz al final")
+    todo &= ok(v_sube[16] == v_igual[16] and v_sube[:8] == v_igual[:8],
+               "antes y después de la parte, los pads suenan como en su escena")
+    todo &= ok(all(x[0] == v_igual[0][0] for x in v_igual[:16]), "con la casilla apagada, no cambia nada")
+
     print("\nProgram Change")
     m, v, pcs = correr(armar(), 22)
     todo &= ok(pcs[:1] == [(0, "FM-1", 5)], f"al dar Play pide el parche de la intro ({pcs[:1]})")

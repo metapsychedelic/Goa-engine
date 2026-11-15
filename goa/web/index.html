@@ -1188,7 +1188,7 @@ function resumenParte(p) {
   const esc = p.escena >= 0 && cfg.escena[p.escena] ? cfg.escena[p.escena].nombre : "sigue lo que suena";
   const ener = Math.round(p.energia * 100) === Math.round(p.energia_fin * 100) ? `${Math.round(p.energia * 100)}`
     : `${Math.round(p.energia * 100)}→${Math.round(p.energia_fin * 100)}`;
-  return `${p.compases} compases · ${esc} · ${p.entrada === "golpe" ? "de golpe" : "suave"} · energía ${ener}`;
+  return `${p.compases} compases · ${esc} · ${p.entrada === "golpe" ? "de golpe" : "suave"} · energía ${ener}${p.pads_suben ? " · pads suben" : ""}`;
 }
 
 async function accionParte(ruta, datos, mensaje) {
@@ -1224,6 +1224,7 @@ function bloqueParte(p, i) {
     deslizador(p, "energia", "Energía al empezar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
     deslizador(p, "energia_fin", "Energía al terminar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
     campo("Entrada", segmentado([["suave", "Suave"], ["golpe", "De golpe"]], p.entrada, (v) => { p.entrada = v; renderCancion(); guardar(); }, 2)),
+    casilla(p, "pads_suben", "Los pads acompañan la subida", "El pulso acelera (de 2 a 8 golpes por compás), suben de fuerza y suman una voz al final. En la parte siguiente vuelven a lo de su escena.", () => renderCancion()),
     ayuda(p.entrada === "golpe" ? "Entra de una en su primer compás, con su energía (como un drop)."
       : `Llega de a poco en los compases antes (los de Transición en Tocar, como mucho la mitad de la parte anterior). Los motores entran y salen justo en su primer compás.`),
     el("div", {className: "dos"}, [

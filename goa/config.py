@@ -149,6 +149,7 @@ ESQUEMA_PARTE = {
     "energia": (float, 0.5, 0.0, 1.0),               # energía al empezar la parte
     "energia_fin": (float, 0.5, 0.0, 1.0),           # y al terminarla
     "entrada": (str, "suave", None, ("suave", "golpe")),
+    "pads_suben": (bool, False, None, None),         # los pads acompañan la subida (opcional)
 }
 MAX_PARTES = 32
 
