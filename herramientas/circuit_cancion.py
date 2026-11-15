@@ -293,15 +293,32 @@ def template4():
         golpes([0, 16], 118),                                            # medio tiempo
         {},
     ]
+    # Caja de la pista 2: toms medios afinados (agudo 377 Hz, medio 280, grave 226) que
+    # tocan una frase de 2 compases y su respuesta, sobre el clap en 2 y 4.
+    TA, TB, TC = TOM_1, TOM_2, TOM_GRAVE
+
+    def toms(lista, escala=1.0):
+        d = {}
+        for paso, tom, vel in lista:
+            d |= golpes([(paso, round(vel * escala))], muestra=tom)
+        return d
+
+    llamada = [(3, TA, 65), (6, TA, 55), (8, TB, 75), (11, TA, 55), (14, TC, 80),
+               (19, TA, 65), (22, TA, 55), (24, TB, 75), (27, TB, 60), (29, TC, 65), (30, TC, 85)]
+    respuesta = [(2, TB, 60), (6, TA, 70), (10, TB, 60), (14, TA, 75),
+                 (18, TB, 60), (22, TA, 70), (26, TC, 75), (28, TB, 70), (30, TC, 85)]
+    clap = golpes(DOS_Y_CUATRO, 85, CLAP)
+    redoble_a = toms([(p, TA, 45 + p) for p in range(0, 16, 2)] + [(p, TB, 60 + p) for p in range(16, 32, 2)])
+    redoble_b = toms([(p, TA if p < 16 else (TB if p < 28 else TC), 70 + p * 1.4) for p in range(32)])
     C = [
         {},
-        golpes(DOS_Y_CUATRO, 90, TOM_SNARE),
-        golpes(DOS_Y_CUATRO, 90, TOM_SNARE) | golpes([(10, 55), (26, 55)], muestra=TOM_SNARE),
-        golpes(DOS_Y_CUATRO, 90, TOM_SNARE) | golpes([(12, 80), (28, 85)], muestra=CLAP),
-        redoble(list(range(16, 32)), 50, 100, TOM_SNARE),
-        redoble(list(range(0, 32)), 70, 120, TOM_SNARE),
-        golpes([(2, 85), (6, 70), (7, 60), (10, 85), (18, 85), (22, 70), (23, 60), (26, 90)], muestra=TOM_SNARE),  # llamado
-        {},
+        toms(llamada),                                # 2: la llamada
+        toms(respuesta),                              # 3: la respuesta
+        clap,                                         # 4: solo el clap
+        clap | toms(llamada, 0.8),                    # 5
+        clap | toms(respuesta, 0.8),                  # 6
+        clap | redoble_a,                             # 7: los toms se apuran
+        redoble_b,                                    # 8: redoble que baja de agudo a grave
     ]
     tres_tres_dos = [0, 3, 6, 8, 11, 14]
     H = [
@@ -313,30 +330,29 @@ def template4():
         golpes([(30, 90)], muestra=HAT_ABIERTO),
         {}, {},
     ]
-    conga_a = (golpes([(3, 75), (10, 65), (19, 75), (26, 65)], muestra=CONGA_A)
-               | golpes([(6, 70), (22, 70)], muestra=CONGA_B) | golpes([(14, 80), (30, 80)], muestra=PERC_A))
-    conga_b = golpes([(2, 70), (8, 65), (18, 70), (24, 65)], muestra=PERC_4) | golpes([(5, 60), (13, 70), (21, 60), (29, 75)], muestra=PERC_5)
-    toms = (golpes([(6, 70)], muestra=TOM_2) | golpes([(14, 75)], muestra=TOM_1)
-            | golpes([(22, 70)], muestra=TOM_2) | golpes([(30, 85)], muestra=TOM_GRAVE))
+    # Congas en la pista 4 (dos alturas, sin toms: esos van en la 2).
+    conga_a = golpes([(3, 70), (10, 60), (19, 70), (26, 60)], muestra=CONGA_A) | golpes([(6, 60), (22, 60)], muestra=PERC_A)
+    conga_b = golpes([(2, 65), (8, 60), (18, 65), (24, 60)], muestra=CONGA_A) | golpes([(5, 55), (13, 65), (21, 55), (29, 70)], muestra=PERC_A)
+    conga_suave = golpes([(3, 55), (19, 55)], muestra=CONGA_A) | golpes([(13, 45), (29, 50)], muestra=PERC_A)
     P = [
         {},
-        conga_a,
+        golpes([0], 100, CRASH) | conga_a,            # 2: crash cada 8 compases con la cadena 2-5
         conga_b,
+        conga_a,
         conga_a | conga_b,
-        conga_a | golpes([0], 110, CRASH),
-        golpes([(10, 60), (26, 60)], muestra=CONGA_A) | golpes([18], 100, RISER),
-        golpes([23], 100, SWELL),
-        toms,
+        conga_suave,
+        conga_a | golpes([(18, 85)], muestra=RISER),  # 7-8: subida
+        conga_suave | golpes([(23, 85)], muestra=SWELL),
     ]
     cadenas = {
-        "Llamado": (1, 7, 5, 3), "Tambores": (1, (2, 3), 1, (2, 3)), "Entra el bombo": ((2, 5), 2, 1, 2),
-        "Danza A": ((2, 5), (2, 3), 2, (2, 3)), "Danza B": ((2, 5), (3, 4), 3, 4), "Ceremonia": (7, 7, 5, 8),
-        "Fuego": (1, (5, 6), 2, (6, 7)), "Trance A": ((2, 5), (2, 3), 3, (5, 6)), "Trance B": ((2, 5), (3, 4), 2, 4),
-        "Circulo": (1, 1, 5, 8), "Fuego 2": (1, (5, 6), 2, (6, 7)), "Trance C": ((2, 5), (3, 4), 3, (5, 6)),
-        "Trance D": ((2, 5), (3, 4), 2, 4), "Danza C": ((2, 5), (3, 4), 3, 4),
-        "Danza final": ((2, 5), (2, 3), 1, (2, 3)), "Despedida": ((2, 5), 7, 5, 3),
+        "Llamado": (1, 2, 4, 6), "Tambores": (1, (2, 3), 1, (3, 4)), "Entra el bombo": ((2, 5), (2, 3), 1, (2, 5)),
+        "Danza A": ((2, 5), (4, 5), 2, (2, 5)), "Danza B": ((2, 5), (5, 6), 3, (2, 5)), "Ceremonia": (7, (2, 3), 4, (3, 4)),
+        "Fuego": (1, (5, 8), 2, (5, 8)), "Trance A": ((2, 5), (5, 6), 3, (2, 5)), "Trance B": ((2, 5), (5, 6), 2, (2, 5)),
+        "Circulo": (1, (2, 3), 4, 6), "Fuego 2": (1, (5, 8), 2, (5, 8)), "Trance C": ((2, 5), (5, 6), 3, (2, 5)),
+        "Trance D": ((2, 5), (4, 5), 2, (2, 5)), "Danza C": ((2, 5), (5, 6), 3, (2, 5)),
+        "Danza final": ((2, 5), (4, 5), 1, (3, 4)), "Despedida": ((2, 5), (2, 3), 4, 6),
     }
-    sonidos = {"drum1": {"sample": BOMBO, "level": 105}, "drum2": {"sample": TOM_SNARE, "level": 90},
+    sonidos = {"drum1": {"sample": BOMBO, "level": 105}, "drum2": {"sample": TOM_1, "level": 90},
                "drum3": {"sample": SHAKER, "level": 85}, "drum4": {"sample": CONGA_A, "level": 88}}
     envios = {"reverb": {"drum2": 30, "drum4": 35}, "delay": {"drum4": 20}}
     return "GOA TRIBAL", K, C, H, P, cadenas, sonidos, envios, 54

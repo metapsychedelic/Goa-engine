@@ -287,7 +287,7 @@ como mucho un swell cada 16 compases. La tabla completa está en `herramientas/c
 - **Template 3 · Goa clásico** (proyecto 34): 140 BPM, 16 escenas de 16 compases,
   256 compases (7:19). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
 - **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 16 escenas de 16 compases,
-  256 compases (7:19). Congas y toms, tambores antes del bombo, ceremonia a medio tiempo.
+  256 compases (7:19). Toms afinados en llamada y respuesta sobre el clap, congas, ceremonia a medio tiempo.
 - **Template 5 · Goa épico** (proyecto 40): 140 BPM, 16 partes, 224 compases (6:24). Arcos
   largos, redobles en dos olas, crash cada 8 compases.
 - **Template 6 · Psy chill** (proyecto 41): 104 BPM con shuffle, 16 escenas de 16
