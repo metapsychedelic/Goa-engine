@@ -7,7 +7,7 @@ import tomllib
 import json
 
 from . import armonia, bajo, dialogo, forma, generador, generos, pads
-from .escalas import ESCALAS, nombre_a_clase
+from .escalas import ESCALAS, ESCALAS_COLOR, nombre_a_clase
 
 MAX_SECUENCIAS = 8
 MAX_CLIPS = 64
@@ -205,6 +205,8 @@ ESQUEMA_SECUENCIA = {
     "saltos": (float, 0.0, 0.0, 1.0),
     "repeticion": (float, 0.0, 0.0, 1.0),
     "largas": (float, 0.0, 0.0, 1.0),
+    "escala_color": (str, "", None, ("",) + tuple(ESCALAS_COLOR)),  # "" = la de Música
+    "semitono": (float, 0.0, 0.0, 1.0),  # cuánto aparece el ♭2 sobre la raíz en los pasos débiles
 }
 
 

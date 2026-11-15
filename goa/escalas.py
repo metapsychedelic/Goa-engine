@@ -8,6 +8,15 @@ ESCALAS = {
     "hungara_menor": [0, 2, 3, 6, 7, 8, 11],
     "dorico": [0, 2, 3, 5, 7, 9, 10],      # menor con sexta mayor: abierto, psy chill
     "lidio": [0, 2, 4, 6, 7, 9, 11],       # cuarta aumentada: espacial, para ambient
+    "doble_armonica": [0, 1, 4, 5, 7, 8, 11],  # bizantina: frigio dominante con 7 mayor, la «misteriosa»
+}
+
+# Escalas solo de color, para las secuencias: no tienen quinta justa (persa: ♭5;
+# enigmática: ♯4 y ♯5), así que como escala de todo el motor desarmarían pads y bajo.
+ESCALAS_COLOR = {
+    "doble_armonica": ESCALAS["doble_armonica"],
+    "persa": [0, 1, 4, 5, 6, 8, 11],
+    "enigmatica": [0, 1, 4, 6, 8, 10, 11],
 }
 
 _NOMBRES = {
@@ -35,10 +44,11 @@ def nombre_midi(nota):
 
 class Tonalidad:
     def __init__(self, tonica, escala):
-        if escala not in ESCALAS:
-            raise ValueError(f"Escala desconocida: {escala!r}. Opciones: {', '.join(ESCALAS)}")
+        todas = ESCALAS | ESCALAS_COLOR
+        if escala not in todas:
+            raise ValueError(f"Escala desconocida: {escala!r}. Opciones: {', '.join(todas)}")
         self.tonica = nombre_a_clase(tonica)
-        self.intervalos = ESCALAS[escala]
+        self.intervalos = todas[escala]
         # Todas las notas MIDI de la escala, de 0 a 127.
         self.notas = [n for n in range(128) if (n - self.tonica) % 12 in self.intervalos]
 

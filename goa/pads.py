@@ -36,6 +36,8 @@ PROGRESIONES = {
     "i_bVI_bVII_v": [0, 5, 6, 4],    # chillgressive: oscura y en movimiento
     "i_bVI_iv_v": [0, 5, 3, 4],      # chillout: suave, para acordes de séptima y novena
     "pedal_I_II": [0, 1],            # con lidia, I y II sobre la misma raíz: galáctico
+    "i_bVII_bVI_bVII": [0, 6, 5, 6],  # va y vuelve sin cerrar: hipnótica
+    "i_bII_bVII_i": [0, 1, 6, 0],    # el ♭II sube y el ♭VII baja a la i
     "aleatoria": [0],                # se arma al azar con la seed y la escala (ver progresion_aleatoria)
 }
 
@@ -56,10 +58,11 @@ COLOR = {
     "hungara_menor": {4: 3.0, 5: 2.5, 6: 0.4},                      # V, ♭VI (vii, poco)
     "dorico": {3: 3.0, 6: 2.5, 1: 1.5, 2: 1.0, 4: 1.0},             # IV, ♭VII, ii, ♭III, v
     "lidio": {1: 3.0, 4: 2.0, 6: 1.5, 5: 1.5, 2: 1.0},              # II, V, vii, vi, iii
+    "doble_armonica": {1: 4.5, 3: 1.5, 2: 1.0},                     # ♭II, iv, iii
 }
 # Escalas modales "quietas": el frigio pide poca vuelta (i – ♭II es su gesto) y
 # vuelve seguido a la i; las demás aguantan progresiones de 3 o 4 acordes.
-QUIETAS = ("frigio", "frigio_dominante")
+QUIETAS = ("frigio", "frigio_dominante", "doble_armonica")
 _NUMERALES = ("I", "♭II", "II", "♭III", "III", "IV", "♯IV", "V", "♭VI", "VI", "♭VII", "VII")
 
 

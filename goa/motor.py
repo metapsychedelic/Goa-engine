@@ -55,6 +55,9 @@ class Secuencia:
         self.repeticion = float(cfg.get("repeticion", 0.0))
         self.largas = float(cfg.get("largas", 0.0))
         self.armonia = cfg.get("armonia", "general")  # general, guiada o libre
+        self.escala_color = cfg.get("escala_color", "")
+        self.semitono = float(cfg.get("semitono", 0.0))
+        self.tonalidad = None   # su escala de color (None = la de Música); la arma el motor con la tónica
         self.sonando = {}       # nota -> tick en que se apaga
         self.pendientes = []    # (tick, nota, velocidad, duración) por swing y repeticiones
         self.slide_previo = False
@@ -285,6 +288,9 @@ class Motor:
         entrada = config.get("entrada", {})
         tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
+        for s in secuencias:
+            if s.escala_color:
+                s.tonalidad = Tonalidad(musica.get("tonica", "F"), s.escala_color)
         desplazamiento = musica.get("desplazamiento", 0.0)
         anterior = self.config_aplicada or {}
         mismo = lambda *secciones: all(anterior.get(k) == config.get(k) for k in secciones)  # noqa: E731
@@ -835,12 +841,17 @@ class Motor:
                 # Toma como base la raíz del acorde que suena, cerca de su nota larga.
                 raiz = _cerca(self.pads.raiz_acorde % 12, raiz)
             octava = s.octava + p.get("octava", 0) + (x["direccion"] if x["salto"] < s.saltos else 0)
-            nota = self.tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * octava
+            tonalidad = s.tonalidad or self.tonalidad
+            nota = tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * octava
+            fuerte = generador.es_fuerte(s.posicion, paso)
             if momento is not None:
                 azar_arm = random.Random(f"{s.seed}:armonia:{i}").random()
                 ultima = momento.cambia_pronto and self._ultima_antes_del_cambio(s, paso, momento.falta)
-                nota = armonia.ajustar(nota, momento, self.tonalidad, generador.es_fuerte(s.posicion, paso), ultima,
+                nota = armonia.ajustar(nota, momento, self.tonalidad, fuerte, ultima,
                                        self.tension, self.anticipar, azar_arm)
+            if s.semitono and not fuerte and random.Random(f"{s.seed}:semitono:{i}").random() < s.semitono:
+                # El ♭2: medio tono sobre la raíz que suena, en los pasos débiles (el fuerte queda firme).
+                nota = _cerca((raiz + 1) % 12, nota)
             nota = max(0, min(127, nota))
             if "pref_acento" in p:
                 # Ácido 303: la cantidad de acentos y slides la regula el usuario;

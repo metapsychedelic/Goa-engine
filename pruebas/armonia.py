@@ -204,6 +204,48 @@ if __name__ == "__main__":
         todo &= ok(bien and raiz and registro and colgadas(salida) == 0,
                    "raíz grave + acorde" + (" + drone" if drone else "") + ": la raíz abajo, sin pasar de 4 voces ni irse de registro")
 
+    print("\nEscalas misteriosas, escala de color y ♭2")
+    from goa import pads as modpads
+    from goa.escalas import ESCALAS, ESCALAS_COLOR
+    todo &= ok(ESCALAS["doble_armonica"] == [0, 1, 4, 5, 7, 8, 11] and "persa" not in ESCALAS
+               and ESCALAS_COLOR["persa"] == [0, 1, 4, 5, 6, 8, 11] and ESCALAS_COLOR["enigmatica"] == [0, 1, 4, 6, 8, 10, 11],
+               "doble armónica en Música; persa y enigmática solo como color")
+    cfg = armar(progresion="aleatoria")
+    cfg["musica"]["escala"] = "doble_armonica"
+    salida, motor = correr(cfg, compases=16)
+    todo &= ok(en_escala(salida, cfg) and colgadas(salida) == 0, "en doble armónica todo queda en la escala (pads al azar, bajo y secuencias)")
+    todo &= ok(modpads.raiz_tension(ESCALAS["doble_armonica"]) == 1, "su acorde de tensión es el ♭II")
+    todo &= ok(modpads.PROGRESIONES["i_bVII_bVI_bVII"] == [0, 6, 5, 6] and modpads.PROGRESIONES["i_bII_bVII_i"] == [0, 1, 6, 0],
+               "progresiones nuevas: i–♭VII–♭VI–♭VII e i–♭II–♭VII–i")
+    for prog in ("i_bVII_bVI_bVII", "i_bII_bVII_i"):
+        cfg = armar(progresion=prog)
+        salida, _ = correr(cfg, compases=8)
+        todo &= ok(en_escala(salida, cfg) and colgadas(salida) == 0, f"{prog} suena en la escala, sin notas colgadas")
+    # Escala de color: la secuencia toca en persa, los pads siguen en frigio dominante.
+    for modo in ("libre", "guiada"):
+        cfg = armar(modo=modo, tension=1.0, secuencia=True, progresion="i_bII")
+        cfg["musica"]["escala"] = "frigio_dominante"
+        cfg["secuencia"][0].update(escala_color="persa", densidad=1.0, posicion="todos", estilo="psy_chill")
+        cfg = normalizar(cfg)
+        salida, _ = correr(cfg, compases=8)
+        sec = {n % 12 for _, n in de_secuencia(salida, cfg)}
+        persa = {(5 + i) % 12 for i in ESCALAS_COLOR["persa"]}
+        otras = [n for t, s_, ti, c, n, _ in salida if ti == "note_on" and c != cfg["secuencia"][0]["canal"] - 1]
+        todo &= ok(sec <= persa | {(5 + i) % 12 for i in ESCALAS["frigio_dominante"]} and 11 in sec
+                   and all((n - 5) % 12 in ESCALAS["frigio_dominante"] for n in otras),
+                   f"{modo}: la secuencia toca en persa (aparece el Si, el ♭5) y lo demás sigue en frigio dominante")
+    # ♭2
+    def de_sec(semitono):
+        cfg = armar(modo="libre", progresion="i_bII")
+        cfg["secuencia"][0].update(semitono=semitono, densidad=1.0, posicion="todos", estilo="rolling")
+        salida, _ = correr(normalizar(cfg), compases=4)
+        return de_secuencia(salida, cfg)
+    sin, con = de_sec(0.0), de_sec(1.0)
+    fuertes = lambda ev: [n for t, n in ev if (t // 6) % 4 == 0]  # noqa: E731
+    gb = lambda ev: sum(1 for t, n in ev if n % 12 == 6 and (t // 6) % 4)  # noqa: E731
+    todo &= ok(gb(con) > gb(sin) and gb(con) >= len([1 for t, n in con if (t // 6) % 4]) * 0.9 and fuertes(con) == fuertes(sin),
+               f"♭2 al máximo: los pasos débiles van a Solb ({gb(sin)} → {gb(con)}) y los fuertes no cambian")
+
     print("\nConfiguración")
     cfg = normalizar(armar(suenan=False, suspensiones=0.7))
     cfg["dialogo"]["armonia"] = "libre"

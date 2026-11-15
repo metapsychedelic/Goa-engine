@@ -396,6 +396,26 @@ abajo; ocupa una voz del sinte).
 el botón Scales de la Circuit para que todo lo que toques quede dentro de la
 escala del motor. Frigio dominante y lidia no existen en la Circuit: se usan la
 menor armónica una quinta abajo y la mayor una quinta arriba (mismas notas).
+La doble armónica tampoco: se usa la húngara menor una quinta abajo.
+
+**Escalas misteriosas:** en Música está la **doble armónica** (bizantina,
+1 ♭2 3 4 5 ♭6 7), que es el frigio dominante con séptima mayor. Con progresión
+al azar usa I, ♭II, iii e iv.
+
+**Escala de color** (en cada secuencia, grupo Notas): la secuencia toca en otra
+escala mientras pads, bajo y diálogo siguen en la de Música. Opciones: doble
+armónica, **persa** (1 ♭2 3 4 ♭5 ♭6 7) y **enigmática** (1 ♭2 3 ♯4 ♯5 ♭7 7).
+Las dos últimas no tienen quinta justa, por eso solo existen como color: sobre
+una base firme suenan misteriosas; como escala de todo se desarmarían. En
+armonía guiada los tiempos fuertes igual caen en el acorde y el color aparece
+en los débiles.
+
+**♭2** (en cada secuencia, grupo Notas): cambia notas de los pasos débiles por
+el medio tono sobre la raíz que suena, la tensión típica de las melodías de
+psytrance. Los tiempos fuertes no se tocan. En 0 la secuencia queda como era.
+
+Progresiones nuevas de los pads: **i – ♭VII – ♭VI – ♭VII** (va y vuelve sin
+cerrar) e **i – ♭II – ♭VII – i**.
 
 En los pads, **Suenan** apagado los deja callados pero guiando: útil para
 escenas minimal donde el bajo y las secuencias caminan antes de que entren los

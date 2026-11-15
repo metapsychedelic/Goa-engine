@@ -234,7 +234,7 @@ details.grupo.parte-actual{border-color:var(--acc)}
 
 <script>
 const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# · Re#"],["E","E · Mi"],["F","F · Fa"],["F#","F# · Fa#"],["G","G · Sol"],["G#","G# · Sol#"],["A","A · La"],["A#","A# · La#"],["B","B · Si"]];
-const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"],["i_IV","i – IV · con dórica, abierta (psy chill)"],["i_IV_i_bVII","i – IV – i – ♭VII · psy chill"],["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive"],["i_bVI_iv_v","i – ♭VI – iv – v · chillout"],["pedal_I_II","I – II sobre la raíz · con lidia, galáctica (ambient)"],["aleatoria","Al azar · según la escala"]];
+const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"],["i_IV","i – IV · con dórica, abierta (psy chill)"],["i_IV_i_bVII","i – IV – i – ♭VII · psy chill"],["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive"],["i_bVI_iv_v","i – ♭VI – iv – v · chillout"],["pedal_I_II","I – II sobre la raíz · con lidia, galáctica (ambient)"],["i_bVII_bVI_bVII","i – ♭VII – ♭VI – ♭VII · va y vuelve, hipnótica"],["i_bII_bVII_i","i – ♭II – ♭VII – i · sube al ♭II y baja por el ♭VII"],["aleatoria","Al azar · según la escala"]];
 // Qué da cada escala con la progresión al azar (solo acordes mayores y menores).
 const AZAR_ESCALA = {
   frigio: "Frigio: lo más Goa al azar. Usa i, ♭II, ♭III, iv, ♭VI y ♭vii; prefiere ♭II y vuelve seguido a la i.",
@@ -244,13 +244,14 @@ const AZAR_ESCALA = {
   hungara_menor: "Húngara menor: muy exótica en melodías, pero solo tiene i, V, ♭VI y vii limpios: progresiones cortas.",
   dorico: "Dórica: luminosa, ideal para psy chill. El IV mayor es su color.",
   lidio: "Lidia: flotante y espacial (ambient). El II mayor es su color.",
+  doble_armonica: "Doble armónica (bizantina): la «misteriosa» del psytrance. Como el frigio dominante con séptima mayor; acordes limpios I, ♭II, iii e iv: progresiones cortas.",
 };
 const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"],["septima","Séptima (m7 / maj7)"],["novena","Novena (con 5 voces)"]];
 // Escala equivalente en la Circuit (botón Scales): [escala de la Circuit, semitonos a sumar a la tónica].
 // Frigio dominante = menor armónica una quinta abajo; lidia = mayor una quinta arriba (mismas notas).
 const ESCALA_CIRCUIT = {frigio: ["Phrygian", 0], menor_armonica: ["Harmonic Minor", 0], frigio_dominante: ["Harmonic Minor", 5],
-  menor: ["Natural Minor", 0], hungara_menor: ["Hungarian Minor", 0], dorico: ["Dorian", 0], lidio: ["Major", 7]};
-const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"],["dorico","Dórica"],["lidio","Lidia"]];
+  menor: ["Natural Minor", 0], hungara_menor: ["Hungarian Minor", 0], dorico: ["Dorian", 0], lidio: ["Major", 7], doble_armonica: ["Hungarian Minor", 5]};
+const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"],["dorico","Dórica"],["lidio","Lidia"],["doble_armonica","Doble armónica"]];
 const GENEROS = [["goa","Goa"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["chillout","Chillout"],["ambient","Ambient"]];
 const GENERO_TEXTO = {goa: "Frigio, i – ♭II, llamada y respuesta en corcheas, pegada al beat.",
   psy_chill: "Dórica, i – IV – i – ♭VII con pulso suave en los pads, motivos cortos.",
@@ -718,6 +719,10 @@ function panelSecuencia(i) {
         deslizador(s, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
         ayuda("Cuánto regresa a la nota base entre las demás: más alto, más hipnótico."),
         deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
+        campo("Escala de color", segmentado(ESCALAS_COLOR, s.escala_color || "", (v) => { s.escala_color = v; renderMotores(); guardar(); }, 2)),
+        ayuda(COLOR_TEXTO[s.escala_color || ""]),
+        deslizador(s, "semitono", "♭2 (medio tono sobre la raíz)", 0, 1, 0.05, (v) => v === 0 ? "como sale" : porcentaje(v)),
+        ayuda("Cambia notas de los pasos débiles por el medio tono sobre la raíz: la tensión hipnótica del psytrance. Los tiempos fuertes quedan firmes."),
         deslizador(s, "slide", "Slides", 0, 1, 0.05, porcentaje),
         deslizador(s, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
         ayuda("En Ácido 303, acentos y slides son la cantidad total; en los otros estilos se suman. Para que los slides deslicen, pon el sinte en mono o legato con glide."),
@@ -1032,8 +1037,16 @@ function renderArmonia() {
   ].filter(Boolean));
 }
 
+const ESCALAS_COLOR = [["","La de Música"],["doble_armonica","Doble armónica"],["persa","Persa"],["enigmatica","Enigmática"]];
+const COLOR_TEXTO = {
+  "": "Toca en la escala de Música, como los demás motores.",
+  doble_armonica: "1 ♭2 3 4 5 ♭6 7: oriental y «misteriosa». Sobre frigio dominante cambia solo la séptima.",
+  persa: "1 ♭2 3 4 ♭5 ♭6 7: el tritono en vez de la quinta, muy tenso. Pads y bajo siguen en la escala de Música.",
+  enigmatica: "1 ♭2 3 ♯4 ♯5 ♭7 7: ambigua y rara, sin quinta. Úsala en una secuencia sola, sobre una base firme.",
+};
 const INTERVALOS = {frigio: [0,1,3,5,7,8,10], menor_armonica: [0,2,3,5,7,8,11], frigio_dominante: [0,1,4,5,7,8,10],
-  menor: [0,2,3,5,7,8,10], hungara_menor: [0,2,3,6,7,8,11], dorico: [0,2,3,5,7,9,10], lidio: [0,2,4,6,7,9,11]};
+  menor: [0,2,3,5,7,8,10], hungara_menor: [0,2,3,6,7,8,11], dorico: [0,2,3,5,7,9,10], lidio: [0,2,4,6,7,9,11],
+  doble_armonica: [0,1,4,5,7,8,11]};
 function notasDe(tonica, escala) {
   const i = TONICAS.findIndex((x) => x[0] === String(tonica).toUpperCase());
   return new Set((INTERVALOS[escala] || []).map((n) => (n + Math.max(i, 0)) % 12));
