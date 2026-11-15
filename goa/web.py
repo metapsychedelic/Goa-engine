@@ -151,6 +151,7 @@ def crear_servidor(ctx, puerto):
                 "/api/escena/borrar": self._escena_borrar,
                 "/api/energia": self._energia,
                 "/api/piloto": self._piloto,
+                "/api/subida": self._subida,
                 "/api/cancion": self._cancion,
                 "/api/cancion/plantilla": self._cancion_plantilla,
                 "/api/parte/nueva": self._parte_nueva,
@@ -431,6 +432,12 @@ def crear_servidor(ctx, puerto):
                 if p["escena"] < 0:
                     raise ValueError("Esta parte no tiene escena todavía")
             self._escena_lanzar({"indice": p["escena"], "compases": 1})
+
+        def _subida(self, datos):
+            """Subida de FX: riser, filtros y stutter durante `compases`, desde el próximo compás (0 = cancelar)."""
+            with ctx.candado:
+                ctx.motor.pedir_subida(int(datos.get("compases", 0)))
+            self._responder()
 
         def _piloto(self, datos):
             """Prende o apaga el piloto, cambia su duración o salta a una sección (en el próximo compás)."""

@@ -488,7 +488,7 @@ function guiadaDe(obj) {
 
 async function cambiarGenero(genero, motor = {}) {
   // motor: {} = todo · {parte: "pads"} · {parte: "dialogo"} · {parte: "bajo"} · {parte: "secuencia", indice}
-  const nombres = {pads: "Pads", bajo: "Bajo", dialogo: "Diálogo", secuencia: `Secuencia ${(cfg.secuencia[motor.indice] || {}).nombre}`};
+  const nombres = {pads: "Pads", bajo: "Bajo", dialogo: "Diálogo", fx: "FX", secuencia: `Secuencia ${(cfg.secuencia[motor.indice] || {}).nombre}`};
   try {
     clearTimeout(temporizador);  // primero aplica lo último que cambiaste
     await api("/api/config", cfg);
@@ -516,6 +516,7 @@ function motores() {
   const lista = [["pads", "Pads", cfg.pads, "activo"], ["bajo", "Bajo", cfg.bajo, "activo"]];
   cfg.secuencia.forEach((s, i) => lista.push(["sec" + i, s.nombre, s, "activa"]));
   lista.push(["dialogo", "Diálogo", cfg.dialogo, "activo"]);
+  lista.push(["fx", "FX", cfg.fx, "activo"]);
   return lista;
 }
 
@@ -540,6 +541,7 @@ function renderMotores() {
   if (motorSel === "pads") panel.append(...panelPads());
   else if (motorSel === "bajo") panel.append(...panelBajo());
   else if (motorSel === "dialogo") panel.append(...panelDialogo());
+  else if (motorSel === "fx") panel.append(...panelFx());
   else panel.append(...panelSecuencia(parseInt(motorSel.slice(3))));
 }
 // Nombres de antes: cualquier cambio vuelve a dibujar el motor que está a la vista.
@@ -741,6 +743,12 @@ function panelSecuencia(i) {
         clipsSecuencia(i),
         el("button", {type: "button", textContent: "Guardar como clip", onclick: () => guardarClip(i, s)}),
       ]),
+      grupo(`g-sec-fx`, "FX", s.fx ? `intervenida · filtro CC ${s.cc_filtro}` : "sin intervenir", [
+        casilla(s, "fx", "La interviene el motor de FX",
+          "En las subidas su filtro baja y se va abriendo hasta el drop, y suma redobles cada vez más seguidos. Fuera de las subidas, a veces el último tiempo de la frase se traba (stutter). Cuánto, lo decide la Locura del FX.", () => renderMotores()),
+        s.fx ? el("div", {className: "dos"}, [numeroDe(s, "cc_filtro", "CC del filtro de su sinte", 0, 127), numeroDe(s, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]) : null,
+        s.fx ? ayuda("El reposo es dónde vuelve el filtro después del drop: ponlo donde tienes la perilla del sinte. El CC del cutoff suele ser el 74; en la MicroFreak es el 23. Revisa la tabla MIDI de tu sinte (en la FM-1 con Shrub, la de su manual).") : null,
+      ]),
       grupo(`g-sec-midi`, "Salida MIDI", salidaTexto(s), [
         el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), destinoDe(s, renderMotores)]),
         el("div", {className: "dos"}, [numeroDe(s, "canal", "Canal MIDI", 1, 16, renderMotores), numeroDe(s, "disparo", "Canal de su nota larga (0 = general)", 0, 16, renderMotores)]),
@@ -884,6 +892,52 @@ function panelDialogo() {
       grupo("g-dlg-midi", "Salida MIDI", vivo ? `escucha canal ${d.escucha}` : `nota larga ${d.disparo ? "canal " + d.disparo : "general"}`, [
         vivo ? numeroDe(d, "escucha", "Canal donde toco la llamada", 1, 16) : numeroDe(d, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16),
         ayuda("Los destinos de cada voz están en Voces."),
+      ]),
+    ]),
+  ];
+}
+
+// --- FX ---
+
+const GESTOS_FX = [["zap", "Zaps", "láser que cae en picada"], ["burbujas", "Burbujas", "3 notas rápidas en la escala"],
+  ["acido", "Ácido", "un pedazo de 303 con el filtro chillando"], ["glitch", "Glitch", "ráfagas de fusas con saltos de pitch"]];
+const GESTO_TEXTO = {zap: "zap", burbujas: "burbujas", acido: "ácido", glitch: "glitch", riser: "riser", caida: "caída"};
+
+function panelFx() {
+  const x = cfg.fx;
+  const gestos = GESTOS_FX.filter(([k]) => x[k]).map(([, n]) => n.toLowerCase());
+  return [
+    cabMotor("FX", `${x.salida} · canal ${x.canal} · ${gestos.join(", ") || "sin gestos"}`, x, "activo",
+      el("span", {className: "pill", id: "fx_gesto", textContent: "En silencio"})),
+    campo("Género", segmentado(GENEROS, x.genero, (v) => cambiarGenero(v, {parte: "fx"}), 3)),
+    ayuda({goa: "Goa: zaps, ácido y glitches, todos a la mano.", psy_chill: "Psy chill: sobre todo burbujas, pocos zaps.",
+      chillgressive: "Chillgressive: de todo, un poco menos seguido.", chillout: "Chillout: burbujas y algún zap, espaciados.",
+      ambient: "Ambient: solo burbujas, muy de vez en cuando."}[x.genero]),
+    campo("Variante", variante(x, "fx")),
+    el("div", {className: "card principales"}, [
+      deslizador(x, "locura", "Locura", 0, 1, 0.05, (v) => v === 0 ? "solo subidas" : v < 0.3 ? `poca (${porcentaje(v)})` : v < 0.7 ? `media (${porcentaje(v)})` : `mucha (${porcentaje(v)})`),
+      ayuda("Cuántos gestos aparecen (más al final de cada frase de 4 compases). La energía la sube y la baja. También decide cuánto se traban las secuencias con FX."),
+    ]),
+    el("div", {className: "grupos"}, [
+      grupo("g-fx-gestos", "Gestos", gestos.join(", ") || "ninguno", [
+        ...GESTOS_FX.map(([k, n, d]) => casilla(x, k, n, d, () => renderMotores())),
+        ayuda("Las notas salen del acorde que suena (o de la escala): las locuras nunca desafinan."),
+      ]),
+      grupo("g-fx-subida", "Subida y drop", `${x.riser ? "riser" : "sin riser"} · ${x.caida ? "caída en el drop" : "sin caída"}`, [
+        casilla(x, "riser", "Riser en las subidas", "Golpes que se van densificando (negras, corcheas, semicorcheas, fusas), el pitch subiendo hasta el drop y el filtro que baja y se va abriendo."),
+        casilla(x, "caida", "Caída en el drop", "Una nota que se desploma con el pitch y el filtro en los dos compases después del drop."),
+        ayuda("Las subidas se lanzan en Tocar (8, 16 o 32 compases), con «Riser» en una parte de la canción, y solas en el build y el break del piloto. Para que el riser suba una octava entera, pon el rango de pitch bend del sinte en 12."),
+      ]),
+      grupo("g-fx-notas", "Notas", `octava ${x.octava} · fuerza ${x.velocidad}`, [
+        el("div", {className: "dos"}, [numeroDe(x, "octava", "Octava", -2, 3), numeroDe(x, "velocidad", "Fuerza", 1, 127)]),
+      ]),
+      grupo("g-fx-midi", "Salida MIDI", `${salidaTexto(x)} · filtro CC ${x.cc_corte}`, [
+        el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
+        ayuda("Un canal libre de la MC-101 (una pista con un sonido para efectos)."),
+        el("div", {className: "dos"}, [numeroDe(x, "cc_corte", "CC del filtro", 0, 127), numeroDe(x, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]),
+        ayuda("El ácido, el riser y la caída mueven el filtro por ese CC y después lo dejan en el reposo."),
+        numeroDe(x, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
+        programaDe(x),
       ]),
     ]),
   ];
@@ -1098,7 +1152,7 @@ function render() {
 
 function renderTocar() {
   const caja = $("tocar_extra"); caja.innerHTML = "";
-  caja.append(bloqueEscenas(), bloqueEnergia(), bloquePiloto());
+  caja.append(bloqueEscenas(), bloqueEnergia(), bloqueSubida(), bloquePiloto());
   $("tocar_forma").replaceChildren(bloqueForma());
   renderMutes();
   if (ultimoEstado) pintarTocar(ultimoEstado);
@@ -1116,6 +1170,7 @@ function resumenEscena(e) {
   if ((d.bajo || {}).activo) suenan.push("bajo");
   for (const s of d.secuencia || []) if (s.activa) suenan.push(s.nombre);
   if ((d.dialogo || {}).activo) suenan.push("diálogo");
+  if ((d.fx || {}).activo) suenan.push("FX");
   const m = d.musica || {};
   return `${nombreGenero(m.genero || "")} · ${m.tonica || ""} ${((ESCALAS.find((x) => x[0] === m.escala) || ["", ""])[1]).toLowerCase()} · ${suenan.join(", ") || "silencio"}`;
 }
@@ -1201,7 +1256,7 @@ function resumenParte(p) {
   const esc = p.escena >= 0 && cfg.escena[p.escena] ? cfg.escena[p.escena].nombre : "sigue lo que suena";
   const ener = Math.round(p.energia * 100) === Math.round(p.energia_fin * 100) ? `${Math.round(p.energia * 100)}`
     : `${Math.round(p.energia * 100)}→${Math.round(p.energia_fin * 100)}`;
-  const subida = [p.pads_suben && "pads suben", p.roll && "roll", p.corte_bajo && "corte de bajo", p.tension && "tensión", p.hueco && "hueco"].filter(Boolean);
+  const subida = [p.pads_suben && "pads suben", p.roll && "roll", p.corte_bajo && "corte de bajo", p.tension && "tensión", p.hueco && "hueco", p.riser && "riser"].filter(Boolean);
   return `${p.compases} compases · ${esc} · ${p.entrada === "golpe" ? "de golpe" : "suave"} · energía ${ener}${subida.length ? " · " + subida.join(", ") : ""}`;
 }
 
@@ -1244,6 +1299,7 @@ function bloqueParte(p, i) {
     casilla(p, "corte_bajo", "Corte de bajo", `El bajo se calla en ${p.compases >= 8 ? "los 2 últimos compases" : "el último compás"} para que la parte siguiente pegue más.`, () => renderCancion()),
     casilla(p, "tension", "Acorde de tensión al final", "El último compás va a un acorde que pide resolver (♭II en frigio, V en menor armónica, ♭VII en menor) y la parte siguiente parte en la i. Lo siguen los pads, el bajo y las secuencias guiadas.", () => renderCancion()),
     casilla(p, "hueco", "Hueco antes del cambio", "El último tiempo de la parte, el motor queda en silencio.", () => renderCancion()),
+    casilla(p, "riser", "Riser de FX", `Subida de FX en ${p.compases > 32 ? "los 32 últimos compases" : "toda la parte"}: riser, filtros que bajan y se abren, redobles en las secuencias con FX. En el uno de la parte siguiente, el drop con su caída.`, () => renderCancion()),
     ayuda(p.entrada === "golpe" ? "Entra de una en su primer compás, con su energía (como un drop)."
       : `Llega de a poco en los compases antes (los de Transición en Tocar, como mucho la mitad de la parte anterior). Los motores entran y salen justo en su primer compás.`),
     el("div", {className: "dos"}, [
@@ -1359,6 +1415,40 @@ function bloqueEnergia() {
     r.disabled ? ayuda("En modo canción la energía la maneja cada parte (pestaña Canción).") : null,
     el("div", {className: "ley"}, [el("span", {textContent: "calma"}), el("span", {textContent: "50 = tus ajustes", style: "text-align:center"}), el("span", {textContent: "clímax"})]),
   ]);
+}
+
+// --- Subida de FX ---
+
+function bloqueSubida() {
+  const hay = cfg.fx.activo || cfg.secuencia.some((s) => s.fx);
+  const chips = el("div", {className: "chips", role: "group", "aria-label": "Lanzar subida"});
+  for (const n of [8, 16, 32]) chips.append(el("button", {type: "button", textContent: String(n), "aria-label": `Subida de ${n} compases`,
+    onclick: async () => { try { await api("/api/subida", {compases: n}); aviso(`Subida de ${n} compases desde el próximo compás`); estado(); } catch (e) { aviso(e.message, true); } }}));
+  chips.append(el("button", {type: "button", textContent: "✕", "aria-label": "Cancelar la subida", id: "subida_cancelar", style: "display:none",
+    onclick: async () => { try { await api("/api/subida", {compases: 0}); aviso("La subida para en el próximo compás"); estado(); } catch (e) { aviso(e.message, true); } }}));
+  return el("div", {className: "energia"}, [
+    el("div", {className: "fila"}, [
+      el("div", {style: "display:flex;flex-direction:column;gap:2px;min-width:0"}, [
+        el("span", {style: "font-size:13px;font-weight:650;color:var(--txt2)", textContent: "Subida"}),
+        el("span", {className: "mut", id: "subida_linea", style: "font-size:12px", textContent: hay ? "Riser, filtros y redobles hasta el drop" : "Prende el FX o marca FX en una secuencia"})]),
+      chips]),
+    el("div", {className: "cbarra", id: "subida_barra", style: "display:none"}, [el("i", {style: "flex:0;background:var(--acc)"}), el("i", {style: "flex:1"})]),
+  ]);
+}
+
+function pintarSubida(d) {
+  const linea = $("subida_linea"), cancelar = $("subida_cancelar"), barra = $("subida_barra");
+  if (!linea) return;
+  const s = d.subida;
+  const origen = s && {manual: "", cancion: " (canción)", piloto: " (piloto)"}[s.origen];
+  if (cancelar) cancelar.style.display = s && (s.pedida || s.origen === "manual") ? "" : "none";
+  if (barra) barra.style.display = s && s.largo ? "" : "none";
+  if (!s) { const hay = cfg.fx.activo || cfg.secuencia.some((x) => x.fx);
+    linea.textContent = hay ? "Riser, filtros y redobles hasta el drop" : "Prende el FX o marca FX en una secuencia"; return; }
+  if (s.pedida !== undefined) { linea.textContent = s.pedida ? `Empieza en el próximo compás (${s.pedida})` : "Para en el próximo compás"; return; }
+  linea.textContent = `Subiendo${origen} · compás ${s.compas} de ${s.largo} · drop en ${s.largo - s.compas + 1}`;
+  const [a, b] = barra.children;
+  a.style.flex = String(s.compas); b.style.flex = String(Math.max(0, s.largo - s.compas));
 }
 
 // --- Forma: variación larga (y piloto) ---
@@ -1510,6 +1600,9 @@ async function estado() {
     if (fase) { fase.textContent = FASES[d.dialogo] || "En silencio"; fase.className = "pill" + (d.dialogo && d.dialogo !== "espacio" ? " ok" : ""); }
     pintarClips(); pintarMutes();
     if (typeof pintarTocar === "function") pintarTocar(d);
+    pintarSubida(d);
+    const fg = document.getElementById("fx_gesto");
+    if (fg) { fg.textContent = d.fx_gesto ? "Último: " + (GESTO_TEXTO[d.fx_gesto] || d.fx_gesto) : "En silencio"; fg.className = "pill" + (d.fx_gesto ? " ok" : ""); }
     pintarCancion(d);
     // Modo canción: si el motor pasó a otra parte, la app muestra lo que suena ahora
     // (si estás escribiendo en un campo, espera a que termines).

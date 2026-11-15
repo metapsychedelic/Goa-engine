@@ -6,7 +6,7 @@ import tomllib
 
 import json
 
-from . import armonia, bajo, dialogo, forma, generador, generos, pads
+from . import armonia, bajo, dialogo, forma, fx, generador, generos, pads
 from .escalas import ESCALAS, ESCALAS_COLOR, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -135,6 +135,26 @@ ESQUEMA_SECCIONES["forma"] = {
     "duracion": (str, "normal", None, tuple(forma.DURACIONES)),
 }
 
+# FX: un sinte propio (por defecto un canal de la MC-101) con zaps, burbujas, ácido,
+# glitch, el riser de las subidas y la caída del drop. Ver fx.py.
+ESQUEMA_SECCIONES["fx"] = {
+    "activo": (bool, False, None, None),
+    "salida": (str, "MC-101", None, None),
+    "canal": (int, 1, 1, 16),
+    "programa": (int, 0, 0, 128),
+    "disparo": (int, 0, 0, 16),              # canal de su nota larga; 0 = el general
+    "genero": (str, "goa", None, generos.ORDEN),
+    "locura": (float, 0.4, 0.0, 1.0),        # cuántos gestos (la energía la sube y la baja)
+    **{g: (bool, True, None, None) for g in fx.GESTOS},  # qué gestos puede tocar
+    "riser": (bool, True, None, None),       # en las subidas toca el riser
+    "caida": (bool, True, None, None),       # en el drop, la caída
+    "octava": (int, 1, -2, 3),
+    "velocidad": (int, 100, 1, 127),
+    "cc_corte": (int, 74, 0, 127),           # CC del filtro del sinte de FX
+    "filtro_reposo": (int, 100, 0, 127),     # dónde queda el filtro cuando no hay gestos
+    "seed": (str, "FX-0001", None, None),
+}
+
 # Modo canción: la canción es una lista de partes (intro, build, groove...), cada una
 # con sus compases, la escena que suena y su curva de energía. Ver forma.py.
 ESQUEMA_SECCIONES["cancion"] = {
@@ -154,6 +174,7 @@ ESQUEMA_PARTE = {
     "corte_bajo": (bool, False, None, None),         # el bajo se calla al final
     "tension": (bool, False, None, None),            # el último compás va a un acorde de tensión
     "hueco": (bool, False, None, None),              # el último tiempo, el motor en silencio
+    "riser": (bool, False, None, None),              # subida de FX en la parte (riser, filtros, stutter) y drop al terminar
 }
 MAX_PARTES = 32
 
@@ -207,12 +228,15 @@ ESQUEMA_SECUENCIA = {
     "largas": (float, 0.0, 0.0, 1.0),
     "escala_color": (str, "", None, ("",) + tuple(ESCALAS_COLOR)),  # "" = la de Música
     "semitono": (float, 0.0, 0.0, 1.0),  # cuánto aparece el ♭2 sobre la raíz en los pasos débiles
+    "fx": (bool, False, None, None),         # el motor de FX la interviene: filtro y stutter en las subidas, glitches
+    "cc_filtro": (int, 74, 0, 127),          # CC del filtro de su sinte
+    "filtro_reposo": (int, 110, 0, 127),     # dónde vuelve el filtro después de la subida
 }
 
 
 # Un clip guarda el carácter musical de una secuencia; el destino lo pone la fila
 # del disparador donde se lanza.
-CLAVES_DESTINO = ("disparo", "activa", "salida", "canal")
+CLAVES_DESTINO = ("disparo", "activa", "salida", "canal", "cc_filtro", "filtro_reposo")
 ESQUEMA_CLIP = {k: v for k, v in ESQUEMA_SECUENCIA.items() if k not in CLAVES_DESTINO}
 
 
@@ -345,7 +369,7 @@ def _suenan_en_cancion(cfg):
                 datos = json.loads(cfg["escena"][p["escena"]]["datos"])
             except ValueError:
                 continue
-            for motor in ("pads", "bajo", "dialogo"):
+            for motor in ("pads", "bajo", "dialogo", "fx"):
                 if (datos.get(motor) or {}).get("activo"):
                     suenan.add(motor)
     return suenan
@@ -361,6 +385,8 @@ def salidas(cfg):
         claves.append(cfg["pads"]["salida"])
     if cfg["bajo"]["activo"] or "bajo" in cancion:
         claves.append(cfg["bajo"]["salida"])
+    if cfg["fx"]["activo"] or "fx" in cancion:
+        claves.append(cfg["fx"]["salida"])
     if cfg["dialogo"]["activo"] or "dialogo" in cancion:
         if cfg["dialogo"]["modo"] == "motor":
             claves.append(cfg["llamada"]["salida"])

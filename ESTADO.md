@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.34.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.35.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -13,6 +13,8 @@ Canción, Ajustes).
 - `goa/forma.py` (energía, conductor, modo canción, roll)
 - `goa/pads.py` (progresiones, acorde de tensión), `goa/escalas.py` (ESCALAS, ESCALAS_COLOR)
 - `goa/config.py` (esquemas), `goa/web.py` + `goa/web/index.html` (app)
+- `goa/fx.py` (motor de FX: gestos, riser, caída, curva del filtro); la subida y la
+  intervención de las secuencias están en `motor.py` (`_compas_subida`, `_glitch`, `_filtro_secuencias`)
 - `goa/plantillas.py` (templates de canción de la app)
 - `herramientas/circuit_cancion.py` (genera los .ncs de la Circuit; `todas carpeta/`)
 - Pruebas: `python3 -m pruebas.<nombre>` (cancion, director, dialogo, en_vivo,
@@ -20,6 +22,13 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+- v0.35.0 Motor de FX (pestaña Motores › FX, por defecto MC-101 canal 1): zaps,
+  burbujas, ácido, glitch con pitch bend y CC del filtro; "Locura" (la energía la mueve).
+  Subidas: botón en Tocar (8/16/32, ✕ cancela), casilla "Riser" por parte de la canción,
+  build y break del piloto. Riser: golpes que se densifican, pitch que sube, filtro que
+  baja el primer cuarto y se abre hasta el drop; caída de 2 compases en el drop.
+  Secuencias con casilla FX: su filtro (CC configurable + reposo) hace la misma curva,
+  redobles en la 2.ª mitad de la subida y stutter en el último tiempo de cada frase de 4.
 - Modo canción (partes = escena + compases + curva de energía + entrada suave/golpe),
   modo libre intacto. Program Change por motor (FM-1 Shrub: sin confirmar que funcione).
 - Apoyos opcionales a la subida por parte: pads acompañan, roll de secuencias,
@@ -44,5 +53,8 @@ Canción, Ajustes).
   tempo (104/120/92/76). Comprobar al cargarlos bien; si sigue en 140, la Circuit
   está siguiendo un reloj MIDI externo.
 - Program Change en FM-1 Shrub sin confirmar.
+- FX: falta probar con el hardware. CC del cutoff de la FM-1 con Shrub sin confirmar
+  (por defecto 74); MicroFreak = 23. Rango de pitch bend de la MC-101 (12 para una
+  octava en el riser). Los gestos aún no esquivan los huecos del diálogo.
 - Banco de samples de la Circuit: "FROM GOA TO PSYT" (nombres con
   `list_drum_samples` del conector circuit-tracks).

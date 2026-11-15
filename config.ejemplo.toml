@@ -133,6 +133,29 @@ velocidad = 92
 vel_random = 0.15
 desplazamiento = -1.0
 
+[fx]
+# Motor de FX: un sinte propio (un canal libre de la MC-101) con zaps, burbujas, ácido,
+# glitch, el riser de las subidas y la caída del drop. Las notas salen del acorde o la escala.
+# Subidas: botón en Tocar (8, 16 o 32 compases), "riser" en una parte de la canción,
+# y solas en el build y el break del piloto.
+activo = false
+salida = "MC-101"
+canal = 1
+disparo = 0               # canal de su nota larga; 0 = el general
+genero = "goa"            # qué gestos aparecen y cuántos
+locura = 0.4              # cuántos gestos (más al final de cada frase); la energía la sube y la baja
+zap = true                # láser que cae en picada
+burbujas = true           # 3 notas rápidas en la escala
+acido = true              # un pedazo de 303 con el filtro chillando
+glitch = true             # ráfagas de fusas con saltos de pitch
+riser = true              # en las subidas: golpes que se densifican, pitch que sube, filtro que baja y se abre
+caida = true              # en el drop: una nota que se desploma
+octava = 1
+velocidad = 100
+cc_corte = 74             # CC del filtro del sinte de FX
+filtro_reposo = 100       # dónde queda el filtro cuando no hay gestos
+seed = "FX-0001"
+
 [forma]
 # Escenas y energía (pestaña Tocar). Las escenas se guardan desde la app,
 # abajo de todo como [[escena]]: cada una es una foto de lo musical, sin destinos.
@@ -176,6 +199,11 @@ acentos = 0.0             # acentos: en acido es la cantidad total; en otros est
 saltos = 0.0              # saltos de octava
 repeticion = 0.0          # redobles de fusa en algunos pasos
 largas = 0.0              # notas que se sostienen sobre los silencios siguientes
+# FX: el motor de FX la interviene (en las subidas su filtro baja y se abre hasta el drop
+# y suma redobles; fuera de ellas, a veces el último tiempo de la frase se traba)
+fx = false
+cc_filtro = 74            # CC del cutoff de su sinte (MicroFreak: 23)
+filtro_reposo = 110       # dónde vuelve el filtro después del drop
 
 [[secuencia]]
 nombre = "B"

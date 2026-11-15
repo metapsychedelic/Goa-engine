@@ -68,6 +68,10 @@ class Puertos:
         try:
             if tipo == "program_change":
                 puerto.send(mido.Message("program_change", channel=canal, program=nota))
+            elif tipo == "control_change":
+                puerto.send(mido.Message("control_change", channel=canal, control=nota, value=velocidad))
+            elif tipo == "pitchwheel":
+                puerto.send(mido.Message("pitchwheel", channel=canal, pitch=nota))
             else:
                 puerto.send(mido.Message(tipo, channel=canal, note=nota, velocity=velocidad))
         except (OSError, ValueError) as e:

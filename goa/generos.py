@@ -99,7 +99,7 @@ ESTILOS_BAJO_POR_GENERO = {
 POSICION_NECESARIA = {"largas": "todos", "ambient": "todos"}
 
 ORDEN = tuple(GENEROS)
-PARTES = ("pads", "dialogo", "secuencia", "bajo")
+PARTES = ("pads", "dialogo", "secuencia", "bajo", "fx")
 
 
 def aplicar(cfg, genero, parte=None, indice=None):
@@ -126,6 +126,8 @@ def aplicar(cfg, genero, parte=None, indice=None):
         # El género de la tarjeta solo cambia el estilo: tus ajustes (swing, largo,
         # movimiento…) se quedan como los dejaste.
         nueva["bajo"].update(estilo=BAJO[genero]["estilo"], genero=genero)
+    if parte in (None, "fx") and "fx" in nueva:
+        nueva["fx"]["genero"] = genero  # cambia qué gestos aparecen y cuántos
     if parte == "secuencia":
         secuencias = nueva.get("secuencia") or []
         if not isinstance(indice, int) or not 0 <= indice < len(secuencias):

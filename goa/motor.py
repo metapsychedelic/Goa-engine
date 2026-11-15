@@ -11,11 +11,12 @@ import random
 import time
 from collections import deque
 
-from . import armonia, forma, generador
+from . import armonia, forma, fx, generador
 from .bajo import Bajo
 from .dialogo import Dialogo
 from .director import Director
 from .escalas import Tonalidad, nombre_midi
+from .fx import Fx
 from .pads import Pads, _cerca, raiz_tension
 
 TICKS_POR_PASO = 6  # 24 pulsos por negra -> 6 por semicorchea
@@ -57,6 +58,9 @@ class Secuencia:
         self.armonia = cfg.get("armonia", "general")  # general, guiada o libre
         self.escala_color = cfg.get("escala_color", "")
         self.semitono = float(cfg.get("semitono", 0.0))
+        self.fx = bool(cfg.get("fx", False))            # el motor de FX la interviene
+        self.cc_filtro = int(cfg.get("cc_filtro", 74))
+        self.filtro_reposo = int(cfg.get("filtro_reposo", 110))
         self.tonalidad = None   # su escala de color (None = la de Música); la arma el motor con la tónica
         self.sonando = {}       # nota -> tick en que se apaga
         self.pendientes = []    # (tick, nota, velocidad, duración) por swing y repeticiones
@@ -169,6 +173,11 @@ class Motor:
         self.hueco_desde = None
         self.tension_pc, self.tension_fin, self.resolver_en = None, None, None
         self.saltar_parte_a = None  # parte pedida desde la app (entra en el próximo compás)
+        self.fx = None
+        # Subida de FX: {"desde": paso, "hasta": paso del drop, "origen": manual, cancion o piloto}
+        self.subida = None
+        self.subida_pedida = None   # compases de la subida pedida desde la app (0 = cancelar)
+        self.cc_secuencias = {}     # (salida, canal, cc) -> (valor mandado, reposo): filtros intervenidos
         self.aplicar_config(config)
 
     def aplicar_config(self, config):
@@ -318,6 +327,12 @@ class Motor:
                 dialogo.continuar_de(self.dialogo)  # sigue la conversación sin callarse ni perder lo mutado
                 # Las notas que suenan terminan solas (cada una sabe a qué salida y canal va).
                 dialogo.sonando, dialogo.pendientes = self.dialogo.sonando, self.dialogo.pendientes
+        fx_cfg = config.get("fx", {})
+        if self.fx is not None and mismo("fx", "entrada") and musica_igual:
+            nuevo_fx = self.fx
+        else:
+            nuevo_fx = Fx(fx_cfg, tonalidad)
+            nuevo_fx.continuar_de(self.fx, self.enviar)
         self.config_aplicada = config
         self._programas(config)
         self.tonalidad = tonalidad
@@ -344,11 +359,14 @@ class Motor:
                     s._director_patron = getattr(vieja, "_director_patron", None)  # un cambio del director viaja con su patrón
         pads.disparo = self._canal_de(config.get("pads", {}))
         bajo.disparo = self._canal_de(config.get("bajo", {}))
-        canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, bajo.disparo, self.canal_disparo}
+        nuevo_fx.disparo = self._canal_de(fx_cfg)
+        self.fx = nuevo_fx
+        canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, bajo.disparo, nuevo_fx.disparo, self.canal_disparo}
         anteriores = self.disparos
         self.disparos = {c: anteriores.get(c) or Disparo(c) for c in canales}
         for vieja in self.secuencias[len(secuencias):]:
             self._callar(vieja)
+        self._soltar_filtros(secuencias)
         self.secuencias = secuencias
         self.pads = pads
         self.dialogo = dialogo
@@ -489,14 +507,27 @@ class Motor:
             "cancion": self._cancion_estado(),
             "version_base": self.version_base,
             "motores": dict({"pads": bool(self.pads and self.pads.activo), "bajo": bool(self.bajo and self.bajo.activo),
-                             "dialogo": bool(self.dialogo and self.dialogo.activo)},
+                             "dialogo": bool(self.dialogo and self.dialogo.activo), "fx": bool(self.fx and self.fx.activo)},
                             **{f"sec{i}": s.activa for i, s in enumerate(self.secuencias)}),
             "bajo": {"estilo": self.bajo.estilo, "activo": self.bajo.activo,
                      "cola": self.cola_bajo.estilo if self.cola_bajo is not None else None} if self.bajo else None,
+            "subida": self._subida_estado(),
+            "fx_gesto": self.fx.ultimo if self.fx and self.corriendo else None,
             "fila_dialogo": {"clip": self.dialogo.clip, "activa": self.dialogo.activo,
                              "cola": (None if self.cola_dialogo is False else
                                       ("detener" if self.cola_dialogo is None else self.cola_dialogo[1]))},
         }
+
+    def _subida_estado(self):
+        """La subida de FX en curso (o pedida), para la app."""
+        if self.subida_pedida is not None:
+            return {"pedida": self.subida_pedida}
+        if self.subida is None or not self.corriendo:
+            return None
+        paso = max(self.tick, 0) // TICKS_POR_PASO
+        largo = (self.subida["hasta"] - self.subida["desde"]) // PASOS_POR_COMPAS
+        return {"compas": (paso - self.subida["desde"]) // PASOS_POR_COMPAS + 1, "largo": largo,
+                "origen": self.subida["origen"]}
 
     def _cancion_estado(self):
         """Dónde va la canción, para la app (None en modo libre)."""
@@ -563,7 +594,8 @@ class Motor:
         en cada Start. Si dos motores van al mismo sinte y canal, manda el que suena."""
         fuentes = [(s, s.get("activa")) for s in config.get("secuencia", [])]
         fuentes += [(config.get("pads", {}), config.get("pads", {}).get("activo")),
-                    (config.get("bajo", {}), config.get("bajo", {}).get("activo"))]
+                    (config.get("bajo", {}), config.get("bajo", {}).get("activo")),
+                    (config.get("fx", {}), config.get("fx", {}).get("activo"))]
         hay_dialogo = config.get("dialogo", {}).get("activo")
         fuentes += [(config.get("llamada", {}), hay_dialogo and config["dialogo"].get("modo") == "motor"),
                     (config.get("respuesta", {}), hay_dialogo)]
@@ -595,6 +627,7 @@ class Motor:
         if self.cola_bajo is not None:
             self.bajo, self.cola_bajo = self.cola_bajo, None
         self.bajo.reiniciar()
+        self.subida, self.subida_pedida = None, None
         self.corriendo = True
         self.tick = -1
 
@@ -606,6 +639,8 @@ class Motor:
         log.info("Stop")
         self.corriendo = False
         self.apagar_todo()
+        self.subida = None
+        self._soltar_filtros()
         self.dialogo.reiniciar()
         self._olvidar_notas()  # al parar, la Circuit no siempre manda el note_off
 
@@ -618,6 +653,7 @@ class Motor:
         self.dialogo.tick(self.tick, self.enviar)
         self.pads.tick(self.tick, self.enviar)
         self.bajo.tick(self.tick, self.enviar)
+        self.fx.tick(self.tick, self.enviar)
         if self.tick % TICKS_POR_PASO == 0:
             self._paso(self.tick // TICKS_POR_PASO)
         elif self.tick % TICKS_POR_PASO == 2:
@@ -666,6 +702,7 @@ class Motor:
     def _paso(self, paso):
         if paso % PASOS_POR_COMPAS == 0:
             self._compas_forma(paso // PASOS_POR_COMPAS)
+            self._compas_subida(paso // PASOS_POR_COMPAS)
             if self.cola:
                 self._aplicar_cola()  # los clips entran justo en el primer paso del compás
             if self.cola_dialogo is not False:
@@ -687,6 +724,121 @@ class Motor:
         self._tocar_paso(paso)
         self._paso_dialogo(paso)
         self._paso_bajo(paso)
+        self._paso_fx(paso)
+        self._filtro_secuencias(paso)
+
+    # --- FX: subidas, riser, filtros y glitches ---
+
+    def pedir_subida(self, compases):
+        """Subida de FX desde la app: empieza en el próximo compás y el drop cae al terminar.
+        0 = cancelar (el drop cae en el próximo compás, sin caída)."""
+        compases = int(compases)
+        if compases not in (0, 4, 8, 16, 32):
+            raise ValueError("La subida dura 4, 8, 16 o 32 compases")
+        self.subida_pedida = compases
+
+    def _subida_auto(self, compas):
+        """La subida que piden la canción (parte con riser) o el piloto (build y break)."""
+        parte = self.conductor.parte(self.base, compas)
+        if parte is not None:
+            if not self.base["parte"][parte["i"]].get("riser"):
+                return None
+            inicio = compas - parte["dentro"]
+            fin = inicio + parte["largo"]
+            desde = max(inicio, fin - 32)  # como mucho 32 compases de subida
+            if compas < desde:
+                return None
+            return {"desde": desde * PASOS_POR_COMPAS, "hasta": fin * PASOS_POR_COMPAS, "origen": "cancion"}
+        sec = self.conductor.seccion(self.base, compas)
+        if sec is not None and sec[0] in ("build", "break"):
+            desde = compas - sec[2]
+            return {"desde": desde * PASOS_POR_COMPAS, "hasta": (desde + sec[3]) * PASOS_POR_COMPAS, "origen": "piloto"}
+        return None
+
+    def _compas_subida(self, compas):
+        """Primer paso de cada compás: termina la subida (drop), empieza la pedida o la automática."""
+        paso = compas * PASOS_POR_COMPAS
+        if self.subida is not None and paso >= self.subida["hasta"]:
+            self._drop(paso)
+        pedida, self.subida_pedida = self.subida_pedida, None
+        if pedida == 0:
+            if self.subida is not None:
+                self._drop(paso, caida=False)
+        elif pedida:
+            self.subida = {"desde": paso, "hasta": paso + pedida * PASOS_POR_COMPAS, "origen": "manual"}
+            log.info("Subida de %d compases", pedida)
+        if self.subida is None or self.subida["origen"] != "manual":
+            auto = self._subida_auto(compas)
+            if auto is not None and auto["hasta"] > paso and (self.subida is None or auto != self.subida):
+                self.subida = auto
+            elif auto is None and self.subida is not None and self.subida["origen"] != "manual":
+                self._drop(paso, caida=False)  # la parte o la sección cambió antes de terminar
+
+    def _drop(self, paso, caida=True):
+        """Fin de la subida: el riser se corta, la caída parte y los filtros vuelven a su lugar."""
+        self.subida = None
+        raiz = self.disparos[self.fx.disparo].raiz
+        momento = self._momento(paso, raiz) if raiz is not None else None
+        self.fx.drop(self.tick, raiz, momento, self.enviar, caida)
+        self._soltar_filtros()
+
+    def _soltar_filtros(self, secuencias=None):
+        """Los filtros intervenidos vuelven a su reposo. Con `secuencias`, solo los que ya no se intervienen."""
+        siguen = set()
+        if secuencias is not None and self.subida is not None:
+            siguen = {(s.salida, s.canal, s.cc_filtro) for s in secuencias if s.fx}
+        for clave, (valor, reposo) in list(self.cc_secuencias.items()):
+            if clave in siguen:
+                continue
+            if valor != reposo:
+                self.enviar(clave[0], "control_change", clave[1], clave[2], reposo)
+            del self.cc_secuencias[clave]
+
+    def _paso_fx(self, paso):
+        if not self.fx.activo:
+            return
+        raiz = self.disparos[self.fx.disparo].raiz
+        momento = self._momento(paso, raiz) if raiz is not None else None
+        self.fx.paso(paso, self.tick, raiz, momento, self.subida, self.enviar)
+        self.fx.tick(self.tick, self.enviar)  # lo que empieza en este paso sale ya, sin un pulso de atraso
+
+    def _filtro_secuencias(self, paso):
+        """En la subida, el filtro de cada secuencia con FX baja y se va abriendo hasta el drop."""
+        if self.subida is None:
+            return
+        t = fx.avance(self.subida, paso)
+        for s in self.secuencias:
+            if not (s.fx and s.activa) or self.disparos[s.disparo].raiz is None:
+                continue
+            valor = fx.curva_filtro(t, s.filtro_reposo)
+            clave = (s.salida, s.canal, s.cc_filtro)
+            if self.cc_secuencias.get(clave, (None,))[0] != valor:
+                self.cc_secuencias[clave] = (valor, s.filtro_reposo)
+                self.enviar(s.salida, "control_change", s.canal, s.cc_filtro, valor)
+
+    def _glitch(self, s, paso):
+        """Intervención de FX en una secuencia: (paso del patrón que suena o None, redoble forzado).
+        En la segunda mitad de la subida, redobles cada vez más seguidos. Fuera de la subida,
+        a veces el último tiempo de la frase se traba en una nota (stutter) o queda en silencio."""
+        if not s.fx:
+            return None
+        locura = max(self.fx.locura, 0.3)
+        if self.subida is not None:
+            t = fx.avance(self.subida, paso)
+            if t >= 0.5 and random.Random(f"{s.seed}:fxr:{paso}").random() < locura * (t - 0.5) * 2.4:
+                return None, True
+            return None
+        compas, lugar = divmod(paso, PASOS_POR_COMPAS)
+        if compas % 4 != 3 or lugar < 12:
+            return None
+        if random.Random(f"{s.seed}:fxg:{self.fx.seed}:{compas}").random() >= self.fx.locura * 0.5:
+            return None
+        ventana = compas * PASOS_POR_COMPAS + 12
+        for k in range(ventana - 1, ventana - 5, -1):
+            p = s.patron[k % s.largo]
+            if p["suena"] and generador.pasa_posicion(s.posicion, k):
+                return k, True  # se traba en la última nota que sonó
+        return ventana, False  # no había nota cerca: el tiempo queda en silencio (corte)
 
     def _en_hueco(self, paso):
         return self.hueco_desde is not None and self.hueco_desde <= paso < self.hueco_desde + 4
@@ -825,6 +977,11 @@ class Motor:
                 continue
             raiz = self.disparos[s.disparo].raiz
             fuente = paso if self.roll_desde is None else forma.roll(paso, self.roll_desde, self.roll_compases)
+            forzar = False
+            glitch = self._glitch(s, paso)
+            if glitch is not None:
+                fuente = fuente if glitch[0] is None else glitch[0]
+                forzar = glitch[1]
             i = fuente % s.largo
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
@@ -882,7 +1039,7 @@ class Motor:
             if s.slide_previo and nota in s.sonando:
                 # Tie: misma nota después de un slide, se prolonga sin volver a tocarla.
                 s.sonando[nota] = max(s.sonando[nota], inicio + duracion)
-            elif not slide and x["repeticion"] < s.repeticion:
+            elif not slide and (forzar or x["repeticion"] < s.repeticion):
                 # Repetición (ratchet): dos golpes de fusa en el mismo paso.
                 mitad = TICKS_POR_PASO // 2
                 self._programar(s, inicio, nota, velocidad, max(1, mitad - 1))
@@ -946,3 +1103,5 @@ class Motor:
             self.dialogo.apagar(self.enviar)
         if self.bajo is not None:
             self.bajo.apagar(self.enviar)
+        if self.fx is not None:
+            self.fx.apagar(self.enviar)

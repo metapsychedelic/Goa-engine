@@ -23,8 +23,8 @@ compás.
 import copy
 import json
 
-SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta")
-ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre"))
+SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx")
+ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_filtro", "filtro_reposo"))
 # Floats que no se pueden mover de a poco: rehacen el patrón entero.
 DISCRETOS = frozenset((("secuencia", "pedal"), ("bajo", "movimiento")))
 # Enteros que sí se mueven de a poco.
@@ -35,8 +35,8 @@ PASO_ENERGIA = 0.1  # lo más que se mueve la energía en un compás
 
 # Orden en que entran (y, al revés, salen) los motores en una transición:
 # primero la armonía, al final el bajo.
-ORDEN_ENTRADA = ("pads", "secuencia", "dialogo", "bajo")
-ORDEN_SALIDA = ("secuencia", "dialogo", "bajo", "pads")
+ORDEN_ENTRADA = ("pads", "secuencia", "dialogo", "bajo", "fx")
+ORDEN_SALIDA = ("fx", "secuencia", "dialogo", "bajo", "pads")
 
 
 # --- Escenas ---
@@ -82,6 +82,8 @@ def resumen(escena):
     suenan += [s.get("nombre", "?") for s in d.get("secuencia", []) if s.get("activa")]
     if d.get("dialogo", {}).get("activo"):
         suenan.append("diálogo")
+    if d.get("fx", {}).get("activo"):
+        suenan.append("FX")
     genero = {"goa": "Goa", "psy_chill": "Psy chill", "chillgressive": "Chillgressive",
               "chillout": "Chillout", "ambient": "Ambient"}.get(d.get("musica", {}).get("genero"), "")
     return f"{genero} · {', '.join(suenan) or 'silencio'}"
@@ -138,6 +140,8 @@ def energizar(cfg, energia):
         v = c[voz]
         v["golpes"] = int(_limitar(round(v["golpes"] * (1 + f)), 1, 16))
         v["velocidad"] = int(_limitar(v["velocidad"] + round(20 * f), 1, 127))
+    if "fx" in c:
+        c["fx"]["locura"] = round(_limitar(_escala(c["fx"]["locura"], f)), 3)
     return c
 
 
@@ -155,12 +159,12 @@ def _mezcla(seccion, k, a, b, t):
     return a
 
 
-ACTIVO = {"pads": "activo", "bajo": "activo", "dialogo": "activo"}
+ACTIVO = {"pads": "activo", "bajo": "activo", "dialogo": "activo", "fx": "activo"}
 
 
 def _motores(cfg):
     """{clave: suena} de cada motor."""
-    m = {k: bool(cfg[k][v]) for k, v in ACTIVO.items()}
+    m = {k: bool(cfg[k][v]) for k, v in ACTIVO.items() if k in cfg}
     m.update({f"sec{i}": bool(s["activa"]) for i, s in enumerate(cfg["secuencia"])})
     return m
 
