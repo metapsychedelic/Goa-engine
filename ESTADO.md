@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.35.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.35.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -22,6 +22,10 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+- v0.35.1 Pads: el frigio al azar ya no es casi siempre de dos acordes (deja de ser
+  escala "quieta": 3 y 4 acordes en ~78 %). Otra variante al azar se oye en el compás
+  siguiente (entra en su 2.º acorde si sonaba la i). Cambiar "cambia cada" en vivo
+  mantiene el acorde y sigue al ritmo nuevo (antes volvía a la i).
 - v0.35.0 Motor de FX (pestaña Motores › FX, por defecto MC-101 canal 1): zaps,
   burbujas, ácido, glitch con pitch bend y CC del filtro; "Locura" (la energía la mueve).
   Subidas: botón en Tocar (8/16/32, ✕ cancela), casilla "Riser" por parte de la canción,

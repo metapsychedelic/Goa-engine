@@ -51,7 +51,7 @@ PROGRESIONES = {
 
 # Peso de cada grado (0 = i) por escala: los que le dan su color pesan más.
 COLOR = {
-    "frigio": {1: 4.5, 6: 2.0, 5: 1.5, 3: 1.5, 2: 0.8},             # ♭II, ♭vii, ♭VI, iv, ♭III
+    "frigio": {1: 3.5, 6: 2.0, 5: 1.8, 3: 1.6, 2: 1.2},             # ♭II, ♭vii, ♭VI, iv, ♭III
     "frigio_dominante": {1: 4.5, 6: 2.0, 3: 1.5},                   # ♭II, ♭vii, iv
     "menor": {5: 3.0, 6: 3.0, 3: 2.0, 4: 1.5, 2: 1.0},              # ♭VI, ♭VII, iv, v, ♭III
     "menor_armonica": {4: 3.0, 5: 2.5, 3: 2.0},                     # V, ♭VI, iv
@@ -60,9 +60,12 @@ COLOR = {
     "lidio": {1: 3.0, 4: 2.0, 6: 1.5, 5: 1.5, 2: 1.0},              # II, V, vii, vi, iii
     "doble_armonica": {1: 4.5, 3: 1.5, 2: 1.0},                     # ♭II, iv, iii
 }
-# Escalas modales "quietas": el frigio pide poca vuelta (i – ♭II es su gesto) y
-# vuelve seguido a la i; las demás aguantan progresiones de 3 o 4 acordes.
-QUIETAS = ("frigio", "frigio_dominante", "doble_armonica")
+# Cuánto sale cada forma (i–X, i–X–Y, i–X–Y–Z, i–X–i–Y) por escala. Las "quietas"
+# (frigio dominante, doble armónica) tienen pocos acordes limpios: piden poca vuelta.
+# El frigio tiene cinco y no es quieta: i – ♭II sigue siendo lo más común, pero
+# también salen ciclos de 3 y 4 acordes (antes casi la mitad eran de dos).
+QUIETAS = ("frigio_dominante", "doble_armonica")
+FORMAS = {"frigio": (2, 2, 3, 3)}
 _NUMERALES = ("I", "♭II", "II", "♭III", "III", "IV", "♯IV", "V", "♭VI", "VI", "♭VII", "VII")
 
 
@@ -115,7 +118,7 @@ def progresion_aleatoria(intervalos, seed):
     if not candidatos:
         return [0]
     # Formas: i–X, i–X–Y, i–X–Y–Z o i–X–i–Y (vuelve a casa a mitad de camino).
-    pesos = (4, 2, 2, 3) if escala in QUIETAS else (1, 2, 4, 2)
+    pesos = FORMAS.get(escala) or ((4, 2, 2, 3) if escala in QUIETAS else (1, 2, 4, 2))
     forma = rng.choices(("iX", "iXY", "iXYZ", "iXiY"), weights=pesos)[0]
     # Cuatro acordes distintos solo si la escala tiene al menos tres con su color
     # (la húngara menor tiene pocos: si no, se colaría un acorde raro).

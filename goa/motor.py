@@ -17,7 +17,7 @@ from .dialogo import Dialogo
 from .director import Director
 from .escalas import Tonalidad, nombre_midi
 from .fx import Fx
-from .pads import Pads, _cerca, raiz_tension
+from .pads import Pads, _cerca, progresion_aleatoria, raiz_tension
 
 TICKS_POR_PASO = 6  # 24 pulsos por negra -> 6 por semicorchea
 PASOS_POR_COMPAS = 16
@@ -897,7 +897,7 @@ class Motor:
         efectiva = self.conductor.efectiva(self.base, compas)
         if efectiva != self.config:
             if self.config is not None and forma.cambia_armonia(self.config, efectiva):
-                self.origen_progresion = compas  # otra progresión (o tonalidad) parte en su i
+                self.origen_progresion = self._origen_nueva(compas, self.config, efectiva)
             self._aplicar(efectiva)  # los cambios entran justo en el compás
             log.info("Entran los cambios (compás %d)", compas + 1)
         self.pads.origen = self.origen_progresion
@@ -906,6 +906,33 @@ class Motor:
         f = self.base.get("forma", {})
         self.director.compas(self, compas, float(f.get("variacion", 0.0)), max(1, int(f.get("periodo", 16))),
                              self.base.get("pads", {}).get("seed", ""))
+
+    def _origen_nueva(self, compas, antes, despues):
+        """Compás donde parte una progresión nueva. Normalmente en su i. Pero si solo
+        cambió la variante de la progresión al azar, el cambio se oye ya en este compás:
+        entra en su segundo acorde, salvo que sea el mismo que suena (entonces en su i).
+        Antes partía en la i y, si sonaba la i, no se oía nada hasta el próximo cambio
+        (16 compases o más)."""
+        pa, pb, ma, mb = antes["pads"], despues["pads"], antes["musica"], despues["musica"]
+        if self.pads is None or (ma["tonica"], ma["escala"]) != (mb["tonica"], mb["escala"]) or pa["base"] != pb["base"]:
+            return compas
+        viejo = self.pads.progresion
+        cambio = (compas - self.origen_progresion) // max(1, self.pads.cambia_cada)
+        nuevo_cada = max(1, int(pb["cambia_cada"]))
+        misma = pa["progresion"] == pb["progresion"] and (pa["progresion"] != "aleatoria" or pa.get("seed") == pb.get("seed"))
+        if misma and pa["cambia_cada"] != pb["cambia_cada"]:
+            # Solo cambió cada cuántos compases: el acorde que suena sigue y el próximo
+            # llega en `nuevo_cada` compases (antes volvía a la i y se sentía que no cambiaba).
+            return compas - (cambio % len(viejo)) * nuevo_cada
+        solo_variante = (pa["progresion"] == pb["progresion"] == "aleatoria" and pa.get("seed") != pb.get("seed")
+                         and pa["cambia_cada"] == pb["cambia_cada"])
+        if not solo_variante:
+            return compas
+        suena = viejo[cambio % len(viejo)]
+        nueva = progresion_aleatoria(self.tonalidad.intervalos, str(pb.get("seed", "pads")))
+        if len(nueva) > 1 and nueva[1] != suena:
+            return compas - max(1, int(pb["cambia_cada"]))  # entra en su segundo acorde
+        return compas
 
     def _momento_puente(self, paso, raiz):
         nueva, base, cambio = self.puente

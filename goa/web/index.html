@@ -590,7 +590,7 @@ function panelPads() {
         s.addEventListener("change", () => renderMotores()); return s; })()]),
       p.progresion === "aleatoria" ? el("p", {className: "ayuda"}, [
         el("strong", {id: "prog_azar", textContent: (ultimoEstado && ultimoEstado.progresion) || ""}),
-        el("span", {textContent: " " + (AZAR_ESCALA[cfg.musica.escala] || "") + " Otra variante arma otra progresión; entra en el próximo cambio, partiendo en su i."})]) : null,
+        el("span", {textContent: " " + (AZAR_ESCALA[cfg.musica.escala] || "") + " Otra variante arma otra progresión y se oye desde el próximo compás."})]) : null,
       el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
       pulso,
       deslizador(p, "golpe", "Largo del golpe", 0.1, 1, 0.05,

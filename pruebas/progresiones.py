@@ -89,8 +89,46 @@ if __name__ == "__main__":
     todo &= ok(texto.startswith("i") and "–" in texto, f"el estado muestra la progresión ({texto})")
     otra = normalizar(dict(cfg, pads=dict(cfg["pads"], seed="P-0BEE")))
     m = correr(cfg, 12, cambio=(7, otra))
-    todo &= ok(m.estado()["progresion"] != texto and m.origen_progresion == 7,
-               f"otra variante cambia la progresión y la nueva parte en su i ({m.estado()['progresion']})")
+    todo &= ok(m.estado()["progresion"] != texto and m.origen_progresion in (7, 6),
+               f"otra variante cambia la progresión ({m.estado()['progresion']})")
+
+    def raices(cfg, compases, cambio=None):
+        """Raíz del acorde de los pads en cada compás (1 = el primero)."""
+        m = Motor(cfg, lambda *a: None)
+        m.start()
+        r = {}
+        for tick in range(compases * 96):
+            if cambio and tick == cambio[0] * 96 - 30:
+                m.aplicar_config(cambio[1])
+            m.reloj()
+            if tick % 96 == 1:
+                m.nota_on(1, 41)
+            if tick % 96 == 20:
+                r[tick // 96 + 1] = m.pads.raiz_acorde
+        return r
+
+    # Otra variante al azar se oye en el compás siguiente, aunque suene la i.
+    for seed_nueva in ("P-0BEE", "Q-1234", "R-9999", "S-0042"):
+        cfg = normalizar(base())
+        cfg["pads"].update(activo=True, disparo=2, progresion="aleatoria", cambia_cada=16, seed="P-0001")
+        otra = normalizar(dict(cfg, pads=dict(cfg["pads"], seed=seed_nueva)))
+        r = raices(cfg, 12, cambio=(5, otra))  # en el compás 5 suena la i
+        todo &= ok(r[6] != r[5], f"otra variante ({seed_nueva}) se oye en el compás siguiente, sin esperar 16")
+
+    # Cambiar cada cuántos compases en vivo: el próximo acorde llega a ese ritmo.
+    for prog in ("aleatoria", "i_bVI_bVII"):
+        cfg = normalizar(base())
+        cfg["pads"].update(activo=True, disparo=2, progresion=prog, cambia_cada=16, seed="P-0001")
+        otra = normalizar(dict(cfg, pads=dict(cfg["pads"], cambia_cada=4)))
+        r = raices(cfg, 30, cambio=(6, otra))
+        cambios = [c for c in range(7, 31) if r[c] != r[c - 1]]
+        todo &= ok(r[7] == r[6] and cambios[:3] == [11, 15, 19],
+                   f"{prog}: de 16 a 4 en vivo, el acorde sigue y cambia cada 4 ({cambios[:4]})")
+
+    # El frigio al azar ya no es casi siempre de dos acordes.
+    largos = [len(pads.progresion_aleatoria(ESCALAS["frigio"], s)) for s in SEEDS]
+    todo &= ok(sum(l >= 3 for l in largos) > len(largos) * 0.6,
+               f"frigio al azar: la mayoría con 3 o 4 acordes ({sum(l >= 3 for l in largos)} de {len(largos)})")
 
     print("\nTODO BIEN" if todo else "\nHAY ERRORES")
     raise SystemExit(0 if todo else 1)
