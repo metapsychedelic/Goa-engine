@@ -234,7 +234,25 @@ details.grupo.parte-actual{border-color:var(--acc)}
 
 <script>
 const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# · Re#"],["E","E · Mi"],["F","F · Fa"],["F#","F# · Fa#"],["G","G · Sol"],["G#","G# · Sol#"],["A","A · La"],["A#","A# · La#"],["B","B · Si"]];
-const PROGRESIONES = [["i_bII","i – ♭II · frigio oscuro"],["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax"],["i_v","i – v · con menor armónica suena V, oriental"],["drone_modal","Drone modal · la raíz fija, acordes encima"],["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks"],["andaluza","i – ♭VII – ♭VI – V · bajada andaluza"],["i_IV","i – IV · con dórica, abierta (psy chill)"],["i_IV_i_bVII","i – IV – i – ♭VII · psy chill"],["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive"],["i_bVI_iv_v","i – ♭VI – iv – v · chillout"],["pedal_I_II","I – II sobre la raíz · con lidia, galáctica (ambient)"],["i_bVII_bVI_bVII","i – ♭VII – ♭VI – ♭VII · va y vuelve, hipnótica"],["i_bII_bVII_i","i – ♭II – ♭VII – i · sube al ♭II y baja por el ♭VII"],["aleatoria","Al azar · según la escala"]];
+// Cada progresión: [clave, texto · en qué escalas suena mejor]. Todas se pueden usar con cualquier escala.
+const PROGRESIONES = [
+  ["i_bII","i – ♭II · oscura, el gesto del Goa · frigio"],
+  ["i_bII_bIII_bII","i – ♭II – ♭III – ♭II · la subida clásica del Goa · frigio"],
+  ["i_bIII_bII_i","i – ♭III – ♭II – i · baja al ♭II y cierra · frigio"],
+  ["i_bVI_bII","i – ♭VI – ♭II · oscura y amplia · frigio"],
+  ["i_bII_bVII_i","i – ♭II – ♭VII – i · sube al ♭II y baja por el ♭VII · frigio"],
+  ["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks · frigio"],
+  ["i_bVII_bVI_bVII","i – ♭VII – ♭VI – ♭VII · va y vuelve, hipnótica · frigio, menor"],
+  ["i_bVI_bVII","i – ♭VI – ♭VII · épica, para clímax · frigio, menor"],
+  ["drone_modal","Drone modal · la raíz fija, acordes encima · frigio, todas"],
+  ["i_v","i – v · oriental (con menor armónica suena V) · menor armónica, húngara"],
+  ["andaluza","i – ♭VII – ♭VI – V · bajada andaluza · menor armónica"],
+  ["i_bVI_bVII_v","i – ♭VI – ♭VII – v · chillgressive · menor"],
+  ["i_bVI_iv_v","i – ♭VI – iv – v · chillout · menor"],
+  ["i_IV","i – IV · abierta, psy chill · dórica"],
+  ["i_IV_i_bVII","i – IV – i – ♭VII · psy chill · dórica"],
+  ["pedal_I_II","I – II sobre la raíz · galáctica, ambient · lidia"],
+  ["aleatoria","Al azar · según la escala"]];
 // Qué da cada escala con la progresión al azar (solo acordes mayores y menores).
 const AZAR_ESCALA = {
   frigio: "Frigio: lo más Goa al azar. Usa i, ♭II, ♭III, iv, ♭VI y ♭vii; prefiere ♭II y vuelve seguido a la i.",

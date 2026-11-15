@@ -38,6 +38,9 @@ PROGRESIONES = {
     "pedal_I_II": [0, 1],            # con lidia, I y II sobre la misma raíz: galáctico
     "i_bVII_bVI_bVII": [0, 6, 5, 6],  # va y vuelve sin cerrar: hipnótica
     "i_bII_bVII_i": [0, 1, 6, 0],    # el ♭II sube y el ♭VII baja a la i
+    "i_bII_bIII_bII": [0, 1, 2, 1],  # la subida clásica del Goa: ♭II, ♭III y vuelve al ♭II
+    "i_bIII_bII_i": [0, 2, 1, 0],    # baja del ♭III al ♭II y cierra en la i
+    "i_bVI_bII": [0, 5, 1],          # oscura y amplia: del ♭VI cae al ♭II
     "aleatoria": [0],                # se arma al azar con la seed y la escala (ver progresion_aleatoria)
 }
 
