@@ -101,10 +101,10 @@ PLANTILLAS = {
         ],
     },
     "template5": {
-        "nombre": "Template 5 · Goa épico",
-        "descripcion": "Goa épico a 140 BPM, 224 compases (unos 6:24). Arcos largos, redobles en dos olas, crash cada 8 compases, valles largos.",
+        "nombre": "Template 5 · Goa épico · slot 40",
+        "descripcion": "Goa épico a 140 BPM, 224 compases (unos 6:24). Arcos largos, redobles en dos olas, crash cada 8 compases, valles largos. En la Circuit: proyecto 40.",
         "bpm": 140,
-        "circuit_proyecto": None,
+        "circuit_proyecto": 40,
         "partes": [
             ("Amanecer", 16, 0.15, 0.25, "suave"),
             ("Despertar", 16, 0.3, 0.45, "suave"),
@@ -125,12 +125,12 @@ PLANTILLAS = {
         ],
     },
     "template6": {
-        "nombre": "Template 6 · Psy chill",
-        "descripcion": "Psy chill a 104 BPM con shuffle, 160 compases (unos 6:09). Bombo redondo, clap largo, congas y blips. Para el género Psy chill (escala dórica).",
+        "nombre": "Template 6 · Psy chill · slot 41",
+        "descripcion": "Psy chill a 104 BPM con shuffle, 160 compases (unos 6:09). Bombo redondo, clap largo, congas y blips. Para el género Psy chill (escala dórica). En la Circuit: proyecto 41.",
         "bpm": 104,
         "genero": "psy_chill",
         "escala_circuit": "dorian",
-        "circuit_proyecto": None,
+        "circuit_proyecto": 41,
         "partes": [
             ("Intro", 16, 0.15, 0.25, "suave"),
             ("Entra bombo", 16, 0.3, 0.4, "suave"),
@@ -147,12 +147,12 @@ PLANTILLAS = {
         ],
     },
     "template7": {
-        "nombre": "Template 7 · Chillgressive",
-        "descripcion": "Chillgressive a 120 BPM, 168 compases (unos 5:36). Groove progresivo de hats en semicorcheas, clap en 2 y 4, breaks largos. Para el género Chillgressive (escala menor).",
+        "nombre": "Template 7 · Chillgressive · slot 42",
+        "descripcion": "Chillgressive a 120 BPM, 168 compases (unos 5:36). Groove progresivo de hats en semicorcheas, clap en 2 y 4, breaks largos. Para el género Chillgressive (escala menor). En la Circuit: proyecto 42.",
         "bpm": 120,
         "genero": "chillgressive",
         "escala_circuit": "natural minor",
-        "circuit_proyecto": None,
+        "circuit_proyecto": 42,
         "partes": [
             ("Intro", 16, 0.15, 0.25, "suave"),
             ("Pulso", 16, 0.3, 0.4, "suave"),
@@ -169,12 +169,12 @@ PLANTILLAS = {
         ],
     },
     "template8": {
-        "nombre": "Template 8 · Chillout",
-        "descripcion": "Chillout downtempo a 92 BPM con swing, 128 compases (unos 5:34). Beat quebrado, snare con cuerpo, shaker y congas. Para el género Chillout (escala menor).",
+        "nombre": "Template 8 · Chillout · slot 43",
+        "descripcion": "Chillout downtempo a 92 BPM con swing, 128 compases (unos 5:34). Beat quebrado, snare con cuerpo, shaker y congas. Para el género Chillout (escala menor). En la Circuit: proyecto 43.",
         "bpm": 92,
         "genero": "chillout",
         "escala_circuit": "natural minor",
-        "circuit_proyecto": None,
+        "circuit_proyecto": 43,
         "partes": [
             ("Intro", 16, 0.15, 0.25, "suave"),
             ("Llega el beat", 16, 0.3, 0.4, "suave"),
@@ -188,12 +188,12 @@ PLANTILLAS = {
         ],
     },
     "template9": {
-        "nombre": "Template 9 · Ambient",
-        "descripcion": "Ambient a 76 BPM, 112 compases (unos 5:54). Sin bombo fijo: sub booms, latidos suaves, texturas, swells y mucha reverb. Para el género Ambient.",
+        "nombre": "Template 9 · Ambient · slot 44",
+        "descripcion": "Ambient a 76 BPM, 112 compases (unos 5:54). Sin bombo fijo: sub booms, latidos suaves, texturas, swells y mucha reverb. Para el género Ambient. En la Circuit: proyecto 44.",
         "bpm": 76,
         "genero": "ambient",
         "escala_circuit": "major",
-        "circuit_proyecto": None,
+        "circuit_proyecto": 44,
         "partes": [
             ("Niebla", 16, 0.1, 0.15, "suave"),
             ("Marea", 16, 0.2, 0.25, "suave"),

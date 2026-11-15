@@ -276,15 +276,15 @@ proyecto gemelo en la Circuit (percusión con el banco FROM GOA TO PSYT):
   (6:10). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
 - **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 14 partes, 200 compases
   (5:43). Congas y toms, tambores antes del bombo, ceremonia a medio tiempo.
-- **Template 5 · Goa épico**: 140 BPM, 16 partes, 224 compases (6:24). Arcos
+- **Template 5 · Goa épico** (proyecto 40): 140 BPM, 16 partes, 224 compases (6:24). Arcos
   largos, redobles en dos olas, crash cada 8 compases.
-- **Template 6 · Psy chill**: 104 BPM con shuffle, 12 partes, 160 compases
+- **Template 6 · Psy chill** (proyecto 41): 104 BPM con shuffle, 12 partes, 160 compases
   (6:09). Bombo redondo, clap largo, congas y blips. Escala dórica.
-- **Template 7 · Chillgressive**: 120 BPM, 12 partes, 168 compases (5:36). Hats
+- **Template 7 · Chillgressive** (proyecto 42): 120 BPM, 12 partes, 168 compases (5:36). Hats
   rodando en semicorcheas, clap en 2 y 4, breaks largos. Escala menor.
-- **Template 8 · Chillout**: 92 BPM con swing, 9 partes, 128 compases (5:34).
+- **Template 8 · Chillout** (proyecto 43): 92 BPM con swing, 9 partes, 128 compases (5:34).
   Beat quebrado, snare con cuerpo, shaker y congas. Escala menor.
-- **Template 9 · Ambient**: 76 BPM, 7 partes, 112 compases (5:54). Sin bombo
+- **Template 9 · Ambient** (proyecto 44): 76 BPM, 7 partes, 112 compases (5:54). Sin bombo
   fijo: sub booms, latidos suaves, texturas, swells y mucha reverb.
 
 Los templates 6 a 9 están pensados para su género del motor: elige el mismo
