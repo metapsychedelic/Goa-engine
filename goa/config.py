@@ -150,6 +150,10 @@ ESQUEMA_PARTE = {
     "energia_fin": (float, 0.5, 0.0, 1.0),           # y al terminarla
     "entrada": (str, "suave", None, ("suave", "golpe")),
     "pads_suben": (bool, False, None, None),         # los pads acompañan la subida (opcional)
+    "roll": (bool, False, None, None),               # las secuencias hacen un roll al final
+    "corte_bajo": (bool, False, None, None),         # el bajo se calla al final
+    "tension": (bool, False, None, None),            # el último compás va a un acorde de tensión
+    "hueco": (bool, False, None, None),              # el último tiempo, el motor en silencio
 }
 MAX_PARTES = 32
 

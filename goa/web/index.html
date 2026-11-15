@@ -1188,7 +1188,8 @@ function resumenParte(p) {
   const esc = p.escena >= 0 && cfg.escena[p.escena] ? cfg.escena[p.escena].nombre : "sigue lo que suena";
   const ener = Math.round(p.energia * 100) === Math.round(p.energia_fin * 100) ? `${Math.round(p.energia * 100)}`
     : `${Math.round(p.energia * 100)}→${Math.round(p.energia_fin * 100)}`;
-  return `${p.compases} compases · ${esc} · ${p.entrada === "golpe" ? "de golpe" : "suave"} · energía ${ener}${p.pads_suben ? " · pads suben" : ""}`;
+  const subida = [p.pads_suben && "pads suben", p.roll && "roll", p.corte_bajo && "corte de bajo", p.tension && "tensión", p.hueco && "hueco"].filter(Boolean);
+  return `${p.compases} compases · ${esc} · ${p.entrada === "golpe" ? "de golpe" : "suave"} · energía ${ener}${subida.length ? " · " + subida.join(", ") : ""}`;
 }
 
 async function accionParte(ruta, datos, mensaje) {
@@ -1224,7 +1225,12 @@ function bloqueParte(p, i) {
     deslizador(p, "energia", "Energía al empezar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
     deslizador(p, "energia_fin", "Energía al terminar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
     campo("Entrada", segmentado([["suave", "Suave"], ["golpe", "De golpe"]], p.entrada, (v) => { p.entrada = v; renderCancion(); guardar(); }, 2)),
+    h3("Apoyo a la subida (opcional)"),
     casilla(p, "pads_suben", "Los pads acompañan la subida", "El pulso acelera (de 2 a 8 golpes por compás), suben de fuerza y suman una voz al final. En la parte siguiente vuelven a lo de su escena.", () => renderCancion()),
+    casilla(p, "roll", "Roll de las secuencias", `En ${p.compases >= 8 ? "los 2 últimos compases" : "el último compás"} repiten un tiempo, después medio, después una semicorchea: el loop que se encoge antes del cambio.`, () => renderCancion()),
+    casilla(p, "corte_bajo", "Corte de bajo", `El bajo se calla en ${p.compases >= 8 ? "los 2 últimos compases" : "el último compás"} para que la parte siguiente pegue más.`, () => renderCancion()),
+    casilla(p, "tension", "Acorde de tensión al final", "El último compás va a un acorde que pide resolver (♭II en frigio, V en menor armónica, ♭VII en menor) y la parte siguiente parte en la i. Lo siguen los pads, el bajo y las secuencias guiadas.", () => renderCancion()),
+    casilla(p, "hueco", "Hueco antes del cambio", "El último tiempo de la parte, el motor queda en silencio.", () => renderCancion()),
     ayuda(p.entrada === "golpe" ? "Entra de una en su primer compás, con su energía (como un drop)."
       : `Llega de a poco en los compases antes (los de Transición en Tocar, como mucho la mitad de la parte anterior). Los motores entran y salen justo en su primer compás.`),
     el("div", {className: "dos"}, [

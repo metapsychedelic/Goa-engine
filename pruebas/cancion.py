@@ -131,6 +131,49 @@ if __name__ == "__main__":
                "antes y después de la parte, los pads suenan como en su escena")
     todo &= ok(all(x[0] == v_igual[0][0] for x in v_igual[:16]), "con la casilla apagada, no cambia nada")
 
+    print("\nApoyo a la subida (roll, corte de bajo, tensión, hueco)")
+    def subida(flags, escala="frigio"):
+        cfg = armar()
+        cfg["musica"].update(tonica="F", escala=escala)
+        cfg["bajo"].update(activo=True, disparo=2, salida="BAJO", canal=9, armonia="guiada")
+        cfg["pads"].update(salida="PADS", canal=8)
+        for sec in cfg["secuencia"]:
+            sec.update(activa=True, armonia="guiada", salida="SEC", posicion="todos", densidad=1.0)
+        for p in cfg["parte"]:
+            p["escena"] = -1  # todas siguen lo que suena
+        cfg["parte"][1].update(**flags)
+        ev = []
+        m = Motor(normalizar(cfg), lambda sal, tipo, canal, n, v: ev.append((m.tick, sal, tipo, n, v)))
+        m.start()
+        for tick in range(96 * 20):
+            m.reloj()
+            if tick % 96 == 1:
+                m.nota_on(1, 41)
+        def notas(c, salida, desde=0, hasta=96):
+            return [e[3] for e in ev if e[1] == salida and e[2] == "note_on" and e[4] > 0
+                    and (c - 1) * 96 + desde <= e[0] < (c - 1) * 96 + hasta]
+        return notas
+    nada, todo_ = subida({}), subida({"roll": True, "corte_bajo": True, "tension": True, "hueco": True})
+    todo &= ok([len(nada(c, "BAJO")) > 0 for c in (15, 16)] == [True, True]
+               and [len(todo_(c, "BAJO")) for c in (14, 15, 16)][1:] == [0, 0] and len(todo_(14, "BAJO")) > 0
+               and len(todo_(17, "BAJO")) > 0, "corte de bajo: se calla en los 2 últimos compases y vuelve en la parte siguiente")
+    todo &= ok(not todo_(16, "SEC", 72) and not todo_(16, "BAJO", 72) and len(nada(16, "SEC", 72)) > 0,
+               "hueco: el último tiempo de la parte, el motor en silencio")
+    pads_t, pads_i = {n % 12 for n in todo_(16, "PADS")}, {n % 12 for n in todo_(17, "PADS")}
+    todo &= ok(6 in pads_t and 5 not in pads_t and 5 in pads_i,
+               f"tensión: el último compás va a ♭II (Solb) y la parte siguiente resuelve en Fa ({sorted(pads_t)} → {sorted(pads_i)})")
+    sec_t = {n % 12 for n in todo_(16, "SEC", 0, 72)}
+    todo &= ok(6 in sec_t or 1 in sec_t, f"las secuencias guiadas siguen el acorde de tensión ({sorted(sec_t)})")
+    sec_roll = todo_(16, "SEC", 48, 72)
+    todo &= ok(len(sec_roll) >= 4 * len({n for n in sec_roll}) or len(set(sec_roll)) <= 2,
+               f"roll: al final cada semicorchea repite la misma nota ({sec_roll})")
+    todo &= ok(nada(13, "SEC") == todo_(13, "SEC") and nada(9, "BAJO") == todo_(9, "BAJO"),
+               "antes del final de la parte, todo suena igual")
+    from goa.escalas import ESCALAS
+    from goa.pads import raiz_tension
+    todo &= ok((raiz_tension(ESCALAS["frigio"]), raiz_tension(ESCALAS["menor_armonica"]), raiz_tension(ESCALAS["menor"])) == (1, 7, 10),
+               "el acorde de tensión: ♭II en frigio, V en menor armónica, ♭VII en menor")
+
     print("\nProgram Change")
     m, v, pcs = correr(armar(), 22)
     todo &= ok(pcs[:1] == [(0, "FM-1", 5)], f"al dar Play pide el parche de la intro ({pcs[:1]})")

@@ -16,7 +16,7 @@ from .bajo import Bajo
 from .dialogo import Dialogo
 from .director import Director
 from .escalas import Tonalidad, nombre_midi
-from .pads import Pads, _cerca
+from .pads import Pads, _cerca, raiz_tension
 
 TICKS_POR_PASO = 6  # 24 pulsos por negra -> 6 por semicorchea
 PASOS_POR_COMPAS = 16
@@ -161,6 +161,10 @@ class Motor:
         self.puente = None          # (tonalidad nueva, base de los pads, paso del cambio) durante un acorde puente
         self.version_base = 0       # sube cuando la canción cambia de parte (la app se recarga)
         self.programas = {}         # (salida, canal) -> último Program Change mandado
+        # Efectos de subida de la parte de la canción que suena (ver _efectos_parte)
+        self.roll_desde, self.roll_compases = None, 0
+        self.hueco_desde = None
+        self.tension_pc, self.tension_fin, self.resolver_en = None, None, None
         self.saltar_parte_a = None  # parte pedida desde la app (entra en el próximo compás)
         self.aplicar_config(config)
 
@@ -616,9 +620,12 @@ class Motor:
             d = self.disparos[self.pads.disparo]
             raiz = None if d.pendiente is None else (d.raiz if d.raiz is not None else d.pendiente)
             paso = self.tick // TICKS_POR_PASO
-            self.pads.forzado = (self._momento_puente(paso, raiz).raiz % 12
-                                 if self.puente is not None and raiz is not None else None)
-            self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
+            if self.puente is not None and raiz is not None:
+                self.pads.forzado = self._momento_puente(paso, raiz).raiz % 12
+            else:
+                self.pads.forzado = self.tension_pc  # acorde de tensión al final de una subida (o None)
+            if not self._en_hueco(paso):
+                self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
 
     def nota_on(self, canal, nota, velocidad=100):
         if canal == self.dialogo.escucha:
@@ -667,15 +674,59 @@ class Motor:
             self.bajo.evolucionar(compas)
         for d in self.disparos.values():
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
+        if self._en_hueco(paso):
+            if paso == self.hueco_desde:
+                self.apagar_todo()  # el último tiempo antes de la parte que viene: silencio
+            return
         self._tocar_paso(paso)
         self._paso_dialogo(paso)
         self._paso_bajo(paso)
+
+    def _en_hueco(self, paso):
+        return self.hueco_desde is not None and self.hueco_desde <= paso < self.hueco_desde + 4
+
+    def _efectos_parte(self, compas):
+        """Canción: los efectos de subida de la parte que suena (todos opcionales).
+        Roll de secuencias y corte de bajo en los últimos compases, acorde de tensión
+        en el último compás (la parte siguiente resuelve en la i) y hueco en el último
+        tiempo. Los pads que suben y el corte de bajo los aplica el conductor."""
+        self.roll_desde, self.roll_compases, self.hueco_desde = None, 0, None
+        self.tension_pc = self.tension_fin = None
+        if self.resolver_en == compas:
+            self.origen_progresion = compas  # después de la tensión, la progresión parte en su i
+            self.resolver_en = None
+        parte = self.conductor.parte(self.base, compas)
+        if parte is None:
+            return
+        p = self.base["parte"][parte["i"]]
+        falta = parte["largo"] - parte["dentro"]  # compases que quedan, contando este
+        if p.get("roll"):
+            n = forma.compases_corte(parte["largo"])
+            if falta <= n:
+                self.roll_compases = n
+                self.roll_desde = (compas - (n - falta)) * PASOS_POR_COMPAS
+        if falta == 1:
+            fin = (compas + 1) * PASOS_POR_COMPAS
+            if p.get("hueco"):
+                self.hueco_desde = fin - 4
+            if p.get("tension"):
+                self.tension_pc = (self.tonalidad.tonica + raiz_tension(self.tonalidad.intervalos)) % 12
+                self.tension_fin = fin
+                self.resolver_en = compas + 1
+
+    def _momento_tension(self, paso, raiz):
+        """El acorde de tensión, que pide resolver en la i en el uno de la parte siguiente."""
+        tension = armonia.de_nota_larga(_cerca(self.tension_pc, raiz), self.tonalidad)
+        tonica = armonia.de_nota_larga(_cerca(self.tonalidad.tonica % 12, raiz), self.tonalidad)
+        return armonia.Momento(tension.raiz, tension.clases, tonica.raiz, tonica.clases,
+                               max(1, self.tension_fin - paso))
 
     def _compas_forma(self, compas):
         """Primer paso de cada compás: entran los cambios de la app, la energía da un paso
         y avanza la transición entre escenas."""
         self._avanzar_cancion(compas)
         self.conductor.avanzar(self.base, compas)
+        self._efectos_parte(compas)
         tr = self.conductor.transicion
         self.puente = None
         if tr is not None:
@@ -710,6 +761,8 @@ class Motor:
             r = r if r is not None else raiz
             if r is not None:
                 return self._momento_puente(paso, r)
+        if self.tension_pc is not None and raiz is not None:
+            return self._momento_tension(paso, raiz)
         if self.pads.activo:
             m = self.pads.momento(paso, self.disparos[self.pads.disparo].raiz)
             if m is not None:
@@ -765,10 +818,11 @@ class Motor:
             if solo_canal is not None and s.disparo != solo_canal:
                 continue
             raiz = self.disparos[s.disparo].raiz
-            i = paso % s.largo
+            fuente = paso if self.roll_desde is None else forma.roll(paso, self.roll_desde, self.roll_compases)
+            i = fuente % s.largo
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
-            if (raiz is None or not s.activa or not generador.pasa_posicion(s.posicion, paso)
+            if (raiz is None or not s.activa or not generador.pasa_posicion(s.posicion, fuente)
                     or not p["suena"] or x["densidad"] >= s.densidad):
                 s.slide_previo = False
                 continue

@@ -240,6 +240,16 @@ Cada parte tiene:
   la parte el pulso de los pads acelera (2, 4, 6 y 8 golpes por compás), los
   golpes se acortan, suben de fuerza y suman una voz al final. Ideal para los
   rises. En la parte siguiente vuelven a lo de su escena.
+- **Más apoyos a la subida** (cada uno opcional, apagados por defecto; actúan
+  en el final de la parte: los 2 últimos compases, o el último si la parte
+  tiene menos de 8):
+  - **Roll de las secuencias:** repiten un tiempo, después medio tiempo y al
+    final una semicorchea, como un loop que se encoge antes del cambio.
+  - **Corte de bajo:** el bajo se calla para que la parte siguiente pegue más.
+  - **Acorde de tensión:** el último compás va a un acorde que pide resolver
+    (♭II en frigio, V en menor armónica, ♭VII en menor) y la parte siguiente
+    parte en la i. Lo siguen los pads, el bajo y las secuencias guiadas.
+  - **Hueco:** el último tiempo de la parte, el motor queda en silencio.
 - **Escuchar** pone la escena de la parte para seguir armándola, y **Guardar lo
   que suena** la actualiza.
 

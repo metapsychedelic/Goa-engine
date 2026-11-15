@@ -324,6 +324,24 @@ def con_subida_pads(cfg, avance):
     return c
 
 
+def compases_corte(largo):
+    """Cuántos compases finales dura el corte de bajo o el roll: 2 en partes de 8 o más, si no 1."""
+    return 2 if largo >= 8 else 1
+
+
+def roll(paso, desde, compases):
+    """Paso del patrón que suena en `paso` durante un roll que empieza en `desde`:
+    primero se repite un tiempo, después medio, después una semicorchea (el «loop
+    que se encoge»). Fuera del roll devuelve el mismo paso."""
+    largo = compases * 16
+    off = paso - desde
+    if off < 0 or off >= largo:
+        return paso
+    tramos = ((0, 4), (largo // 2, 2), (largo * 3 // 4, 1))  # (desde dónde, cuántos pasos se repiten)
+    inicio, ventana = max(t for t in tramos if t[0] <= off)
+    return desde + inicio + (off - inicio) % ventana
+
+
 def total_cancion(partes):
     return sum(p["compases"] for p in partes)
 
@@ -466,6 +484,11 @@ class Conductor:
         energia = self.energia if self.energia is not None else cfg["forma"]["energia"]
         cfg = energizar(cfg, energia)
         parte = self.parte(base, compas)
-        if parte is not None and base["parte"][parte["i"]].get("pads_suben"):
-            cfg = con_subida_pads(cfg, parte["avance"])
+        if parte is not None:
+            p = base["parte"][parte["i"]]
+            if p.get("pads_suben"):
+                cfg = con_subida_pads(cfg, parte["avance"])
+            if p.get("corte_bajo") and parte["dentro"] >= parte["largo"] - compases_corte(parte["largo"]):
+                cfg = copy.deepcopy(cfg)
+                cfg["bajo"]["activo"] = False  # el bajo se calla para que la parte siguiente pegue más
         return cfg

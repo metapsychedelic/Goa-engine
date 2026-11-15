@@ -86,6 +86,18 @@ def numeral(intervalos, grado):
     return texto.replace("I", "i").replace("V", "v") if calidad(intervalos, g) == "m" else texto
 
 
+def raiz_tension(intervalos):
+    """Intervalo (desde la tónica) del acorde de tensión que mejor resuelve en la i:
+    ♭II mayor (frigio), V mayor (menor armónica, húngara), ♭VII mayor (menor,
+    dórica), v menor o iv. Para el final de una subida."""
+    n = len(intervalos)
+    for intervalo, calidades in ((1, ("M",)), (7, ("M",)), (10, ("M",)), (7, ("m",)), (5, ("M", "m"))):
+        for g in range(1, n):
+            if intervalos[g] % 12 == intervalo and calidad(intervalos, g) in calidades:
+                return intervalo
+    return 7
+
+
 def nombre_escala(intervalos):
     return next((n for n, iv in ESCALAS.items() if list(iv) == list(intervalos)), None)
 
