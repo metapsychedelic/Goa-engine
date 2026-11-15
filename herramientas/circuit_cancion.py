@@ -437,10 +437,12 @@ def template6():
         golpes([0], 85, ATMOS) | golpes([(6, 60), (22, 60)], muestra=BLIP_1),
     ]
     cadenas = {
-        "Intro": (1, 1, 6, 8), "Entra bombo": (2, 1, 7, 8), "Groove A": (2, 2, 2, (2, 5)),
-        "Groove B": (3, 3, 3, (2, 5)), "Break": (5, 4, 7, 8), "Rise": ((5, 8), (5, 8), 5, (6, 7)),
+        "Intro": (1, 1, 6, 8), "Intro 2": (1, 1, 7, 8), "Entra bombo": (2, 1, 7, 8),
+        "Groove A": (2, 2, 2, (2, 5)), "Groove B": (3, 3, 3, (2, 5)), "Groove C": (3, 2, 4, (2, 5)),
+        "Break": (5, 4, 7, 8), "Rise": ((5, 8), (5, 8), 5, (6, 7)),
         "Viaje A": (2, 2, 3, (2, 5)), "Viaje B": (3, 3, 4, (2, 5)), "Respiro": (1, 4, 7, 8),
-        "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Viaje C": (3, 3, 3, (2, 5)), "Outro": (2, 1, 2, 8),
+        "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Viaje C": (3, 3, 3, (2, 5)), "Viaje D": (2, 3, 2, (2, 5)),
+        "Outro": (2, 1, 2, 8), "Final": (1, 1, 6, 8),
     }
     sonidos = {"drum1": {"sample": BOMBO, "level": 115}, "drum2": {"sample": CLAP, "level": 90},
                "drum3": {"sample": HAT_ABIERTO, "level": 80}, "drum4": {"sample": CONGA_A, "level": 80}}
@@ -480,10 +482,12 @@ def template7():
         golpes([0], 85, ATMOS) | golpes([(24, 70)], muestra=REVERSA),
     ]
     cadenas = {
-        "Intro": (1, 1, 6, 8), "Pulso": (2, 1, 6, 8), "Groove A": (2, 2, 2, (2, 5)),
-        "Groove B": (2, 3, 4, (2, 5)), "Break": (1, 4, 7, 8), "Rise": ((5, 8), (5, 8), 5, (6, 7)),
-        "Drive A": (3, 2, 4, (2, 5)), "Drive B": (3, 3, 3, (2, 5)), "Break 2": (1, 4, 7, 8),
-        "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Drive C": (3, 3, 4, (2, 5)), "Outro": (2, 1, 6, 8),
+        "Intro": (1, 1, 6, 8), "Intro 2": (1, 1, 7, 8), "Pulso": (2, 1, 6, 8),
+        "Groove A": (2, 2, 2, (2, 5)), "Groove B": (2, 3, 4, (2, 5)), "Groove C": (3, 2, 3, (2, 5)),
+        "Break": (1, 4, 7, 8), "Rise": ((5, 8), (5, 8), 5, (6, 7)),
+        "Drive A": (3, 2, 4, (2, 5)), "Drive B": (3, 3, 3, (2, 5)), "Drive C": (2, 3, 4, (2, 5)),
+        "Break 2": (1, 4, 7, 8), "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Drive D": (3, 3, 4, (2, 5)),
+        "Outro": (2, 1, 6, 8), "Final": (1, 1, 7, 8),
     }
     sonidos = {"drum1": {"sample": BOMBO, "level": 118}, "drum2": {"sample": CLAP, "level": 92},
                "drum3": {"sample": HAT_CERRADO, "level": 82}, "drum4": {"sample": PERC, "level": 80}}
@@ -533,9 +537,12 @@ def template8():
         golpes([0], 85, ATMOS),
     ]
     cadenas = {
-        "Intro": (1, 1, 6, 8), "Llega el beat": (2, 4, 2, 8), "Tema A": (2, 2, 2, (2, 5)),
-        "Tema B": (3, 3, 4, (2, 5)), "Pausa": (1, 1, 6, 8), "Vuelta": ((5, 8), (5, 8), 5, (6, 7)),
-        "Tema C": ((2, 3), 3, 4, (2, 5)), "Tema D": (3, 3, 7, (2, 5)), "Final": (2, 4, 6, 8),
+        "Intro": (1, 1, 6, 8), "Intro 2": (1, 4, 6, 8), "Llega el beat": (2, 4, 2, 8),
+        "Tema A": (2, 2, 2, (2, 5)), "Tema B": (3, 3, 4, (2, 5)), "Tema C": (2, 3, 7, (2, 5)),
+        "Pausa": (1, 1, 6, 8), "Vuelta": ((5, 8), (5, 8), 5, (6, 7)),
+        "Tema D": ((2, 3), 3, 4, (2, 5)), "Tema E": (3, 3, 7, (2, 5)), "Tema F": (2, 2, 4, (2, 5)),
+        "Pausa 2": (1, 4, 6, 8), "Vuelta 2": ((5, 8), (5, 8), 5, (6, 7)), "Tema G": ((2, 3), 3, 4, (2, 5)),
+        "Final": (2, 4, 6, 8), "Cierre": (1, 1, 6, 8),
     }
     sonidos = {"drum1": {"sample": BOMBO, "level": 112}, "drum2": {"sample": SNARE, "level": 88},
                "drum3": {"sample": SHAKER, "level": 75}, "drum4": {"sample": CONGA_A, "level": 78}}
@@ -592,9 +599,12 @@ def template9():
         golpes([18], 75, RISER),
     ]
     cadenas = {
-        "Niebla": (1, 1, 1, (3, 6)), "Marea": (2, 2, 1, (3, 6)), "Luz": (2, 3, 2, (5, 8)),
-        "Pulso suave": (5, 3, 3, (3, 6)), "Profundo": ((6, 7), 4, 4, (2, 5)),
-        "Claro": (5, (3, 4), 5, (5, 8)), "Disolucion": (2, 2, 1, (3, 6)),
+        "Niebla": (1, 1, 1, (3, 6)), "Niebla 2": (7, 1, 1, (3, 6)), "Marea": (2, 2, 1, (3, 6)),
+        "Marea 2": (2, 2, 2, (5, 8)), "Luz": (2, 3, 2, (5, 8)), "Luz 2": (3, 3, 2, (3, 6)),
+        "Pulso suave": (5, 3, 3, (3, 6)), "Pulso 2": (5, (3, 4), 4, (5, 8)),
+        "Profundo": ((6, 7), 4, 4, (2, 5)), "Profundo 2": ((6, 7), (4, 5), 4, (2, 5)),
+        "Claro": (5, (3, 4), 5, (5, 8)), "Claro 2": (2, 3, 5, (3, 6)), "Calma": (7, 2, 1, (3, 6)),
+        "Eco": (2, 6, 2, (5, 8)), "Disolucion": (2, 2, 1, (3, 6)), "Silencio": (1, 1, 1, (3, 4)),
     }
     sonidos = {"drum1": {"sample": SUB_BOOM, "level": 110}, "drum2": {"sample": PERC_SUAVE, "level": 80},
                "drum3": {"sample": SHAKER, "level": 65}, "drum4": {"sample": ATMOS, "level": 85}}

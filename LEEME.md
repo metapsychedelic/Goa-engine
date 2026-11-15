@@ -278,14 +278,14 @@ proyecto gemelo en la Circuit (percusión con el banco FROM GOA TO PSYT):
   (5:43). Congas y toms, tambores antes del bombo, ceremonia a medio tiempo.
 - **Template 5 · Goa épico** (proyecto 40): 140 BPM, 16 partes, 224 compases (6:24). Arcos
   largos, redobles en dos olas, crash cada 8 compases.
-- **Template 6 · Psy chill** (proyecto 41): 104 BPM con shuffle, 12 partes, 160 compases
-  (6:09). Bombo redondo, clap largo, congas y blips. Escala dórica.
-- **Template 7 · Chillgressive** (proyecto 42): 120 BPM, 12 partes, 168 compases (5:36). Hats
-  rodando en semicorcheas, clap en 2 y 4, breaks largos. Escala menor.
-- **Template 8 · Chillout** (proyecto 43): 92 BPM con swing, 9 partes, 128 compases (5:34).
-  Beat quebrado, snare con cuerpo, shaker y congas. Escala menor.
-- **Template 9 · Ambient** (proyecto 44): 76 BPM, 7 partes, 112 compases (5:54). Sin bombo
-  fijo: sub booms, latidos suaves, texturas, swells y mucha reverb.
+- **Template 6 · Psy chill** (proyecto 41): 104 BPM con shuffle, 16 escenas de 16
+  compases, 256 compases (9:51). Bombo redondo, clap largo, congas y blips. Escala dórica.
+- **Template 7 · Chillgressive** (proyecto 42): 120 BPM, 16 escenas de 16 compases,
+  256 compases (8:32). Hats rodando en semicorcheas, clap en 2 y 4, breaks largos. Escala menor.
+- **Template 8 · Chillout** (proyecto 43): 92 BPM con swing, 16 escenas de 16 compases,
+  256 compases (11:08). Beat quebrado, snare con cuerpo, shaker y congas. Escala menor.
+- **Template 9 · Ambient** (proyecto 44): 76 BPM, 16 escenas de 16 compases, 256
+  compases (13:28). Sin bombo fijo: sub booms, latidos suaves, texturas, swells y mucha reverb.
 
 Los templates 6 a 9 están pensados para su género del motor: elige el mismo
 género en Música para que escalas, pads, bajo y secuencias calcen con el estilo.
