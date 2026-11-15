@@ -269,6 +269,13 @@ apagado.
 **Plantillas:** *Cargar plantilla…* pone una estructura lista. Cada una tiene su
 proyecto gemelo en la Circuit (percusión con el banco FROM GOA TO PSYT):
 
+**Samples de los templates:** se eligieron midiendo el audio del banco FROM GOA
+TO PSYT (energía por bandas, fundamental y caída de cada muestra). Bombos cortos
+con poco sub (1, 3, 4, 5, 6, 7) y nivel 105; nada con energía fuerte bajo 150 Hz
+en las demás pistas, para no chocar con el bajo del motor; el crash solo en el uno
+de las partes (de ride hace un hat abierto); sin la atmósfera de 3 s ni los booms
+y blips sub en los loops. La tabla completa está en `herramientas/circuit_cancion.py`.
+
 - **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 escenas de 16 compases,
   256 compases (7:19).
 - **Template 2 · Dark minimal** (proyecto 33): 142 BPM, 16 escenas de 16 compases,
