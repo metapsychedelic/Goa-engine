@@ -430,6 +430,7 @@ def template6():
     BOMBO, CLAP, SNARE = 1, 17, 25
     HAT_ABIERTO, SHAKER, HAT_CERRADO = 35, 43, 37
     K = _bombos(NEGRAS, 108)
+    K[7] = K[7] | golpes([(18, 70)], muestra=RISER)   # la subida termina con un riser suave
     C = [{}, golpes(DOS_Y_CUATRO, 90),
          golpes(DOS_Y_CUATRO, 90) | golpes([(23, 50), (30, 60)], muestra=SNARE),
          golpes([12, 28], 90)] + _redobles(SNARE, ((40, 60), (60, 80), (80, 100), (100, 120)))
@@ -443,15 +444,16 @@ def template6():
         golpes([(p, 55 if p % 4 == 2 else 35) for p in range(32)], muestra=SHAKER),
         {},
     ]
+    # Pista 4 en los géneros chill: percusión orgánica suave y los FX solo en los cambios.
+    # Con la cadena 1-8 (16 compases): crash suave en el uno, 2 compases sin percusión
+    # cerca del final y un swell suave que llega a la parte siguiente. 7 = silencio.
+    conga_a = golpes([(3, 60), (11, 55), (19, 60), (27, 50)], muestra=CONGA_A)
+    conga_b = golpes([(3, 60), (7, 45), (19, 60), (23, 45)], muestra=CONGA_A) | golpes([(14, 50), (30, 55)], muestra=PERC_A)
     P = [
+        golpes([0], 75, CRASH) | conga_a,
+        conga_a, conga_b, conga_a, conga_b, conga_a,
         {},
-        golpes([0], 105, CRASH) | golpes([(11, 65), (27, 70)], muestra=CONGA_A),
-        golpes([(3, 70), (7, 55), (11, 75), (19, 70), (27, 60)], muestra=CONGA_A),
-        golpes([(3, 70), (11, 75), (19, 70)], muestra=CONGA_A) | golpes([(14, 60), (30, 65)], muestra=PERC_A),
-        golpes([(3, 70), (11, 75)], muestra=CONGA_A) | golpes([(22, 65)], muestra=BLIP_1),
-        golpes([18], 95, RISER),
-        golpes([23], 95, SWELL),
-        bruma() | golpes([(6, 60), (22, 60)], muestra=BLIP_1),
+        golpes([(3, 50), (19, 50)], muestra=CONGA_A) | golpes([(23, 60)], muestra=SWELL),
     ]
     cadenas = {
         "Intro": (1, 1, 6, 8), "Intro 2": (1, 1, 7, 8), "Entra bombo": (2, 1, 7, 8),
@@ -461,6 +463,8 @@ def template6():
         "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Viaje C": (3, 3, 3, (2, 5)), "Viaje D": (2, 3, 2, (2, 5)),
         "Outro": (2, 1, 2, 8), "Final": (1, 1, 6, 8),
     }
+    D4 = {'Intro': 7, 'Intro 2': 7, 'Entra bombo': (2, 3), 'Groove A': (1, 8), 'Groove B': (1, 8), 'Groove C': (1, 8), 'Break': 7, 'Rise': 7, 'Viaje A': (1, 8), 'Viaje B': (1, 8), 'Respiro': 7, 'Rise 2': 7, 'Viaje C': (1, 8), 'Viaje D': (1, 8), 'Outro': (2, 3), 'Final': 7}
+    cadenas = {n: v[:3] + (D4[n],) for n, v in cadenas.items()}
     sonidos = {"drum1": {"sample": BOMBO, "level": 105}, "drum2": {"sample": CLAP, "level": 90},
                "drum3": {"sample": HAT_ABIERTO, "level": 80}, "drum4": {"sample": CONGA_A, "level": 80}}
     envios = {"reverb": {"drum2": 40, "drum3": 15, "drum4": 40}, "delay": {"drum2": 15, "drum4": 30}}
@@ -475,6 +479,7 @@ def template7():
     HAT_CERRADO, HAT_ABIERTO, HAT_FINO = 34, 39, 42
     PERC, REVERSA, SUB_BLIP = 45, 61, 24
     K = _bombos(NEGRAS, 112)
+    K[7] = K[7] | golpes([(18, 70)], muestra=RISER)   # la subida termina con un riser suave
     C = [{}, golpes(DOS_Y_CUATRO, 95),
          golpes(DOS_Y_CUATRO, 95) | golpes([(30, 55)]),
          golpes([12, 28], 95)] + _redobles(SNARE_ROLL)
@@ -488,15 +493,16 @@ def template7():
         golpes([(14, 70), (30, 80)], muestra=HAT_ABIERTO),
         {},
     ]
+    # Pista 4 en los géneros chill: percusión orgánica suave y los FX solo en los cambios.
+    # Con la cadena 1-8 (16 compases): crash suave en el uno, 2 compases sin percusión
+    # cerca del final y un swell suave que llega a la parte siguiente. 7 = silencio.
+    perc_a = golpes([(3, 60), (6, 65), (19, 60), (22, 65)], muestra=PERC)
+    perc_b = golpes([(3, 60), (6, 65), (11, 55), (19, 60), (22, 65), (27, 55)], muestra=PERC)
     P = [
+        golpes([0], 80, CRASH) | perc_a,
+        perc_a, perc_b, perc_a, perc_b, perc_a,
         {},
-        golpes([0], 108, CRASH) | golpes([(6, 70), (22, 70)], muestra=PERC),
-        golpes([(3, 70), (6, 75), (11, 65), (19, 70), (22, 75), (27, 65)], muestra=PERC),
-        golpes([(3, 70), (6, 75), (19, 70), (22, 75)], muestra=PERC) | golpes([(13, 75), (29, 70)], muestra=SUB_BLIP),
-        golpes([(3, 70), (6, 75), (19, 70)], muestra=PERC) | golpes([(31, 80)], muestra=ZAP),
-        golpes([18], 100, RISER),
-        golpes([23], 100, SWELL),
-        bruma() | golpes([(24, 70)], muestra=REVERSA),
+        golpes([(3, 55), (19, 55)], muestra=PERC) | golpes([(23, 65)], muestra=SWELL),
     ]
     cadenas = {
         "Intro": (1, 1, 6, 8), "Intro 2": (1, 1, 7, 8), "Pulso": (2, 1, 6, 8),
@@ -506,6 +512,8 @@ def template7():
         "Break 2": (1, 4, 7, 8), "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Drive D": (3, 3, 4, (2, 5)),
         "Outro": (2, 1, 6, 8), "Final": (1, 1, 7, 8),
     }
+    D4 = {'Intro': 7, 'Intro 2': 7, 'Pulso': (2, 3), 'Groove A': (1, 8), 'Groove B': (1, 8), 'Groove C': (1, 8), 'Break': 7, 'Rise': 7, 'Drive A': (1, 8), 'Drive B': (1, 8), 'Drive C': (1, 8), 'Break 2': 7, 'Rise 2': 7, 'Drive D': (1, 8), 'Outro': (2, 3), 'Final': 7}
+    cadenas = {n: v[:3] + (D4[n],) for n, v in cadenas.items()}
     sonidos = {"drum1": {"sample": BOMBO, "level": 105}, "drum2": {"sample": CLAP, "level": 92},
                "drum3": {"sample": HAT_CERRADO, "level": 82}, "drum4": {"sample": PERC, "level": 80}}
     envios = {"reverb": {"drum2": 35, "drum4": 35}, "delay": {"drum3": 10, "drum4": 30}}
@@ -527,7 +535,7 @@ def template8():
         golpes([0], 110),
         golpes([0, 16], 110),
         golpes([0, 10, 16, 26], 110),
-        golpes([0, 10] + list(range(16, 32, 2)), 106),
+        golpes([0, 10] + list(range(16, 32, 2)), 106) | golpes([(18, 65)], muestra=RISER),
     ]
     C = [{}, golpes(DOS_Y_CUATRO, 95),
          golpes(DOS_Y_CUATRO, 95) | golpes([(14, 40), (27, 45), (30, 40)]),
@@ -543,15 +551,16 @@ def template8():
         golpes([(p, 50) for p in range(2, 32, 4)], muestra=HAT_ABIERTO),
         {},
     ]
+    # Pista 4 en los géneros chill: percusión orgánica suave y los FX solo en los cambios.
+    # Con la cadena 1-8 (16 compases): crash suave en el uno, 2 compases sin percusión
+    # cerca del final y un swell suave que llega a la parte siguiente. 7 = silencio.
+    conga_a = golpes([(3, 55), (11, 50), (19, 55), (27, 50)], muestra=CONGA_A)
+    conga_b = golpes([(3, 55), (14, 45), (19, 55)], muestra=CONGA_A) | golpes([(11, 50), (27, 50)], muestra=PERC_A)
     P = [
+        golpes([0], 70, CRASH) | conga_a,
+        conga_a, conga_b, conga_a, conga_b, conga_a,
         {},
-        golpes([0], 95, CRASH) | golpes([(11, 60), (27, 65)], muestra=CONGA_A),
-        golpes([(3, 65), (11, 60), (14, 55), (19, 65), (27, 60)], muestra=CONGA_A),
-        golpes([(3, 65), (19, 65)], muestra=CONGA_A) | golpes([(11, 60), (14, 50), (27, 60)], muestra=PERC_A),
-        golpes([(3, 60), (19, 60)], muestra=CONGA_A) | golpes([(9, 60), (25, 55)], muestra=BLIP_2),
-        golpes([18], 90, RISER),
-        golpes([23], 90, SWELL),
-        bruma(),
+        golpes([(3, 45), (19, 45)], muestra=CONGA_A) | golpes([(23, 55)], muestra=SWELL),
     ]
     cadenas = {
         "Intro": (1, 1, 6, 8), "Intro 2": (1, 4, 6, 8), "Llega el beat": (2, 4, 2, 8),
@@ -561,6 +570,8 @@ def template8():
         "Pausa 2": (1, 4, 6, 8), "Vuelta 2": ((5, 8), (5, 8), 5, (6, 7)), "Tema G": ((2, 3), 3, 4, (2, 5)),
         "Final": (2, 4, 6, 8), "Cierre": (1, 1, 6, 8),
     }
+    D4 = {'Intro': 7, 'Intro 2': 7, 'Llega el beat': (2, 3), 'Tema A': (1, 8), 'Tema B': (1, 8), 'Tema C': (1, 8), 'Pausa': 7, 'Vuelta': 7, 'Tema D': (1, 8), 'Tema E': (1, 8), 'Tema F': (1, 8), 'Pausa 2': 7, 'Vuelta 2': 7, 'Tema G': (1, 8), 'Final': (2, 3), 'Cierre': 7}
+    cadenas = {n: v[:3] + (D4[n],) for n, v in cadenas.items()}
     sonidos = {"drum1": {"sample": BOMBO, "level": 105}, "drum2": {"sample": SNARE, "level": 88},
                "drum3": {"sample": SHAKER, "level": 75}, "drum4": {"sample": CONGA_A, "level": 78}}
     envios = {"reverb": {"drum2": 45, "drum3": 20, "drum4": 45}, "delay": {"drum2": 20, "drum4": 35}}
@@ -579,9 +590,9 @@ def template9():
         {},
         golpes([0], 70, LATIDO),
         golpes([(0, 70), (16, 55)], muestra=LATIDO),
-        golpes([0], 85, BOOM) | golpes([(22, 60)], muestra=BOOM),
+        golpes([0], 60, BOOM) | golpes([(22, 45)], muestra=BOOM),
         golpes([(0, 80), (3, 55), (16, 80), (19, 55)], muestra=LATIDO),        # latido
-        golpes([0], 70, SUB_DROP),
+        golpes([(0, 60), (3, 40)], muestra=LATIDO),
         golpes([0], 55, LATIDO),
         {},
     ]
@@ -605,15 +616,17 @@ def template9():
         {},
         {},
     ]
+    # Pista 4: casi nada. Percusión muy suave y un swell que llega a la parte siguiente
+    # solo con la cadena 1-8 (una vez cada 16 compases). 2 = silencio.
     P = [
+        golpes([(6, 40), (19, 35)], muestra=BLIP),
         {},
-        golpes([0], 80, CRASH),
-        bruma(),
-        golpes([16], 75, SWELL),
-        golpes([24], 70, REVERSA),
-        golpes([(6, 60), (19, 55)], muestra=BLIP),
-        bruma() | golpes([(19, 50)], muestra=BLIP),
-        golpes([18], 75, RISER),
+        golpes([(11, 35)], muestra=PERC_B),
+        {},
+        golpes([(6, 35), (22, 35)], muestra=BLIP),
+        {},
+        {},
+        golpes([(23, 45)], muestra=SWELL),
     ]
     cadenas = {
         "Niebla": (1, 1, 1, (3, 6)), "Niebla 2": (7, 1, 1, (3, 6)), "Marea": (2, 2, 1, (3, 6)),
@@ -623,6 +636,8 @@ def template9():
         "Claro": (5, (3, 4), 5, (5, 8)), "Claro 2": (2, 3, 5, (3, 6)), "Calma": (7, 2, 1, (3, 6)),
         "Eco": (2, 6, 2, (5, 8)), "Disolucion": (2, 2, 1, (3, 6)), "Silencio": (1, 1, 1, (3, 4)),
     }
+    D4 = {'Niebla': 2, 'Niebla 2': 2, 'Marea': (1, 4), 'Marea 2': (1, 8), 'Luz': (1, 8), 'Luz 2': (1, 4), 'Pulso suave': (1, 8), 'Pulso 2': (1, 4), 'Profundo': (1, 8), 'Profundo 2': (1, 8), 'Claro': (1, 8), 'Claro 2': (1, 4), 'Calma': (1, 8), 'Eco': (1, 4), 'Disolucion': (1, 8), 'Silencio': 2}
+    cadenas = {n: v[:3] + (D4[n],) for n, v in cadenas.items()}
     sonidos = {"drum1": {"sample": LATIDO, "level": 95}, "drum2": {"sample": PERC_SUAVE, "level": 80},
                "drum3": {"sample": SHAKER, "level": 65}, "drum4": {"sample": SWELL, "level": 80}}
     envios = {"reverb": {"drum1": 25, "drum2": 60, "drum3": 40, "drum4": 65}, "delay": {"drum2": 40, "drum3": 20, "drum4": 40}}

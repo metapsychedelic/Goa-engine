@@ -274,7 +274,10 @@ TO PSYT (energía por bandas, fundamental y caída de cada muestra). Bombos cort
 con poco sub (1, 3, 4, 5, 6, 7) y nivel 105; nada con energía fuerte bajo 150 Hz
 en las demás pistas, para no chocar con el bajo del motor; el crash solo en el uno
 de las partes (de ride hace un hat abierto); sin la atmósfera de 3 s ni los booms
-y blips sub en los loops. La tabla completa está en `herramientas/circuit_cancion.py`.
+y blips sub en los loops. En los géneros chill (6 a 9) la pista 4 es percusión
+orgánica suave: el crash (suave) solo al empezar las partes principales, un swell
+suave que llega a la parte siguiente y el riser solo en las subidas; en el ambient,
+como mucho un swell cada 16 compases. La tabla completa está en `herramientas/circuit_cancion.py`.
 
 - **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 escenas de 16 compases,
   256 compases (7:19).
