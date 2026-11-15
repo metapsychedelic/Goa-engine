@@ -176,16 +176,18 @@ def template2():
         golpes([(14, 70), (30, 80)], muestra=HAT_ABIERTO),
         {}, {},
     ]
-    glitch_a = golpes([(11, 70)], muestra=ZAP) | golpes([(27, 80)], muestra=BLIP_1)
-    glitch_b = golpes([(3, 75), (19, 75)], muestra=BLIP_2) | golpes([(9, 60), (25, 60)], muestra=CONGA_B)
+    # Solo sonidos agudos: el grave queda para el bombo y el bajo del motor.
+    CLAP_CORTO, HAT_6, HAT_7, REVERSA = 24, 42, 43, 61
+    glitch_a = golpes([(11, 70)], muestra=ZAP) | golpes([(27, 75)], muestra=HAT_7)
+    glitch_b = golpes([(3, 60), (19, 60)], muestra=CLAP_CORTO) | golpes([(9, 65), (25, 65)], muestra=HAT_6)
     P = [
         {},
         glitch_a,
         glitch_b,
         glitch_b | golpes([(30, 70)], muestra=ZAP),
-        golpes([0], 105, CRASH) | golpes([(27, 80)], muestra=BLIP_1),   # crash (cada 8 compases)
+        golpes([0], 105, CRASH) | golpes([(27, 75)], muestra=HAT_7),    # crash (cada 8 compases)
         golpes([0], 85, ATMOS),
-        golpes([0], 105, SUB_BOOM),
+        golpes([16], 80, REVERSA),                                      # reverso que llega al uno
         golpes([23], 95, SWELL),                                        # llega al uno siguiente
     ]
     cadenas = {
@@ -193,7 +195,8 @@ def template2():
         "Capa 2": ((2, 5), 2, 4, 3), "Capa 3": ((2, 5), 3, 4, 4), "Respiro": (1, 1, 2, (7, 8)),
         "Tension": ((2, 5), 4, 5, 3), "Nucleo A": ((2, 5), 3, 4, (5, 8)), "Nucleo B": ((2, 5), 4, 5, (2, 3)),
         "Respiro 2": (7, 5, 6, (7, 8)), "Nucleo C": ((2, 5), (3, 4), 4, (5, 8)), "Fragmento": (6, 2, 5, (3, 4)),
-        "Nucleo D": ((2, 5), 4, 4, (2, 3)), "Disolucion": ((2, 5), 1, 3, 6), "Final": (1, 1, 2, 6),
+        "Nucleo D": ((2, 5), 4, 4, (2, 3)), "Disolucion": ((2, 5), 1, 3, 6), "Eco": ((2, 5), 1, 2, (2, 3)),
+        "Final": (1, 1, 2, 6),
     }
     sonidos = {"drum1": {"sample": BOMBO, "level": 118}, "drum2": {"sample": SNARE, "level": 85},
                "drum3": {"sample": HAT_OFF, "level": 85}, "drum4": {"sample": ZAP, "level": 80}}
@@ -254,7 +257,8 @@ def template3():
         "Groove B": ((2, 5), (2, 3), 3, (1, 2)), "Toms": ((2, 5), (3, 4), 3, 8), "Breakdown": (1, 5, 7, 7),
         "Rise": (1, (5, 8), 6, (5, 6)), "Climax A": ((2, 5), 2, 5, (3, 4)), "Climax B": ((2, 5), (3, 4), 5, 8),
         "Groove C": ((2, 5), 2, 3, (1, 2)), "Break 2": (8, 1, 7, 7), "Rise 2": (1, (5, 8), 6, (5, 6)),
-        "Drop": ((2, 5), 2, 5, (3, 4)), "Groove D": ((2, 5), (2, 3), 2, 8), "Outro": ((2, 5), 1, 4, 7),
+        "Drop": ((2, 5), 2, 5, (3, 4)), "Groove D": ((2, 5), (2, 3), 2, 8),
+        "Groove E": ((2, 5), 2, 3, (1, 2)), "Outro": ((2, 5), 1, 4, 7),
     }
     sonidos = {"drum1": {"sample": BOMBO, "level": 118}, "drum2": {"sample": SNARE, "level": 95},
                "drum3": {"sample": HAT_ABIERTO, "level": 85}, "drum4": {"sample": TOM_1, "level": 85}}
@@ -317,6 +321,7 @@ def template4():
         "Danza A": ((2, 5), (2, 3), 2, (2, 3)), "Danza B": ((2, 5), (3, 4), 3, 4), "Ceremonia": (7, 7, 5, 8),
         "Fuego": (1, (5, 6), 2, (6, 7)), "Trance A": ((2, 5), (2, 3), 3, (5, 6)), "Trance B": ((2, 5), (3, 4), 2, 4),
         "Circulo": (1, 1, 5, 8), "Fuego 2": (1, (5, 6), 2, (6, 7)), "Trance C": ((2, 5), (3, 4), 3, (5, 6)),
+        "Trance D": ((2, 5), (3, 4), 2, 4), "Danza C": ((2, 5), (3, 4), 3, 4),
         "Danza final": ((2, 5), (2, 3), 1, (2, 3)), "Despedida": ((2, 5), 7, 5, 3),
     }
     sonidos = {"drum1": {"sample": BOMBO, "level": 118}, "drum2": {"sample": TOM_SNARE, "level": 90},

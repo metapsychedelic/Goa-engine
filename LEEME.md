@@ -269,13 +269,15 @@ apagado.
 **Plantillas:** *Cargar plantilla…* pone una estructura lista. Cada una tiene su
 proyecto gemelo en la Circuit (percusión con el banco FROM GOA TO PSYT):
 
-- **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 partes, 232 compases (6:38).
-- **Template 2 · Dark minimal** (proyecto 33): 142 BPM, 15 partes, 224 compases
-  (6:19). Estilo Zenonesque: pocos elementos que entran de a uno, glitch, sub booms.
-- **Template 3 · Goa clásico** (proyecto 34): 140 BPM, 15 partes, 216 compases
-  (6:10). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
-- **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 14 partes, 200 compases
-  (5:43). Congas y toms, tambores antes del bombo, ceremonia a medio tiempo.
+- **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 escenas de 16 compases,
+  256 compases (7:19).
+- **Template 2 · Dark minimal** (proyecto 33): 142 BPM, 16 escenas de 16 compases,
+  256 compases (7:13). Estilo Zenonesque: pocos elementos que entran de a uno,
+  glitch solo agudo (el grave queda para el bombo y el bajo del motor).
+- **Template 3 · Goa clásico** (proyecto 34): 140 BPM, 16 escenas de 16 compases,
+  256 compases (7:19). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
+- **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 16 escenas de 16 compases,
+  256 compases (7:19). Congas y toms, tambores antes del bombo, ceremonia a medio tiempo.
 - **Template 5 · Goa épico** (proyecto 40): 140 BPM, 16 partes, 224 compases (6:24). Arcos
   largos, redobles en dos olas, crash cada 8 compases.
 - **Template 6 · Psy chill** (proyecto 41): 104 BPM con shuffle, 16 escenas de 16

@@ -210,8 +210,12 @@ if __name__ == "__main__":
     print("\nPlantillas")
     from goa import plantillas
     t = normalizar(dict(armar(), parte=plantillas.partes_de("template1")))
-    todo &= ok(len(t["parte"]) == 16 and forma.total_cancion(t["parte"]) == 232 and all(p["escena"] == -1 for p in t["parte"]),
-               "Template 1: 16 partes (las 16 escenas de la Circuit), 232 compases, sin escenas")
+    todo &= ok(len(t["parte"]) == 16 and forma.total_cancion(t["parte"]) == 256 and all(p["escena"] == -1 for p in t["parte"]),
+               "Template 1: 16 partes (las 16 escenas de la Circuit), 256 compases, sin escenas")
+    from goa import plantillas as _pl
+    todo &= ok(all(len(_pl.partes_de(k)) == 16 and forma.total_cancion(_pl.partes_de(k)) == 256
+                   for k in ("template1", "template2", "template3", "template4", "template6", "template7", "template8", "template9")),
+               "templates 1-4 y 6-9: 16 escenas de 16 compases (256)")
     todo &= ok(all(p["compases"] in (8, 16) for p in t["parte"]),
                "cada parte dura 8 o 16 compases, como sus escenas en la Circuit")
     buenas = all(len(x["partes"]) <= 16 and all(c in (8, 16) for _, c, *_ in x["partes"])

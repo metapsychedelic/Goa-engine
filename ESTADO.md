@@ -48,10 +48,10 @@ Canción, Ajustes).
 - Templates (app + Circuit). Synth 1 = pista regla del largo de escena;
   MIDI 1 nota larga F2 canal 3 (pads), MIDI 2 canal 4 (secuencias). Crash con
   reverb Hall + algo de delay.
-  - T1 Psytrance (proyecto 32), T2 Dark minimal 142 (33), T3 Goa clásico (34),
+  - T1 Psytrance (proyecto 32), T2 Dark minimal 142 (33, glitch solo agudo), T3 Goa clásico (34),
     T4 Goa tribal (35), T5 Goa épico (40), T6 Psy chill 104 (41),
     T7 Chillgressive 120 (42), T8 Chillout 92 (43), T9 Ambient 76 (44).
-  - T6–T9: 16 escenas × 16 compases = 256 compases (máximo de la Circuit).
+  - T1–T4 y T6–T9: 16 escenas × 16 compases = 256 compases (máximo de la Circuit). T5 sigue con escenas de 8.
 - Escalas: doble armónica en Música; escala de color por secuencia (doble armónica,
   persa, enigmática); control ♭2; progresiones i–♭VII–♭VI–♭VII e i–♭II–♭VII–i.
 
