@@ -233,7 +233,17 @@ class Pads:
         if self.aleatoria:
             self.progresion = progresion_aleatoria(tonalidad.intervalos, self.seed)
         else:
-            self.progresion = PROGRESIONES[cfg.get("progresion", "i_bII")]
+            self.progresion = list(PROGRESIONES[cfg.get("progresion", "i_bII")])
+        # Al azar (casilla aparte): parte de la progresión elegida y la va variando.
+        self.azar = bool(cfg.get("azar", False)) and not self.aleatoria
+        self.azar_cada = max(1, int(cfg.get("azar_cada", 2)))
+        self.doblada = False
+        if self.azar and len(self.progresion) == 2:
+            # i – X se toca como i – X – i – X: así la variación cambia solo el último
+            # (i – X – i – Y) y la progresión elegida sigue oyéndose.
+            self.progresion = self.progresion * 2
+            self.doblada = True
+        self._variantes = {}
         self.acorde = ACORDES[cfg.get("acorde", "menor_add9")]
         self.cambia_cada = max(1, int(cfg.get("cambia_cada", 16)))
         self.voces = max(2, min(6, int(cfg.get("voces", 4))))
@@ -275,14 +285,19 @@ class Pads:
 
     def _grado(self, cambio, base=None):
         """Grado del acorde para el cambio número `cambio`, con variación determinista."""
-        grado = self.progresion[cambio % len(self.progresion)]
+        grado = self._en(cambio)
         if self.variacion > 0 and cambio > 0:
-            rng = random.Random(f"pads:{self.seed}:{cambio}")
-            if rng.random() < self.variacion:
-                # Sustituto por terceras (relativo): comparte dos notas con el original.
-                sustituto = grado + rng.choice((2, -2, 5))
-                # Una sorpresa no cae en un acorde disminuido o aumentado.
-                if self._consonante(base, sustituto):
+            sustituto = self._sorpresa(cambio, base, grado)
+            if sustituto is not None:
+                # Una sorpresa no repite el acorde de al lado (si no, ese cambio no se
+                # oiría: el acorde seguiría igual 4, 8 o 16 compases más).
+                n = len(self.tonalidad.intervalos)
+                antes = self._en(cambio - 1)
+                vecinos = {antes % n, self._en(cambio + 1) % n}
+                otra = self._sorpresa(cambio - 1, base, antes) if cambio > 1 else None
+                if otra is not None:
+                    vecinos.add(otra % n)
+                if sustituto % n not in vecinos:
                     grado = sustituto
         if self.aleatoria and not self._consonante(base, grado):
             # La progresión al azar se piensa desde la tónica: si la nota larga es otra
@@ -293,6 +308,19 @@ class Pads:
                     return grado + d
         return grado
 
+    def _en(self, cambio):
+        lista = self.lista(cambio)
+        return lista[cambio % len(lista)]
+
+    def _sorpresa(self, cambio, base, grado):
+        """El sustituto por terceras (relativo, comparte dos notas) si a este cambio le toca
+        sorpresa y no cae en un acorde disminuido o aumentado; si no, None."""
+        rng = random.Random(f"pads:{self.seed}:{cambio}")
+        if rng.random() >= self.variacion:
+            return None
+        sustituto = grado + rng.choice((2, -2, 5))
+        return sustituto if self._consonante(base, sustituto) else None
+
     def _consonante(self, base, grado):
         """True si el acorde sobre `grado` (contado desde `base`) es mayor o menor."""
         iv = self.tonalidad.intervalos
@@ -302,9 +330,53 @@ class Pads:
             desde = min(range(len(iv)), key=lambda k: min((iv[k] - clase) % 12, (clase - iv[k]) % 12))
         return consonante(iv, desde + grado)
 
+    def lista(self, cambio):
+        """Grados de la vuelta en que cae el cambio número `cambio`. Sin «al azar» es la
+        progresión elegida. Con «al azar», la primera variación suena tal cual y cada
+        `azar_cada` vueltas llega otra variación de la elegida."""
+        if not self.azar or cambio < 0:
+            return self.progresion
+        n = len(self.progresion)
+        cual = (cambio // n) // self.azar_cada
+        if cual == 0:
+            return self.progresion
+        if cual not in self._variantes:
+            self._variantes[cual] = self._variante(cual)
+        return self._variantes[cual]
+
+    def _variante(self, cual):
+        """La progresión elegida con uno o dos acordes cambiados por otros de la escala.
+        Nunca cambia la i del principio. Prefiere los acordes con el color de la escala
+        y los que comparten notas con el que reemplazan (suena emparentado); evita
+        repetir el acorde de al lado y los disminuidos o aumentados."""
+        iv = self.tonalidad.intervalos
+        base = list(self.progresion)
+        n = len(base)
+        rng = random.Random(f"pads-azar:{self.seed}:{cual}:{tuple(base)}")
+        color = COLOR.get(nombre_escala(iv), {})
+        if self.doblada:
+            lugares = [3]  # i – X – i – Y
+        else:
+            lugares = rng.sample(range(1, n), min(n - 1, 1 if n <= 3 else rng.choice((1, 1, 2))))
+        lista = list(base)
+        limpios = [g for g in range(1, len(iv)) if consonante(iv, g)]
+        for p in lugares:
+            orig = base[p]
+            vecinos = {lista[p - 1] % len(iv), lista[(p + 1) % n] % len(iv)}
+            opciones = [g for g in limpios if g != orig % len(iv) and g not in vecinos]
+            if not opciones:
+                continue  # en escalas con pocos acordes limpios, mejor no repetir el de al lado
+            pesos = [color.get(g, 0.6) * (1 + 0.4 * len(set(_triada(iv, g)) & set(_triada(iv, orig))))
+                     for g in opciones]
+            lista[p] = rng.choices(opciones, pesos)[0]
+        return lista
+
     def texto_progresion(self):
-        """La progresión en números romanos desde la tónica, p. ej. 'i – ♭II – ♭vii – iv'."""
-        return " – ".join(numeral(self.tonalidad.intervalos, g) for g in self.progresion)
+        """La progresión que suena en números romanos desde la tónica, p. ej. 'i – ♭II – ♭vii – iv'."""
+        lista = self.progresion
+        if self.azar and self.clave is not None and isinstance(self.clave[0], int):
+            lista = self.lista(self.clave[0])
+        return " – ".join(numeral(self.tonalidad.intervalos, g) for g in lista)
 
     def _base(self, raiz):
         if raiz is None:  # sin nota larga, los pads se callan

@@ -916,14 +916,20 @@ class Motor:
         pa, pb, ma, mb = antes["pads"], despues["pads"], antes["musica"], despues["musica"]
         if self.pads is None or (ma["tonica"], ma["escala"]) != (mb["tonica"], mb["escala"]) or pa["base"] != pb["base"]:
             return compas
-        viejo = self.pads.progresion
         cambio = (compas - self.origen_progresion) // max(1, self.pads.cambia_cada)
+        viejo = self.pads.lista(cambio)
         nuevo_cada = max(1, int(pb["cambia_cada"]))
-        misma = pa["progresion"] == pb["progresion"] and (pa["progresion"] != "aleatoria" or pa.get("seed") == pb.get("seed"))
+        misma = (pa["progresion"] == pb["progresion"] and pa.get("azar") == pb.get("azar")
+                 and (pa["progresion"] != "aleatoria" and not pa.get("azar") or pa.get("seed") == pb.get("seed")))
         if misma and pa["cambia_cada"] != pb["cambia_cada"]:
             # Solo cambió cada cuántos compases: el acorde que suena sigue y el próximo
             # llega en `nuevo_cada` compases (antes volvía a la i y se sentía que no cambiaba).
-            return compas - (cambio % len(viejo)) * nuevo_cada
+            return compas - cambio * nuevo_cada  # sigue en el mismo acorde (y en la misma vuelta)
+        if (pa["progresion"] == pb["progresion"] and pa.get("azar") and pb.get("azar")
+                and pa.get("seed") != pb.get("seed") and pa["cambia_cada"] == pb["cambia_cada"]):
+            # Al azar con otra variante: salta a la primera variación nueva, en su segundo acorde.
+            largo = len(self.pads.progresion)
+            return compas - (int(pb.get("azar_cada", 2)) * largo + 1) * max(1, int(pb["cambia_cada"]))
         solo_variante = (pa["progresion"] == pb["progresion"] == "aleatoria" and pa.get("seed") != pb.get("seed")
                          and pa["cambia_cada"] == pb["cambia_cada"])
         if not solo_variante:

@@ -251,18 +251,17 @@ const PROGRESIONES = [
   ["i_bVI_iv_v","i – ♭VI – iv – v · chillout · menor"],
   ["i_IV","i – IV · abierta, psy chill · dórica"],
   ["i_IV_i_bVII","i – IV – i – ♭VII · psy chill · dórica"],
-  ["pedal_I_II","I – II sobre la raíz · galáctica, ambient · lidia"],
-  ["aleatoria","Al azar · según la escala"]];
+  ["pedal_I_II","I – II sobre la raíz · galáctica, ambient · lidia"]];
 // Qué da cada escala con la progresión al azar (solo acordes mayores y menores).
 const AZAR_ESCALA = {
-  frigio: "Frigio: lo más Goa al azar. Usa i, ♭II, ♭III, iv, ♭VI y ♭vii; prefiere ♭II y vuelve seguido a la i.",
-  frigio_dominante: "Frigio dominante: oriental, pero tiene pocos acordes limpios (I, ♭II, iv, ♭vii): salen progresiones cortas.",
+  frigio: "Frigio: lo más Goa al azar. Usa i, ♭II, ♭III, iv, ♭VI y ♭vii; prefiere el ♭II.",
+  frigio_dominante: "Frigio dominante: oriental, pero tiene pocos acordes limpios (I, ♭II, iv, ♭vii): salen pocas variaciones.",
   menor: "Menor natural: la más versátil al azar. ♭VI y ♭VII le dan el aire épico de trance.",
   menor_armonica: "Menor armónica: el V mayor le da tensión que vuelve a la i. Usa i, iv, V y ♭VI.",
-  hungara_menor: "Húngara menor: muy exótica en melodías, pero solo tiene i, V, ♭VI y vii limpios: progresiones cortas.",
+  hungara_menor: "Húngara menor: muy exótica en melodías, pero solo tiene i, V, ♭VI y vii limpios: pocas variaciones.",
   dorico: "Dórica: luminosa, ideal para psy chill. El IV mayor es su color.",
   lidio: "Lidia: flotante y espacial (ambient). El II mayor es su color.",
-  doble_armonica: "Doble armónica (bizantina): la «misteriosa» del psytrance. Como el frigio dominante con séptima mayor; acordes limpios I, ♭II, iii e iv: progresiones cortas.",
+  doble_armonica: "Doble armónica (bizantina): la «misteriosa» del psytrance. Como el frigio dominante con séptima mayor; acordes limpios I, ♭II, iii e iv: pocas variaciones.",
 };
 const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","Menor add9 (de la escala)"],["triada","Tríada"],["cluster","Cluster suave"],["septima","Séptima (m7 / maj7)"],["novena","Novena (con 5 voces)"]];
 // Escala equivalente en la Circuit (botón Scales): [escala de la Circuit, semitonos a sumar a la tónica].
@@ -606,9 +605,12 @@ function panelPads() {
     el("div", {className: "card principales"}, [
       el("label", {className: "campo"}, ["Progresión", (() => { const s = select(PROGRESIONES, "progresion");
         s.addEventListener("change", () => renderMotores()); return s; })()]),
-      p.progresion === "aleatoria" ? el("p", {className: "ayuda"}, [
+      casilla(p, "azar", "Al azar", "Parte de la progresión elegida y la va variando: la primera vuelta suena tal cual y después cambia uno o dos acordes por otros de la escala.", () => renderMotores()),
+      p.azar ? campo("Nueva variación cada (vueltas de la progresión)", segmentado([["1","1"],["2","2"],["4","4"]], String(p.azar_cada || 2), (v) => { p.azar_cada = parseInt(v); guardar(); }, 3)) : null,
+      p.azar ? el("p", {className: "ayuda"}, [
+        el("span", {textContent: "Suena: "}),
         el("strong", {id: "prog_azar", textContent: (ultimoEstado && ultimoEstado.progresion) || ""}),
-        el("span", {textContent: " " + (AZAR_ESCALA[cfg.musica.escala] || "") + " Otra variante arma otra progresión y se oye desde el próximo compás."})]) : null,
+        el("span", {textContent: " · " + (AZAR_ESCALA[cfg.musica.escala] || "") + " «Otra variante» (arriba) trae otras variaciones y se oye desde el próximo compás."})]) : null,
       el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
       pulso,
       deslizador(p, "golpe", "Largo del golpe", 0.1, 1, 0.05,

@@ -180,7 +180,9 @@ def cambia_armonia(a, b):
     return ((ma["tonica"], ma["escala"]) != (mb["tonica"], mb["escala"])
             or any(pa[k] != pb[k] for k in ("progresion", "cambia_cada", "base"))
             # Al azar, otra variante es otra progresión: la nueva también parte en su i.
-            or ("aleatoria" in (pa["progresion"], pb["progresion"]) and pa.get("seed") != pb.get("seed")))
+            or ("aleatoria" in (pa["progresion"], pb["progresion"]) and pa.get("seed") != pb.get("seed"))
+            # Al azar: otra variante son otras variaciones (la nueva se oye ya, ver motor._origen_nueva).
+            or ((pa.get("azar") or pb.get("azar")) and pa.get("seed") != pb.get("seed")))
 
 
 def cambia_tono(a, b):

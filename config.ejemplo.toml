@@ -48,6 +48,8 @@ base = "nota"             # "nota": la progresión parte de la nota larga · "to
 progresion = "i_bII"      # frigio: i_bII, i_bII_bIII_bII, i_bIII_bII_i, i_bVI_bII, i_bII_bVII_i ·
                           # i_bVI_bVII, i_v, drone_modal, i_iv_bII_i, andaluza,
                           # i_IV, i_IV_i_bVII, i_bVI_bVII_v, i_bVI_iv_v, pedal_I_II
+azar = false              # true: parte de la progresión elegida y la va variando (1 o 2 acordes)
+azar_cada = 2             # vueltas de la progresión entre una variación y otra
 acorde = "menor_add9"     # quintas, sus2, menor_add9, triada, cluster, septima, novena
 cambia_cada = 16          # compases por acorde
 voces = 4                 # 2 a 6 (la MicroFreak toca hasta 4)

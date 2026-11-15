@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.35.2** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.36.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -22,6 +22,12 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+- v0.36.0 Pads: «Al azar» salió del menú de progresiones y es una casilla (azar,
+  azar_cada): parte de la progresión elegida, la primera variación suena tal cual y cada
+  N vueltas cambia 1 o 2 acordes por otros limpios de la escala (i – X se dobla a
+  i – X – i – Y). Configs con "aleatoria" pasan a i_bII + azar. Las sorpresas
+  (variación) ya no repiten el acorde de al lado: antes a veces un cambio no se oía
+  (posible causa de "no cambia cada 4").
 - v0.35.2 Progresiones frigias nuevas: i–♭II–♭III–♭II, i–♭III–♭II–i, i–♭VI–♭II. El menú
   de progresiones dice en qué escalas suena mejor cada una (frigias primero).
 - v0.35.1 Pads: el frigio al azar ya no es casi siempre de dos acordes (deja de ser

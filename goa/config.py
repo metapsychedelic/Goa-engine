@@ -43,6 +43,8 @@ ESQUEMA_SECCIONES = {
         "programa": (int, 0, 0, 128),           # Program Change del sinte (1-128); 0 = no lo cambia
         "base": (str, "nota", None, pads.BASES),
         "progresion": (str, "i_bII", None, tuple(pads.PROGRESIONES)),
+        "azar": (bool, False, None, None),      # parte de la progresión elegida y la va variando
+        "azar_cada": (int, 2, 1, 8),             # vueltas de la progresión entre una variación y otra
         "acorde": (str, "menor_add9", None, tuple(pads.ACORDES)),
         "cambia_cada": (int, 16, 1, 64),
         "voces": (int, 4, 2, 6),
@@ -271,6 +273,9 @@ def normalizar(cfg):
     if not isinstance(cfg, dict):
         raise ConfigError("La configuración debe ser un objeto")
     limpia = {}
+    if isinstance(cfg.get("pads"), dict) and cfg["pads"].get("progresion") == "aleatoria":
+        # «Al azar» ya no es una progresión del menú: es una casilla que varía la elegida.
+        cfg = dict(cfg, pads=dict(cfg["pads"], progresion="i_bII", azar=True))
     if isinstance(cfg.get("bajo"), dict) and cfg["bajo"].get("estilo") in bajo.ALIAS:
         cfg = dict(cfg, bajo=dict(cfg["bajo"], estilo=bajo.ALIAS[cfg["bajo"]["estilo"]]))
     for seccion, esquema in ESQUEMA_SECCIONES.items():

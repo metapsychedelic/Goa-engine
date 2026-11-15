@@ -110,7 +110,8 @@ if __name__ == "__main__":
     # Otra variante al azar se oye en el compás siguiente, aunque suene la i.
     for seed_nueva in ("P-0BEE", "Q-1234", "R-9999", "S-0042"):
         cfg = normalizar(base())
-        cfg["pads"].update(activo=True, disparo=2, progresion="aleatoria", cambia_cada=16, seed="P-0001")
+        cfg["pads"].update(activo=True, disparo=2, progresion="i_bVI_bVII", azar=True, cambia_cada=16, seed="P-0001")
+        cfg = normalizar(cfg)
         otra = normalizar(dict(cfg, pads=dict(cfg["pads"], seed=seed_nueva)))
         r = raices(cfg, 12, cambio=(5, otra))  # en el compás 5 suena la i
         todo &= ok(r[6] != r[5], f"otra variante ({seed_nueva}) se oye en el compás siguiente, sin esperar 16")
@@ -124,6 +125,26 @@ if __name__ == "__main__":
         cambios = [c for c in range(7, 31) if r[c] != r[c - 1]]
         todo &= ok(r[7] == r[6] and cambios[:3] == [11, 15, 19],
                    f"{prog}: de 16 a 4 en vivo, el acorde sigue y cambia cada 4 ({cambios[:4]})")
+
+    # «Al azar» como casilla: parte de la elegida y la va variando.
+    ton = Tonalidad("F", "frigio")
+    for clave in ("i_bII", "i_bII_bIII_bII", "i_bVI_bVII", "i_iv_bII_i"):
+        elegida = pads.PROGRESIONES[clave]
+        p = pads.Pads({"activo": True, "progresion": clave, "azar": True, "azar_cada": 2, "seed": "AZ-1"}, ton)
+        n = len(p.progresion)
+        primera = [p.lista(c)[c % n] for c in range(2 * n)]
+        todo &= ok(primera == (elegida * 4)[:2 * n], f"{clave}: las dos primeras vueltas suenan tal cual")
+        variaciones = [p.lista(c) for c in range(2 * n, 40 * n, 2 * n)]
+        distintas = {tuple(v) for v in variaciones}
+        todo &= ok(len(distintas) >= 2 and all(v[0] == 0 for v in variaciones), f"{clave}: después va variando, siempre parte en la i ({len(distintas)} variaciones)")
+        cambios = [sum(a != b for a, b in zip(v, p.progresion)) for v in variaciones]
+        todo &= ok(all(1 <= c <= 2 for c in cambios), f"{clave}: cada variación cambia uno o dos acordes")
+        todo &= ok(all(pads.consonante(ton.intervalos, g) for v in variaciones for g in v if g not in elegida),
+                   f"{clave}: los acordes nuevos son mayores o menores")
+    p = pads.Pads({"activo": True, "progresion": "i_bII", "azar": True, "seed": "AZ-1"}, ton)
+    todo &= ok(all(v[:3] == [0, 1, 0] for v in (p.lista(c) for c in range(0, 80, 4))), "i – ♭II al azar: i – ♭II – i – Y (la elegida se sigue oyendo)")
+    vieja = normalizar({"pads": {"progresion": "aleatoria"}})
+    todo &= ok(vieja["pads"]["progresion"] == "i_bII" and vieja["pads"]["azar"], "una configuración con «aleatoria» pasa a i – ♭II con «al azar»")
 
     # El frigio al azar ya no es casi siempre de dos acordes.
     largos = [len(pads.progresion_aleatoria(ESCALAS["frigio"], s)) for s in SEEDS]
