@@ -384,8 +384,227 @@ def template5():
     return "GOA EPICO", K, C, H, P, cadenas, sonidos, envios, 50
 
 
+def _redobles(muestra, niveles=((45, 70), (70, 90), (90, 110), (110, 127))):
+    """Los 4 patrones de un redoble que se acelera (negras, corcheas, semicorcheas, semicorcheas)."""
+    (a, b), (c, d), (e, f), (g, h) = niveles
+    return [redoble(list(range(0, 32, 4)), a, b, muestra), redoble(list(range(0, 32, 2)), c, d, muestra),
+            redoble(list(range(0, 32)), e, f, muestra), redoble(list(range(0, 32)), g, h, muestra)]
+
+
+def _bombos(base, vel):
+    """Bombos de 4 por 4: 1 vacío, 2 base, 3 base con fantasmas, 4 con hueco al final,
+    y la subida 5-8: un golpe, blancas, negras, negras que pasan a corcheas."""
+    return [
+        {},
+        golpes(base, vel),
+        golpes(base, vel) | golpes([(14, 65), (30, 70)]),
+        golpes(base[:-1], vel),
+        golpes([0], vel),
+        golpes([0, 8, 16, 24], vel),
+        golpes(NEGRAS, vel),
+        golpes(NEGRAS[:4] + list(range(16, 32, 2)), vel - 2),
+    ]
+
+
+# =====================================================================
+# Template 6 · Psy chill 104
+# =====================================================================
+def template6():
+    BOMBO, CLAP, SNARE = 1, 17, 25
+    HAT_ABIERTO, SHAKER, HAT_CERRADO = 35, 43, 37
+    K = _bombos(NEGRAS, 108)
+    C = [{}, golpes(DOS_Y_CUATRO, 90),
+         golpes(DOS_Y_CUATRO, 90) | golpes([(23, 50), (30, 60)], muestra=SNARE),
+         golpes([12, 28], 90)] + _redobles(SNARE, ((40, 60), (60, 80), (80, 100), (100, 120)))
+    H = [
+        {},
+        golpes(CONTRAS, 85, HAT_ABIERTO),
+        golpes(CONTRAS, 85, HAT_ABIERTO) | golpes([(p, 45) for p in range(1, 32, 2)], muestra=HAT_CERRADO),
+        golpes([(p, 55) for p in range(0, 32, 2)], muestra=HAT_CERRADO),
+        golpes([(p, 30 + p * 2) for p in range(32)], muestra=HAT_CERRADO),     # crecen
+        golpes([(6, 60), (22, 65)], muestra=HAT_ABIERTO),
+        golpes([(p, 55 if p % 4 == 2 else 35) for p in range(32)], muestra=SHAKER),
+        {},
+    ]
+    P = [
+        {},
+        golpes([0], 105, CRASH) | golpes([(11, 65), (27, 70)], muestra=CONGA_A),
+        golpes([(3, 70), (7, 55), (11, 75), (19, 70), (27, 60)], muestra=CONGA_A),
+        golpes([(3, 70), (11, 75), (19, 70)], muestra=CONGA_A) | golpes([(14, 60), (30, 65)], muestra=PERC_A),
+        golpes([(3, 70), (11, 75)], muestra=CONGA_A) | golpes([(22, 65)], muestra=BLIP_1),
+        golpes([18], 95, RISER),
+        golpes([23], 95, SWELL),
+        golpes([0], 85, ATMOS) | golpes([(6, 60), (22, 60)], muestra=BLIP_1),
+    ]
+    cadenas = {
+        "Intro": (1, 1, 6, 8), "Entra bombo": (2, 1, 7, 8), "Groove A": (2, 2, 2, (2, 5)),
+        "Groove B": (3, 3, 3, (2, 5)), "Break": (5, 4, 7, 8), "Rise": ((5, 8), (5, 8), 5, (6, 7)),
+        "Viaje A": (2, 2, 3, (2, 5)), "Viaje B": (3, 3, 4, (2, 5)), "Respiro": (1, 4, 7, 8),
+        "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Viaje C": (3, 3, 3, (2, 5)), "Outro": (2, 1, 2, 8),
+    }
+    sonidos = {"drum1": {"sample": BOMBO, "level": 115}, "drum2": {"sample": CLAP, "level": 90},
+               "drum3": {"sample": HAT_ABIERTO, "level": 80}, "drum4": {"sample": CONGA_A, "level": 80}}
+    envios = {"reverb": {"drum2": 40, "drum3": 15, "drum4": 40}, "delay": {"drum2": 15, "drum4": 30}}
+    return "PSY CHILL", K, C, H, P, cadenas, sonidos, envios, 56
+
+
+# =====================================================================
+# Template 7 · Chillgressive 120
+# =====================================================================
+def template7():
+    BOMBO, CLAP, SNARE_ROLL = 7, 19, 22
+    HAT_CERRADO, HAT_ABIERTO, HAT_FINO = 34, 39, 42
+    PERC, REVERSA, SUB_BLIP = 45, 61, 56
+    K = _bombos(NEGRAS, 112)
+    C = [{}, golpes(DOS_Y_CUATRO, 95),
+         golpes(DOS_Y_CUATRO, 95) | golpes([(30, 55)]),
+         golpes([12, 28], 95)] + _redobles(SNARE_ROLL)
+    H = [
+        {},
+        golpes(CONTRAS, 90, HAT_ABIERTO),
+        golpes([(p, 80 if p % 4 == 2 else 45) for p in range(32)], muestra=HAT_CERRADO),   # rolling
+        golpes(CONTRAS, 85, HAT_ABIERTO) | golpes([(p, 45) for p in range(32) if p % 4 != 2], muestra=HAT_FINO),
+        golpes([(p, 30 + p * 2) for p in range(32)], muestra=HAT_CERRADO),
+        golpes([(p, 55) for p in range(0, 32, 2)], muestra=HAT_FINO),
+        golpes([(14, 70), (30, 80)], muestra=HAT_ABIERTO),
+        {},
+    ]
+    P = [
+        {},
+        golpes([0], 108, CRASH) | golpes([(6, 70), (22, 70)], muestra=PERC),
+        golpes([(3, 70), (6, 75), (11, 65), (19, 70), (22, 75), (27, 65)], muestra=PERC),
+        golpes([(3, 70), (6, 75), (19, 70), (22, 75)], muestra=PERC) | golpes([(13, 75), (29, 70)], muestra=SUB_BLIP),
+        golpes([(3, 70), (6, 75), (19, 70)], muestra=PERC) | golpes([(31, 80)], muestra=ZAP),
+        golpes([18], 100, RISER),
+        golpes([23], 100, SWELL),
+        golpes([0], 85, ATMOS) | golpes([(24, 70)], muestra=REVERSA),
+    ]
+    cadenas = {
+        "Intro": (1, 1, 6, 8), "Pulso": (2, 1, 6, 8), "Groove A": (2, 2, 2, (2, 5)),
+        "Groove B": (2, 3, 4, (2, 5)), "Break": (1, 4, 7, 8), "Rise": ((5, 8), (5, 8), 5, (6, 7)),
+        "Drive A": (3, 2, 4, (2, 5)), "Drive B": (3, 3, 3, (2, 5)), "Break 2": (1, 4, 7, 8),
+        "Rise 2": ((5, 8), (5, 8), 5, (6, 7)), "Drive C": (3, 3, 4, (2, 5)), "Outro": (2, 1, 6, 8),
+    }
+    sonidos = {"drum1": {"sample": BOMBO, "level": 118}, "drum2": {"sample": CLAP, "level": 92},
+               "drum3": {"sample": HAT_CERRADO, "level": 82}, "drum4": {"sample": PERC, "level": 80}}
+    envios = {"reverb": {"drum2": 35, "drum4": 35}, "delay": {"drum3": 10, "drum4": 30}}
+    return "CHILLGRESSIVE", K, C, H, P, cadenas, sonidos, envios, 50
+
+
+# =====================================================================
+# Template 8 · Chillout 92 (beat quebrado)
+# =====================================================================
+def template8():
+    BOMBO, SNARE = 9, 26
+    SHAKER, HAT_ABIERTO = 37, 35
+    QUEBRADO = [0, 7, 10, 16, 26]
+    K = [
+        {},
+        golpes(QUEBRADO, 110),
+        golpes(QUEBRADO, 110) | golpes([(23, 60), (30, 55)]),
+        golpes(QUEBRADO[:-1], 110),
+        golpes([0], 110),
+        golpes([0, 16], 110),
+        golpes([0, 10, 16, 26], 110),
+        golpes([0, 10] + list(range(16, 32, 2)), 106),
+    ]
+    C = [{}, golpes(DOS_Y_CUATRO, 95),
+         golpes(DOS_Y_CUATRO, 95) | golpes([(14, 40), (27, 45), (30, 40)]),
+         golpes([28], 95)] + _redobles(SNARE, ((35, 55), (50, 70), (65, 85), (80, 100)))
+    H = [
+        {},
+        golpes([(p, 60 if p % 2 == 0 else 38) for p in range(32)], muestra=SHAKER),
+        golpes([(p, 55) for p in range(0, 32, 2)], muestra=SHAKER),
+        golpes([(p, 60 if p % 2 == 0 else 38) for p in range(32) if p not in (14, 30)], muestra=SHAKER)
+        | golpes([(14, 65), (30, 70)], muestra=HAT_ABIERTO),
+        golpes([(p, 25 + p * 2) for p in range(32)], muestra=SHAKER),
+        golpes([(6, 55), (22, 60)], muestra=HAT_ABIERTO),
+        golpes([(p, 50) for p in range(2, 32, 4)], muestra=HAT_ABIERTO),
+        {},
+    ]
+    P = [
+        {},
+        golpes([0], 95, CRASH) | golpes([(11, 60), (27, 65)], muestra=CONGA_A),
+        golpes([(3, 65), (11, 60), (14, 55), (19, 65), (27, 60)], muestra=CONGA_A),
+        golpes([(3, 65), (19, 65)], muestra=CONGA_A) | golpes([(11, 60), (14, 50), (27, 60)], muestra=PERC_A),
+        golpes([(3, 60), (19, 60)], muestra=CONGA_A) | golpes([(9, 60), (25, 55)], muestra=BLIP_2),
+        golpes([18], 90, RISER),
+        golpes([23], 90, SWELL),
+        golpes([0], 85, ATMOS),
+    ]
+    cadenas = {
+        "Intro": (1, 1, 6, 8), "Llega el beat": (2, 4, 2, 8), "Tema A": (2, 2, 2, (2, 5)),
+        "Tema B": (3, 3, 4, (2, 5)), "Pausa": (1, 1, 6, 8), "Vuelta": ((5, 8), (5, 8), 5, (6, 7)),
+        "Tema C": ((2, 3), 3, 4, (2, 5)), "Tema D": (3, 3, 7, (2, 5)), "Final": (2, 4, 6, 8),
+    }
+    sonidos = {"drum1": {"sample": BOMBO, "level": 112}, "drum2": {"sample": SNARE, "level": 88},
+               "drum3": {"sample": SHAKER, "level": 75}, "drum4": {"sample": CONGA_A, "level": 78}}
+    envios = {"reverb": {"drum2": 45, "drum3": 20, "drum4": 45}, "delay": {"drum2": 20, "drum4": 35}}
+    return "CHILLOUT", K, C, H, P, cadenas, sonidos, envios, 58
+
+
+# =====================================================================
+# Template 9 · Ambient 76 (sin bombo fijo)
+# =====================================================================
+def template9():
+    BOOM, SUB_DROP, LATIDO = 48, 50, 11
+    PERC_SUAVE, TOM_A, TOM_B, SNARE_CUERPO = 54, 31, 55, 25
+    SHAKER, HAT_ABIERTO = 43, 35
+    REVERSA, BLIP = 61, 59
+    K = [
+        {},
+        golpes([0], 90, SUB_BOOM),
+        golpes([0, 16], 85, SUB_BOOM),
+        golpes([0], 85, BOOM) | golpes([(22, 60)], muestra=BOOM),
+        golpes([(0, 80), (3, 55), (16, 80), (19, 55)], muestra=LATIDO),        # latido
+        golpes([0], 95, SUB_DROP),
+        golpes([0], 70, SUB_BOOM),
+        {},
+    ]
+    C = [
+        {},
+        golpes([(8, 60)], muestra=TOM_GRAVE),
+        golpes([(6, 50), (13, 40), (22, 55)], muestra=PERC_SUAVE),
+        golpes([(12, 55)], muestra=TOM_A) | golpes([(28, 50)], muestra=TOM_B),
+        golpes([(24, 45)], muestra=SNARE_CUERPO),
+        golpes([(10, 45), (26, 45)], muestra=PERC_B),
+        {},
+        {},
+    ]
+    H = [
+        {},
+        golpes([(p, 40 if p % 4 == 0 else 28) for p in range(0, 32, 2)], muestra=SHAKER),
+        golpes([(p, 25 + (p % 4 == 0) * 10) for p in range(32)], muestra=SHAKER),
+        golpes([(14, 40), (30, 45)], muestra=HAT_ABIERTO),
+        golpes([(p, 35) for p in range(0, 32, 2)], muestra=SHAKER) | golpes([(30, 40)], muestra=HAT_ABIERTO),
+        {},
+        {},
+        {},
+    ]
+    P = [
+        {},
+        golpes([0], 80, CRASH),
+        golpes([0], 80, ATMOS),
+        golpes([16], 75, SWELL),
+        golpes([24], 70, REVERSA),
+        golpes([(6, 60), (19, 55)], muestra=BLIP),
+        golpes([0], 75, ATMOS) | golpes([(19, 50)], muestra=BLIP),
+        golpes([18], 75, RISER),
+    ]
+    cadenas = {
+        "Niebla": (1, 1, 1, (3, 6)), "Marea": (2, 2, 1, (3, 6)), "Luz": (2, 3, 2, (5, 8)),
+        "Pulso suave": (5, 3, 3, (3, 6)), "Profundo": ((6, 7), 4, 4, (2, 5)),
+        "Claro": (5, (3, 4), 5, (5, 8)), "Disolucion": (2, 2, 1, (3, 6)),
+    }
+    sonidos = {"drum1": {"sample": SUB_BOOM, "level": 110}, "drum2": {"sample": PERC_SUAVE, "level": 80},
+               "drum3": {"sample": SHAKER, "level": 65}, "drum4": {"sample": ATMOS, "level": 85}}
+    envios = {"reverb": {"drum1": 25, "drum2": 60, "drum3": 40, "drum4": 65}, "delay": {"drum2": 40, "drum3": 20, "drum4": 40}}
+    return "AMBIENT", K, C, H, P, cadenas, sonidos, envios, 50
+
+
 TEMPLATES = {"template1": template1, "template2": template2, "template3": template3,
-             "template4": template4, "template5": template5}
+             "template4": template4, "template5": template5, "template6": template6,
+             "template7": template7, "template8": template8, "template9": template9}
 
 
 def _rango(x):
@@ -425,7 +644,7 @@ def armar(clave):
             pistas["midi2"] = {"steps": nota_larga()}
         patrones[f"p{i + 1}"] = {"length": PASOS, "tracks": pistas}
     cancion = {
-        "name": nombre, "bpm": plantilla["bpm"], "swing": swing, "scale": {"root": "F", "type": "phrygian"},
+        "name": nombre, "bpm": plantilla["bpm"], "swing": swing, "scale": {"root": "F", "type": plantilla.get("escala_circuit", "phrygian")},
         "sounds": sonidos,
         "fx": {"reverb_preset": "hall", "delay_preset": "8th dotted ping pong",
                "reverb_sends": envios["reverb"], "delay_sends": envios["delay"]},
