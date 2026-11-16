@@ -263,13 +263,13 @@ if __name__ == "__main__":
                + ("" if not any(pisadas.values()) else f": {[k for k, v in pisadas.items() if v][:4]}"))
 
     print("\nDeepnotic y filtro automático")
-    dp = Bajo({"activo": True, "estilo": "deepnotic", "remates": False, "movimiento": 0.0, "atraso": 0.35}, T("F", "frigio"))
+    dp = Bajo({"activo": True, "estilo": "deepnotic", "remates": False, "movimiento": 0.0}, T("F", "frigio"))
     g0 = dp.golpes(0)
-    todo &= ok(sorted(g0) == [1, 3, 5, 7, 9, 11, 13, 15] and all(g0[l].grado == 0 for l in (3, 7, 11, 15))
-               and all(g0[l].grado == gb.DEEP_FIJA for l in (5, 13)),
-               "deepnotic: dos notas por tiempo; la grave en la 4.ª semicorchea, la alta vuelve a la quinta en los tiempos 2 y 4")
-    altas = {tuple(dp.golpes(c)[l].grado for l in (1, 9)) for c in range(8)}
-    todo &= ok(len(altas) > 2, f"la nota alta de los tiempos 1 y 3 va cambiando de compás en compás ({len(altas)} combinaciones en 8)")
+    todo &= ok(sorted(g0) == [2, 3, 6, 7, 10, 11, 14, 15] and all(g0[l].grado == 0 for l in (6, 14, 3, 7, 11, 15)),
+               "deepnotic: la nota a contratiempo y una corta en la 4.ª; en los tiempos 2 y 4 la de contratiempo es la raíz")
+    altas = {tuple(dp.golpes(c)[l].grado for l in (2, 10)) for c in range(8)}
+    todo &= ok(len(altas) > 2 and all(min(a) > 0 for a in altas),
+               f"en los tiempos 1 y 3 la de contratiempo sube y cambia de compás en compás ({len(altas)} combinaciones en 8)")
     ev = []
     for paso in range(16):
         for k in range(6):
@@ -277,8 +277,9 @@ if __name__ == "__main__":
             dp.tick(t, lambda *a, t=t: ev.append((t,) + a))
             if k == 0:
                 dp.paso(paso, t, 41, None, False, lambda *a, t=t: ev.append((t,) + a))
-    ons = [t for t, _, tipo, *_ in ev if tipo == "note_on"]
-    todo &= ok(ons[:2] == [6 + 2, 18], f"la nota alta va atrasada 2 pulsos (hacia el tresillo) y la grave cae recta ({ons[:2]})")
+    ons = [(t, v) for t, _, tipo, _, _, v in ev if tipo == "note_on"]
+    todo &= ok([t for t, _ in ons[:2]] == [12, 18] and ons[1][1] < ons[0][1],
+               f"recto en 4/4: contratiempo (pulso 12) y la corta (18), más suave ({ons[:2]})")
     fb = Bajo({"activo": True, "estilo": "rolling", "filtro": True, "filtro_min": 20, "filtro_max": 100, "filtro_ciclo": 8}, T("F", "frigio"))
     valores = [fb.valor_filtro(c) for c in range(17)]
     todo &= ok(valores[0] == 20 and valores[7] > 85 and valores[8] == 20 and valores == sorted(valores[:8]) + valores[8:],

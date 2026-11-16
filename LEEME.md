@@ -500,10 +500,11 @@ corrida que baja). Controles (grupo Ritmo):
   arriba, sus notas van sin slide, se vuelven a atacar y con un acento suave (con su
   largo normal, para que no suene a corte).
 
-**Deepnotic** (estilo de bajo, géneros Goa y Chillgressive): dos notas por tiempo,
-como Dekel. Una alta en la 2.ª semicorchea y una grave en la 4.ª (con **Atraso de
-la nota alta** se puede correr la alta hacia el tresillo; 0 = recta, en 4/4). La alta vuelve a la quinta en los
-tiempos 2 y 4 y cambia de compás en compás en el 1 y el 3.
+**Deepnotic** (estilo de bajo, géneros Goa y Chillgressive), como Dekel: la nota a
+contratiempo, con cuerpo, y una corta y suave en la 4.ª semicorchea que empuja al
+bombo. En los tiempos 2 y 4 la de contratiempo vuelve a la raíz; en el 1 y el 3
+sube y cambia de compás en compás. **Atraso del contratiempo** (0 = recto) la
+corre un poco atrás para un groove más relajado.
 
 **Filtro automático** (grupo propio en el bajo, apagado por defecto): el motor manda
 MIDI CC al sinte del bajo para abrir el filtro de a poco, como en el psy progresivo
