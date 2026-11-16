@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.44.8** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.45.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.45.0 · Estilo Deepnotic (Dekel) + filtro automático por CC + Template 10:** analizado «Free Diving» (Dekel & Satcha, 136 BPM): dos notas de bajo por tiempo (alta atrasada ~1/3 de semicorchea, grave en la 4.ª), la alta fija en tiempos pares y variando en impares, y el filtro abriéndose 1,5-2 min y cerrándose en cada quiebre. bajo: estilo `deepnotic`, `atraso`, `filtro*` (CC por tiempo; motor_forma lo reinicia en quiebres). Plantilla template10 (136 BPM, Circuit proyecto 45) y su batería en herramientas/circuit_cancion.py.
 
 - **0.44.8 · Remate con acento suave:** +6 sobre la fuerza del bajo (antes +12 que se sumaba a los acentos al azar y llegaba a 127).
 

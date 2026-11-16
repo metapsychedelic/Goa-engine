@@ -500,6 +500,19 @@ corrida que baja). Controles (grupo Ritmo):
   arriba, sus notas van sin slide, se vuelven a atacar y con un acento suave (con su
   largo normal, para que no suene a corte).
 
+**Deepnotic** (estilo de bajo, géneros Goa y Chillgressive): dos notas por tiempo,
+como Dekel. Una alta atrasada hacia el tresillo (**Atraso de la nota alta**, 35 %
+por defecto) y una grave en la 4.ª semicorchea. La alta vuelve a la quinta en los
+tiempos 2 y 4 y cambia de compás en compás en el 1 y el 3.
+
+**Filtro automático** (grupo propio en el bajo, apagado por defecto): el motor manda
+MIDI CC al sinte del bajo para abrir el filtro de a poco, como en el psy progresivo
+donde el bajo se mueve más con el filtro que con las notas. Elige qué controla
+(MC-101: CC 74 = corte, CC 71 = resonancia), en cuántos compases se abre (8, 16, 32
+o 64), la forma (sube y vuelve a cerrar, o sube y baja) y los valores cerrado y
+abierto. Manda un CC por tiempo, solo cuando cambia. En el modo canción vuelve a
+cerrarse en cada quiebre (cuando la energía de la parte baja) y empieza de nuevo.
+
 **Notas que suben** (0 = siempre en la raíz): en vez de quedarse en la raíz, la
 última nota de algunos tiempos sigue un camino que sube, como los bajos full-on.
 Bajo hasta un paso de escala, al medio hasta la quinta (y suben dos notas por

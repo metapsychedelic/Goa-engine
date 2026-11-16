@@ -29,9 +29,9 @@ TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
 TICKS_POR_COMPAS = TICKS_POR_PASO * PASOS_POR_COMPAS
 
-ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "dub", "sub")
+ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "deepnotic", "dub", "sub")
 ALIAS = {"psy_chill": "galope"}  # nombre que tuvo en la v0.18.0
-PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive"}
+PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "deepnotic"}
 
 
 @dataclass(frozen=True)
@@ -55,6 +55,9 @@ BASES = {
     "saltado": _cada_tiempo((1, 3), 6),                    # K B · B
     "tresillo": _cada_tiempo((1, 2), 8, {1: 2, 2: 4}),     # K y dos de tresillo (ticks 8 y 16 del tiempo)
     "chillgressive": _cada_tiempo((1, 2, 3), 6),           # rolling oscuro, acento que se mueve
+    # deepnotic (Dekel y el psy progresivo israelí): dos notas por tiempo, una alta
+    # atrasada hacia el tresillo («atraso») y una grave en la 4.ª semicorchea.
+    "deepnotic": _cada_tiempo((1, 3), 6),
     "dub": {0: Golpe(30), 7: Golpe(12), 10: Golpe(24)},    # en el uno, antes del tres y en el tres
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
@@ -72,6 +75,7 @@ REMATES = {
     "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}),
     "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}),
     "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
+    "deepnotic": ({9: 4, 11: 0, 13: 7, 15: 4}, {13: 6, 14: 4, 15: 7}),
     "dub": ({14: 4}, {13: 6, 15: 4}),
     "sub": ({}, {}),
 }
@@ -98,11 +102,17 @@ MOVIMIENTOS = {
     "saltado": [(lambda l: l % 4 == 3, 7, 0.5), (lambda l: l % 4 == 1, 4, 0.2)],
     "tresillo": [(lambda l: l % 4 == 2, 7, 0.5)],
     "chillgressive": [(lambda l: l % 4 == 3, 7, 0.4), (lambda l: l % 4 == 1, 4, 0.2)],
+    "deepnotic": [(lambda l: l % 4 == 3, 7, 0.15)],
     "dub": [(lambda l: l == 7, 7, 0.6), (lambda l: l == 10, 4, 0.6)],
     "sub": [],
 }
 
 GRADOS_MUTACION = (0, 4, 7, 1, -1, 3)
+
+# Deepnotic: la nota alta del tiempo. En los tiempos 2 y 4 vuelve siempre a la quinta;
+# en el 1 y el 3 cambia de compás en compás entre estas (como en «Free Diving» de Dekel).
+DEEP_FIJA = 4
+DEEP_VARIA = (3, 5, 2, 6, 4)
 
 
 class Bajo:
@@ -133,6 +143,16 @@ class Bajo:
         if self.remate_rango not in GRADOS_REMATE:
             self.remate_rango = "octava"
         self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))
+        self.atraso = max(0.0, min(0.6, float(cfg.get("atraso", 0.35))))  # deepnotic: la 2.ª semicorchea hacia el tresillo
+        # Filtro automático por CC (opcional): se abre de a poco y vuelve a cerrarse.
+        self.filtro = bool(cfg.get("filtro", False))
+        self.filtro_cc = max(0, min(127, int(cfg.get("filtro_cc", 74))))
+        self.filtro_min = max(0, min(127, int(cfg.get("filtro_min", 25))))
+        self.filtro_max = max(0, min(127, int(cfg.get("filtro_max", 100))))
+        self.filtro_ciclo = max(1, int(cfg.get("filtro_ciclo", 32)))
+        self.filtro_forma = cfg.get("filtro_forma", "sube")
+        self.filtro_ancla = 0
+        self.filtro_ultimo = None
         self.remate_largas = _fraccion(cfg.get("remate_largas", 0.0))  # frases con una nota larga
         self.remate_largo = max(0.3, min(1.0, float(cfg.get("remate_largo", 0.75))))  # cuánto del hueco ocupa   # 0 = como el resto, 1 = acentuado y sin slide
         self.frase = max(1, int(cfg.get("frase", 4)))
@@ -172,6 +192,9 @@ class Bajo:
         if viejo.base == self.base and viejo.seed == self.seed:
             self.patron = dict(viejo.patron)
             self.mutado_hasta = viejo.mutado_hasta
+        self.filtro_ancla = viejo.filtro_ancla  # el filtro sigue abriéndose donde iba
+        if self.filtro_cc == viejo.filtro_cc:
+            self.filtro_ultimo = viejo.filtro_ultimo
 
     def evolucionar(self, compas):
         """Llamado al inicio de cada compás: cada `mutar_cada` compases puede cambiar un golpe."""
@@ -219,6 +242,10 @@ class Bajo:
         """Golpes de un compás: el patrón (con lo mutado), la densidad, las notas fantasma y el remate."""
         golpes = {l: g for i, (l, g) in enumerate(sorted(self.patron.items()))
                   if i == 0 or self._azar("densidad", l) < self.densidad}
+        if self.estilo == "deepnotic":
+            golpes = {l: (replace(g, grado=DEEP_FIJA if (l // 4) % 2 else
+                                  DEEP_VARIA[int(self._azar("deep", compas * 4 + l // 4) * len(DEEP_VARIA))])
+                          if l % 4 == 1 and g.grado == 0 else g) for l, g in golpes.items()}
         if self.sube and self.estilo not in SIN_SUBE:
             golpes = self._subir(golpes, compas)
         if self.fantasmas:
@@ -260,6 +287,26 @@ class Bajo:
         if len(remate) > 2 and azar_larga.random() < self.remate_largas:
             largas.add(azar_larga.choice(sorted(remate)[:-1]))
         return remate, largas
+
+    def valor_filtro(self, compas, tiempo=0):
+        """Valor del CC del filtro: sube de filtro_min a filtro_max en filtro_ciclo
+        compases desde el ancla («sube»: y vuelve a cerrarse; «ola»: sube y baja)."""
+        total = self.filtro_ciclo * 4
+        k = ((compas - self.filtro_ancla) * 4 + tiempo) % total
+        f = k / max(1, total - 1)
+        if self.filtro_forma == "ola":
+            f = 1 - abs(2 * f - 1)
+        return round(self.filtro_min + (self.filtro_max - self.filtro_min) * f)
+
+    def reiniciar_filtro(self, compas):
+        """Vuelve a cerrar el filtro y empieza a abrirlo desde este compás (un quiebre)."""
+        self.filtro_ancla = compas
+
+    def _mover_filtro(self, compas, tiempo, enviar):
+        valor = self.valor_filtro(compas, tiempo)
+        if valor != self.filtro_ultimo:
+            enviar(self.salida, "control_change", self.canal, self.filtro_cc, valor)
+            self.filtro_ultimo = valor
 
     def _subir(self, golpes, compas):
         """«Notas que suben»: la última nota de algunos tiempos (y con el control alto,
@@ -311,6 +358,8 @@ class Bajo:
         if not self.activo or raiz is None:
             return
         compas, lugar = divmod(paso, PASOS_POR_COMPAS)
+        if self.filtro and lugar % 4 == 0:
+            self._mover_filtro(compas, lugar // 4, enviar)
         golpes = self.golpes(compas)
         if lugar not in golpes:
             return
@@ -319,6 +368,8 @@ class Bajo:
         ultima = falta is not None and not any(lugar < l < lugar + falta for l in golpes)
         nota = self._nota(raiz, golpe.grado, momento, ultima, anticipar)
         retraso = golpe.retraso
+        if self.estilo == "deepnotic" and lugar % 4 == 1 and not retraso:
+            retraso = round(self.atraso * TICKS_POR_PASO)
         if self.swing and lugar % 2 == 1 and not retraso:
             retraso = round(self.swing * TICKS_POR_PASO)
         inicio = tick + retraso

@@ -340,9 +340,9 @@ const FORMAS_TEXTO = {entrelazado: "La respuesta toca solo en los huecos que dej
   turnos: "La llamada toca unos compases y después contesta la respuesta."};
 const ESTILOS_BAJO = [["rolling","Rolling","K B B B"],["fullon","Full-on","K B B B ♪"],["tresillo","Tresillo","K ³B B"],
   ["galope","Galope","K · B B"],["saltado","Saltado","K B · B"],["offbeat","Offbeat","K · B ·"],
-  ["chillgressive","Chillgressive","K B b B"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
-const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat"],
-  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","rolling","offbeat","galope"],
+  ["chillgressive","Chillgressive","K B b B"],["deepnotic","Deepnotic","K ³B · B"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
+const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat","deepnotic"],
+  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","deepnotic","rolling","offbeat","galope"],
   chillout: ["dub","offbeat","sub"], ambient: ["sub","dub"]};
 const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa y el full-on.",
   fullon: "Rolling con una celda melódica por tiempo (raíz, quinta, octava y el ♭2 en frigio).",
@@ -351,6 +351,7 @@ const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del G
   saltado: "Bombo, bajo, silencio, bajo: rolling con aire, minimal.",
   offbeat: "Una corchea a contratiempo: el bajo del progressive y del psy chill.",
   chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
+  deepnotic: "Dos notas por tiempo, como Dekel: una alta atrasada hacia el tresillo y una grave en la 4.ª semicorchea. La alta vuelve a la quinta en los tiempos 2 y 4 y cambia en el 1 y el 3. Combínalo con el filtro automático.",
   dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
   sub: "Una nota grave por acorde, ligada: casi un drone."};
 
@@ -718,9 +719,26 @@ function panelBajo() {
         (x) => x === 0 ? "siempre en la raíz" : x < 0.35 ? `un paso (${porcentaje(x)})` : x < 0.7 ? `hasta la quinta (${porcentaje(x)})` : `hasta la octava (${porcentaje(x)})`),
       deslizador(b, "evolucion", "Evolución", 0, 1, 0.05,
         (x) => x === 0 ? "fijo" : x < 0.4 ? `cambia de a poco (${porcentaje(x)})` : x < 0.7 ? `va cambiando (${porcentaje(x)})` : `cambia mucho (${porcentaje(x)})`),
+      b.estilo === "deepnotic" ? deslizador(b, "atraso", "Atraso de la nota alta", 0, 0.6, 0.05,
+        (x) => x === 0 ? "en la semicorchea (recta)" : x < 0.3 ? `poco (${porcentaje(x)})` : x < 0.45 ? `hacia el tresillo (${porcentaje(x)})` : `muy atrás (${porcentaje(x)})`) : null,
       deslizador(b, "transponer", "Transponer", -7, 7, 1, (x) => x === 0 ? "desde la raíz" : `${x > 0 ? "+" : ""}${x} grado${Math.abs(x) > 1 ? "s" : ""}${x === 4 ? " (la quinta)" : x === 2 ? " (la tercera)" : ""}`),
     ]),
     el("div", {className: "grupos"}, [
+      grupo("g-bajo-filtro", "Filtro automático", b.filtro ? `CC ${b.filtro_cc} · se abre en ${b.filtro_ciclo} compases` : "apagado", [
+        el("label", {className: "fila", style: "min-height:44px"}, [
+          el("span", {}, ["Filtro automático", el("br"), el("span", {className: "mut", textContent: "El motor abre el filtro del sinte del bajo de a poco, por MIDI CC"})]),
+          el("input", {type: "checkbox", className: "switch", checked: !!b.filtro, "aria-label": "Filtro automático",
+            onchange: (e) => { b.filtro = e.target.checked; guardar(); renderMotores(); }})]),
+        ...(b.filtro ? [
+          campo("Qué controla", segmentado([["74","Corte (CC 74)"],["71","Resonancia (CC 71)"]], String(b.filtro_cc), (v) => { b.filtro_cc = parseInt(v); guardar(); renderMotores(); }, 2)),
+          ayuda("CC de la MC-101. Otro sinte puede usar otros números."),
+          campo("Se abre en (compases)", segmentado([["8","8"],["16","16"],["32","32"],["64","64"]], String(b.filtro_ciclo), (v) => { b.filtro_ciclo = parseInt(v); guardar(); renderMotores(); }, 4)),
+          campo("Forma", segmentado([["sube","Sube y vuelve a cerrar"],["ola","Sube y baja"]], b.filtro_forma || "sube", (v) => { b.filtro_forma = v; guardar(); }, 2)),
+          deslizador(b, "filtro_min", "Cerrado", 0, 127, 1, (x) => String(x)),
+          deslizador(b, "filtro_max", "Abierto", 0, 127, 1, (x) => String(x)),
+          ayuda("En el modo canción vuelve a cerrarse en cada quiebre (cuando la energía baja) y empieza a abrirse de nuevo."),
+        ] : []),
+      ]),
       grupo("g-bajo-ritmo", "Ritmo", `${b.remates ? `remate cada ${b.frase}${b.remate_var > 0 ? " variado" : ""}` : "sin remates"} · swing ${porcentaje(b.swing * 2)} · densidad ${porcentaje(b.densidad)}`, [
         casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate (se alternan dos)", () => renderMotores()),
         ...(b.remates ? [

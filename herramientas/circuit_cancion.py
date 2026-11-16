@@ -669,9 +669,76 @@ def template9():
     return "AMBIENT", K, C, H, P, cadenas, sonidos, envios, 50
 
 
+# =====================================================================
+# Template 10 · Deepnotic 136 (proyecto 45)
+# Psy progresivo profundo estilo Dekel: bombo corto y firme (el grave largo lo pone
+# el bajo del motor), clap suave en 2 y 4, madera sincopada, hats secos y glitches
+# agudos. Casi sin redobles: el movimiento lo hace el filtro del bajo.
+# =====================================================================
+def template10():
+    BOMBO, CLAP, MADERA = 5, 24, 45
+    HAT_CORTO, HAT_OFF, HAT_7, HAT_6 = 38, 34, 43, 42
+    K = [
+        {},
+        golpes(NEGRAS, 118), golpes(NEGRAS, 118),
+        golpes(NEGRAS[:-1], 118),                                     # un hueco cada 8 compases
+        golpes(NEGRAS[:4] + [16, 20], 116),                           # se corta a mitad del 2.º compás
+        golpes([0], 110),                                             # un golpe cada 2 compases (intro, subida)
+        golpes(NEGRAS, 100),                                          # bombo más suave (intro 2)
+        {},
+    ]
+    madera = golpes([(3, 55), (10, 60), (19, 55), (26, 62)], muestra=MADERA)
+    C = [
+        {},
+        golpes([(p, 68) for p in DOS_Y_CUATRO]),                      # clap suave en 2 y 4
+        golpes([(p, 75) for p in DOS_Y_CUATRO]) | madera,             # + madera sincopada
+        golpes([(28, 80)]) | golpes([(p, 50 + (p % 8 == 1) * 12) for p in range(1, 32, 3) if p % 4], muestra=MADERA),  # 3 contra 4
+        redoble(list(range(16, 32, 2)), 40, 65),                      # 5-8: la subida (cadena 5-8)
+        redoble(list(range(0, 32, 2)), 50, 78),
+        redoble(list(range(0, 32)), 60, 95),
+        redoble(list(range(0, 32)), 90, 120),
+    ]
+    H = [
+        {},
+        golpes(CONTRAS, 82, HAT_OFF),
+        golpes(CONTRAS, 82, HAT_OFF) | golpes([(p, 30 + 8 * (p % 4 == 3)) for p in range(1, 32, 2) if p % 4 != 2], muestra=HAT_CORTO),
+        golpes(CONTRAS, 85, HAT_OFF) | golpes([(14, 60), (30, 68)], muestra=RIDE),
+        golpes([(p, 26 + 10 * (p % 4 == 2)) for p in range(32)], muestra=HAT_CORTO),   # solo semis suaves (intro, quiebre)
+        golpes(CONTRAS, 88, HAT_OFF) | golpes([(p, 36) for p in range(0, 32) if p % 4 in (1, 3)], muestra=HAT_CORTO),
+        golpes([(p, 28 + p * 2) for p in range(32)], muestra=HAT_CORTO),               # 7: crecen (subida)
+        {},
+    ]
+    glitch_a = golpes([(11, 65)], muestra=ZAP) | golpes([(27, 72)], muestra=HAT_7)
+    glitch_b = golpes([(6, 58), (22, 58)], muestra=HAT_6) | golpes([(15, 62)], muestra=BLIP_1)
+    P = [
+        {},
+        golpes([0], 100, CRASH) | golpes([(27, 70)], muestra=HAT_7),    # 2: crash (cadena 2-5: cada 8 compases)
+        glitch_a,
+        glitch_b,
+        glitch_b | golpes([(30, 66)], muestra=ZAP),
+        golpes([(10, 50), (26, 45)], muestra=HAT_6),                    # 6: casi nada (quiebre)
+        golpes([18], 88, RISER),                                        # 7-8: final de la subida (cadena 5-8)
+        golpes([23], 88, SWELL),
+    ]
+    cadenas = {
+        "Intro": (6, 1, 5, 1), "Intro 2": (7, 1, 5, (3, 4)), "Pulso": ((2, 5), 2, 2, (2, 5)),
+        "Groove A": ((2, 5), 2, 3, (3, 4)), "Groove B": ((2, 5), 3, 3, (2, 5)), "Groove C": ((2, 5), 3, 6, (3, 4)),
+        "Break": (1, 1, 5, 6), "Rise": (6, (5, 8), 7, (5, 8)),
+        "Climax A": ((2, 5), 3, 4, (2, 5)), "Climax B": ((2, 5), 4, 6, (3, 4)),
+        "Break 2": (1, 1, 5, 6), "Rise 2": (6, (5, 8), 7, (5, 8)),
+        "Climax C": ((2, 5), (3, 4), 4, (2, 5)), "Groove D": ((2, 5), 4, 3, (3, 4)),
+        "Outro": ((2, 5), 2, 2, 3), "Final": (6, 1, 5, 1),
+    }
+    sonidos = {"drum1": {"sample": BOMBO, "level": 105}, "drum2": {"sample": CLAP, "level": 80},
+               "drum3": {"sample": HAT_OFF, "level": 85}, "drum4": {"sample": ZAP, "level": 78}}
+    envios = {"reverb": {"drum2": 40, "drum4": 45}, "delay": {"drum2": 15, "drum4": 35}}
+    return "DEEPNOTIC", K, C, H, P, cadenas, sonidos, envios, 52
+
+
 TEMPLATES = {"template1": template1, "template2": template2, "template3": template3,
              "template4": template4, "template5": template5, "template6": template6,
-             "template7": template7, "template8": template8, "template9": template9}
+             "template7": template7, "template8": template8, "template9": template9,
+             "template10": template10}
 
 
 def _rango(x):

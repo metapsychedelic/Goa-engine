@@ -262,6 +262,41 @@ if __name__ == "__main__":
     todo &= ok(not any(pisadas.values()), "sin slide, ninguna nota se pisa con la siguiente (con swing, tresillos, notas largas y remates)"
                + ("" if not any(pisadas.values()) else f": {[k for k, v in pisadas.items() if v][:4]}"))
 
+    print("\nDeepnotic y filtro automático")
+    dp = Bajo({"activo": True, "estilo": "deepnotic", "remates": False, "movimiento": 0.0, "atraso": 0.35}, T("F", "frigio"))
+    g0 = dp.golpes(0)
+    todo &= ok(sorted(g0) == [1, 3, 5, 7, 9, 11, 13, 15] and all(g0[l].grado == 0 for l in (3, 7, 11, 15))
+               and all(g0[l].grado == gb.DEEP_FIJA for l in (5, 13)),
+               "deepnotic: dos notas por tiempo; la grave en la 4.ª semicorchea, la alta vuelve a la quinta en los tiempos 2 y 4")
+    altas = {tuple(dp.golpes(c)[l].grado for l in (1, 9)) for c in range(8)}
+    todo &= ok(len(altas) > 2, f"la nota alta de los tiempos 1 y 3 va cambiando de compás en compás ({len(altas)} combinaciones en 8)")
+    ev = []
+    for paso in range(16):
+        for k in range(6):
+            t = paso * 6 + k
+            dp.tick(t, lambda *a, t=t: ev.append((t,) + a))
+            if k == 0:
+                dp.paso(paso, t, 41, None, False, lambda *a, t=t: ev.append((t,) + a))
+    ons = [t for t, _, tipo, *_ in ev if tipo == "note_on"]
+    todo &= ok(ons[:2] == [6 + 2, 18], f"la nota alta va atrasada 2 pulsos (hacia el tresillo) y la grave cae recta ({ons[:2]})")
+    fb = Bajo({"activo": True, "estilo": "rolling", "filtro": True, "filtro_min": 20, "filtro_max": 100, "filtro_ciclo": 8}, T("F", "frigio"))
+    valores = [fb.valor_filtro(c) for c in range(17)]
+    todo &= ok(valores[0] == 20 and valores[7] > 85 and valores[8] == 20 and valores == sorted(valores[:8]) + valores[8:],
+               f"el filtro se abre de 20 a 100 en 8 compases y vuelve a cerrarse ({valores[:9]})")
+    fb.reiniciar_filtro(5)
+    todo &= ok(fb.valor_filtro(5) == 20, "en un quiebre vuelve a cerrarse y empieza de nuevo")
+    cc = []
+    fb2 = Bajo({"activo": True, "estilo": "rolling", "filtro": True, "filtro_ciclo": 4}, T("F", "frigio"))
+    for paso in range(64):
+        fb2.paso(paso, paso * 6, 41, None, False, lambda sal_, tipo, ca, n, v: cc.append((n, v)) if tipo == "control_change" else None)
+    todo &= ok(cc and all(n == 74 for n, _ in cc) and len(cc) <= 16 and len({v for _, v in cc}) == len(cc),
+               f"manda CC 74 una vez por tiempo, solo cuando cambia ({len(cc)} mensajes en 4 compases)")
+    sin = []
+    fb3 = Bajo({"activo": True, "estilo": "rolling"}, T("F", "frigio"))
+    for paso in range(32):
+        fb3.paso(paso, paso * 6, 41, None, False, lambda sal_, tipo, *a: sin.append(tipo))
+    todo &= ok("control_change" not in sin, "apagado no manda ningún CC")
+
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):
         bb = Bajo({"activo": True, "estilo": estilo, "sube": sube, "remates": False, "movimiento": 0.0}, T("F", "frigio"))

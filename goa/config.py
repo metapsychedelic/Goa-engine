@@ -120,6 +120,13 @@ ESQUEMA_SECCIONES["bajo"] = {
     "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     "movimiento": (float, 0.3, 0.0, 1.0),
     "sube": (float, 0.0, 0.0, 1.0),        # notas que suben desde la raíz (bajo full-on)
+    "atraso": (float, 0.35, 0.0, 0.6),     # deepnotic: la nota alta, atrasada hacia el tresillo
+    "filtro": (bool, False, None, None),   # filtro automático por CC (se abre de a poco)
+    "filtro_cc": (int, 74, 0, 127),        # MC-101: 74 = corte, 71 = resonancia
+    "filtro_min": (int, 25, 0, 127),
+    "filtro_max": (int, 100, 0, 127),
+    "filtro_ciclo": (int, 32, 4, 128),     # compases en abrirse
+    "filtro_forma": (str, "sube", None, ("sube", "ola")),
     "evolucion": (float, 0.0, 0.0, 1.0),
     "mutar_cada": (int, 4, 1, 16),
     "transponer": (int, 0, -7, 7),       # grados de escala

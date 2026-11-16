@@ -287,6 +287,12 @@ class FormaMotor:
         if parte is None:
             return
         p = self.base["parte"][parte["i"]]
+        if parte["dentro"] == 0 and parte["i"] > 0 and self.bajo is not None:
+            # Un quiebre (la energía baja respecto de la parte anterior): el filtro del
+            # bajo vuelve a cerrarse y empieza a abrirse de nuevo.
+            antes = self.base["parte"][parte["i"] - 1]
+            if p.get("energia", 0.5) < antes.get("energia_fin", antes.get("energia", 0.5)) - 0.1:
+                self.bajo.reiniciar_filtro(compas)
         falta = parte["largo"] - parte["dentro"]  # compases que quedan, contando este
         if p.get("roll"):
             n = forma.compases_corte(parte["largo"])
