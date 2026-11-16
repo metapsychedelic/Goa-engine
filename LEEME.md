@@ -493,7 +493,8 @@ corrida que baja). Controles (grupo Ritmo):
   (nunca en el bombo). Repetible con la variante.
 - **Rango de las notas que cambian**: hasta la quinta o hasta la octava.
 - **Remate marcado**: 0 = el remate suena como el resto (puede llevar slide);
-  arriba, sus notas van cortas, se vuelven a atacar y van acentuadas.
+  arriba, sus notas van sin slide, se vuelven a atacar y van acentuadas (con su
+  largo normal, para que no suene a corte). La última nota nunca se calla.
 
 **Notas que suben** (0 = siempre en la raíz): en vez de quedarse en la raíz, la
 última nota de algunos tiempos sigue un camino que sube, como los bajos full-on.

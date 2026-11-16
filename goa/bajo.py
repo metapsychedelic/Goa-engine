@@ -131,7 +131,7 @@ class Bajo:
         self.remate_rango = cfg.get("remate_rango", "octava")
         if self.remate_rango not in GRADOS_REMATE:
             self.remate_rango = "octava"
-        self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))   # 0 = como el resto, 1 = corto y acentuado
+        self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))   # 0 = como el resto, 1 = acentuado y sin slide
         self.frase = max(1, int(cfg.get("frase", 4)))
         self.armonia = cfg.get("armonia", "general")
         self.seed = str(cfg.get("seed", "B-0001"))
@@ -254,7 +254,8 @@ class Bajo:
             if libres and rng.random() < 0.5:
                 remate[rng.choice(libres)] = rng.choice(grados)
             elif len(remate) > 2:
-                del remate[rng.choice(sorted(remate)[1:])]
+                # Se calla una del medio: la primera y la última quedan, así el remate cierra.
+                del remate[rng.choice(sorted(remate)[1:-1])]
         return remate
 
     def _subir(self, golpes, compas):
@@ -322,10 +323,12 @@ class Bajo:
         if falta:
             dur = min(dur, falta * TICKS_POR_PASO - retraso)  # una nota no cruza el cambio de acorde
         siguiente = next((l for l in sorted(golpes) if l > lugar), None)
-        en_remate = lugar in self.remate(compas) and self.estilo not in ("sub", "dub") and self.remate_marca >= 0.3
+        remate = self.remate(compas)
+        en_remate = lugar in remate and self.estilo not in ("sub", "dub") and self.remate_marca >= 0.3
         if en_remate:
-            # Remate marcado: corto y sin slide (más corto cuanto más marcado).
-            fin = inicio + max(1, round(min(dur, TICKS_POR_PASO) * min(self.gate, 1.0 - 0.4 * self.remate_marca)))
+            # Remate marcado: sin slide y con su largo normal (no más corto que el resto,
+            # para que no suene a corte); lo marca el acento y que cada nota se ataca.
+            fin = inicio + max(1, round(dur * self.gate)) if dur <= 2 * TICKS_POR_PASO else inicio + dur - 1
         elif self.estilo == "sub":
             fin = inicio + dur + 1  # sigue sonando cuando llega la próxima: se liga
         elif (siguiente is not None and self.estilo not in ("dub",) and self._azar("slide", lugar) < self.slide

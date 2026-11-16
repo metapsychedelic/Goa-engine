@@ -188,7 +188,7 @@ if __name__ == "__main__":
     resto = [x for x in ons if x[0] < 3 * 16]
     cortas = all(any(t == "note_off" and n == r[1] and p_ == r[0] for p_, _, t, _, n, _ in sal) for r in rem)
     todo &= ok(sorted(p_ - 48 for p_, _, _ in rem) == sorted(remate) and cortas and min(v for _, _, v in rem) > max(v for _, _, v in resto),
-               f"el remate cambia el ritmo, va corto (sin slide aunque el slide esté al máximo) y acentuado ({len(rem)} notas)")
+               f"el remate cambia el ritmo, va sin slide (aunque el slide esté al máximo) y acentuado ({len(rem)} notas)")
     import goa.bajo as gb
     def remates_de(var, seed="B-0001", frases=12, rango="octava"):
         bb = Bajo({"activo": True, "estilo": "rolling", "frase": 4, "seed": seed, "remate_var": var, "remate_rango": rango}, T("F", "frigio"))
@@ -202,6 +202,11 @@ if __name__ == "__main__":
     quinta = remates_de(1.0, rango="quinta")
     todo &= ok(all(g <= 4 for r in quinta for _, g in r) and all(l % 4 for r in remates_de(1.0) for l, _ in r),
                "el rango «hasta la quinta» se respeta y nunca cae en el bombo")
+
+    cierran = all(max(Bajo({"activo": True, "estilo": e, "seed": f"S{k}", "remate_var": v}, T("F", "frigio")).remate(f * 4 + 3))
+                  >= max(gb.REMATES[e][f % 2])
+                  for e in gb.REMATES if e != "sub" for k in range(20) for v in (0.6, 1.0) for f in range(6))
+    todo &= ok(cierran, "con variación el remate nunca pierde su última nota: siempre cierra la frase")
 
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):
