@@ -840,27 +840,6 @@ function moldeTexto(m, obj) {
   return partes.join(" · ") || "libre";
 }
 
-// Igual que generador.PESOS_MOLDE: (tiempo, contratiempo, semicorchea débil).
-const PESOS_MOLDE = {
-  goa: [[["x", 5], ["?", 2], [".", 3]], [["x", 3], ["?", 3], ["-", 1], [".", 3]], [["?", 2.5], ["-", 2.5], [".", 5]]],
-  psy: [[["-", 4], ["x", 2], ["?", 1], [".", 3]], [["x", 5], ["?", 2], [".", 3]], [["?", 3], ["-", 3], ["x", 1], [".", 3]]],
-};
-
-function moldeAlAzar(estilo = "goa") {
-  // Goa: rolling lleno, tiempos y contratiempos con nota. Psy: deja los tiempos al bombo
-  // y al bajo, vive en los contratiempos y síncopas, con más silencios. Siempre al menos un ●.
-  const elegir = (pesos) => { let r = Math.random() * pesos.reduce((a, [, p]) => a + p, 0);
-    for (const [c, p] of pesos) { if ((r -= p) < 0) return c; } return "."; };
-  const [tiempo, contra, debil] = PESOS_MOLDE[estilo];
-  let m = "";
-  for (let i = 0; i < 16; i++) m += elegir(i % 4 === 0 ? tiempo : i % 4 === 2 ? contra : debil);
-  if (!m.includes("x")) {
-    const lugares = estilo === "psy" ? [2, 6, 10, 14] : [0, 4, 8, 12];
-    const i = lugares[Math.floor(Math.random() * 4)]; m = m.slice(0, i) + "x" + m.slice(i + 1);
-  }
-  return m;
-}
-
 function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
   // Cada paso del compás: con el pincel elegido marcas «siempre», «a veces» o «nunca»;
   // tocar de nuevo con el mismo pincel lo deja libre.
@@ -888,8 +867,11 @@ function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
       el("button", {type: "button", textContent: nombre, onclick: () => {
         obj.molde = /[x?-]/.test(valor) ? valor : ""; pintar(); guardar(); actualizar(); }}))));
     caja.appendChild(el("div", {className: "molde-presets"}, [["goa", "🎲 Goa"], ["psy", "🎲 Psy"]].map(([estilo, nombre]) =>
-      el("button", {type: "button", textContent: nombre, onclick: () => {
-        obj.molde = moldeAlAzar(estilo); obj.molde_estilo = estilo; pintar(); guardar(); actualizar(); }}))));
+      el("button", {type: "button", textContent: nombre, onclick: async () => {
+        // Lo arma el motor (goa/generador.py): los pesos viven en un solo lugar.
+        try { obj.molde = (await (await fetch(`/api/molde/azar?estilo=${estilo}`)).json()).molde; }
+        catch (e) { aviso("Sin conexión con la Pi", true); return; }
+        obj.molde_estilo = estilo; pintar(); guardar(); actualizar(); }}))));
     caja.appendChild(ayuda(ayudaTexto));
     if ((obj.molde || "").includes("?")) {
       caja.appendChild(deslizador(obj, "molde_prob", "Probabilidad de los ?", 0, 1, 0.05, porcentaje));

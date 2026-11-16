@@ -18,6 +18,7 @@ se queda colgada y resuelve un tiempo después.
 import random
 
 from .armonia import Momento
+from .azar import azar as azar_fijo
 from .escalas import ESCALAS, nombre_midi
 
 TICKS_POR_PASO = 6
@@ -598,7 +599,7 @@ class Pads:
         Solo una voz que se mueve por paso (1 o 2 semitonos), en ataque ligado."""
         if not self.suspensiones or self.ataque != "ligado" or not quitar or not poner:
             return None
-        if random.Random(f"suspension:{self.seed}:{cambio}").random() >= self.suspensiones:
+        if azar_fijo(f"suspension:{self.seed}:{cambio}") >= self.suspensiones:
             return None
         pares = [(abs(q - p), q, p) for q in quitar for p in poner if 1 <= abs(q - p) <= 2 and q not in poner]
         if not pares:

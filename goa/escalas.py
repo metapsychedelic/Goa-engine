@@ -1,5 +1,7 @@
 """Escalas, nombres de notas y conversión de grados a notas MIDI."""
 
+from bisect import bisect_left
+
 ESCALAS = {
     "frigio": [0, 1, 3, 5, 7, 8, 10],
     "menor_armonica": [0, 2, 3, 5, 7, 8, 11],
@@ -63,7 +65,10 @@ class Tonalidad:
         if modo == "transponer":
             octava, i = divmod(grados, 7)
             return _limitar(raiz + self.intervalos[i] + 12 * octava)
-        indice = min(range(len(self.notas)), key=lambda k: abs(self.notas[k] - raiz))
+        # La nota de la escala más cercana a la raíz (en empate, la de abajo).
+        indice = bisect_left(self.notas, raiz)
+        if indice >= len(self.notas) or (indice > 0 and raiz - self.notas[indice - 1] <= self.notas[indice] - raiz):
+            indice -= 1
         destino = max(0, min(len(self.notas) - 1, indice + grados))
         return self.notas[destino]
 

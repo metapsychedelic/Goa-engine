@@ -20,6 +20,8 @@ Todo es determinista: misma variante, mismo bajo y misma evolución.
 """
 
 import random
+
+from .azar import azar
 from dataclasses import dataclass, replace
 
 TICKS_POR_PASO = 6
@@ -123,7 +125,7 @@ class Bajo:
     # --- Patrón y evolución ---
 
     def _azar(self, *clave):
-        return random.Random(":".join(["bajo", self.seed, *map(str, clave)])).random()
+        return azar(":".join(["bajo", self.seed, *map(str, clave)]))
 
     def _base(self):
         """Compás base del estilo con el movimiento aplicado (fijo para una variante)."""

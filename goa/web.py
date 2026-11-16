@@ -3,13 +3,14 @@
 import copy
 import json
 import logging
+import random
 import re
 import threading
 import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, forma, generos, plantillas
+from . import __version__, forma, generador, generos, plantillas
 from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
@@ -117,6 +118,12 @@ def crear_servidor(ctx, puerto):
                 with ctx.candado:
                     ctx.sincronizar()
                     self._json(dict(ctx.config, version_base=ctx.version_base))
+            elif self.path.startswith("/api/molde/azar"):
+                # Un molde al azar (🎲): lo arma el motor, la app no repite los pesos.
+                estilo = self.path.rpartition("estilo=")[2] or "goa"
+                if estilo not in generador.ESTILOS_MOLDE:
+                    estilo = "goa"
+                self._json({"molde": generador.molde_al_azar(random.Random(), estilo), "estilo": estilo})
             elif self.path == "/api/plantillas":
                 self._json({"plantillas": plantillas.lista()})
             elif self.path == "/api/proyectos":

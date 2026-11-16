@@ -12,6 +12,7 @@ siempre el mismo patrón y la misma evolución.
 """
 
 import random
+from functools import lru_cache
 
 # Grados de la escala relativos a la raíz: 0 raíz, 1 segunda (♭2 en frigio),
 # 2 tercera, 3 cuarta, 4 quinta, 6 séptima, 7 octava, -1 séptima abajo.
@@ -264,10 +265,15 @@ def recorrer(recorrido, k, largo, seed):
         return j if j < largo else n - j
     if recorrido == "azar":
         vuelta, j = divmod(k, largo)
-        orden = list(range(largo))
-        random.Random(f"{seed}:orden:{vuelta}").shuffle(orden)
-        return orden[j]
+        return _orden_azar(str(seed), vuelta, largo)[j]
     return k % largo
+
+
+@lru_cache(maxsize=4096)
+def _orden_azar(seed, vuelta, largo):
+    orden = list(range(largo))
+    random.Random(f"{seed}:orden:{vuelta}").shuffle(orden)
+    return tuple(orden)
 
 
 def generar(seed, estilo="rolling", largo=16, pedal=0.5):

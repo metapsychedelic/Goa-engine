@@ -9,7 +9,10 @@ MC-101, MicroFreak. App web en el celular (pestañas Tocar, Motores, Armonía,
 Canción, Ajustes).
 
 ## Archivos clave
-- `goa/motor.py` (motor, secuencias, subidas, escala de color, ♭2)
+- `goa/motor.py` (el motor: reloj, notas largas, tocar secuencias, bajo, diálogo, clips)
+- `goa/motor_forma.py` (parte de Motor: escenas, modo canción, subidas, drops, efectos de cada parte)
+- `goa/secuencia.py` (una secuencia: patrón, molde, evolución) · `goa/disparo.py` (nota larga por canal)
+- `goa/azar.py` (azar determinista con caché: mismo resultado, más rápido)
 - `goa/forma.py` (energía, conductor, modo canción, roll)
 - `goa/pads.py` (progresiones, acorde de tensión), `goa/escalas.py` (ESCALAS, ESCALAS_COLOR)
 - `goa/config.py` (esquemas), `goa/web.py` + `goa/web/index.html` (app)
