@@ -263,7 +263,7 @@ ESQUEMA_SECUENCIA = {
     "fx": (bool, False, None, None),         # el motor de FX la interviene: filtro y stutter en las subidas, glitches
     "cc_filtro": (int, 74, 0, 127),          # CC del filtro de su sinte
     "lfo": (bool, False, None, None),        # LFO de filtro por CC (opcional)
-    "lfo_cc": (int, 74, 0, 127),             # 74 = corte, 71 = resonancia (MC-101 y FM-1 con Shrub)
+    "lfo_cc": (int, 74, 0, 127),             # 74 = corte, 71 = resonancia; 20 y 21 = wavetable A y B (FM-1 con Shrub)
     "lfo_forma": (str, "seno", None, ("seno", "triangulo", "sube", "baja", "azar")),
     "lfo_compases": (float, 4.0, 0.25, 32.0),  # una vuelta del LFO, en compases
     "lfo_min": (int, 30, 0, 127),

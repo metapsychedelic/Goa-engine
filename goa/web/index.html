@@ -833,8 +833,10 @@ function panelSecuencia(i) {
           el("input", {type: "checkbox", className: "switch", checked: !!s.lfo, "aria-label": "LFO de filtro",
             onchange: (e) => { s.lfo = e.target.checked; guardar(); renderMotores(); }})]),
         ...(s.lfo ? [
-          campo("Qué mueve", segmentado([["74","Corte (CC 74)"],["71","Resonancia (CC 71)"]], String(s.lfo_cc), (v) => { s.lfo_cc = parseInt(v); guardar(); renderMotores(); }, 2)),
-          ayuda("Sirve igual para la MC-101 y para la FM-1 con Shrub: los dos usan 74 para el corte y 71 para la resonancia."),
+          campo("Qué mueve", segmentado([["74","Corte (CC 74)"],["71","Resonancia (CC 71)"],["20","Wavetable A (CC 20)"],["21","Wavetable B (CC 21)"]], String(s.lfo_cc), (v) => { s.lfo_cc = parseInt(v); guardar(); renderMotores(); }, 2)),
+          ayuda([20, 21].includes(s.lfo_cc)
+            ? "Posición de wavetable de la FM-1 con Shrub (oscilador A o B): el timbre va cambiando. La MC-101 no tiene este control."
+            : "Sirve igual para la MC-101 y para la FM-1 con Shrub: los dos usan 74 para el corte y 71 para la resonancia."),
           campo("Forma", segmentado(LFO_FORMAS, s.lfo_forma || "seno", (v) => { s.lfo_forma = v; guardar(); renderMotores(); }, 3)),
           campo("Una vuelta dura", segmentado(LFO_CICLOS, String(s.lfo_compases), (v) => { s.lfo_compases = parseFloat(v); guardar(); renderMotores(); }, 4)),
           deslizador(s, "lfo_min", "Abajo", 0, 127, 1, (x) => String(x)),
