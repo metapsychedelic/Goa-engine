@@ -177,7 +177,9 @@ def template2():
         golpes([(12, 70), (28, 85)]),                                 # solo el 4.º tiempo
         golpes([(7, 40), (15, 50), (23, 40), (28, 85), (30, 55)]),    # fantasmas
         redoble(list(range(24, 32)), 40, 95),                          # redoble corto al final
-        {}, {}, {},
+        redoble(list(range(0, 32, 2)), 45, 75),                        # 6-8: la subida (cadena 5-8)
+        redoble(list(range(0, 32)), 65, 100),
+        redoble(list(range(0, 32)), 95, 125),
     ]
     H = [
         {},
@@ -186,7 +188,8 @@ def template2():
         golpes(CONTRAS, 85, HAT_OFF) | golpes([(p, 38) for p in range(1, 32, 2)], muestra=HAT_CORTO),
         golpes(CONTRAS, 85, HAT_OFF) | golpes([(p, 70) for p in range(0, 32, 3) if p % 4 != 2], muestra=HAT_CORTO),  # 3 contra 4
         golpes([(14, 70), (30, 80)], muestra=HAT_ABIERTO),
-        {}, {},
+        golpes([(p, 30 + p * 2) for p in range(0, 32)], muestra=HAT_CORTO),   # 7: crecen (subida)
+        {},
     ]
     # Solo sonidos agudos: el grave queda para el bombo y el bajo del motor.
     CLAP_CORTO, HAT_6, HAT_7, REVERSA = 24, 42, 43, 61
@@ -194,21 +197,22 @@ def template2():
     glitch_b = golpes([(3, 60), (19, 60)], muestra=CLAP_CORTO) | golpes([(9, 65), (25, 65)], muestra=HAT_6)
     P = [
         {},
+        golpes([0], 105, CRASH) | golpes([(27, 75)], muestra=HAT_7),    # 2: crash (cadena 2-5: cada 8 compases)
         glitch_a,
         glitch_b,
         glitch_b | golpes([(30, 70)], muestra=ZAP),
-        golpes([0], 105, CRASH) | golpes([(27, 75)], muestra=HAT_7),    # crash (cada 8 compases)
-        bruma(),
-        golpes([16], 80, REVERSA),                                      # reverso que llega al uno
-        golpes([23], 95, SWELL),                                        # llega al uno siguiente
+        {},
+        golpes([18], 90, RISER),                                        # 7-8: final de la subida (cadena 5-8)
+        golpes([23], 90, SWELL),                                        # llega al uno siguiente
     ]
     cadenas = {
-        "Intro": (1, 1, 2, 6), "Pulso": ((2, 5), 1, 2, 1), "Capa 1": ((2, 5), 2, 3, 2),
-        "Capa 2": ((2, 5), 2, 4, 3), "Capa 3": ((2, 5), 3, 4, 4), "Respiro": (1, 1, 2, (7, 8)),
-        "Tension": ((2, 5), 4, 5, 3), "Nucleo A": ((2, 5), 3, 4, (5, 8)), "Nucleo B": ((2, 5), 4, 5, (2, 3)),
-        "Respiro 2": (7, 5, 6, (7, 8)), "Nucleo C": ((2, 5), (3, 4), 4, (5, 8)), "Fragmento": (6, 2, 5, (3, 4)),
-        "Nucleo D": ((2, 5), 4, 4, (2, 3)), "Disolucion": ((2, 5), 1, 3, 6), "Eco": ((2, 5), 1, 2, (2, 3)),
-        "Final": (1, 1, 2, 6),
+        "Intro": (1, 1, 2, 6), "Intro 2": (1, 1, 3, 3), "Pulso": ((2, 5), 1, 2, 3),
+        "Groove A": ((2, 5), 2, 3, (3, 4)), "Groove B": ((2, 5), 2, 4, (4, 5)), "Groove C": ((2, 5), 3, 4, (2, 5)),
+        "Break": (1, 1, 2, 6), "Rise": (6, (5, 8), 7, (5, 8)),
+        "Climax A": ((2, 5), 3, 4, (2, 5)), "Climax B": ((2, 5), 4, 5, (3, 4)),
+        "Break 2": (1, 1, 5, 6), "Rise 2": (6, (5, 8), 7, (5, 8)),
+        "Climax C": ((2, 5), (3, 4), 4, (2, 5)), "Groove D": ((2, 5), 4, 4, (3, 4)),
+        "Outro": ((2, 5), 1, 3, 3), "Final": (1, 1, 2, 6),
     }
     sonidos = {"drum1": {"sample": BOMBO, "level": 105}, "drum2": {"sample": SNARE, "level": 85},
                "drum3": {"sample": HAT_OFF, "level": 85}, "drum4": {"sample": ZAP, "level": 80}}
@@ -612,6 +616,12 @@ def template9():
         golpes([0], 55, LATIDO),
         {},
     ]
+    def toms(lista):
+        d = {}
+        for paso, tom, vel in lista:
+            d |= golpes([(paso, vel)], muestra=tom)
+        return d
+
     C = [
         {},
         golpes([(8, 60)], muestra=TOM_GRAVE),
@@ -619,8 +629,8 @@ def template9():
         golpes([(12, 55)], muestra=TOM_A) | golpes([(28, 50)], muestra=TOM_B),
         golpes([(24, 45)], muestra=SNARE_CUERPO),
         golpes([(10, 45), (26, 45)], muestra=PERC_B),
-        {},
-        {},
+        toms([(p, TOM_A, 30 + p) for p in range(0, 32, 4)]),                   # 7-8: la subida, suave
+        toms([(p, TOM_A if p < 16 else TOM_B, 40 + p) for p in range(0, 32, 2)]),
     ]
     H = [
         {},
@@ -628,7 +638,7 @@ def template9():
         golpes([(p, 25 + (p % 4 == 0) * 10) for p in range(32)], muestra=SHAKER),
         golpes([(14, 40), (30, 45)], muestra=HAT_ABIERTO),
         golpes([(p, 35) for p in range(0, 32, 2)], muestra=SHAKER) | golpes([(30, 40)], muestra=HAT_ABIERTO),
-        {},
+        golpes([(p, 20 + p) for p in range(32)], muestra=SHAKER),                # crece (subida)
         {},
         {},
     ]
@@ -645,15 +655,14 @@ def template9():
         golpes([(23, 45)], muestra=SWELL),
     ]
     cadenas = {
-        "Niebla": (1, 1, 1, (3, 6)), "Niebla 2": (7, 1, 1, (3, 6)), "Marea": (2, 2, 1, (3, 6)),
-        "Marea 2": (2, 2, 2, (5, 8)), "Luz": (2, 3, 2, (5, 8)), "Luz 2": (3, 3, 2, (3, 6)),
-        "Pulso suave": (5, 3, 3, (3, 6)), "Pulso 2": (5, (3, 4), 4, (5, 8)),
-        "Profundo": ((6, 7), 4, 4, (2, 5)), "Profundo 2": ((6, 7), (4, 5), 4, (2, 5)),
-        "Claro": (5, (3, 4), 5, (5, 8)), "Claro 2": (2, 3, 5, (3, 6)), "Calma": (7, 2, 1, (3, 6)),
-        "Eco": (2, 6, 2, (5, 8)), "Disolucion": (2, 2, 1, (3, 6)), "Silencio": (1, 1, 1, (3, 4)),
+        "Intro": (1, 1, 1, 2), "Intro 2": (7, 1, 1, 2), "Pulso": (2, 2, 1, (1, 4)),
+        "Groove A": (2, 3, 2, (1, 8)), "Groove B": (5, 3, 3, (1, 8)), "Groove C": (5, (3, 4), 4, (1, 4)),
+        "Break": (7, 2, 1, 2), "Rise": (5, (5, 8), 6, (5, 8)),
+        "Climax A": ((6, 7), 4, 4, (1, 8)), "Climax B": ((6, 7), (4, 5), 4, (1, 8)),
+        "Break 2": (2, 3, 5, 2), "Rise 2": (5, (5, 8), 6, (5, 8)),
+        "Climax C": (5, (3, 4), 5, (1, 8)), "Groove D": (2, 6, 2, (1, 4)),
+        "Outro": (2, 2, 1, (1, 8)), "Final": (1, 1, 1, 2),
     }
-    D4 = {'Niebla': 2, 'Niebla 2': 2, 'Marea': (1, 4), 'Marea 2': (1, 8), 'Luz': (1, 8), 'Luz 2': (1, 4), 'Pulso suave': (1, 8), 'Pulso 2': (1, 4), 'Profundo': (1, 8), 'Profundo 2': (1, 8), 'Claro': (1, 8), 'Claro 2': (1, 4), 'Calma': (1, 8), 'Eco': (1, 4), 'Disolucion': (1, 8), 'Silencio': 2}
-    cadenas = {n: v[:3] + (D4[n],) for n, v in cadenas.items()}
     sonidos = {"drum1": {"sample": LATIDO, "level": 95}, "drum2": {"sample": PERC_SUAVE, "level": 80},
                "drum3": {"sample": SHAKER, "level": 65}, "drum4": {"sample": SWELL, "level": 80}}
     envios = {"reverb": {"drum1": 25, "drum2": 60, "drum3": 40, "drum4": 65}, "delay": {"drum2": 40, "drum3": 20, "drum4": 40}}

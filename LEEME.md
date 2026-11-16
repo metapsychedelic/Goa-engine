@@ -292,9 +292,9 @@ como mucho un swell cada 16 compases. La tabla completa está en `herramientas/c
 
 - **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 escenas,
   240 compases (6:51; las subidas de 8).
-- **Template 2 · Dark minimal** (proyecto 33): 142 BPM, 16 escenas de 16 compases,
-  256 compases (7:13). Estilo Zenonesque: pocos elementos que entran de a uno,
-  glitch solo agudo (el grave queda para el bombo y el bajo del motor).
+- **Template 2 · Dark minimal** (proyecto 33): 142 BPM, 16 escenas, 240 compases
+  (6:46; las subidas de 8). Misma forma que los demás (intro, grooves, break,
+  rise, clímax, outro); estilo Zenonesque: pocos elementos, glitch solo agudo.
 - **Template 3 · Goa clásico** (proyecto 34): 140 BPM, 16 escenas,
   240 compases (6:51; las subidas de 8). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
 - **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 16 escenas,
@@ -307,8 +307,9 @@ como mucho un swell cada 16 compases. La tabla completa está en `herramientas/c
   240 compases (8:00; las subidas de 8). Hats rodando en semicorcheas, clap en 2 y 4, breaks largos. Escala menor.
 - **Template 8 · Chillout** (proyecto 43): 92 BPM con swing, 16 escenas,
   240 compases (10:26; las subidas de 8). Beat quebrado, snare con cuerpo, shaker y congas. Escala menor.
-- **Template 9 · Ambient** (proyecto 44): 76 BPM, 16 escenas de 16 compases, 256
-  compases (13:28). Sin bombo fijo: sub booms, latidos suaves, texturas, swells y mucha reverb.
+- **Template 9 · Ambient** (proyecto 44): 76 BPM, 16 escenas, 240 compases
+  (12:38). Misma forma que los demás, con subidas de 8 muy suaves (toms y shaker
+  que crecen, un swell). Sin bombo fijo: latidos suaves, casi nada de FX.
 
 Los templates 6 a 9 están pensados para su género del motor: elige el mismo
 género en Música para que escalas, pads, bajo y secuencias calcen con el estilo.
