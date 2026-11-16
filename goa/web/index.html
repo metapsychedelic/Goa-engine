@@ -340,9 +340,9 @@ const FORMAS_TEXTO = {entrelazado: "La respuesta toca solo en los huecos que dej
   turnos: "La llamada toca unos compases y después contesta la respuesta."};
 const ESTILOS_BAJO = [["rolling","Rolling","K B B B"],["fullon","Full-on","K B B B ♪"],["tresillo","Tresillo","K ³B B"],
   ["galope","Galope","K · B B"],["saltado","Saltado","K B · B"],["offbeat","Offbeat","K · B ·"],
-  ["chillgressive","Chillgressive","K B b B"],["deepnotic","Deepnotic","K · B b"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
-const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat","deepnotic"],
-  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","deepnotic","rolling","offbeat","galope"],
+  ["chillgressive","Chillgressive","K B b B"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
+const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat"],
+  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","rolling","offbeat","galope"],
   chillout: ["dub","offbeat","sub"], ambient: ["sub","dub"]};
 const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa y el full-on.",
   fullon: "Rolling con una celda melódica por tiempo (raíz, quinta, octava y el ♭2 en frigio).",
@@ -351,7 +351,6 @@ const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del G
   saltado: "Bombo, bajo, silencio, bajo: rolling con aire, minimal.",
   offbeat: "Una corchea a contratiempo: el bajo del progressive y del psy chill.",
   chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
-  deepnotic: "Como Dekel: la nota a contratiempo, con cuerpo, y una corta y suave en la 4.ª semicorchea que empuja al bombo. En los tiempos 2 y 4 vuelve a la raíz; en el 1 y el 3 sube y va cambiando. Combínalo con el filtro automático.",
   dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
   sub: "Una nota grave por acorde, ligada: casi un drone."};
 
@@ -719,8 +718,6 @@ function panelBajo() {
         (x) => x === 0 ? "siempre en la raíz" : x < 0.35 ? `un paso (${porcentaje(x)})` : x < 0.7 ? `hasta la quinta (${porcentaje(x)})` : `hasta la octava (${porcentaje(x)})`),
       deslizador(b, "evolucion", "Evolución", 0, 1, 0.05,
         (x) => x === 0 ? "fijo" : x < 0.4 ? `cambia de a poco (${porcentaje(x)})` : x < 0.7 ? `va cambiando (${porcentaje(x)})` : `cambia mucho (${porcentaje(x)})`),
-      b.estilo === "deepnotic" ? deslizador(b, "atraso", "Atraso del contratiempo", 0, 0.6, 0.05,
-        (x) => x === 0 ? "recto" : x < 0.3 ? `un poco atrás (${porcentaje(x)})` : `atrás, relajado (${porcentaje(x)})`) : null,
       deslizador(b, "transponer", "Transponer", -7, 7, 1, (x) => x === 0 ? "desde la raíz" : `${x > 0 ? "+" : ""}${x} grado${Math.abs(x) > 1 ? "s" : ""}${x === 4 ? " (la quinta)" : x === 2 ? " (la tercera)" : ""}`),
     ]),
     el("div", {className: "grupos"}, [

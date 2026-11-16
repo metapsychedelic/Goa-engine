@@ -232,30 +232,6 @@ PLANTILLAS = {
             ("Final", 16, 0.1, 0.05, "suave"),
         ],
     },
-    "template10": {
-        "nombre": "Template 10 · Deepnotic · slot 45",
-        "descripcion": "Psy progresivo profundo estilo Dekel a 136 BPM, 16 escenas, 240 compases (unos 7:04; las subidas de 8). Bombo largo y grave, hats secos, percusión de madera y glitches agudos, casi sin redobles: el movimiento lo hace el filtro del bajo. En el motor: bajo Deepnotic con el filtro automático (CC 74, se abre en 32 compases). En la Circuit: proyecto 45.",
-        "bpm": 136,
-        "circuit_proyecto": 45,
-        "partes": [
-            ("Intro", 16, 0.15, 0.2, "suave"),
-            ("Intro 2", 16, 0.2, 0.3, "suave"),
-            ("Pulso", 16, 0.4, 0.45, "golpe"),
-            ("Groove A", 16, 0.45, 0.5, "suave"),
-            ("Groove B", 16, 0.5, 0.55, "suave"),
-            ("Groove C", 16, 0.55, 0.6, "suave"),
-            ("Break", 16, 0.3, 0.3, "golpe"),
-            ("Rise", 8, 0.35, 0.7, "suave"),
-            ("Climax A", 16, 0.7, 0.75, "golpe"),
-            ("Climax B", 16, 0.75, 0.8, "suave"),
-            ("Break 2", 16, 0.3, 0.3, "golpe"),
-            ("Rise 2", 8, 0.35, 0.8, "suave"),
-            ("Climax C", 16, 0.8, 0.85, "golpe"),
-            ("Groove D", 16, 0.7, 0.65, "suave"),
-            ("Outro", 16, 0.45, 0.3, "suave"),
-            ("Final", 16, 0.25, 0.1, "suave"),
-        ],
-    },
 }
 
 

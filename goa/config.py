@@ -120,7 +120,6 @@ ESQUEMA_SECCIONES["bajo"] = {
     "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     "movimiento": (float, 0.3, 0.0, 1.0),
     "sube": (float, 0.0, 0.0, 1.0),        # notas que suben desde la raíz (bajo full-on)
-    "atraso": (float, 0.0, 0.0, 0.6),      # deepnotic: atrasa la nota alta hacia el tresillo (0 = recta)
     "filtro": (bool, False, None, None),   # filtro automático por CC (se abre de a poco)
     "filtro_cc": (int, 74, 0, 127),        # MC-101: 74 = corte, 71 = resonancia
     "filtro_min": (int, 25, 0, 127),
@@ -310,6 +309,9 @@ def normalizar(cfg):
     if isinstance(cfg.get("bajo"), dict) and cfg["bajo"].get("estilo") in bajo.ALIAS:
         cfg = dict(cfg, bajo=dict(cfg["bajo"], estilo=bajo.ALIAS[cfg["bajo"]["estilo"]]))
     cfg = _migrar_moldes(cfg)
+    if isinstance(cfg.get("bajo"), dict) and cfg["bajo"].get("estilo") in ESTILOS_BAJO_RETIRADOS:
+        # Un estilo de bajo que se sacó (deepnotic, 0.45): sigue con el más parecido.
+        cfg["bajo"] = dict(cfg["bajo"], estilo=ESTILOS_BAJO_RETIRADOS[cfg["bajo"]["estilo"]])
     for seccion, esquema in ESQUEMA_SECCIONES.items():
         datos = cfg.get(seccion) or {}
         limpia[seccion] = {k: _valor(k, datos.get(k), e) for k, e in esquema.items()}
@@ -349,6 +351,9 @@ def normalizar(cfg):
         if p["escena"] >= len(limpia["escena"]):
             p["escena"] = -1
     return limpia
+
+
+ESTILOS_BAJO_RETIRADOS = {"deepnotic": "offbeat"}
 
 
 def _migrar_molde(d, prefijo=""):

@@ -29,9 +29,9 @@ TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
 TICKS_POR_COMPAS = TICKS_POR_PASO * PASOS_POR_COMPAS
 
-ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "deepnotic", "dub", "sub")
-ALIAS = {"psy_chill": "galope"}  # nombre que tuvo en la v0.18.0
-PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "deepnotic"}
+ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "dub", "sub")
+ALIAS = {"psy_chill": "galope", "deepnotic": "offbeat"}  # nombres que tuvo (0.18) o estilos que se sacaron (0.45)
+PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive"}
 
 
 @dataclass(frozen=True)
@@ -55,9 +55,6 @@ BASES = {
     "saltado": _cada_tiempo((1, 3), 6),                    # K B · B
     "tresillo": _cada_tiempo((1, 2), 8, {1: 2, 2: 4}),     # K y dos de tresillo (ticks 8 y 16 del tiempo)
     "chillgressive": _cada_tiempo((1, 2, 3), 6),           # rolling oscuro, acento que se mueve
-    # deepnotic (Dekel y el psy progresivo israelí): la nota a contratiempo, larga y
-    # con cuerpo, y una corta y suave en la 4.ª semicorchea que empuja al bombo.
-    "deepnotic": {t * 4 + l: Golpe(d) for t in range(4) for l, d in ((2, 8), (3, 4))},
     "dub": {0: Golpe(30), 7: Golpe(12), 10: Golpe(24)},    # en el uno, antes del tres y en el tres
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
@@ -75,7 +72,6 @@ REMATES = {
     "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}),
     "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}),
     "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
-    "deepnotic": ({10: 4, 11: 0, 14: 7, 15: 4}, {14: 6, 15: 7}),
     "dub": ({14: 4}, {13: 6, 15: 4}),
     "sub": ({}, {}),
 }
@@ -102,17 +98,12 @@ MOVIMIENTOS = {
     "saltado": [(lambda l: l % 4 == 3, 7, 0.5), (lambda l: l % 4 == 1, 4, 0.2)],
     "tresillo": [(lambda l: l % 4 == 2, 7, 0.5)],
     "chillgressive": [(lambda l: l % 4 == 3, 7, 0.4), (lambda l: l % 4 == 1, 4, 0.2)],
-    "deepnotic": [(lambda l: l % 4 == 3, 7, 0.15)],
     "dub": [(lambda l: l == 7, 7, 0.6), (lambda l: l == 10, 4, 0.6)],
     "sub": [],
 }
 
 GRADOS_MUTACION = (0, 4, 7, 1, -1, 3)
 
-# Deepnotic: la nota a contratiempo. En los tiempos 2 y 4 vuelve siempre a la raíz;
-# en el 1 y el 3 sube y cambia de compás en compás (como en «Free Diving» de Dekel).
-DEEP_FIJA = 0
-DEEP_VARIA = (2, 3, 1, 4, 2)
 
 
 class Bajo:
@@ -143,7 +134,6 @@ class Bajo:
         if self.remate_rango not in GRADOS_REMATE:
             self.remate_rango = "octava"
         self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))
-        self.atraso = max(0.0, min(0.6, float(cfg.get("atraso", 0.0))))  # deepnotic: la 2.ª semicorchea hacia el tresillo
         # Filtro automático por CC (opcional): se abre de a poco y vuelve a cerrarse.
         self.filtro = bool(cfg.get("filtro", False))
         self.filtro_cc = max(0, min(127, int(cfg.get("filtro_cc", 74))))
@@ -249,10 +239,6 @@ class Bajo:
         """Golpes de un compás: el patrón (con lo mutado), la densidad, las notas fantasma y el remate."""
         golpes = {l: g for i, (l, g) in enumerate(sorted(self.patron.items()))
                   if i == 0 or self._azar("densidad", l) < self.densidad}
-        if self.estilo == "deepnotic":
-            golpes = {l: (replace(g, grado=DEEP_FIJA if (l // 4) % 2 else
-                                  DEEP_VARIA[int(self._azar("deep", compas * 4 + l // 4) * len(DEEP_VARIA))])
-                          if l % 4 == 2 and g.grado == 0 else g) for l, g in golpes.items()}
         if self.sube and self.estilo not in SIN_SUBE:
             golpes = self._subir(golpes, compas)
         if self.fantasmas:
@@ -353,8 +339,6 @@ class Bajo:
         if golpe.dur == 4 and lugar not in self.patron:
             return max(1, round(self.velocidad * 0.45))  # nota fantasma
         vel = self.velocidad
-        if self.estilo == "deepnotic" and lugar % 4 == 3 and golpe.dur <= 4:
-            return max(1, round(vel * 0.6))  # la corta que empuja al bombo, más suave
         if self.estilo == "chillgressive" and lugar % 4 == compas % 3 + 1:
             vel += 15  # acento que se mueve por la frase
         elif self._azar("acento", lugar) < self.acentos:
@@ -396,8 +380,6 @@ class Bajo:
         ultima = falta is not None and not any(lugar < l < lugar + falta for l in golpes)
         nota = self._nota(raiz, golpe.grado, momento, ultima, anticipar)
         retraso = golpe.retraso
-        if self.estilo == "deepnotic" and lugar % 4 == 2 and not retraso:
-            retraso = round(self.atraso * TICKS_POR_PASO)
         if self.swing and lugar % 2 == 1 and not retraso:
             retraso = round(self.swing * TICKS_POR_PASO)
         inicio = tick + retraso

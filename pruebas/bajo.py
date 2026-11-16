@@ -262,24 +262,7 @@ if __name__ == "__main__":
     todo &= ok(not any(pisadas.values()), "sin slide, ninguna nota se pisa con la siguiente (con swing, tresillos, notas largas y remates)"
                + ("" if not any(pisadas.values()) else f": {[k for k, v in pisadas.items() if v][:4]}"))
 
-    print("\nDeepnotic y filtro automático")
-    dp = Bajo({"activo": True, "estilo": "deepnotic", "remates": False, "movimiento": 0.0}, T("F", "frigio"))
-    g0 = dp.golpes(0)
-    todo &= ok(sorted(g0) == [2, 3, 6, 7, 10, 11, 14, 15] and all(g0[l].grado == 0 for l in (6, 14, 3, 7, 11, 15)),
-               "deepnotic: la nota a contratiempo y una corta en la 4.ª; en los tiempos 2 y 4 la de contratiempo es la raíz")
-    altas = {tuple(dp.golpes(c)[l].grado for l in (2, 10)) for c in range(8)}
-    todo &= ok(len(altas) > 2 and all(min(a) > 0 for a in altas),
-               f"en los tiempos 1 y 3 la de contratiempo sube y cambia de compás en compás ({len(altas)} combinaciones en 8)")
-    ev = []
-    for paso in range(16):
-        for k in range(6):
-            t = paso * 6 + k
-            dp.tick(t, lambda *a, t=t: ev.append((t,) + a))
-            if k == 0:
-                dp.paso(paso, t, 41, None, False, lambda *a, t=t: ev.append((t,) + a))
-    ons = [(t, v) for t, _, tipo, _, _, v in ev if tipo == "note_on"]
-    todo &= ok([t for t, _ in ons[:2]] == [12, 18] and ons[1][1] < ons[0][1],
-               f"recto en 4/4: contratiempo (pulso 12) y la corta (18), más suave ({ons[:2]})")
+    print("\nFiltro automático y portamento")
     fb = Bajo({"activo": True, "estilo": "rolling", "filtro": True, "filtro_min": 20, "filtro_max": 100, "filtro_ciclo": 8}, T("F", "frigio"))
     valores = [fb.valor_filtro(c) for c in range(17)]
     todo &= ok(valores[0] == 20 and valores[7] > 85 and valores[8] == 20 and valores == sorted(valores[:8]) + valores[8:],
@@ -293,7 +276,7 @@ if __name__ == "__main__":
     todo &= ok(cc and all(n == 74 for n, _ in cc) and len(cc) <= 16 and len({v for _, v in cc}) == len(cc),
                f"manda CC 74 una vez por tiempo, solo cuando cambia ({len(cc)} mensajes en 4 compases)")
     env = []
-    fb4 = Bajo({"activo": True, "estilo": "deepnotic", "filtro": True, "filtro_ciclo": 32, "filtro_nota": 0.6, "remates": False}, T("F", "frigio"))
+    fb4 = Bajo({"activo": True, "estilo": "saltado", "filtro": True, "filtro_ciclo": 32, "filtro_nota": 0.6, "remates": False}, T("F", "frigio"))
     for paso in range(16):
         for k in range(6):
             t = paso * 6 + k
