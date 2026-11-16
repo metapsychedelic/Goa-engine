@@ -351,7 +351,7 @@ const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del G
   saltado: "Bombo, bajo, silencio, bajo: rolling con aire, minimal.",
   offbeat: "Una corchea a contratiempo: el bajo del progressive y del psy chill.",
   chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
-  deepnotic: "Dos notas por tiempo, como Dekel: una alta atrasada hacia el tresillo y una grave en la 4.ª semicorchea. La alta vuelve a la quinta en los tiempos 2 y 4 y cambia en el 1 y el 3. Combínalo con el filtro automático.",
+  deepnotic: "Dos notas por tiempo, como Dekel: una alta en la 2.ª semicorchea y una grave en la 4.ª. La alta vuelve a la quinta en los tiempos 2 y 4 y cambia en el 1 y el 3. Combínalo con el filtro automático y algo de slide.",
   dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
   sub: "Una nota grave por acorde, ligada: casi un drone."};
 
@@ -720,7 +720,7 @@ function panelBajo() {
       deslizador(b, "evolucion", "Evolución", 0, 1, 0.05,
         (x) => x === 0 ? "fijo" : x < 0.4 ? `cambia de a poco (${porcentaje(x)})` : x < 0.7 ? `va cambiando (${porcentaje(x)})` : `cambia mucho (${porcentaje(x)})`),
       b.estilo === "deepnotic" ? deslizador(b, "atraso", "Atraso de la nota alta", 0, 0.6, 0.05,
-        (x) => x === 0 ? "en la semicorchea (recta)" : x < 0.3 ? `poco (${porcentaje(x)})` : x < 0.45 ? `hacia el tresillo (${porcentaje(x)})` : `muy atrás (${porcentaje(x)})`) : null,
+        (x) => x === 0 ? "recta, en la semicorchea" : x < 0.3 ? `un poco atrás (${porcentaje(x)})` : x < 0.45 ? `hacia el tresillo (${porcentaje(x)})` : `muy atrás (${porcentaje(x)})`) : null,
       deslizador(b, "transponer", "Transponer", -7, 7, 1, (x) => x === 0 ? "desde la raíz" : `${x > 0 ? "+" : ""}${x} grado${Math.abs(x) > 1 ? "s" : ""}${x === 4 ? " (la quinta)" : x === 2 ? " (la tercera)" : ""}`),
     ]),
     el("div", {className: "grupos"}, [
@@ -734,6 +734,9 @@ function panelBajo() {
           ayuda("CC de la MC-101. Otro sinte puede usar otros números."),
           campo("Se abre en (compases)", segmentado([["8","8"],["16","16"],["32","32"],["64","64"]], String(b.filtro_ciclo), (v) => { b.filtro_ciclo = parseInt(v); guardar(); renderMotores(); }, 4)),
           campo("Forma", segmentado([["sube","Sube y vuelve a cerrar"],["ola","Sube y baja"]], b.filtro_forma || "sube", (v) => { b.filtro_forma = v; guardar(); }, 2)),
+          deslizador(b, "filtro_nota", "Golpe de filtro en cada nota", 0, 1, 0.05,
+            (x) => x === 0 ? "no: solo el barrido lento" : x < 0.4 ? `suave (${porcentaje(x)})` : x < 0.7 ? `marcado (${porcentaje(x)})` : `muy marcado (${porcentaje(x)})`),
+          ayuda("En el ataque de cada nota el filtro se abre y vuelve enseguida, como una envolvente; las notas ligadas de un slide no lo vuelven a abrir. Encima va el barrido lento."),
           deslizador(b, "filtro_min", "Cerrado", 0, 127, 1, (x) => String(x)),
           deslizador(b, "filtro_max", "Abierto", 0, 127, 1, (x) => String(x)),
           ayuda("En el modo canción vuelve a cerrarse en cada quiebre (cuando la energía baja) y empieza a abrirse de nuevo."),

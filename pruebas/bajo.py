@@ -286,11 +286,36 @@ if __name__ == "__main__":
     fb.reiniciar_filtro(5)
     todo &= ok(fb.valor_filtro(5) == 20, "en un quiebre vuelve a cerrarse y empieza de nuevo")
     cc = []
-    fb2 = Bajo({"activo": True, "estilo": "rolling", "filtro": True, "filtro_ciclo": 4}, T("F", "frigio"))
+    fb2 = Bajo({"activo": True, "estilo": "rolling", "filtro": True, "filtro_ciclo": 4, "filtro_nota": 0.0}, T("F", "frigio"))
     for paso in range(64):
         fb2.paso(paso, paso * 6, 41, None, False, lambda sal_, tipo, ca, n, v: cc.append((n, v)) if tipo == "control_change" else None)
     todo &= ok(cc and all(n == 74 for n, _ in cc) and len(cc) <= 16 and len({v for _, v in cc}) == len(cc),
                f"manda CC 74 una vez por tiempo, solo cuando cambia ({len(cc)} mensajes en 4 compases)")
+    env = []
+    fb4 = Bajo({"activo": True, "estilo": "deepnotic", "filtro": True, "filtro_ciclo": 32, "filtro_nota": 0.6, "remates": False}, T("F", "frigio"))
+    for paso in range(16):
+        for k in range(6):
+            t = paso * 6 + k
+            fb4.tick(t, lambda sal_, tipo, ca, n, v, t=t: env.append((t, tipo, v)))
+            if k == 0:
+                fb4.paso(paso, t, 41, None, False, lambda sal_, tipo, ca, n, v, t=t: env.append((t, tipo, v)))
+    ataques = [t for t, tipo, _ in env if tipo == "note_on"]
+    picos = [(t, v) for t, tipo, v in env if tipo == "control_change" and v > 60]
+    todo &= ok(len(picos) == len(ataques) and all(any(t == a for t, _ in picos) for a in ataques),
+               f"golpe de filtro: en cada ataque el CC sube ({len(picos)} picos para {len(ataques)} notas) y vuelve a su base")
+    vuelve = [v for t, tipo, v in env if tipo == "control_change"]
+    todo &= ok(min(vuelve) < 40 and max(vuelve) > 70, f"el CC va del filtro de base ({min(vuelve)}) al pico ({max(vuelve)}) y vuelve")
+    sl = []
+    fb5 = Bajo({"activo": True, "estilo": "rolling", "filtro": True, "filtro_nota": 0.6, "slide": 1.0, "remates": False}, T("F", "frigio"))
+    for paso in range(16):
+        for k in range(6):
+            t = paso * 6 + k
+            fb5.tick(t, lambda sal_, tipo, ca, n, v: sl.append((tipo, v)))
+            if k == 0:
+                fb5.paso(paso, t, 41, None, False, lambda sal_, tipo, ca, n, v: sl.append((tipo, v)))
+    picos_sl = sum(1 for tipo, v in sl if tipo == "control_change" and v > 60)
+    todo &= ok(picos_sl <= sum(1 for tipo, _ in sl if tipo == "note_on"),
+               f"en un slide, las notas ligadas no vuelven a abrir el filtro ({picos_sl} golpe(s) en 12 notas ligadas)")
     sin = []
     fb3 = Bajo({"activo": True, "estilo": "rolling"}, T("F", "frigio"))
     for paso in range(32):

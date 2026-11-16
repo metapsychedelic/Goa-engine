@@ -143,7 +143,7 @@ class Bajo:
         if self.remate_rango not in GRADOS_REMATE:
             self.remate_rango = "octava"
         self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))
-        self.atraso = max(0.0, min(0.6, float(cfg.get("atraso", 0.35))))  # deepnotic: la 2.ª semicorchea hacia el tresillo
+        self.atraso = max(0.0, min(0.6, float(cfg.get("atraso", 0.0))))  # deepnotic: la 2.ª semicorchea hacia el tresillo
         # Filtro automático por CC (opcional): se abre de a poco y vuelve a cerrarse.
         self.filtro = bool(cfg.get("filtro", False))
         self.filtro_cc = max(0, min(127, int(cfg.get("filtro_cc", 74))))
@@ -151,8 +151,10 @@ class Bajo:
         self.filtro_max = max(0, min(127, int(cfg.get("filtro_max", 100))))
         self.filtro_ciclo = max(1, int(cfg.get("filtro_ciclo", 32)))
         self.filtro_forma = cfg.get("filtro_forma", "sube")
+        self.filtro_nota = _fraccion(cfg.get("filtro_nota", 0.5))  # golpe de filtro en el ataque de cada nota
         self.filtro_ancla = 0
         self.filtro_ultimo = None
+        self.cc_pendientes = []  # (tick, valor o None = volver al filtro de base)
         self.remate_largas = _fraccion(cfg.get("remate_largas", 0.0))  # frases con una nota larga
         self.remate_largo = max(0.3, min(1.0, float(cfg.get("remate_largo", 0.75))))  # cuánto del hueco ocupa   # 0 = como el resto, 1 = acentuado y sin slide
         self.frase = max(1, int(cfg.get("frase", 4)))
@@ -302,6 +304,19 @@ class Bajo:
         """Vuelve a cerrar el filtro y empieza a abrirlo desde este compás (un quiebre)."""
         self.filtro_ancla = compas
 
+    def _ligada(self, nota, inicio):
+        """Si esta nota llega con otra todavía sonando (un slide): no se vuelve a atacar."""
+        return any(fin > inicio for fin in self.sonando.values())
+
+    def _enviar_cc(self, tick, enviar):
+        listas = [c for c in self.cc_pendientes if c[0] <= tick]
+        if not listas:
+            return
+        self.cc_pendientes = [c for c in self.cc_pendientes if c[0] > tick]
+        for _, valor in sorted(listas, key=lambda c: c[0]):
+            enviar(self.salida, "control_change", self.canal, self.filtro_cc,
+                   self.filtro_ultimo if valor is None and self.filtro_ultimo is not None else (valor or 0))
+
     def _mover_filtro(self, compas, tiempo, enviar):
         valor = self.valor_filtro(compas, tiempo)
         if valor != self.filtro_ultimo:
@@ -410,6 +425,14 @@ class Bajo:
         if en_remate:
             # Acento suave y parejo: no se suma a los acentos al azar (antes llegaba a 127).
             vel = min(127, min(vel, self.velocidad) + round(6 * self.remate_marca))
+        if self.filtro and self.filtro_nota and not self._ligada(nota, inicio):
+            # Envolvente de filtro por nota: el filtro se abre en el ataque y vuelve a su
+            # lugar al rato (las notas ligadas de un slide no lo vuelven a abrir).
+            base = self.filtro_ultimo if self.filtro_ultimo is not None else self.valor_filtro(compas, lugar // 4)
+            pico = min(127, base + round((127 - base) * self.filtro_nota * (0.6 + 0.4 * vel / 127)))
+            self.cc_pendientes += [(inicio, pico), (inicio + max(2, round(min(fin - inicio, TICKS_POR_PASO) * 0.7)), None)]
+            if not retraso:
+                self._enviar_cc(tick, enviar)
         if retraso:
             self.pendientes.append((inicio, nota, vel, fin))
         else:
@@ -437,6 +460,8 @@ class Bajo:
             viejo.apagar(enviar)
 
     def tick(self, tick, enviar):
+        if self.cc_pendientes:
+            self._enviar_cc(tick, enviar)
         for nota, fin in list(self.sonando.items()):
             if fin <= tick:
                 enviar(self.salida, "note_off", self.canal, nota, 0)
