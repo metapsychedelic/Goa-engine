@@ -178,14 +178,16 @@ if __name__ == "__main__":
     from goa import plantillas as pl
     vieja = pl.partes_de("template1")
     for p in vieja:
-        if p["nombre"] in ("Rise", "Rise 2", "Break"):
+        if p["nombre"] in ("Rise", "Rise 2"):
+            p["compases"] = 16      # como quedaron en la v0.35
+        if p["nombre"] == "Break":
             p["compases"] = 8
     vieja[3].update(escena=2, energia=0.9, pads_suben=True, tension=True)
     vieja = [p for p in vieja if p["nombre"] != "Outro"] + [dict(vieja[0], nombre="Mía")]
     nuevas, cambios = pl.actualizar(vieja, "template1")
     por = {p["nombre"]: p for p in nuevas}
     todo &= ok([p["nombre"] for p in nuevas][:16] == [x[0] for x in pl.PLANTILLAS["template1"]["partes"]]
-               and por["Rise"]["compases"] == 16 and por["Break"]["compases"] == 16
+               and por["Rise"]["compases"] == 8 and por["Break"]["compases"] == 16
                and por[vieja[3]["nombre"]]["escena"] == 2 and por[vieja[3]["nombre"]]["energia"] == 0.9
                and por[vieja[3]["nombre"]]["pads_suben"] and por["Outro"]["escena"] == -1
                and nuevas[-1]["nombre"] == "Mía" and len(cambios) == 5,
@@ -229,12 +231,14 @@ if __name__ == "__main__":
     print("\nPlantillas")
     from goa import plantillas
     t = normalizar(dict(armar(), parte=plantillas.partes_de("template1")))
-    todo &= ok(len(t["parte"]) == 16 and forma.total_cancion(t["parte"]) == 256 and all(p["escena"] == -1 for p in t["parte"]),
-               "Template 1: 16 partes (las 16 escenas de la Circuit), 256 compases, sin escenas")
+    todo &= ok(len(t["parte"]) == 16 and forma.total_cancion(t["parte"]) == 240 and all(p["escena"] == -1 for p in t["parte"]),
+               "Template 1: 16 partes (las 16 escenas de la Circuit), sin escenas")
     from goa import plantillas as _pl
-    todo &= ok(all(len(_pl.partes_de(k)) == 16 and forma.total_cancion(_pl.partes_de(k)) == 256
+    subidas = ("Rise", "Rise 2", "Fuego", "Fuego 2", "Vuelta", "Vuelta 2", "Ascenso", "Ascenso 2", "Ascenso 3")
+    todo &= ok(all(len(_pl.partes_de(k)) == 16
+                   and all(p["compases"] == (8 if p["nombre"] in subidas else 16) for p in _pl.partes_de(k))
                    for k in ("template1", "template2", "template3", "template4", "template6", "template7", "template8", "template9")),
-               "templates 1-4 y 6-9: 16 escenas de 16 compases (256)")
+               "templates 1-4 y 6-9: 16 escenas; las subidas de 8 compases (un solo redoble), el resto de 16")
     todo &= ok(all(p["compases"] in (8, 16) for p in t["parte"]),
                "cada parte dura 8 o 16 compases, como sus escenas en la Circuit")
     buenas = all(len(x["partes"]) <= 16 and all(c in (8, 16) for _, c, *_ in x["partes"])

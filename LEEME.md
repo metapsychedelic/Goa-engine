@@ -269,6 +269,11 @@ apagado.
 **Plantillas:** *Cargar plantilla…* pone una estructura lista. Cada una tiene su
 proyecto gemelo en la Circuit (percusión con el banco FROM GOA TO PSYT):
 
+**Por qué las subidas duran 8 compases:** en la Circuit una escena repite su cadena
+de patrones, y una cadena de 4 patrones dura 8 compases. Una subida de 16 sonaba
+como dos subidas seguidas; con 8 hay un solo redoble, un riser y un swell que llega
+a la parte siguiente. Las demás partes son de 16.
+
 **Actualizar una canción ya armada:** si el template cambió (por ejemplo, partes
 que pasaron de 8 a 16 compases), en Canción usa **Actualizar con la plantilla…**.
 Pone los largos de la plantilla y suma las partes que falten (sin escena), y deja
@@ -285,23 +290,23 @@ orgánica suave: el crash (suave) solo al empezar las partes principales, un swe
 suave que llega a la parte siguiente y el riser solo en las subidas; en el ambient,
 como mucho un swell cada 16 compases. La tabla completa está en `herramientas/circuit_cancion.py`.
 
-- **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 escenas de 16 compases,
-  256 compases (7:19).
+- **Template 1 · Psytrance** (proyecto 32): 140 BPM, 16 escenas,
+  240 compases (6:51; las subidas de 8).
 - **Template 2 · Dark minimal** (proyecto 33): 142 BPM, 16 escenas de 16 compases,
   256 compases (7:13). Estilo Zenonesque: pocos elementos que entran de a uno,
   glitch solo agudo (el grave queda para el bombo y el bajo del motor).
-- **Template 3 · Goa clásico** (proyecto 34): 140 BPM, 16 escenas de 16 compases,
-  256 compases (7:19). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
-- **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 16 escenas de 16 compases,
-  256 compases (7:19). Toms afinados en llamada y respuesta sobre el clap, congas, ceremonia a medio tiempo.
+- **Template 3 · Goa clásico** (proyecto 34): 140 BPM, 16 escenas,
+  240 compases (6:51; las subidas de 8). Bombo tipo 909, snare, toms que rematan, breakdown largo, ride.
+- **Template 4 · Goa tribal** (proyecto 35): 140 BPM, 16 escenas,
+  240 compases (6:51; las subidas de 8). Toms afinados en llamada y respuesta sobre el clap, congas, ceremonia a medio tiempo.
 - **Template 5 · Goa épico** (proyecto 40): 140 BPM, 16 partes, 224 compases (6:24). Arcos
   largos, redobles en dos olas, crash cada 8 compases.
-- **Template 6 · Psy chill** (proyecto 41): 104 BPM con shuffle, 16 escenas de 16
-  compases, 256 compases (9:51). Bombo redondo, clap largo, congas y blips. Escala dórica.
-- **Template 7 · Chillgressive** (proyecto 42): 120 BPM, 16 escenas de 16 compases,
-  256 compases (8:32). Hats rodando en semicorcheas, clap en 2 y 4, breaks largos. Escala menor.
-- **Template 8 · Chillout** (proyecto 43): 92 BPM con swing, 16 escenas de 16 compases,
-  256 compases (11:08). Beat quebrado, snare con cuerpo, shaker y congas. Escala menor.
+- **Template 6 · Psy chill** (proyecto 41): 104 BPM con shuffle, 16 escenas,
+  240 compases (9:14; las subidas de 8). Bombo redondo, clap largo, congas y blips. Escala dórica.
+- **Template 7 · Chillgressive** (proyecto 42): 120 BPM, 16 escenas,
+  240 compases (8:00; las subidas de 8). Hats rodando en semicorcheas, clap en 2 y 4, breaks largos. Escala menor.
+- **Template 8 · Chillout** (proyecto 43): 92 BPM con swing, 16 escenas,
+  240 compases (10:26; las subidas de 8). Beat quebrado, snare con cuerpo, shaker y congas. Escala menor.
 - **Template 9 · Ambient** (proyecto 44): 76 BPM, 16 escenas de 16 compases, 256
   compases (13:28). Sin bombo fijo: sub booms, latidos suaves, texturas, swells y mucha reverb.
 

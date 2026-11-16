@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.37.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.37.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -51,7 +51,7 @@ Canción, Ajustes).
   - T1 Psytrance (proyecto 32), T2 Dark minimal 142 (33, glitch solo agudo), T3 Goa clásico (34),
     T4 Goa tribal (35), T5 Goa épico (40), T6 Psy chill 104 (41),
     T7 Chillgressive 120 (42), T8 Chillout 92 (43), T9 Ambient 76 (44).
-  - T1–T4 y T6–T9: 16 escenas × 16 compases = 256 compases (máximo de la Circuit). T5 sigue con escenas de 8.
+  - T1–T9: 16 escenas; las subidas (Rise, Fuego, Vuelta, Ascenso) de 8 compases y el resto de 16.
 - Escalas: doble armónica en Música; escala de color por secuencia (doble armónica,
   persa, enigmática); control ♭2; progresiones i–♭VII–♭VI–♭VII e i–♭II–♭VII–i.
 
