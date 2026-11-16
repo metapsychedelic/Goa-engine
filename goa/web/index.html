@@ -731,7 +731,7 @@ function panelBajo() {
             (v) => { b.remate_rango = v; guardar(); }, 2)) : null,
           deslizador(b, "remate_marca", "Remate marcado", 0, 1, 0.05,
             (x) => x < 0.3 ? "como el resto (puede llevar slide)" : x < 0.7 ? `algo acentuado, sin slide (${porcentaje(x)})` : `acentuado, sin slide (${porcentaje(x)})`),
-          ayuda("En cada frase el remate cambia al azar según la variación (repetible con la variante). En 0 suenan siempre los dos remates clásicos del estilo."),
+          ayuda("En cada frase cambian al azar las alturas de algunas notas del remate, nunca su ritmo (repetible con la variante). En 0 suenan siempre los dos remates clásicos del estilo."),
         ] : []),
         deslizador(b, "densidad", "Densidad", 0, 1, 0.05, (x) => x === 1 ? "todos los golpes" : `${porcentaje(x)} de los golpes`),
         deslizador(b, "swing", "Swing", 0, 0.5, 0.05, (x) => x === 0 ? "recto" : porcentaje(x * 2)),

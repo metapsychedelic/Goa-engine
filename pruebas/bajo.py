@@ -204,9 +204,11 @@ if __name__ == "__main__":
                "el rango «hasta la quinta» se respeta y nunca cae en el bombo")
 
     cierran = all(max(Bajo({"activo": True, "estilo": e, "seed": f"S{k}", "remate_var": v}, T("F", "frigio")).remate(f * 4 + 3))
-                  >= max(gb.REMATES[e][f % 2])
+                  == max(gb.REMATES[e][f % 2]) and
+                  set(Bajo({"activo": True, "estilo": e, "seed": f"S{k}", "remate_var": v}, T("F", "frigio")).remate(f * 4 + 3))
+                  == set(gb.REMATES[e][f % 2])
                   for e in gb.REMATES if e != "sub" for k in range(20) for v in (0.6, 1.0) for f in range(6))
-    todo &= ok(cierran, "con variación el remate nunca pierde su última nota: siempre cierra la frase")
+    todo &= ok(cierran, "con variación solo cambian alturas: el remate nunca pierde ni gana notas")
 
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):

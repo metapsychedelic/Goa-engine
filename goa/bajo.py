@@ -234,8 +234,8 @@ class Bajo:
 
     def remate(self, compas):
         """El remate de este compás (lugar -> grado), o {} si no toca remate. Se alternan
-        los dos del estilo; con variación, en cada frase cambian algunas notas (y desde
-        la mitad, a veces se calla una o se agrega otra fuera del bombo)."""
+        los dos del estilo; con variación, en cada frase cambian las alturas de algunas
+        notas. El ritmo del remate no cambia: nunca se quitan ni se agregan notas."""
         if not (self.remates and self.frase > 1 and compas % self.frase == self.frase - 1):
             return {}
         frase = compas // self.frase
