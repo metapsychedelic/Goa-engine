@@ -201,6 +201,52 @@ def es_fuerte(posicion, i):
 
 RECORRIDOS = ("adelante", "atras", "pendulo", "azar")
 
+# Pesos para armar o mutar un molde, por lugar del tiempo: (tiempo, contratiempo, semicorchea débil).
+# Goa: rolling lleno, los tiempos y contratiempos con nota. Psy: deja los tiempos al
+# bombo y al bajo y vive en los contratiempos y síncopas, con más silencios.
+PESOS_MOLDE = {
+    "goa": ((("x", 5), ("?", 2), (".", 3)), (("x", 3), ("?", 3), ("-", 1), (".", 3)), (("?", 2.5), ("-", 2.5), (".", 5))),
+    "psy": ((("-", 4), ("x", 2), ("?", 1), (".", 3)), (("x", 5), ("?", 2), (".", 3)), (("?", 3), ("-", 3), ("x", 1), (".", 3))),
+}
+ESTILOS_MOLDE = tuple(PESOS_MOLDE)
+
+
+def _pesos_paso(estilo, i):
+    tiempo, contra, debil = PESOS_MOLDE.get(estilo, PESOS_MOLDE["goa"])
+    return tiempo if i % 4 == 0 else contra if i % 4 == 2 else debil
+
+
+def _elegir_peso(rng, pesos):
+    r = rng.random() * sum(p for _, p in pesos)
+    for c, p in pesos:
+        r -= p
+        if r < 0:
+            return c
+    return pesos[-1][0]
+
+
+def molde_al_azar(rng, estilo="goa"):
+    """Un molde de 16 pasos al azar pero con sentido; siempre con al menos un «x»."""
+    m = [_elegir_peso(rng, _pesos_paso(estilo, i)) for i in range(16)]
+    if "x" not in m:
+        m[rng.choice([2, 6, 10, 14] if estilo == "psy" else [0, 4, 8, 12])] = "x"
+    return "".join(m)
+
+
+def mutar_molde(molde, rng, cantidad, estilo="goa"):
+    """Cambia uno o dos pasos del molde con probabilidad `cantidad` (como la mutación
+    de notas). Nunca deja el molde sin ningún «x» si tenía alguno."""
+    if cantidad <= 0 or rng.random() >= cantidad:
+        return molde
+    m = list((molde or "").ljust(16, ".")[:16])
+    for _ in range(2 if cantidad >= 0.66 else 1):
+        i = rng.randrange(16)
+        opciones = [(c, p) for c, p in _pesos_paso(estilo, i) if c != m[i]]
+        m[i] = _elegir_peso(rng, opciones)
+    if "x" not in m and "x" in (molde or ""):
+        m[molde.index("x")] = "x"
+    return "".join(m)
+
 
 def recorrer(recorrido, k, largo, seed):
     """Qué elemento (paso del patrón o nota del motivo) toca en la vuelta `k`.

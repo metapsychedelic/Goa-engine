@@ -265,5 +265,17 @@ if __name__ == "__main__":
     todo &= ok(all(sorted(v) == sorted(d.llamada.orden) for v in vueltas) and len({tuple(v) for v in vueltas}) > 1,
                f"notas al azar: las mismas del motivo, en otro orden cada compás ({vueltas})")
 
+    cfg = base(evolucion=0.0, mutar_cada=2)
+    cfg["llamada"].update(molde="x...x...........", molde_muta=1.0, molde_estilo="psy")
+    cfg = normalizar(cfg)
+    salida, m = correr(cfg, compases=16)
+    filas = {"".join("L" if x == "L" else "." for x in grilla(salida, cfg, c)) for c in range(16)}
+    todo &= ok(len(filas) > 1 and colgadas(salida) == 0,
+               f"el molde de la llamada muta solo: {len(filas)} ritmos distintos en 16 compases")
+    cfg["llamada"]["fija"] = True
+    salida, _ = correr(normalizar(cfg), compases=16)
+    filas = {"".join("L" if x == "L" else "." for x in grilla(salida, cfg, c)) for c in range(16)}
+    todo &= ok(len(filas) == 1, "«Fijar» también congela el molde")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

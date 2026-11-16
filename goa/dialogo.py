@@ -122,6 +122,9 @@ class Voz:
         self.molde = str(cfg.get("molde", ""))
         self.molde_prob = float(cfg.get("molde_prob", 0.5))
         self.recorrido = cfg.get("recorrido", "adelante")   # orden de sus notas
+        self.molde_muta = float(cfg.get("molde_muta", 0.0))
+        self.molde_estilo = cfg.get("molde_estilo", "goa")
+        self.molde_vivo = self.molde
         self.variante = int(cfg.get("variante", 0))   # «Otra» la sube, «Volver» la baja
         self.fija = bool(cfg.get("fija", False))      # «Fijar»: la mutación no la toca
         sufijo = f":{self.variante}" if self.variante else ""
@@ -218,6 +221,8 @@ class Dialogo:
             nueva.rng.setstate(vieja.rng.getstate())
             if nueva.variante != vieja.variante:
                 continue  # «Otra» o «Volver»: entra la frase nueva, no la mutada de antes
+            if nueva.molde == vieja.molde and nueva.molde_muta > 0:
+                nueva.molde_vivo = vieja.molde_vivo
             if (nueva.golpes, nueva.grados) == (vieja.golpes, vieja.grados):
                 nueva.orden = list(vieja.orden)
             if viejo.rejilla == self.rejilla:
@@ -249,7 +254,7 @@ class Dialogo:
 
     def _estado_molde(self, voz):
         rng = random.Random(f"{self.seed}:{voz.papel}:molde:{self.compas_actual}")
-        return molde_lugares(voz.molde, self.lugares, self.paso_lugar, voz.molde_prob, rng)
+        return molde_lugares(voz.molde_vivo, self.lugares, self.paso_lugar, voz.molde_prob, rng)
 
     def notas_de(self, voz, cantidad):
         """Las notas del motivo de la voz para este compás, en su orden (adelante, atrás,
@@ -354,9 +359,15 @@ class Dialogo:
         return inicios, retrasos
 
     def _mutar(self, compas):
-        if self.evolucion > 0 and compas > 0 and compas % self.mutar_cada == 0:
+        if compas <= 0 or compas % self.mutar_cada:
+            return
+        if self.evolucion > 0:
             self.llamada.mutar(self.evolucion, self.lugares, anclada=True)
             self.respuesta.mutar(self.evolucion, self.lugares, anclada=False)
+        for voz in (self.llamada, self.respuesta):
+            if voz.molde_muta > 0 and not voz.fija:
+                rng = random.Random(f"{self.seed}:{voz.papel}:molde_muta:{compas}")
+                voz.molde_vivo = generador.mutar_molde(voz.molde_vivo, rng, voz.molde_muta, voz.molde_estilo)
 
     # --- En vivo ---
 

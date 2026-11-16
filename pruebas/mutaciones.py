@@ -192,5 +192,34 @@ if __name__ == "__main__":
     todo &= ok(sorted(n for _, n in adelante[:16]) == sorted(n for _, n in atras[:16]) and adelante[:16] != atras[:16],
                "al revés: las mismas notas en otro orden")
 
+    print("\nEl molde muta solo (opcional) y 🎲 Goa / Psy")
+    import random as _r
+    rng = _r.Random(3)
+    goa_m = [gen.molde_al_azar(rng, "goa") for _ in range(200)]
+    psy_m = [gen.molde_al_azar(rng, "psy") for _ in range(200)]
+    en_tiempos = lambda ms: sum(m[i] == "x" for m in ms for i in (0, 4, 8, 12)) / len(ms)  # noqa: E731
+    en_contras = lambda ms: sum(m[i] == "x" for m in ms for i in (2, 6, 10, 14)) / len(ms)  # noqa: E731
+    todo &= ok(all("x" in m for m in goa_m + psy_m) and en_tiempos(goa_m) > en_tiempos(psy_m) and en_contras(psy_m) > en_contras(goa_m),
+               f"goa llena los tiempos ({en_tiempos(goa_m):.1f} de 4); psy los deja al bombo y vive en los contratiempos ({en_contras(psy_m):.1f} de 4)")
+    from goa.motor import Motor
+    def moldes(muta, compases=33, molde="x...x...x...x..."):
+        cfg = armar_arm(modo="libre")
+        cfg["secuencia"][0].update(molde=molde, molde_muta=muta, mutar_cada=4, mutacion=0.0)
+        m = Motor(normalizar(cfg), lambda *a: None)
+        vistos = []
+        for c in range(1, compases):
+            m.secuencias[0].evolucionar(c)
+            vistos.append(m.secuencias[0].molde_vivo)
+        return vistos
+    quieto, vivo = moldes(0.0), moldes(1.0)
+    cambios = sum(1 for a, b in zip(vivo, vivo[1:]) if a != b)
+    todo &= ok(len(set(quieto)) == 1 and quieto[0] == "x...x...x...x...", "en 0 el molde no se mueve")
+    todo &= ok(cambios >= 5 and all(sum(x != y for x, y in zip(a, b)) <= 2 for a, b in zip(vivo, vivo[1:]))
+               and all("x" in m for m in vivo),
+               f"al máximo cambia de a 1 o 2 pasos cada 4 compases ({cambios} cambios en 32; nunca se queda sin ●)")
+    todo &= ok(moldes(1.0) == vivo, "es repetible: misma seed, mismo camino")
+    vacio = moldes(0.5, molde="")
+    todo &= ok(any(m for m in vacio), "desde un molde vacío también empieza a dibujar uno")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

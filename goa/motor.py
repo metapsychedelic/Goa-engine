@@ -75,6 +75,9 @@ class Secuencia:
         self.molde = limpiar_molde(cfg.get("molde", ""))
         self.molde_prob = float(cfg.get("molde_prob", 0.5))
         self.recorrido = cfg.get("recorrido", "adelante")
+        self.molde_muta = float(cfg.get("molde_muta", 0.0))
+        self.molde_estilo = cfg.get("molde_estilo", "goa")
+        self.molde_vivo = self.molde   # el que suena: la mutación del molde lo va cambiando
         self.semitono = float(cfg.get("semitono", 0.0))
         self.fx = bool(cfg.get("fx", False))            # el motor de FX la interviene
         self.cc_filtro = int(cfg.get("cc_filtro", 74))
@@ -96,6 +99,9 @@ class Secuencia:
     def evolucionar(self, compas):
         if self.bloqueada or compas <= 0 or compas % self.mutar_cada:
             return
+        if self.molde_muta > 0:
+            rng = random.Random(f"{self.seed}:molde:{compas}")
+            self.molde_vivo = limpiar_molde(generador.mutar_molde(self.molde_vivo, rng, self.molde_muta, self.molde_estilo))
         if self.mutacion <= 0 and self.mutacion_ritmo <= 0:
             return
         self.patron = self._mutado(self.patron, compas)
@@ -374,6 +380,8 @@ class Motor:
                     # control de la app devolvía la secuencia a su patrón original.
                     s.patron = vieja.patron
                     s.ritmo_base = vieja.ritmo_base
+                if vieja.molde == s.molde and s.molde_muta > 0:
+                    s.molde_vivo = vieja.molde_vivo  # el molde mutado sigue su camino
                     s._director_patron = getattr(vieja, "_director_patron", None)  # un cambio del director viaja con su patrón
         pads.disparo = self._canal_de(config.get("pads", {}))
         bajo.disparo = self._canal_de(config.get("bajo", {}))
@@ -1037,7 +1045,7 @@ class Motor:
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
             # Molde (opcional): "x" = acá siempre nota, "?" = a veces, "-" = acá nunca, "." = lo que salga.
-            celda = celda_molde(s.molde, s.molde_prob, s.seed, paso)
+            celda = celda_molde(s.molde_vivo, s.molde_prob, s.seed, paso)
             if (raiz is None or not s.activa or celda == "-"
                     or (celda != "x" and (not generador.pasa_posicion(s.posicion, fuente)
                                           or not p["suena"] or x["densidad"] >= s.densidad))):

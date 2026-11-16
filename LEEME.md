@@ -514,9 +514,14 @@ nota" (●) a "nunca" (×). Atajos: Libre, Al inicio, Al final y Contras.
   y en un × nunca; en los · manda el patrón como siempre.
 - En el diálogo, los golpes de la voz van primero a los ●; si sobran, se reparten
   en los ·, y nunca caen en un ×. En corcheas cada lugar ocupa 2 pasos.
-- **🎲 Molde al azar**: arma un molde nuevo con sentido (los tiempos tienden a ●,
-  los contratiempos a ● o ?, las semicorcheas débiles a ? o ×; siempre queda al
-  menos un ●). Tócalo hasta que salga uno que te guste y después retócalo a mano.
+- **🎲 Goa / 🎲 Psy**: arma un molde nuevo al azar pero con sentido. Goa llena
+  los tiempos y contratiempos (rolling); Psy deja los tiempos al bombo y al bajo y
+  vive en los contratiempos y síncopas, con más silencios. Siempre queda al menos
+  un ●. Tócalo hasta que salga uno que te guste y retócalo a mano.
+- **El molde muta solo** (0 = no): cada «mutar cada» compases cambia uno o dos
+  pasos del molde, al estilo del último 🎲 (goa o psy). Nunca se queda sin ●,
+  es repetible con la misma seed, y «Fijar» (en el diálogo) o «Congelar» (en las
+  secuencias) también lo detienen. La fila muestra el molde de partida.
 - **A veces (?)**: elige el pincel «? A veces» y marca pasos; en cada compás cada
   uno suena con la probabilidad que pongas (por defecto 50 %), si no queda en
   silencio. Es repetible: misma seed, mismo resultado.
