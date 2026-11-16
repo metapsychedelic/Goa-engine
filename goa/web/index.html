@@ -714,13 +714,15 @@ function panelBajo() {
     el("div", {className: "card principales"}, [
       deslizador(b, "movimiento", "Movimiento", 0, 1, 0.05,
         (x) => x === 0 ? "solo la raíz" : x < 0.4 ? `camina poco (${porcentaje(x)})` : x < 0.7 ? `camina (${porcentaje(x)})` : `camina mucho (${porcentaje(x)})`),
+      ["dub", "sub"].includes(b.estilo) ? null : deslizador(b, "sube", "Notas que suben", 0, 1, 0.05,
+        (x) => x === 0 ? "siempre en la raíz" : x < 0.35 ? `un paso (${porcentaje(x)})` : x < 0.7 ? `hasta la quinta (${porcentaje(x)})` : `hasta la octava (${porcentaje(x)})`),
       deslizador(b, "evolucion", "Evolución", 0, 1, 0.05,
         (x) => x === 0 ? "fijo" : x < 0.4 ? `cambia de a poco (${porcentaje(x)})` : x < 0.7 ? `va cambiando (${porcentaje(x)})` : `cambia mucho (${porcentaje(x)})`),
       deslizador(b, "transponer", "Transponer", -7, 7, 1, (x) => x === 0 ? "desde la raíz" : `${x > 0 ? "+" : ""}${x} grado${Math.abs(x) > 1 ? "s" : ""}${x === 4 ? " (la quinta)" : x === 2 ? " (la tercera)" : ""}`),
     ]),
     el("div", {className: "grupos"}, [
       grupo("g-bajo-ritmo", "Ritmo", `${b.remates ? `remate cada ${b.frase}` : "sin remates"} · swing ${porcentaje(b.swing * 2)} · densidad ${porcentaje(b.densidad)}`, [
-        casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate (alterna entre dos)", () => renderMotores()),
+        casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate; la variante elige cuál, entre cinco", () => renderMotores()),
         b.remates ? campo("Frase de (compases)", segmentado([["2","2"],["4","4"],["8","8"]], String(b.frase), (v) => { b.frase = parseInt(v); guardar(); }, 3)) : null,
         deslizador(b, "densidad", "Densidad", 0, 1, 0.05, (x) => x === 1 ? "todos los golpes" : `${porcentaje(x)} de los golpes`),
         deslizador(b, "swing", "Swing", 0, 0.5, 0.05, (x) => x === 0 ? "recto" : porcentaje(x * 2)),

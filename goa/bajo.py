@@ -58,21 +58,39 @@ BASES = {
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
 
-# Remates del final de la frase: lugar -> grado de escala desde la raíz (dos variantes).
-# Desde el tiempo donde empieza el remate se reemplaza el patrón, y sus notas van
-# cortas y acentuadas, sin slide: así se oyen como un remate y no como un desliz.
+# Remates del final de la frase: lugar -> grado de escala desde la raíz. Cada estilo
+# tiene varios y la seed elige cuál cierra cada frase (nunca el mismo dos veces
+# seguidas). Desde el tiempo donde empieza el remate se reemplaza el patrón, y sus
+# notas van cortas y acentuadas, sin slide: se oyen como remate y no como desliz.
+# En los estilos psy nunca caen en el tiempo del bombo (lugares 0, 4, 8, 12).
 REMATES = {
-    # rolling: rebote de octava en los tiempos 3 y 4 · corrida que baja 8-7-5 | 4-2-1
-    "rolling": ({9: 0, 10: 7, 11: 0, 13: 7, 14: 4, 15: 7}, {9: 7, 10: 6, 11: 4, 13: 3, 14: 1, 15: 0}),
-    "fullon": ({13: 7, 14: 6, 15: 4}, {13: 1, 14: 0, 15: 7}),
-    "galope": ({14: 7, 15: 4}, {14: 4, 15: 6}),
-    "offbeat": ({13: 7, 14: 4, 15: 0}, {14: 7, 15: 6}),
-    "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}),
-    "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}),
-    "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
-    "dub": ({14: 4}, {13: 6, 15: 4}),
-    "sub": ({}, {}),
+    "rolling": ({9: 0, 10: 7, 11: 0, 13: 7, 14: 4, 15: 7},     # rebote de octava
+                {9: 7, 10: 6, 11: 4, 13: 3, 14: 1, 15: 0},     # corrida que baja
+                {13: 4, 14: 6, 15: 7},                         # sube a la octava
+                {10: 7, 11: 7, 13: 1, 14: 1, 15: 0},           # ♭2 que tensa y vuelve
+                {9: 4, 10: 4, 11: 6, 13: 7, 14: 6, 15: 7}),    # ondula arriba
+    "fullon": ({13: 7, 14: 6, 15: 4}, {13: 1, 14: 0, 15: 7}, {9: 4, 10: 6, 11: 7, 13: 7, 14: 4, 15: 1},
+               {13: 3, 14: 4, 15: 6}, {10: 7, 11: 6, 13: 4, 14: 3, 15: 1}),
+    "galope": ({14: 7, 15: 4}, {14: 4, 15: 6}, {10: 7, 11: 7, 14: 4, 15: 1}, {14: 6, 15: 7},
+               {6: 4, 7: 4, 10: 6, 11: 6, 14: 7, 15: 7}),
+    "offbeat": ({13: 7, 14: 4, 15: 0}, {14: 7, 15: 6}, {10: 4, 13: 7, 14: 6, 15: 4}, {11: 7, 14: 7, 15: 7},
+                {6: 4, 10: 6, 14: 7}),
+    "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}, {9: 7, 11: 6, 13: 4, 15: 1}, {13: 1, 15: 0},
+                {11: 7, 13: 7, 14: 4, 15: 7}),
+    "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}, {9: 7, 10: 6, 13: 4, 14: 1}, {13: 1, 14: 0}, {13: 7, 14: 7}),
+    "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}, {9: 4, 11: 6, 13: 7, 14: 6, 15: 4},
+                      {14: 1, 15: 0}, {10: 7, 11: 7, 13: 4, 15: 3}),
+    "dub": ({14: 4}, {13: 6, 15: 4}, {12: 7, 14: 4}, {11: 4, 15: 7}, {14: 6, 15: 4}),
+    "sub": ({},),
 }
+
+# «Notas que suben»: caminos de grados para los 4 tiempos del compás, de la raíz hacia
+# arriba (como los bajos full-on que no se quedan en la raíz). El control elige cuántos
+# tiempos suben, si sube una o dos notas por tiempo y hasta dónde llega el camino.
+CAMINOS = ((0, 1, 0, 2), (0, 0, 1, 2), (0, 2, 1, 2), (0, 1, 2, 2), (0, 2, 0, 1),
+           (0, 1, 2, 3), (0, 1, 2, 4), (0, 2, 3, 4), (0, 0, 2, 4), (0, 1, 3, 4),
+           (0, 2, 4, 7), (0, 3, 4, 6), (0, 2, 4, 6), (0, 4, 6, 7))
+SIN_SUBE = ("dub", "sub")
 
 # Celdas melódicas del full-on: grados de los 3 golpes de cada tiempo (el ♭2 en frigio es muy Goa).
 CELDAS = [(0, 0, 7), (0, 0, 1), (0, 7, 0), (0, 0, 4), (0, 1, 0), (0, 4, 7), (0, 0, 0), (7, 0, 0)]
@@ -107,6 +125,7 @@ class Bajo:
         self.velocidad = int(cfg.get("velocidad", 100))
         self.vel_random = float(cfg.get("vel_random", 0.1))
         self.movimiento = _fraccion(cfg.get("movimiento", 0.3))
+        self.sube = _fraccion(cfg.get("sube", 0.0))
         self.evolucion = _fraccion(cfg.get("evolucion", 0.0))
         self.mutar_cada = max(1, int(cfg.get("mutar_cada", 4)))
         self.densidad = _fraccion(cfg.get("densidad", 1.0))
@@ -199,6 +218,8 @@ class Bajo:
         """Golpes de un compás: el patrón (con lo mutado), la densidad, las notas fantasma y el remate."""
         golpes = {l: g for i, (l, g) in enumerate(sorted(self.patron.items()))
                   if i == 0 or self._azar("densidad", l) < self.densidad}
+        if self.sube and self.estilo not in SIN_SUBE:
+            golpes = self._subir(golpes, compas)
         if self.fantasmas:
             for l in range(PASOS_POR_COMPAS):
                 if (l not in golpes and not (self.estilo in PSY and l % 4 == 0) and self.estilo not in ("sub", "dub")
@@ -214,10 +235,35 @@ class Bajo:
         return golpes
 
     def remate(self, compas):
-        """El remate de este compás (lugar -> grado), o {} si no toca remate."""
-        if self.remates and self.frase > 1 and compas % self.frase == self.frase - 1:
-            return REMATES[self.estilo][(compas // self.frase) % 2]
-        return {}
+        """El remate de este compás (lugar -> grado), o {} si no toca remate. La seed
+        elige cuál de los remates del estilo cierra cada frase, sin repetir seguido."""
+        if not (self.remates and self.frase > 1 and compas % self.frase == self.frase - 1):
+            return {}
+        opciones = REMATES[self.estilo]
+        frase = compas // self.frase
+        elegido = int(self._azar("remate", frase) * len(opciones))
+        if len(opciones) > 1 and elegido == int(self._azar("remate", frase - 1) * len(opciones)):
+            elegido = (elegido + 1) % len(opciones)
+        return opciones[elegido]
+
+    def _subir(self, golpes, compas):
+        """«Notas que suben»: la última nota de algunos tiempos (y con el control alto,
+        también la penúltima) sigue un camino que sube desde la raíz. Hay dos caminos,
+        uno para los compases pares y otro para los impares: la línea va variando."""
+        piso, tope = (1, 2) if self.sube < 0.35 else (3, 4) if self.sube < 0.7 else (6, 7)
+        caminos = [c for c in CAMINOS if piso <= max(c) <= tope]
+        k = int(self._azar("camino") * len(caminos))
+        if compas % 2:  # los impares, otro camino: la línea va variando
+            k = (k + 1 + int(self._azar("camino", 1) * (len(caminos) - 1))) % len(caminos)
+        camino = caminos[k]
+        cuantos = max(1, round(self.sube * 3))   # tiempos que suben: 1, 2 o los 3
+        tiempos = sorted((t for t in range(1, 4) if camino[t]), key=lambda t: self._azar("sube", t))[:cuantos]
+        golpes = dict(golpes)
+        for tiempo in tiempos:
+            propios = sorted(l for l in golpes if l // 4 == tiempo and golpes[l].grado == 0)
+            for l in propios[-2 if self.sube > 0.55 else -1:]:
+                golpes[l] = replace(golpes[l], grado=camino[tiempo])
+        return golpes
 
     # --- Qué toca ---
 

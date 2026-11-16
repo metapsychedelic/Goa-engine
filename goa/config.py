@@ -119,6 +119,7 @@ ESQUEMA_SECCIONES["bajo"] = {
     "estilo": (str, "rolling", None, bajo.ESTILOS),
     "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     "movimiento": (float, 0.3, 0.0, 1.0),
+    "sube": (float, 0.0, 0.0, 1.0),        # notas que suben desde la raíz (bajo full-on)
     "evolucion": (float, 0.0, 0.0, 1.0),
     "mutar_cada": (int, 4, 1, 16),
     "transponer": (int, 0, -7, 7),       # grados de escala

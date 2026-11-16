@@ -182,11 +182,41 @@ if __name__ == "__main__":
         b.paso(paso, paso * 6, 41, None, False, lambda *a: sal.append((paso,) + a))
         b.tick(paso * 6 + 5, lambda *a: sal.append((paso,) + a))
     ons = [(p_, n, v) for p_, _, t, _, n, v in sal if t == "note_on"]
-    rem = [x for x in ons if x[0] >= 3 * 16 + 9]
+    remate = b.remate(3)
+    desde = 3 * 16 + min(remate) // 4 * 4
+    rem = [x for x in ons if x[0] >= desde]
     resto = [x for x in ons if x[0] < 3 * 16]
     cortas = all(any(t == "note_off" and n == r[1] and p_ == r[0] for p_, _, t, _, n, _ in sal) for r in rem)
-    todo &= ok(len(rem) == 6 and cortas and min(v for _, _, v in rem) > max(v for _, _, v in resto),
-               f"el remate cambia el ritmo de los tiempos 3 y 4, va corto (sin slide aunque el slide esté al máximo) y acentuado ({len(rem)} notas)")
+    todo &= ok(sorted(p_ - 48 for p_, _, _ in rem) == sorted(remate) and cortas and min(v for _, _, v in rem) > max(v for _, _, v in resto),
+               f"el remate cambia el ritmo, va corto (sin slide aunque el slide esté al máximo) y acentuado ({len(rem)} notas)")
+    import goa.bajo as gb
+    def remates_de(seed, frases=12):
+        bb = Bajo({"activo": True, "estilo": "rolling", "frase": 4, "seed": seed}, T("F", "frigio"))
+        return [tuple(sorted(bb.remate(f * 4 + 3).items())) for f in range(frases)]
+    r1 = remates_de("B-0001")
+    todo &= ok(all(len(v) >= 5 for k, v in gb.REMATES.items() if k != "sub") and len(set(r1)) >= 3
+               and all(a != b_ for a, b_ in zip(r1, r1[1:])) and remates_de("B-0001") == r1 and remates_de("B-0777") != r1,
+               f"cada estilo tiene 5 remates; la variante elige cuál en cada frase, sin repetir seguido ({len(set(r1))} distintos en 12 frases)")
+    todo &= ok(all(l % 4 for k, v in gb.REMATES.items() if k in gb.PSY for r in v for l in r), "ningún remate psy cae en el bombo")
+
+    print("\nNotas que suben")
+    def golpes_sube(sube, estilo="rolling", compases=4):
+        bb = Bajo({"activo": True, "estilo": estilo, "sube": sube, "remates": False, "movimiento": 0.0}, T("F", "frigio"))
+        return [bb.golpes(c) for c in range(compases)]
+    cero = golpes_sube(0.0)
+    todo &= ok(all(g.grado == 0 for c in cero for g in c.values()), "en 0 el rolling se queda en la raíz")
+    for nivel, tope in ((0.2, 2), (0.6, 4), (1.0, 7)):
+        gs = golpes_sube(nivel)
+        grados = [g.grado for c in gs for g in c.values()]
+        todo &= ok(max(grados) > 0 and max(grados) <= tope and all(l % 4 for c in gs for l in c)
+                   and gs[0] != gs[1],
+                   f"en {int(nivel * 100)} %: suben notas hasta el grado {max(grados)} (tope {tope}), nunca en el bombo, y cambia entre compases")
+    uno, dos = golpes_sube(0.2), golpes_sube(1.0)
+    todo &= ok(sum(g.grado > 0 for c in dos for g in c.values()) > sum(g.grado > 0 for c in uno for g in c.values()),
+               "más alto el control, más notas suben")
+    cfg = armar(estilo="rolling", sube=1.0)
+    salida, _ = correr(cfg, compases=8)
+    todo &= ok(colgadas(salida) == 0 and not solapes_largos(salida), "con el bajo sonando: sin notas colgadas ni encimadas")
 
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

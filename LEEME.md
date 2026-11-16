@@ -485,10 +485,18 @@ grupos Ritmo y Notas: densidad, swing, slide (para un sinte en legato con glide)
 acentos y notas fantasma.
 
 En los estilos psy nunca cae en el tiempo del bombo. Los compases de una frase
-se repiten igual y, con **remates**, el último cierra con un remate que alterna
-entre dos variantes. Las notas del remate van cortas, acentuadas y sin slide, para
-que se oigan marcadas; en el rolling ocupa los tiempos 3 y 4 (rebote de octava o
-una corrida que baja). Es monofónico: nunca suenan dos notas juntas.
+se repiten igual y, con **remates**, el último cierra con un remate que se elige
+entre cinco por estilo: la variante elige cuál cierra cada frase, sin repetir el
+mismo dos veces seguidas. Las notas del remate van cortas, acentuadas y sin slide,
+para que se oigan marcadas (en el rolling: rebote de octava, corrida que baja,
+subida a la octava, ♭2 que tensa y vuelve, ondulación arriba).
+
+**Notas que suben** (0 = siempre en la raíz): en vez de quedarse en la raíz, la
+última nota de algunos tiempos sigue un camino que sube, como los bajos full-on.
+Bajo hasta un paso de escala, al medio hasta la quinta (y suben dos notas por
+tiempo), alto hasta la octava en los tres tiempos. Hay un camino para los compases
+pares y otro para los impares, así la línea va variando. Nunca cae en el bombo.
+No aplica al dub ni al sub. Es monofónico: nunca suenan dos notas juntas.
 
 ## Llamada y respuesta
 
