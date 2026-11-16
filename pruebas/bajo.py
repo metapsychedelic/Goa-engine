@@ -240,6 +240,28 @@ if __name__ == "__main__":
     todo &= ok(not any(Bajo({"activo": True, "estilo": "rolling", "seed": f"L{k}", "remate_var": 1.0}, T("F", "frigio"))._remate(f * 4 + 3)[1]
                        for k in range(20) for f in range(8)), "en 0 nunca hay notas largas, aunque la variación esté al máximo")
 
+    def solapes(cfg_, compases=16):
+        bb = Bajo(cfg_, T("F", "frigio"))
+        son, malos = {}, []
+        for paso in range(compases * 16):
+            for k in range(6):
+                t = paso * 6 + k
+                def env(sal_, tipo, ca, n, v, t=t):
+                    if tipo == "note_on":
+                        if any(x != n for x in son):
+                            malos.append(t)
+                        son[n] = t
+                    else:
+                        son.pop(n, None)
+                bb.tick(t, env)  # como el motor: primero los note_off, después el paso
+                if k == 0:
+                    bb.paso(paso, t, 41, None, False, env)
+        return malos
+    pisadas = {(e, g, sw, m): len(solapes({"activo": True, "estilo": e, "gate": g, "swing": sw, "slide": 0, "remate_var": 0.5, "remate_marca": m}))
+               for e in gb.ESTILOS if e != "sub" for g in (0.6, 1.0) for sw in (0, 0.3) for m in (0, 1)}
+    todo &= ok(not any(pisadas.values()), "sin slide, ninguna nota se pisa con la siguiente (con swing, tresillos, notas largas y remates)"
+               + ("" if not any(pisadas.values()) else f": {[k for k, v in pisadas.items() if v][:4]}"))
+
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):
         bb = Bajo({"activo": True, "estilo": estilo, "sube": sube, "remates": False, "movimiento": 0.0}, T("F", "frigio"))

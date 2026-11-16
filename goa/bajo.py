@@ -329,6 +329,7 @@ class Bajo:
         remate, largas = self._remate(compas)
         en_remate = lugar in remate and self.estilo not in ("sub", "dub") and self.remate_marca >= 0.3
         anterior = max((l for l in golpes if l < lugar), default=None)
+        desliza = False
         if lugar in largas and siguiente is not None:
             # Nota larga del remate: ocupa parte del hueco hasta la siguiente y termina
             # antes de que empiece (nunca se pisan).
@@ -344,10 +345,16 @@ class Bajo:
               and not ultima):
             # Slide: dura hasta pisar la siguiente; un sinte en legato con glide se desliza.
             fin = tick + (siguiente - lugar) * TICKS_POR_PASO + golpes[siguiente].retraso + 2
+            desliza = True
         elif dur <= 2 * TICKS_POR_PASO:
             fin = inicio + max(1, round(dur * self.gate))
         else:
             fin = inicio + dur - 1
+        if siguiente is not None and self.estilo != "sub" and not desliza:
+            # Ninguna nota (salvo un slide) dura más allá del comienzo de la siguiente:
+            # con swing, tresillos o golpes largos podían pisarse un instante.
+            r_sig = golpes[siguiente].retraso or (round(self.swing * TICKS_POR_PASO) if self.swing and siguiente % 2 else 0)
+            fin = max(inicio + 1, min(fin, tick + (siguiente - lugar) * TICKS_POR_PASO + r_sig))
         vel = self._velocidad(compas, lugar, golpe)
         if en_remate:
             vel = min(127, vel + round(12 * self.remate_marca))

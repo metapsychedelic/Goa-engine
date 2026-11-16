@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.44.6** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.44.7** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.44.7 · El bajo nunca pisa notas sin slide:** ninguna nota dura más allá del comienzo de la siguiente (antes se pisaban 1-3 ticks con swing, tresillos, golpes de 2 pasos en remates del offbeat/dub y largo alto). Prueba que recorre estilos × largo × swing × remate marcado.
 
 - **0.44.6 · Nota larga del remate sin pisarse:** termina antes de la siguiente (antes se pisaban 2 ticks); `remate_largo` (30-100 %, 75 % por defecto) controla cuánto del hueco ocupa.
 
