@@ -41,13 +41,14 @@ h3{margin:0;font-size:13px;font-weight:650;color:var(--txt2)}
 .fila{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .mut{color:var(--mut);font-size:13px}
 .molde{display:grid;grid-template-columns:repeat(16,1fr);gap:3px}
-.molde button{min-width:0;height:36px;padding:0;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:13px;font-weight:700}
-.molde button.tiempo{border-color:var(--mut)}
+.molde button{position:relative;min-width:0;height:40px;padding:0;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--mut);font-size:13px;font-weight:700}
+.molde button.bombo::after,.molde-ley .kick{content:"";position:absolute;left:50%;bottom:3px;width:8px;height:3px;margin-left:-4px;border-radius:2px;background:#FF9BD0;box-shadow:0 0 4px rgba(255,155,208,.6)}
+.molde-ley{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);margin-top:-2px}
+.molde-ley .kick{position:static;margin:0;display:inline-block}
 .molde button.x{background:var(--acc);color:var(--sobre);border-color:var(--acc)}
-.molde button.no{background:var(--badbg);color:var(--bad);border-color:var(--badbg)}
 .molde button.talvez{background:transparent;color:var(--acc);border:2px dashed var(--acc)}
 .molde-presets{display:flex;flex-wrap:wrap;gap:6px}
-.molde-presets button{flex:1;min-width:0;padding:8px 6px;font-size:13px}
+.molde-presets button{flex:1 1 72px;min-width:0;padding:8px 6px;font-size:13px;white-space:nowrap}
 .molde-presets button.activo{background:var(--acc);color:var(--sobre);border-color:var(--acc)}
 .pill{font-size:12px;font-weight:650;padding:4px 10px;border-radius:999px;background:var(--line);color:var(--mut);white-space:nowrap}
 .pill.ok{background:var(--acc);color:var(--sobre)}
@@ -781,7 +782,7 @@ function panelSecuencia(i) {
         deslizador(s, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
       ]),
-      grupoMolde(`g-sec-molde`, s, "Guía el patrón dentro de cada compás: ● = ahí siempre suena una nota, ? = a veces, × = ahí nunca, · = lo que salga. La seed y la mutación siguen variando lo demás. Vacío, todo sigue como siempre.", "Orden de los pasos", () => s.mutar_cada),
+      grupoMolde(`g-sec-molde`, s, "La seed arma las notas y el filtro decide cuáles pasan: ● = pasa, ? = a veces, vacío = bloqueado. Cambiar la seed cambia las notas que pasan.", "Orden de los pasos", () => s.mutar_cada),
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
         numeroDe(s, "octava", "Octava", -3, 3),
@@ -854,70 +855,89 @@ function golpesTexto(d, v, papel) {
   return libres >= pedido ? `${pedido} de ${lugares}` : `${pedido} pedidos · caben ${libres}`;
 }
 
-// --- Molde: guía opcional de dónde caen las notas (como un step sequencer) ---
+// --- Molde: filtro de notas. La seed arma las notas y el filtro decide cuáles pasan ---
 
-const MOLDES = [["................", "Libre"], ["x.x.x...--------", "Al inicio"], ["--------..x.x.x.", "Al final"],
-  ["-.x.-.x.-.x.-.x.", "Contras"]];
+const CERRADO = "----------------";
+const MOLDES = [["xxxxxxxxxxxxxxxx", "Abrir todo"], ["x---x---x---x---", "Tiempos"], ["--x---x---x---x-", "Contras"],
+  ["-xxx-xxx-xxx-xxx", "Sin bombo"], ["xxxxxxxx--------", "Inicio"], ["--------xxxxxxxx", "Final"], [CERRADO, "Cerrar todo"]];
 
 const RECORRIDOS = [["adelante","Adelante"],["atras","Atrás"],["pendulo","Péndulo"],["azar","Al azar"]];
-const PINCELES = [["x","● Siempre"],["?","? A veces"],["-","× Nunca"]];
+const PINCELES = [["x","● Pasa"],["?","? A veces"]];
+
+function moldeLimpio(m) {
+  // Como en el motor (goa/secuencia.py): 16 pasos, x pasa, ? a veces, - bloquea; vacío = cerrado.
+  return [...(m || "")].map((c) => "x?-".includes(c) ? c : "x").join("").slice(0, 16).padEnd(16, "-");
+}
 
 function moldeTexto(m, obj) {
   const partes = [];
-  if (m && /[x?-]/.test(m)) {
+  if (obj && obj.filtro) {
+    m = moldeLimpio(m);
     const igual = MOLDES.find(([valor]) => valor === m);
     if (igual) partes.push(igual[1].toLowerCase());
     else {
-      const n = (m.match(/x/g) || []).length, q = (m.match(/\?/g) || []).length, no = (m.match(/-/g) || []).length;
-      if (n) partes.push(`${n} fijas`); if (q) partes.push(`${q} a veces`); if (no) partes.push(`${no} en silencio`);
+      const n = (m.match(/x/g) || []).length, q = (m.match(/\?/g) || []).length;
+      partes.push(n || q ? [n ? `${n} pasan` : "", q ? `${q} a veces` : ""].filter(Boolean).join(", ") : "cerrado");
     }
-  }
+    if (obj.molde_muta > 0) partes.push("muta");
+  } else partes.push("sin filtro");
   if (obj && obj.recorrido && obj.recorrido !== "adelante") partes.push(RECORRIDOS.find((r) => r[0] === obj.recorrido)[1].toLowerCase());
-  if (obj && obj.molde_muta > 0) partes.push("muta");
-  return partes.join(" · ") || "libre";
+  return partes.join(" · ");
 }
 
 function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
-  // Cada paso del compás: con el pincel elegido marcas «siempre», «a veces» o «nunca»;
-  // tocar de nuevo con el mismo pincel lo deja libre.
+  // Filtro de notas: prendido y vacío no suena nada; tocas los pasos que quieres oír.
+  // Tocar un paso abierto lo vuelve a cerrar. Los tiempos del bombo siempre se marcan.
   let pincel = "x";
   const caja = el("div", {style: "display:flex;flex-direction:column;gap:8px"});
   const actualizar = () => { if (resumen) resumen.textContent = moldeTexto(obj.molde, obj); };
   const pintar = () => {
     caja.innerHTML = "";
-    const m = (obj.molde || "").padEnd(16, ".").slice(0, 16);
-    caja.appendChild(segmentado(PINCELES, pincel, (v) => { pincel = v; pintar(); }, 3));
-    const fila = el("div", {className: "molde"});
-    [...m].forEach((c, i) => {
-      const b = el("button", {type: "button",
-        className: (i % 4 === 0 ? "tiempo " : "") + ({x: "x", "-": "no", "?": "talvez"}[c] || ""),
-        textContent: c === "x" ? "●" : c === "-" ? "×" : c === "?" ? "?" : (i % 4 === 0 ? String(i / 4 + 1) : "·"),
-        onclick: () => {
-          const nuevo = m.slice(0, i) + (c === pincel ? "." : pincel) + m.slice(i + 1);
-          obj.molde = /[x?-]/.test(nuevo) ? nuevo : "";
-          pintar(); guardar(); actualizar();
-        }});
-      fila.appendChild(b);
-    });
-    caja.appendChild(fila);
-    caja.appendChild(el("div", {className: "molde-presets"}, MOLDES.map(([valor, nombre]) =>
-      el("button", {type: "button", textContent: nombre, onclick: () => {
-        obj.molde = /[x?-]/.test(valor) ? valor : ""; pintar(); guardar(); actualizar(); }}))));
-    caja.appendChild(el("div", {className: "molde-presets"}, [["goa", "🎲 Goa"], ["psy", "🎲 Psy"]].map(([estilo, nombre]) =>
-      el("button", {type: "button", textContent: nombre, onclick: async () => {
-        // Lo arma el motor (goa/generador.py): los pesos viven en un solo lugar.
-        try { obj.molde = (await (await fetch(`/api/molde/azar?estilo=${estilo}`)).json()).molde; }
-        catch (e) { aviso("Sin conexión con la Pi", true); return; }
-        obj.molde_estilo = estilo; pintar(); guardar(); actualizar(); }}))));
-    caja.appendChild(ayuda(ayudaTexto));
-    if ((obj.molde || "").includes("?")) {
-      caja.appendChild(deslizador(obj, "molde_prob", "Probabilidad de los ?", 0, 1, 0.05, porcentaje));
-      caja.appendChild(ayuda("En cada compás, cada ? suena con esta probabilidad (si no, queda en silencio)."));
+    const sw = el("input", {type: "checkbox", className: "switch", checked: !!obj.filtro, "aria-label": "Filtro de notas",
+      onchange: () => {
+        obj.filtro = sw.checked;
+        if (obj.filtro && !/[x?]/.test(obj.molde || "")) obj.molde = CERRADO;  // parte cerrado: vas abriendo pasos
+        pintar(); guardar(); actualizar();
+      }});
+    caja.appendChild(el("label", {className: "fila", style: "min-height:44px"}, [
+      el("span", {}, ["Filtro de notas", el("br"), el("span", {className: "mut",
+        textContent: obj.filtro ? "Solo pasan las notas de los pasos abiertos" : "Apagado: suena todo lo que arma la seed"})]), sw]));
+    if (obj.filtro) {
+      const m = moldeLimpio(obj.molde);
+      caja.appendChild(segmentado(PINCELES, pincel, (v) => { pincel = v; pintar(); }, 2));
+      const fila = el("div", {className: "molde"});
+      [...m].forEach((c, i) => {
+        const estado = {x: "pasa", "?": "a veces", "-": "bloqueado"}[c];
+        const b = el("button", {type: "button",
+          className: (i % 4 === 0 ? "bombo " : "") + ({x: "x", "?": "talvez"}[c] || ""),
+          "aria-label": `Paso ${i + 1}${i % 4 === 0 ? " (bombo)" : ""}: ${estado}`,
+          textContent: c === "x" ? "●" : c === "?" ? "?" : (i % 4 === 0 ? String(i / 4 + 1) : ""),
+          onclick: () => {
+            obj.molde = m.slice(0, i) + (c === pincel ? "-" : pincel) + m.slice(i + 1);
+            pintar(); guardar(); actualizar();
+          }});
+        fila.appendChild(b);
+      });
+      caja.appendChild(fila);
+      caja.appendChild(el("div", {className: "molde-ley"}, [el("span", {className: "kick"}), "bombo"]));
+      caja.appendChild(el("div", {className: "molde-presets"}, MOLDES.map(([valor, nombre]) =>
+        el("button", {type: "button", textContent: nombre, onclick: () => { obj.molde = valor; pintar(); guardar(); actualizar(); }}))));
+      caja.appendChild(el("div", {className: "molde-presets"}, [["goa", "🎲 Goa"], ["psy", "🎲 Psy"]].map(([estilo, nombre]) =>
+        el("button", {type: "button", textContent: nombre, onclick: async () => {
+          // Lo arma el motor (goa/generador.py): los pesos viven en un solo lugar.
+          try { obj.molde = (await (await fetch(`/api/molde/azar?estilo=${estilo}`)).json()).molde; }
+          catch (e) { aviso("Sin conexión con la Pi", true); return; }
+          obj.molde_estilo = estilo; pintar(); guardar(); actualizar(); }}))));
+      caja.appendChild(ayuda(ayudaTexto));
+      if (m.includes("?")) {
+        caja.appendChild(deslizador(obj, "molde_prob", "Probabilidad de los ?", 0, 1, 0.05, porcentaje));
+        caja.appendChild(ayuda("En cada compás, cada ? deja pasar la nota con esta probabilidad."));
+      }
+      caja.appendChild(deslizador(obj, "molde_muta", "El filtro muta solo", 0, 1, 0.05,
+        (v) => v === 0 ? "no" : `${porcentaje(v)} cada ${cada()} compases`, () => actualizar()));
+      caja.appendChild(ayuda(`Cada cierto número de compases abre o cierra uno o dos pasos, al estilo ${(obj.molde_estilo || "goa") === "psy" ? "psy" : "goa"} (el del último 🎲). La fila de arriba muestra el filtro de partida.`));
     }
     caja.appendChild(campo(textoOrden, segmentado(RECORRIDOS, obj.recorrido || "adelante", (v) => { obj.recorrido = v; pintar(); guardar(); actualizar(); }, 4)));
-    caja.appendChild(deslizador(obj, "molde_muta", "El molde muta solo", 0, 1, 0.05,
-      (v) => v === 0 ? "no" : `${porcentaje(v)} cada ${cada()} compases`, () => actualizar()));
-    caja.appendChild(ayuda(`Cada cierto número de compases cambia uno o dos pasos del molde, al estilo ${(obj.molde_estilo || "goa") === "psy" ? "psy" : "goa"} (el del último 🎲). La fila de arriba muestra el molde de partida.`));
   };
   pintar();
   return caja;
@@ -925,7 +945,7 @@ function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
 
 function grupoMolde(clave, obj, texto, textoOrden, cada) {
   // «Molde y orden» como un grupo más (en las secuencias): su resumen se actualiza al tocar.
-  const g = grupo(clave, "Molde y orden", moldeTexto(obj.molde, obj), []);
+  const g = grupo(clave, "Filtro y orden", moldeTexto(obj.molde, obj), []);
   const resumen = g.querySelector(".cab span");
   g.querySelector(".cuerpo").append(moldeEditor(obj, texto, resumen, textoOrden, cada));
   return g;
@@ -934,7 +954,7 @@ function grupoMolde(clave, obj, texto, textoOrden, cada) {
 function moldePlegable(obj, texto, textoOrden, cada) {
   const resumen = el("span", {className: "der", textContent: moldeTexto(obj.molde, obj)});
   return el("details", {className: "voz"}, [
-    el("summary", {}, [el("span", {textContent: "Molde y orden (opcional)"}), resumen]),
+    el("summary", {}, [el("span", {textContent: "Filtro y orden (opcional)"}), resumen]),
     el("div", {className: "cuerpo"}, [moldeEditor(obj, texto, resumen, textoOrden, cada)]),
   ]);
 }
@@ -981,7 +1001,7 @@ function bloqueVoz(v, titulo, papel, extra = []) {
     el("div", {className: "cuerpo"}, [
       golpes,
       deslizador(v, "oscuridad", "Luminoso ↔ Oscuro", 0, 1, 0.05, colorTexto),
-      moldePlegable(v, `● = quiero una nota ahí, ? = a veces, × = nunca, · = libre. Los golpes van primero a los ●; si sobran, se reparten en los ·. ${d.rejilla === "corcheas" ? "En corcheas cada lugar ocupa 2 pasos." : ""} Vacío, todo sigue como siempre.`, "Orden de sus notas", () => cfg.dialogo.mutar_cada),
+      moldePlegable(v, `La seed arma la frase y el filtro decide dónde cae: ● = pasa, ? = a veces, vacío = bloqueado. Una nota que cae en un paso bloqueado se corre al abierto más cercano. ${d.rejilla === "corcheas" ? "En corcheas cada lugar ocupa 2 pasos." : ""}`, "Orden de sus notas", () => cfg.dialogo.mutar_cada),
       ...extra.filter(Boolean),
       el("div", {className: "dos"}, [destinoDe(v, renderMotores), numeroDe(v, "canal", "Canal MIDI", 1, 16, renderMotores)]),
       numeroDe(v, "programa", "Parche (Program Change, 0 = no cambia)", 0, 128),

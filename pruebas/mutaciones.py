@@ -155,21 +155,27 @@ if __name__ == "__main__":
     todo &= ok(r == ritmos(1.0), "y evoluciona igual con la variación larga andando")
     todo &= ok(len({tuple(x) for x in ritmos(0.0, congelar=True)}) == 1, "congelada, el ritmo no cambia")
 
-    print("\nMolde de las secuencias (opcional)")
+    print("\nMolde de las secuencias: un filtro de notas (opcional)")
     from .armonia import armar as armar_arm, de_secuencia
     from .dialogo import correr as correr_d
-    def pasos(molde, densidad=0.4, compases=8):
+    def pasos(molde, densidad=0.4, compases=8, filtro=True, seed=None):
         cfg = armar_arm(modo="libre")
-        cfg["secuencia"][0].update(densidad=densidad, posicion="todos", molde=molde)
+        cfg["secuencia"][0].update(densidad=densidad, posicion="todos", molde=molde, filtro=filtro)
+        if seed:
+            cfg["secuencia"][0]["seed"] = seed
         cfg = normalizar(cfg)
         sal = de_secuencia(correr_d(cfg, compases=compases)[0], cfg)
         return sal, [{(t // 6) % 16 for t, _ in sal if (t // 6) // 16 == c} for c in range(1, compases)]
-    base_, _ = pasos("")
-    todo &= ok(pasos("................")[0] == base_, "molde vacío: la secuencia suena igual que antes")
-    _, por_compas = pasos("x...x...x...x...")
-    todo &= ok(all({0, 4, 8, 12} <= c for c in por_compas), "● en los tiempos: ahí siempre hay nota, aunque la densidad sea baja")
-    _, por_compas = pasos("--------........", densidad=1.0)
-    todo &= ok(all(c and not (c & set(range(8))) for c in por_compas), "× en la primera mitad: solo suena en la segunda")
+    base_, base_pasos = pasos("", filtro=False)
+    todo &= ok(pasos("x-x-x-x-x-x-x-x-", filtro=False)[0] == base_, "filtro apagado: suena igual que siempre, aunque haya molde")
+    todo &= ok(not pasos("")[0], "filtro prendido y vacío: no suena nada (se van abriendo pasos)")
+    todo &= ok(pasos("x" * 16)[0] == base_, "todo abierto: suena igual que sin filtro")
+    _, mitad = pasos("--------xxxxxxxx")
+    todo &= ok(any(mitad) and all(m == {p for p in b if p >= 8} for m, b in zip(mitad, base_pasos)),
+               "abierta la segunda mitad: suenan justo las notas de la seed que caen ahí")
+    _, a = pasos("x.x.x.x.x.x.x.x.".replace(".", "-"), seed="ZZ-1")
+    _, b = pasos("x.x.x.x.x.x.x.x.".replace(".", "-"), seed="QQ-7")
+    todo &= ok(a != b, "con el filtro puesto, otra seed suena distinto")
 
     print("\nPasos «a veces» y orden de los pasos")
     def con(densidad=1.0, compases=16, **extra):
@@ -177,11 +183,14 @@ if __name__ == "__main__":
         cfg["secuencia"][0].update(densidad=densidad, posicion="todos", **extra)
         cfg = normalizar(cfg)
         return de_secuencia(correr_d(cfg, compases=compases)[0], cfg)
-    sal = con(molde="?...............", molde_prob=0.5, densidad=0.0)
-    uno = [any((t // 6) == c * 16 for t, _ in sal) for c in range(1, 16)]
-    todo &= ok(0 < sum(uno) < len(uno), f"un ◑ al 50 %: suena en unos compases y en otros no ({sum(uno)} de {len(uno)})")
-    todo &= ok(con(molde="?...............", molde_prob=0.5, densidad=0.0) == sal, "y es repetible: misma seed, mismo resultado")
-    todo &= ok(not con(molde="?...............", molde_prob=0.0, densidad=0.0), "al 0 % nunca suena")
+    todos = con()
+    paso_ = next(p for p in range(16) if all(any((t // 6) == c * 16 + p for t, _ in todos) for c in range(1, 16)))
+    q = "-" * paso_ + "?" + "-" * (15 - paso_)
+    sal = con(filtro=True, molde=q, molde_prob=0.5)
+    uno = [any((t // 6) == c * 16 + paso_ for t, _ in sal) for c in range(1, 16)]
+    todo &= ok(0 < sum(uno) < len(uno), f"un ? al 50 %: deja pasar la nota en unos compases y en otros no ({sum(uno)} de {len(uno)})")
+    todo &= ok(con(filtro=True, molde=q, molde_prob=0.5) == sal, "y es repetible: misma seed, mismo resultado")
+    todo &= ok(not con(filtro=True, molde=q, molde_prob=0.0), "al 0 % nunca pasa")
     from goa import generador as gen
     todo &= ok([gen.recorrer("atras", k, 4, "s") for k in range(4)] == [3, 2, 1, 0]
                and [gen.recorrer("pendulo", k, 4, "s") for k in range(8)] == [0, 1, 2, 3, 2, 1, 0, 1]
@@ -202,9 +211,9 @@ if __name__ == "__main__":
     todo &= ok(all("x" in m for m in goa_m + psy_m) and en_tiempos(goa_m) > en_tiempos(psy_m) and en_contras(psy_m) > en_contras(goa_m),
                f"goa llena los tiempos ({en_tiempos(goa_m):.1f} de 4); psy los deja al bombo y vive en los contratiempos ({en_contras(psy_m):.1f} de 4)")
     from goa.motor import Motor
-    def moldes(muta, compases=33, molde="x...x...x...x..."):
+    def moldes(muta, compases=33, molde="x---x---x---x---"):
         cfg = armar_arm(modo="libre")
-        cfg["secuencia"][0].update(molde=molde, molde_muta=muta, mutar_cada=4, mutacion=0.0)
+        cfg["secuencia"][0].update(filtro=True, molde=molde, molde_muta=muta, mutar_cada=4, mutacion=0.0)
         m = Motor(normalizar(cfg), lambda *a: None)
         vistos = []
         for c in range(1, compases):
@@ -213,13 +222,13 @@ if __name__ == "__main__":
         return vistos
     quieto, vivo = moldes(0.0), moldes(1.0)
     cambios = sum(1 for a, b in zip(vivo, vivo[1:]) if a != b)
-    todo &= ok(len(set(quieto)) == 1 and quieto[0] == "x...x...x...x...", "en 0 el molde no se mueve")
+    todo &= ok(len(set(quieto)) == 1 and quieto[0] == "x---x---x---x---", "en 0 el molde no se mueve")
     todo &= ok(cambios >= 5 and all(sum(x != y for x, y in zip(a, b)) <= 2 for a, b in zip(vivo, vivo[1:]))
                and all("x" in m for m in vivo),
                f"al máximo cambia de a 1 o 2 pasos cada 4 compases ({cambios} cambios en 32; nunca se queda sin ●)")
     todo &= ok(moldes(1.0) == vivo, "es repetible: misma seed, mismo camino")
     vacio = moldes(0.5, molde="")
-    todo &= ok(any(m for m in vacio), "desde un molde vacío también empieza a dibujar uno")
+    todo &= ok(any("x" in m or "?" in m for m in vacio), "desde un filtro cerrado también empieza a abrir pasos")
 
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

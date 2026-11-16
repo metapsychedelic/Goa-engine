@@ -13,15 +13,19 @@ PASOS_POR_COMPAS = 16
 
 
 def limpiar_molde(molde):
-    """Molde de 16 pasos (x = siempre, ? = a veces, - = nunca, . = libre); vacío si no
-    marca nada: entonces no cambia nada."""
-    molde = "".join(c if c in "x?-" else "." for c in str(molde or ""))[:16].ljust(16, ".")
-    return molde if set(molde) - {"."} else ""
+    """El molde es un filtro de notas de 16 pasos: x = pasa, ? = a veces, - = bloquea.
+    Vacío = todo bloqueado (al prender el filtro no suena nada hasta abrir pasos).
+    Un . de los moldes de antes (libre) pasa."""
+    molde = "".join(c if c in "x?-" else "x" for c in str(molde or ""))[:16]
+    return molde.ljust(16, "-")
 
 
-def celda_molde(molde, prob, seed, paso):
-    """La celda del molde en este paso; las «a veces» se deciden en cada compás."""
-    celda = molde[paso % 16] if molde else "."
+def celda_molde(molde, prob, seed, paso, filtro=True):
+    """Si el filtro deja pasar la nota de este paso: "x" pasa, "-" no. Las «a veces»
+    se deciden en cada compás. Con el filtro apagado pasa todo."""
+    if not filtro:
+        return "x"
+    celda = molde[paso % 16]
     if celda == "?":
         celda = "x" if azar_fijo(f"{seed}:molde:{paso}") < prob else "-"
     return celda
@@ -59,6 +63,7 @@ class Secuencia:
         self.largas = float(cfg.get("largas", 0.0))
         self.armonia = cfg.get("armonia", "general")  # general, guiada o libre
         self.escala_color = cfg.get("escala_color", "")
+        self.filtro = bool(cfg.get("filtro", False))
         self.molde = limpiar_molde(cfg.get("molde", ""))
         self.molde_prob = float(cfg.get("molde_prob", 0.5))
         self.recorrido = cfg.get("recorrido", "adelante")
@@ -86,7 +91,7 @@ class Secuencia:
     def evolucionar(self, compas):
         if self.bloqueada or compas <= 0 or compas % self.mutar_cada:
             return
-        if self.molde_muta > 0:
+        if self.filtro and self.molde_muta > 0:
             rng = random.Random(f"{self.seed}:molde:{compas}")
             self.molde_vivo = limpiar_molde(generador.mutar_molde(self.molde_vivo, rng, self.molde_muta, self.molde_estilo))
         if self.mutacion <= 0 and self.mutacion_ritmo <= 0:

@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.42.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.43.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.43.0 · El molde es un filtro de notas:** interruptor propio (filtro, en secuencias y voces); prendido y vacío no suena nada, se abren pasos (x pasa, ? a veces, - bloquea). La seed arma las notas y el filtro solo deja pasar (antes el molde forzaba notas y tapaba la seed). En el diálogo las notas bloqueadas se corren al paso abierto más cercano, y la seed también gira el ritmo de las voces (cambia el sonido de diálogos guardados). Marca de bombo en los pasos 1-2-3-4. Moldes viejos: filtro prendido y . → x (config._migrar_moldes).
 
 - **0.42.0 · Diseño «Yantra · Polvo estelar»:** la app se llama Yantra (logo en Megrim con contorno). Fondo casi negro con estrellas y un Sri Yantra tenue en la esquina; acento lavanda; cabecera y barra translúcidas; iconos de pestañas con geometría de yantra (el bindu aparece en la pestaña activa); deslizadores con degradé lavanda; casillas oscuras. Fuentes IBM Plex Sans/Mono y Megrim.
 - **0.42.1 · Fuentes en la Pi:** al arrancar, si tiene internet, la Pi baja las fuentes (solo latín, unos 150 KB) a goa/web/fuentes/ (fuera de git) y la app las sirve desde /fuentes/; el teléfono las guarda en caché un año. Sin internet nunca se rompe: usa Google o la letra del sistema hasta poder bajarlas. Prueba: pruebas/fuentes.py. Propuestas en el lienzo de diseño.

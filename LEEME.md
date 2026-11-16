@@ -128,7 +128,7 @@ Cinco pestañas abajo:
   secuencia). Todos tienen la misma forma: activo, género, estilo (o textura en
   los pads), variante, los controles principales y grupos plegados con el resto:
   **Ritmo**, **Notas**, **Variación** y **Salida MIDI** (en las secuencias además
-  **Molde y orden** y **FX**; en el diálogo, **Voces** en vez de Notas, y las
+  **Filtro y orden** y **FX**; en el diálogo, **Voces** en vez de Notas, y las
   frases de cada voz junto a los principales). Cada grupo cerrado muestra un
   resumen de cómo está.
 - **Armonía:** género para todo, tónica, escala (y qué poner en la Circuit),
@@ -511,30 +511,31 @@ llamada siempre tiene un golpe en el uno, así nada se arrastra contra el bombo.
 
 ## Control de las frases (todo opcional)
 
-**Molde** (en cada secuencia, grupo Ritmo, y en cada voz del diálogo): una fila de
-16 pasos como un step sequencer. Tocas un paso para pasarlo de libre (·) a "quiero
-nota" (●) a "nunca" (×). Atajos: Libre, Al inicio, Al final y Contras.
-- En las secuencias, en un ● siempre suena una nota (aunque la densidad sea baja)
-  y en un × nunca; en los · manda el patrón como siempre.
-- En el diálogo, los golpes de la voz van primero a los ●; si sobran, se reparten
-  en los ·, y nunca caen en un ×. En corcheas cada lugar ocupa 2 pasos.
-- **🎲 Goa / 🎲 Psy**: arma un molde nuevo al azar pero con sentido. Goa llena
-  los tiempos y contratiempos (rolling); Psy deja los tiempos al bombo y al bajo y
-  vive en los contratiempos y síncopas, con más silencios. Siempre queda al menos
-  un ●. Tócalo hasta que salga uno que te guste y retócalo a mano.
-- **El molde muta solo** (0 = no): cada «mutar cada» compases cambia uno o dos
-  pasos del molde, al estilo del último 🎲 (goa o psy). Nunca se queda sin ●,
-  es repetible con la misma seed, y «Fijar» (en el diálogo) o «Congelar» (en las
-  secuencias) también lo detienen. La fila muestra el molde de partida.
-- **A veces (?)**: elige el pincel «? A veces» y marca pasos; en cada compás cada
-  uno suena con la probabilidad que pongas (por defecto 50 %), si no queda en
-  silencio. Es repetible: misma seed, mismo resultado.
-- **Orden**: adelante (como siempre), atrás, péndulo (va y vuelve) o al azar (cada
-  vuelta en otro orden, sin repetir). En las secuencias ordena los pasos del
-  patrón; en el diálogo, las notas del motivo de esa voz. El molde no se mueve:
-  los ● y × siguen en su lugar del compás.
-- La seed, la mutación y los giros siguen variando dentro del molde. Vacío, todo
-  suena exactamente como antes.
+**Filtro de notas** (grupo «Filtro y orden» en cada secuencia y en cada voz del
+diálogo): la seed arma las notas y el filtro decide cuáles pasan. Se prende y se
+apaga con su interruptor; apagado suena todo y el filtro queda guardado.
+- Al prenderlo parte **cerrado: no suena nada**. Vas tocando los pasos que quieres
+  oír (● pasa) y se van escuchando; tocar de nuevo un paso lo cierra.
+- Los pasos del bombo (1, 2, 3, 4) llevan siempre una marca rosada abajo, aunque
+  estén abiertos.
+- El filtro no inventa notas: si la seed no tiene nota en un paso abierto, ahí no
+  suena nada. Por eso **cambiar la seed cambia lo que pasa** (en las secuencias,
+  subir la densidad también agrega notas).
+- En el diálogo, una nota que cae en un paso cerrado se corre al abierto más
+  cercano (la frase conserva sus notas; si dos caen en el mismo, suena una). En
+  corcheas cada lugar ocupa 2 pasos. La seed también cambia el ritmo de las voces.
+- Atajos: Abrir todo, Tiempos, Contras, Sin bombo, Inicio, Final, Cerrar todo.
+- **🎲 Goa / 🎲 Psy**: un filtro al azar pero con sentido. Goa deja pasar casi todo
+  (rolling); Psy cierra los tiempos al bombo y al bajo y abre contratiempos y
+  síncopas. Siempre queda al menos un paso abierto.
+- **A veces (?)**: con el pincel «? A veces», en cada compás ese paso deja pasar
+  la nota con la probabilidad que pongas (50 % por defecto). Repetible con la seed.
+- **El filtro muta solo** (0 = no): cada «mutar cada» compases abre o cierra uno o
+  dos pasos, al estilo del último 🎲. «Fijar» o «Congelar» lo detienen.
+- **Orden**: adelante, atrás, péndulo o al azar. En las secuencias ordena los pasos
+  del patrón; en el diálogo, las notas del motivo. El filtro no se mueve.
+- Los moldes de antes (versiones hasta la 0.42) quedan con el filtro prendido y sus
+  pasos libres abiertos.
 
 **Otra frase · Volver · Fijar** (en cada voz del diálogo): «Otra frase» cambia
 las notas y el ritmo de esa voz sin tocar la seed ni la otra voz; «Volver» trae

@@ -96,7 +96,8 @@ def _esquema_voz(salida, canal, golpes, gate, velocidad):
         "velocidad": (int, velocidad, 1, 127),
         "vel_random": (float, 0.15, 0.0, 1.0),
         "desplazamiento": (float, -1.0, -1.0, 1.0),  # menos de 0 = usa el general
-        "molde": (str, "", None, None),     # opcional: 16 pasos, x = quiero nota, ? = a veces, - = nunca, . = libre
+        "filtro": (bool, False, None, None),  # el molde filtra sus notas (apagado: suena todo)
+        "molde": (str, "", None, None),     # filtro de 16 pasos: x = pasa, ? = a veces, - = bloquea
         "molde_prob": (float, 0.5, 0.0, 1.0),  # probabilidad de los «a veces»
         "recorrido": (str, "adelante", None, generador.RECORRIDOS),  # orden de sus notas
         "molde_muta": (float, 0.0, 0.0, 1.0),   # el molde muta solo (cada «mutar cada» compases)
@@ -237,7 +238,8 @@ ESQUEMA_SECUENCIA = {
     "repeticion": (float, 0.0, 0.0, 1.0),
     "largas": (float, 0.0, 0.0, 1.0),
     "escala_color": (str, "", None, ("",) + tuple(ESCALAS_COLOR)),  # "" = la de Música
-    "molde": (str, "", None, None),  # opcional: 16 pasos, x = siempre nota, ? = a veces, - = nunca, . = lo que salga
+    "filtro": (bool, False, None, None),  # el molde filtra sus notas (apagado: suena todo)
+    "molde": (str, "", None, None),  # filtro de 16 pasos: x = pasa, ? = a veces, - = bloquea
     "molde_prob": (float, 0.5, 0.0, 1.0),  # probabilidad de los «a veces»
     "recorrido": (str, "adelante", None, generador.RECORRIDOS),  # orden de los pasos: adelante, atrás, péndulo, al azar
     "molde_muta": (float, 0.0, 0.0, 1.0),   # el molde muta solo (cada «mutar cada» compases)
@@ -291,6 +293,7 @@ def normalizar(cfg):
         cfg = dict(cfg, pads=dict(cfg["pads"], progresion="i_bII", azar=True))
     if isinstance(cfg.get("bajo"), dict) and cfg["bajo"].get("estilo") in bajo.ALIAS:
         cfg = dict(cfg, bajo=dict(cfg["bajo"], estilo=bajo.ALIAS[cfg["bajo"]["estilo"]]))
+    cfg = _migrar_moldes(cfg)
     for seccion, esquema in ESQUEMA_SECCIONES.items():
         datos = cfg.get(seccion) or {}
         limpia[seccion] = {k: _valor(k, datos.get(k), e) for k, e in esquema.items()}
@@ -330,6 +333,34 @@ def normalizar(cfg):
         if p["escena"] >= len(limpia["escena"]):
             p["escena"] = -1
     return limpia
+
+
+def _migrar_molde(d, prefijo=""):
+    """Antes el molde era una guía (x = siempre nota, . = libre); ahora es un filtro que
+    se prende y se apaga. Un molde pintado de antes queda prendido, y sus . pasan."""
+    if not isinstance(d, dict) or prefijo + "filtro" in d:
+        return d
+    molde = str(d.get(prefijo + "molde") or "")
+    if not set(molde) - {"."}:
+        return d
+    return dict(d, **{prefijo + "filtro": True, prefijo + "molde": molde.replace(".", "x")})
+
+
+def _migrar_moldes(cfg):
+    cfg = dict(cfg)
+    for voz in VOCES:
+        cfg[voz] = _migrar_molde(cfg.get(voz))
+    for lista in ("secuencia", "clip"):
+        if isinstance(cfg.get(lista), list):
+            cfg[lista] = [_migrar_molde(x) for x in cfg[lista]]
+    if isinstance(cfg.get("clip_dialogo"), list):
+        clips = []
+        for c in cfg["clip_dialogo"]:
+            for voz in VOCES:
+                c = _migrar_molde(c, voz + "_")
+            clips.append(c)
+        cfg["clip_dialogo"] = clips
+    return cfg
 
 
 def _escena(e):

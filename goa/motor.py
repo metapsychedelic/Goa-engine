@@ -546,11 +546,10 @@ class Motor(FormaMotor):
             i = generador.recorrer(s.recorrido, fuente, s.largo, s.seed)
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
-            # Molde (opcional): "x" = acá siempre nota, "?" = a veces, "-" = acá nunca, "." = lo que salga.
-            celda = celda_molde(s.molde_vivo, s.molde_prob, s.seed, paso)
-            if (raiz is None or not s.activa or celda == "-"
-                    or (celda != "x" and (not generador.pasa_posicion(s.posicion, fuente)
-                                          or not p["suena"] or x["densidad"] >= s.densidad))):
+            # Filtro (molde, opcional): la seed arma las notas y el filtro decide cuáles pasan.
+            celda = celda_molde(s.molde_vivo, s.molde_prob, s.seed, paso, s.filtro)
+            if (raiz is None or not s.activa or celda == "-" or not generador.pasa_posicion(s.posicion, fuente)
+                    or not p["suena"] or x["densidad"] >= s.densidad):
                 s.slide_previo = False
                 continue
             guiada = self._modo_armonia(s.armonia) == "guiada"

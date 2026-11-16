@@ -200,24 +200,30 @@ if __name__ == "__main__":
         return out
     cfg = base(evolucion=0.0)
     sin_molde = correr(cfg, compases=4)[0]
-    cfg["llamada"]["molde"] = "................"
-    todo &= ok(correr(normalizar(cfg), compases=4)[0] == sin_molde, "molde vacío: suena exactamente igual que antes")
-    cfg = base(evolucion=0.0)
-    cfg["llamada"].update(golpes=3, molde="--------..x.x.x.")
+    cfg["llamada"].update(molde="x-x-x-x---------", filtro=False)
+    todo &= ok(correr(normalizar(cfg), compases=4)[0] == sin_molde, "filtro apagado: suena exactamente igual que antes")
+    cfg["llamada"].update(molde="", filtro=True)
     cfg = normalizar(cfg)
     salida, _ = correr(cfg, compases=4)
-    todo &= ok(pasos_de(salida, cfg, "L") == {10, 12, 14}, f"llamada «al final»: sus 3 golpes en 10, 12 y 14 ({sorted(pasos_de(salida, cfg, 'L'))})")
-    cfg["llamada"].update(golpes=4, molde="x.x.............")
+    todo &= ok(not pasos_de(salida, cfg, "L"), "filtro prendido y vacío: la llamada calla hasta que abras pasos")
+    cfg = base(evolucion=0.0)
+    cfg["llamada"].update(golpes=3, molde="--------xxxxxxxx", filtro=True)
     cfg = normalizar(cfg)
     salida, _ = correr(cfg, compases=4)
     l = pasos_de(salida, cfg, "L")
-    todo &= ok({0, 2} <= l and len(l) >= 4, f"con más golpes que ●, van a los ● y el resto se reparte ({sorted(l)})")
+    todo &= ok(l and all(p >= 8 for p in l), f"abierta la segunda mitad: la llamada corre sus notas ahí ({sorted(l)})")
     cfg = base(evolucion=0.0, rejilla="semicorcheas")
-    cfg["respuesta"].update(golpes=3, molde="xxxx--------....")
+    cfg["respuesta"].update(golpes=3, molde="xxxx--------xxxx", filtro=True)
     cfg = normalizar(cfg)
     salida, _ = correr(cfg, compases=4)
     r = pasos_de(salida, cfg, "R")
-    todo &= ok(r and not (r & set(range(4, 12))), f"la respuesta nunca toca en los × ({sorted(r)})")
+    todo &= ok(r and not (r & set(range(4, 12))), f"la respuesta nunca toca donde el filtro bloquea ({sorted(r)})")
+    ritmos = set()
+    for semilla in ("CR-0001", "ZX-4242", "MK-0777", "GA-1999"):
+        cfg = base(evolucion=0.0, seed=semilla)
+        salida, _ = correr(normalizar(cfg), compases=1)
+        ritmos.add(("".join(grilla(salida, cfg, 0))).replace("·", "."))
+    todo &= ok(len(ritmos) > 1, f"otra seed también cambia el ritmo del diálogo ({len(ritmos)} ritmos con 4 seeds)")
     # Otra · Volver · Fijar
     cfg = base(evolucion=0.0)
     a, motor_a = correr(cfg, compases=2)
@@ -231,8 +237,8 @@ if __name__ == "__main__":
     cfg = base(evolucion=1.0, mutar_cada=1)
     cfg["llamada"]["fija"] = True
     _, m = correr(normalizar(cfg), compases=12)
-    todo &= ok(m.dialogo.llamada.orden == base()["llamada"] and False or m.dialogo.llamada.giro == 0
-               and m.dialogo.llamada.orden == correr(base(evolucion=0.0), compases=1)[1].dialogo.llamada.orden,
+    quieta = correr(base(evolucion=0.0), compases=1)[1].dialogo.llamada
+    todo &= ok(m.dialogo.llamada.giro == quieta.giro and m.dialogo.llamada.orden == quieta.orden,
                "«Fijar»: con mutación al máximo la frase no cambia")
     # Cómo contesta
     for modo in ("eco", "espejo", "cierra"):
@@ -249,11 +255,11 @@ if __name__ == "__main__":
     salida, _ = correr(normalizar(cfg), compases=8)
     todo &= ok(colgadas(salida) == 0, "sin notas colgadas")
     cfg = base(evolucion=0.0, rejilla="semicorcheas")
-    cfg["llamada"].update(golpes=2, molde="x...........?...", molde_prob=0.5)
+    cfg["llamada"].update(golpes=2, molde="x-----------?---", molde_prob=0.5, filtro=True)
     cfg = normalizar(cfg)
     salida, _ = correr(cfg, compases=16)
     con12 = [grilla(salida, cfg, c)[12] == "L" for c in range(16)]
-    todo &= ok(0 < sum(con12) < 16, f"un ◑ en la llamada: a veces toca ahí ({sum(con12)} de 16 compases)")
+    todo &= ok(0 < sum(con12) < 16, f"un ? en la llamada: a veces deja pasar una nota ahí ({sum(con12)} de 16 compases)")
     cfg = base(evolucion=0.0)
     cfg["llamada"].update(golpes=4, recorrido="azar")
     _, m = correr(normalizar(cfg), compases=1)
@@ -266,7 +272,7 @@ if __name__ == "__main__":
                f"notas al azar: las mismas del motivo, en otro orden cada compás ({vueltas})")
 
     cfg = base(evolucion=0.0, mutar_cada=2)
-    cfg["llamada"].update(molde="x...x...........", molde_muta=1.0, molde_estilo="psy")
+    cfg["llamada"].update(molde="x---x---x---x---", molde_muta=1.0, molde_estilo="psy", filtro=True, golpes=4)
     cfg = normalizar(cfg)
     salida, m = correr(cfg, compases=16)
     filas = {"".join("L" if x == "L" else "." for x in grilla(salida, cfg, c)) for c in range(16)}

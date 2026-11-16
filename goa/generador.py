@@ -202,12 +202,12 @@ def es_fuerte(posicion, i):
 
 RECORRIDOS = ("adelante", "atras", "pendulo", "azar")
 
-# Pesos para armar o mutar un molde, por lugar del tiempo: (tiempo, contratiempo, semicorchea débil).
-# Goa: rolling lleno, los tiempos y contratiempos con nota. Psy: deja los tiempos al
-# bombo y al bajo y vive en los contratiempos y síncopas, con más silencios.
+# Pesos para armar o mutar un molde (filtro: x pasa, ? a veces, - bloquea), por lugar
+# del tiempo: (tiempo, contratiempo, semicorchea débil). Goa: rolling lleno, casi todo
+# pasa. Psy: deja los tiempos al bombo y al bajo y vive en contratiempos y síncopas.
 PESOS_MOLDE = {
-    "goa": ((("x", 5), ("?", 2), (".", 3)), (("x", 3), ("?", 3), ("-", 1), (".", 3)), (("?", 2.5), ("-", 2.5), (".", 5))),
-    "psy": ((("-", 4), ("x", 2), ("?", 1), (".", 3)), (("x", 5), ("?", 2), (".", 3)), (("?", 3), ("-", 3), ("x", 1), (".", 3))),
+    "goa": ((("x", 7), ("?", 2), ("-", 1)), (("x", 5), ("?", 3), ("-", 2)), (("x", 4), ("?", 3), ("-", 3))),
+    "psy": ((("-", 6), ("x", 2), ("?", 1)), (("x", 7), ("?", 2), ("-", 1)), (("x", 2), ("?", 3), ("-", 5))),
 }
 ESTILOS_MOLDE = tuple(PESOS_MOLDE)
 
@@ -239,7 +239,7 @@ def mutar_molde(molde, rng, cantidad, estilo="goa"):
     de notas). Nunca deja el molde sin ningún «x» si tenía alguno."""
     if cantidad <= 0 or rng.random() >= cantidad:
         return molde
-    m = list((molde or "").ljust(16, ".")[:16])
+    m = list((molde or "").ljust(16, "-")[:16])
     for _ in range(2 if cantidad >= 0.66 else 1):
         i = rng.randrange(16)
         opciones = [(c, p) for c, p in _pesos_paso(estilo, i) if c != m[i]]

@@ -74,32 +74,29 @@ def euclides(golpes, lugares, giro=0):
     return [((i + giro) * golpes) % lugares < golpes for i in range(lugares)]
 
 
-def molde_lugares(molde, lugares, paso_lugar, prob=0.5, rng=None):
-    """Estado de cada lugar según el molde de 16 pasos: "x" (quiero nota), "-" (nunca)
-    o "." (libre); los "?" (a veces) se vuelven "x" con probabilidad `prob` en cada
-    compás, si no "-". None si el molde está vacío: entonces todo sigue como siempre."""
-    if not molde or not set(molde) - {"."}:
-        return None
-    molde = (molde + "." * 16)[:16]
+def lugares_abiertos(molde, lugares, paso_lugar, prob=0.5, rng=None):
+    """El filtro (molde de 16 pasos: x pasa, ? a veces, - bloquea) en lugares: el
+    conjunto de lugares por donde pasa una nota. Los ? se deciden en cada compás."""
+    molde = (str(molde or "") + "-" * 16)[:16]
     rng = rng or random.Random(0)
-    molde = "".join(("x" if rng.random() < prob else "-") if c == "?" else c for c in molde)
-    estado = []
-    for i in range(lugares):
-        celdas = molde[i * paso_lugar:(i + 1) * paso_lugar]
-        estado.append("x" if "x" in celdas else "-" if all(c == "-" for c in celdas) else ".")
-    return estado
+    molde = "".join(("x" if rng.random() < prob else "-") if c == "?" else ("x" if c not in "-" else "-")
+                    for c in molde)
+    return {i for i in range(lugares) if "x" in molde[i * paso_lugar:(i + 1) * paso_lugar]}
 
 
-def con_molde(golpes, candidatos, preferidos, giro):
-    """Elige `golpes` lugares: primero los preferidos (si sobran, repartidos parejo) y
-    el resto repartido parejo en los demás permitidos. El giro varía cuáles."""
-    if golpes <= len(preferidos):
-        patron = euclides(golpes, len(preferidos), giro)
-        return [p for p, x in zip(preferidos, patron) if x]
-    resto = [c for c in candidatos if c not in preferidos]
-    k = min(golpes - len(preferidos), len(resto))
-    patron = euclides(k, len(resto), giro)
-    return sorted(preferidos + [r for r, x in zip(resto, patron) if x])
+def filtrar(elegidos, abiertos, lugares):
+    """Pasa los lugares elegidos por el filtro: los que caen en un lugar cerrado se
+    corren al abierto más cercano (así la voz conserva sus notas); si dos van al
+    mismo lugar suena una. Sin lugares abiertos, nada."""
+    if not abiertos:
+        return []
+    salida = []
+    for l in elegidos:
+        if l not in abiertos:
+            l = min(abiertos, key=lambda a: (min((a - l) % lugares, (l - a) % lugares), (a - l) % lugares))
+        if l not in salida:
+            salida.append(l)
+    return sorted(salida)
 
 
 def giros_anclados(golpes, lugares):
@@ -119,6 +116,7 @@ class Voz:
         self.velocidad = int(cfg.get("velocidad", 100))
         self.vel_random = float(cfg.get("vel_random", 0.15))
         self.desplazamiento = float(cfg.get("desplazamiento", -1.0))  # menos de 0 = el general
+        self.filtro = bool(cfg.get("filtro", False))   # el molde filtra sus notas
         self.molde = str(cfg.get("molde", ""))
         self.molde_prob = float(cfg.get("molde_prob", 0.5))
         self.recorrido = cfg.get("recorrido", "adelante")   # orden de sus notas
@@ -197,11 +195,11 @@ class Dialogo:
     def reiniciar(self):
         self.llamada = Voz(self.cfg_voces[0], "llamada", self.seed)
         self.respuesta = Voz(self.cfg_voces[1], "respuesta", self.seed)
-        # Una variante («Otra») también cambia el ritmo: otro giro (la llamada, siempre en el uno).
-        if self.llamada.variante:
-            self.llamada.giro = self.llamada.rng.choice(giros_anclados(self.llamada.golpes, self.lugares) or [0])
-        if self.respuesta.variante:
-            self.respuesta.giro = self.respuesta.rng.randrange(self.lugares)
+        # La seed y cada variante («Otra») también cambian el ritmo: otro giro (la
+        # llamada, siempre en el uno). Con un azar aparte, para no tocar las notas.
+        anclados = giros_anclados(self.llamada.golpes, self.lugares) or [0]
+        self.llamada.giro = random.Random(f"giro:llamada:{self.seed}:{self.llamada.variante}").choice(anclados)
+        self.respuesta.giro = random.Random(f"giro:respuesta:{self.seed}:{self.respuesta.variante}").randrange(self.lugares)
         self.inicio = None      # compás donde empezó la conversación
         self.ultimo_paso = None
         self.plan = []          # (paso, voz, grado, dur, vel, retraso en pulsos)
@@ -227,7 +225,7 @@ class Dialogo:
                 nueva.orden = list(vieja.orden)
             if viejo.rejilla == self.rejilla:
                 nueva.giro = vieja.giro % self.lugares
-        if (self.llamada.variante == viejo.llamada.variante and not self.llamada.molde
+        if (self.llamada.variante == viejo.llamada.variante and not self.llamada.filtro
                 and not euclides(self.llamada.golpes, self.lugares, self.llamada.giro)[:1] == [True]):
             self.llamada.giro = 0  # la llamada siempre en el uno
         self.inicio, self.ultimo_paso = viejo.inicio, viejo.ultimo_paso
@@ -252,9 +250,12 @@ class Dialogo:
         return [i for i in range(n)
                 if i not in ocupados and not any(1 <= (i - j) % n <= self.espacio for j in ocupados)]
 
-    def _estado_molde(self, voz):
+    def _abiertos(self, voz):
+        """Lugares por donde pasa la voz con su filtro, o None si el filtro está apagado."""
+        if not voz.filtro:
+            return None
         rng = random.Random(f"{self.seed}:{voz.papel}:molde:{self.compas_actual}")
-        return molde_lugares(voz.molde_vivo, self.lugares, self.paso_lugar, voz.molde_prob, rng)
+        return lugares_abiertos(voz.molde_vivo, self.lugares, self.paso_lugar, voz.molde_prob, rng)
 
     def notas_de(self, voz, cantidad):
         """Las notas del motivo de la voz para este compás, en su orden (adelante, atrás,
@@ -268,26 +269,24 @@ class Dialogo:
 
     def lugares_llamada(self):
         voz = self.llamada
-        estado = self._estado_molde(voz)
-        if estado is None:
-            patron = euclides(voz.golpes, self.lugares, voz.giro)
-            return [i for i, x in enumerate(patron) if x]
-        candidatos = [i for i, e in enumerate(estado) if e != "-"]
-        return con_molde(voz.golpes, candidatos, [i for i in candidatos if estado[i] == "x"], voz.giro)
+        patron = euclides(voz.golpes, self.lugares, voz.giro)
+        elegidos = [i for i, x in enumerate(patron) if x]
+        abiertos = self._abiertos(voz)
+        return elegidos if abiertos is None else filtrar(elegidos, abiertos, self.lugares)
 
     def lugares_respuesta(self, ocupados):
         voz = self.respuesta
-        estado = self._estado_molde(voz)
-        if estado is None:
-            if not ocupados:  # turno propio: su euclidiano en todo el compás
-                patron = euclides(voz.golpes, self.lugares, voz.giro)
-                return [i for i, x in enumerate(patron) if x]
+        if not ocupados:  # turno propio: su euclidiano en todo el compás
+            patron = euclides(voz.golpes, self.lugares, voz.giro)
+            elegidos = [i for i, x in enumerate(patron) if x]
+            libres = set(range(self.lugares))
+        else:
             libres = self.huecos(ocupados)
             patron = euclides(min(voz.golpes, len(libres)), len(libres), voz.giro)
-            return [h for h, x in zip(libres, patron) if x]
-        libres = self.huecos(ocupados) if ocupados else list(range(self.lugares))
-        candidatos = [i for i in libres if estado[i] != "-"]
-        return con_molde(voz.golpes, candidatos, [i for i in candidatos if estado[i] == "x"], voz.giro)
+            elegidos = [h for h, x in zip(libres, patron) if x]
+            libres = set(libres)
+        abiertos = self._abiertos(voz)
+        return elegidos if abiertos is None else filtrar(elegidos, abiertos & libres, self.lugares)
 
     def grados_respuesta(self, cantidad):
         """Las notas de la respuesta según cómo contesta."""
@@ -365,7 +364,7 @@ class Dialogo:
             self.llamada.mutar(self.evolucion, self.lugares, anclada=True)
             self.respuesta.mutar(self.evolucion, self.lugares, anclada=False)
         for voz in (self.llamada, self.respuesta):
-            if voz.molde_muta > 0 and not voz.fija:
+            if voz.filtro and voz.molde_muta > 0 and not voz.fija:
                 rng = random.Random(f"{self.seed}:{voz.papel}:molde_muta:{compas}")
                 voz.molde_vivo = generador.mutar_molde(voz.molde_vivo, rng, voz.molde_muta, voz.molde_estilo)
 
