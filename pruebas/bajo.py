@@ -173,5 +173,20 @@ if __name__ == "__main__":
     cfg = normalizar(cfg)
     todo &= ok(normalizar(tomllib.loads(a_toml(cfg))) == cfg, "se guarda y se lee igual")
 
+    print("\nRemates del rolling: marcados, no un desliz")
+    from goa.bajo import Bajo
+    from goa.escalas import Tonalidad as T
+    b = Bajo({"activo": True, "estilo": "rolling", "slide": 1.0, "remates": True, "frase": 4}, T("F", "frigio"))
+    sal = []
+    for paso in range(4 * 16):
+        b.paso(paso, paso * 6, 41, None, False, lambda *a: sal.append((paso,) + a))
+        b.tick(paso * 6 + 5, lambda *a: sal.append((paso,) + a))
+    ons = [(p_, n, v) for p_, _, t, _, n, v in sal if t == "note_on"]
+    rem = [x for x in ons if x[0] >= 3 * 16 + 9]
+    resto = [x for x in ons if x[0] < 3 * 16]
+    cortas = all(any(t == "note_off" and n == r[1] and p_ == r[0] for p_, _, t, _, n, _ in sal) for r in rem)
+    todo &= ok(len(rem) == 6 and cortas and min(v for _, _, v in rem) > max(v for _, _, v in resto),
+               f"el remate cambia el ritmo de los tiempos 3 y 4, va corto (sin slide aunque el slide esté al máximo) y acentuado ({len(rem)} notas)")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

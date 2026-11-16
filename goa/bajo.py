@@ -58,9 +58,12 @@ BASES = {
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
 
-# Remates del último tiempo de la frase: lugar -> grado de escala desde la raíz (dos variantes).
+# Remates del final de la frase: lugar -> grado de escala desde la raíz (dos variantes).
+# Desde el tiempo donde empieza el remate se reemplaza el patrón, y sus notas van
+# cortas y acentuadas, sin slide: así se oyen como un remate y no como un desliz.
 REMATES = {
-    "rolling": ({13: 7, 14: 0, 15: 4}, {13: 7, 14: 6, 15: 4}),     # salto de octava · bajada 8-7-5
+    # rolling: rebote de octava en los tiempos 3 y 4 · corrida que baja 8-7-5 | 4-2-1
+    "rolling": ({9: 0, 10: 7, 11: 0, 13: 7, 14: 4, 15: 7}, {9: 7, 10: 6, 11: 4, 13: 3, 14: 1, 15: 0}),
     "fullon": ({13: 7, 14: 6, 15: 4}, {13: 1, 14: 0, 15: 7}),
     "galope": ({14: 7, 15: 4}, {14: 4, 15: 6}),
     "offbeat": ({13: 7, 14: 4, 15: 0}, {14: 7, 15: 6}),
@@ -201,14 +204,20 @@ class Bajo:
                 if (l not in golpes and not (self.estilo in PSY and l % 4 == 0) and self.estilo not in ("sub", "dub")
                         and self._azar("fantasma", l) < self.fantasmas * 0.6):
                     golpes[l] = Golpe(4, 0, 0)
-        if self.remates and self.frase > 1 and compas % self.frase == self.frase - 1:
-            remate = REMATES[self.estilo][(compas // self.frase) % 2]
-            if remate:
-                golpes = {l: g for l, g in golpes.items() if l < 12 or g.dur > 4 * TICKS_POR_PASO}
-                for lugar, grado in remate.items():
-                    molde = BASES[self.estilo].get(lugar, Golpe(12 if self.estilo == "dub" else 6))
-                    golpes[lugar] = replace(molde, grado=grado)
+        remate = self.remate(compas)
+        if remate:
+            desde = min(remate) // 4 * 4
+            golpes = {l: g for l, g in golpes.items() if l < desde or g.dur > 4 * TICKS_POR_PASO}
+            for lugar, grado in remate.items():
+                molde = BASES[self.estilo].get(lugar, Golpe(12 if self.estilo == "dub" else 6))
+                golpes[lugar] = replace(molde, grado=grado)
         return golpes
+
+    def remate(self, compas):
+        """El remate de este compás (lugar -> grado), o {} si no toca remate."""
+        if self.remates and self.frase > 1 and compas % self.frase == self.frase - 1:
+            return REMATES[self.estilo][(compas // self.frase) % 2]
+        return {}
 
     # --- Qué toca ---
 
@@ -256,7 +265,11 @@ class Bajo:
         if falta:
             dur = min(dur, falta * TICKS_POR_PASO - retraso)  # una nota no cruza el cambio de acorde
         siguiente = next((l for l in sorted(golpes) if l > lugar), None)
-        if self.estilo == "sub":
+        en_remate = lugar in self.remate(compas) and self.estilo not in ("sub", "dub")
+        if en_remate:
+            # Remate: corto, marcado y sin slide.
+            fin = inicio + max(1, round(min(dur, TICKS_POR_PASO) * min(self.gate, 0.6)))
+        elif self.estilo == "sub":
             fin = inicio + dur + 1  # sigue sonando cuando llega la próxima: se liga
         elif (siguiente is not None and self.estilo not in ("dub",) and self._azar("slide", lugar) < self.slide
               and not ultima):
@@ -267,19 +280,21 @@ class Bajo:
         else:
             fin = inicio + dur - 1
         vel = self._velocidad(compas, lugar, golpe)
+        if en_remate:
+            vel = min(127, vel + 12)
         if retraso:
             self.pendientes.append((inicio, nota, vel, fin))
         else:
-            self._encender(nota, vel, inicio, fin, enviar)
+            self._encender(nota, vel, inicio, fin, enviar, atacar=en_remate)
 
-    def _encender(self, nota, vel, inicio, fin, enviar):
-        if nota in self.sonando and (self.estilo == "sub" or self.sonando[nota] <= inicio + 3):
+    def _encender(self, nota, vel, inicio, fin, enviar, atacar=False):
+        if not atacar and nota in self.sonando and (self.estilo == "sub" or self.sonando[nota] <= inicio + 3):
             # Misma nota ligada (sub o después de un slide): se prolonga sin volver a atacar.
             self.sonando[nota] = max(self.sonando[nota], fin)
             return
         for vieja, termina in list(self.sonando.items()):
             # Monofónico: corta las demás, salvo la cola de un slide (se pisa un instante).
-            if vieja == nota or termina > inicio + 3 or self.estilo in ("sub", "dub"):
+            if vieja == nota or termina > inicio + 3 or atacar or self.estilo in ("sub", "dub"):
                 enviar(self.salida, "note_off", self.canal, vieja, 0)
                 del self.sonando[vieja]
         enviar(self.salida, "note_on", self.canal, nota, vel)

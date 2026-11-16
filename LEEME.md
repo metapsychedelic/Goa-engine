@@ -486,7 +486,9 @@ acentos y notas fantasma.
 
 En los estilos psy nunca cae en el tiempo del bombo. Los compases de una frase
 se repiten igual y, con **remates**, el último cierra con un remate que alterna
-entre dos variantes. Es monofónico: nunca suenan dos notas juntas.
+entre dos variantes. Las notas del remate van cortas, acentuadas y sin slide, para
+que se oigan marcadas; en el rolling ocupa los tiempos 3 y 4 (rebote de octava o
+una corrida que baja). Es monofónico: nunca suenan dos notas juntas.
 
 ## Llamada y respuesta
 
