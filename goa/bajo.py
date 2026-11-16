@@ -357,7 +357,8 @@ class Bajo:
             fin = max(inicio + 1, min(fin, tick + (siguiente - lugar) * TICKS_POR_PASO + r_sig))
         vel = self._velocidad(compas, lugar, golpe)
         if en_remate:
-            vel = min(127, vel + round(12 * self.remate_marca))
+            # Acento suave y parejo: no se suma a los acentos al azar (antes llegaba a 127).
+            vel = min(127, min(vel, self.velocidad) + round(6 * self.remate_marca))
         if retraso:
             self.pendientes.append((inicio, nota, vel, fin))
         else:

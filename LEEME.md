@@ -497,7 +497,7 @@ corrida que baja). Controles (grupo Ritmo):
   siguiente ocupa (75 % por defecto). A lo más una por remate.
 - **Rango de las notas que cambian**: hasta la quinta o hasta la octava.
 - **Remate marcado**: 0 = el remate suena como el resto (puede llevar slide);
-  arriba, sus notas van sin slide, se vuelven a atacar y van acentuadas (con su
+  arriba, sus notas van sin slide, se vuelven a atacar y con un acento suave (con su
   largo normal, para que no suene a corte).
 
 **Notas que suben** (0 = siempre en la raíz): en vez de quedarse en la raíz, la
