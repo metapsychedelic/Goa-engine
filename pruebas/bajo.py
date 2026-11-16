@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     largas = []
     for k in range(40):
-        bb = Bajo({"activo": True, "estilo": "rolling", "seed": f"L{k}", "remate_var": 1.0}, T("F", "frigio"))
+        bb = Bajo({"activo": True, "estilo": "rolling", "seed": f"L{k}", "remate_largas": 0.5}, T("F", "frigio"))
         r, l = bb._remate(3)
         if l:
             largas.append((bb, r, l))
@@ -225,7 +225,9 @@ if __name__ == "__main__":
     sig = 48 + min(x for x in r if x > min(l))
     on = next(i for i, x in enumerate(sal) if x[0] == larga and x[2] == "note_on")
     off = next(x for x in sal[on + 1:] if x[2] == "note_off" and x[4] == sal[on][4])
-    todo &= ok(largas and off[0] >= sig, f"con variación alta, a veces una nota del remate se alarga hasta la siguiente ({len(largas)} de 40 variantes)")
+    todo &= ok(largas and off[0] >= sig, f"«nota larga» en 50 %: en unas frases una nota del remate dura hasta la siguiente ({len(largas)} de 40)")
+    todo &= ok(not any(Bajo({"activo": True, "estilo": "rolling", "seed": f"L{k}", "remate_var": 1.0}, T("F", "frigio"))._remate(f * 4 + 3)[1]
+                       for k in range(20) for f in range(8)), "en 0 nunca hay notas largas, aunque la variación esté al máximo")
 
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):

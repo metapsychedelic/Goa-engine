@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.44.4** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.44.5** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.44.5 · Nota larga del remate con control propio:** `remate_largas` (0 por defecto) separado de la variación; a lo más una nota larga por remate.
 
 - **0.44.3/0.44.4 · La variación del remate no quita notas:** cambia alturas y, desde 50 %, a veces alarga una nota hasta la siguiente (slide). Nunca quita ni agrega notas. (La 0.44.3 quedó subida con el código viejo; la 0.44.4 lo corrige.)
 

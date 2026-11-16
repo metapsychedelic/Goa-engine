@@ -131,7 +131,8 @@ class Bajo:
         self.remate_rango = cfg.get("remate_rango", "octava")
         if self.remate_rango not in GRADOS_REMATE:
             self.remate_rango = "octava"
-        self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))   # 0 = como el resto, 1 = acentuado y sin slide
+        self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))
+        self.remate_largas = _fraccion(cfg.get("remate_largas", 0.0))  # frases con una nota larga   # 0 = como el resto, 1 = acentuado y sin slide
         self.frase = max(1, int(cfg.get("frase", 4)))
         self.armonia = cfg.get("armonia", "general")
         self.seed = str(cfg.get("seed", "B-0001"))
@@ -238,14 +239,14 @@ class Bajo:
 
     def _remate(self, compas):
         """(remate, largas): se alternan los dos remates del estilo; con variación, en
-        cada frase cambian las alturas de algunas notas, y desde la mitad a veces una
-        nota del medio se alarga hasta la siguiente (como un slide). El ritmo no
-        cambia: nunca se quitan ni se agregan notas."""
+        cada frase cambian las alturas de algunas notas. Con «notas largas», en esa
+        proporción de frases una nota (nunca la última) se alarga hasta la siguiente,
+        como un slide; a lo más una por remate. Nunca se quitan ni se agregan notas."""
         if not (self.remates and self.frase > 1 and compas % self.frase == self.frase - 1):
             return {}, set()
         frase = compas // self.frase
         remate = dict(REMATES[self.estilo][frase % 2])
-        if not remate or not self.remate_var:
+        if not remate:
             return remate, set()
         rng = random.Random(f"bajo:{self.seed}:remate:{frase}")
         grados = GRADOS_REMATE[self.remate_rango]
@@ -253,8 +254,9 @@ class Bajo:
             if rng.random() < self.remate_var:
                 remate[lugar] = rng.choice([g for g in grados if g != remate[lugar]])
         largas = set()
-        if len(remate) > 2 and self.remate_var > 0.5 and rng.random() < self.remate_var - 0.3:
-            largas.add(rng.choice(sorted(remate)[:-1]))
+        azar_larga = random.Random(f"bajo:{self.seed}:larga:{frase}")
+        if len(remate) > 2 and azar_larga.random() < self.remate_largas:
+            largas.add(azar_larga.choice(sorted(remate)[:-1]))
         return remate, largas
 
     def _subir(self, golpes, compas):
