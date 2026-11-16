@@ -38,6 +38,9 @@ TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
 
 MODOS = ("motor", "en_vivo")
+# Cómo contesta la respuesta: contraste (sus propias notas), eco (las notas de la
+# llamada), espejo (la llamada dada vuelta: si sube, baja) o cierra (termina en la raíz).
+RESPONDE = ("contraste", "eco", "espejo", "cierra")
 FORMAS = ("entrelazado", "turnos")
 REJILLAS = {"corcheas": 2, "semicorcheas": 1}  # pasos de semicorchea por lugar
 
@@ -71,6 +74,31 @@ def euclides(golpes, lugares, giro=0):
     return [((i + giro) * golpes) % lugares < golpes for i in range(lugares)]
 
 
+def molde_lugares(molde, lugares, paso_lugar):
+    """Estado de cada lugar según el molde de 16 pasos: "x" (quiero nota), "-" (nunca)
+    o "." (libre). None si el molde está vacío: entonces todo sigue como siempre."""
+    if not molde or not set(molde) - {"."}:
+        return None
+    molde = (molde + "." * 16)[:16]
+    estado = []
+    for i in range(lugares):
+        celdas = molde[i * paso_lugar:(i + 1) * paso_lugar]
+        estado.append("x" if "x" in celdas else "-" if all(c == "-" for c in celdas) else ".")
+    return estado
+
+
+def con_molde(golpes, candidatos, preferidos, giro):
+    """Elige `golpes` lugares: primero los preferidos (si sobran, repartidos parejo) y
+    el resto repartido parejo en los demás permitidos. El giro varía cuáles."""
+    if golpes <= len(preferidos):
+        patron = euclides(golpes, len(preferidos), giro)
+        return [p for p, x in zip(preferidos, patron) if x]
+    resto = [c for c in candidatos if c not in preferidos]
+    k = min(golpes - len(preferidos), len(resto))
+    patron = euclides(k, len(resto), giro)
+    return sorted(preferidos + [r for r, x in zip(resto, patron) if x])
+
+
 def giros_anclados(golpes, lugares):
     """Giros del patrón que dejan un golpe en el primer lugar (el uno del compás)."""
     return [g for g in range(lugares) if euclides(golpes, lugares, g)[:1] == [True]]
@@ -88,7 +116,11 @@ class Voz:
         self.velocidad = int(cfg.get("velocidad", 100))
         self.vel_random = float(cfg.get("vel_random", 0.15))
         self.desplazamiento = float(cfg.get("desplazamiento", -1.0))  # menos de 0 = el general
-        self.rng = random.Random(f"{papel}:{seed}")          # notas y mutaciones
+        self.molde = str(cfg.get("molde", ""))
+        self.variante = int(cfg.get("variante", 0))   # «Otra» la sube, «Volver» la baja
+        self.fija = bool(cfg.get("fija", False))      # «Fijar»: la mutación no la toca
+        sufijo = f":{self.variante}" if self.variante else ""
+        self.rng = random.Random(f"{papel}:{seed}{sufijo}")          # notas y mutaciones
         self.rng_vel = random.Random(f"fuerza:{papel}:{seed}")  # matices de fuerza, aparte
         self.color = color(self.oscuridad)
         self.grados = NOTAS[self.color][papel]
@@ -101,7 +133,7 @@ class Voz:
 
     def mutar(self, cantidad, lugares, anclada):
         """Cambia una nota o gira el patrón; `cantidad` es la probabilidad de cambiar."""
-        if self.rng.random() >= cantidad:
+        if self.fija or self.rng.random() >= cantidad:
             return
         if len(self.orden) > 1 and self.rng.random() < 0.5:
             i = self.rng.randrange(1, len(self.orden))
@@ -130,6 +162,9 @@ class Dialogo:
         self.evolucion = float(cfg.get("evolucion", 0.5))
         self.mutar_cada = max(1, int(cfg.get("mutar_cada", 4)))
         self.seed = str(cfg.get("seed", "CR-0001"))
+        self.responde = cfg.get("responde", "contraste")
+        if self.responde not in RESPONDE:
+            raise ValueError(f"responde debe ser una de: {', '.join(RESPONDE)}")
         for nombre, valor, opciones in (("modo", self.modo, MODOS), ("forma", self.forma, FORMAS),
                                         ("rejilla", self.rejilla, tuple(REJILLAS))):
             if valor not in opciones:
@@ -154,6 +189,11 @@ class Dialogo:
     def reiniciar(self):
         self.llamada = Voz(self.cfg_voces[0], "llamada", self.seed)
         self.respuesta = Voz(self.cfg_voces[1], "respuesta", self.seed)
+        # Una variante («Otra») también cambia el ritmo: otro giro (la llamada, siempre en el uno).
+        if self.llamada.variante:
+            self.llamada.giro = self.llamada.rng.choice(giros_anclados(self.llamada.golpes, self.lugares) or [0])
+        if self.respuesta.variante:
+            self.respuesta.giro = self.respuesta.rng.randrange(self.lugares)
         self.inicio = None      # compás donde empezó la conversación
         self.ultimo_paso = None
         self.plan = []          # (paso, voz, grado, dur, vel, retraso en pulsos)
@@ -170,11 +210,14 @@ class Dialogo:
             return
         for nueva, vieja in ((self.llamada, viejo.llamada), (self.respuesta, viejo.respuesta)):
             nueva.rng.setstate(vieja.rng.getstate())
+            if nueva.variante != vieja.variante:
+                continue  # «Otra» o «Volver»: entra la frase nueva, no la mutada de antes
             if (nueva.golpes, nueva.grados) == (vieja.golpes, vieja.grados):
                 nueva.orden = list(vieja.orden)
             if viejo.rejilla == self.rejilla:
                 nueva.giro = vieja.giro % self.lugares
-        if not euclides(self.llamada.golpes, self.lugares, self.llamada.giro)[:1] == [True]:
+        if (self.llamada.variante == viejo.llamada.variante and not self.llamada.molde
+                and not euclides(self.llamada.golpes, self.lugares, self.llamada.giro)[:1] == [True]):
             self.llamada.giro = 0  # la llamada siempre en el uno
         self.inicio, self.ultimo_paso = viejo.inicio, viejo.ultimo_paso
         self.tocado, self.notas_vivo, self.raiz_vivo = viejo.tocado, viejo.notas_vivo, viejo.raiz_vivo
@@ -199,16 +242,40 @@ class Dialogo:
                 if i not in ocupados and not any(1 <= (i - j) % n <= self.espacio for j in ocupados)]
 
     def lugares_llamada(self):
-        patron = euclides(self.llamada.golpes, self.lugares, self.llamada.giro)
-        return [i for i, x in enumerate(patron) if x]
+        voz = self.llamada
+        estado = molde_lugares(voz.molde, self.lugares, self.paso_lugar)
+        if estado is None:
+            patron = euclides(voz.golpes, self.lugares, voz.giro)
+            return [i for i, x in enumerate(patron) if x]
+        candidatos = [i for i, e in enumerate(estado) if e != "-"]
+        return con_molde(voz.golpes, candidatos, [i for i in candidatos if estado[i] == "x"], voz.giro)
 
     def lugares_respuesta(self, ocupados):
-        if not ocupados:  # turno propio: su euclidiano en todo el compás
-            patron = euclides(self.respuesta.golpes, self.lugares, self.respuesta.giro)
-            return [i for i, x in enumerate(patron) if x]
-        libres = self.huecos(ocupados)
-        patron = euclides(min(self.respuesta.golpes, len(libres)), len(libres), self.respuesta.giro)
-        return [h for h, x in zip(libres, patron) if x]
+        voz = self.respuesta
+        estado = molde_lugares(voz.molde, self.lugares, self.paso_lugar)
+        if estado is None:
+            if not ocupados:  # turno propio: su euclidiano en todo el compás
+                patron = euclides(voz.golpes, self.lugares, voz.giro)
+                return [i for i, x in enumerate(patron) if x]
+            libres = self.huecos(ocupados)
+            patron = euclides(min(voz.golpes, len(libres)), len(libres), voz.giro)
+            return [h for h, x in zip(libres, patron) if x]
+        libres = self.huecos(ocupados) if ocupados else list(range(self.lugares))
+        candidatos = [i for i in libres if estado[i] != "-"]
+        return con_molde(voz.golpes, candidatos, [i for i in candidatos if estado[i] == "x"], voz.giro)
+
+    def grados_respuesta(self, cantidad):
+        """Las notas de la respuesta según cómo contesta."""
+        propias = [self.respuesta.orden[k % len(self.respuesta.orden)] for k in range(cantidad)]
+        llamada = self.llamada.orden
+        if self.responde == "eco":
+            return [llamada[k % len(llamada)] for k in range(cantidad)]
+        if self.responde == "espejo":
+            # La llamada dada vuelta en la octava de arriba: si la llamada sube, la respuesta baja.
+            return [7 - llamada[k % len(llamada)] for k in range(cantidad)]
+        if self.responde == "cierra" and propias:
+            propias[-1] = 7  # termina en la raíz (una octava arriba, donde vive la respuesta)
+        return propias
 
     def _compas(self, compas, paso, tocado=None):
         """Plan de un compás. En vivo, `tocado` son los lugares donde tocaste el compás anterior."""
@@ -225,10 +292,10 @@ class Dialogo:
             golpes_l = self.lugares_llamada()
             golpes_r = self.lugares_respuesta(set(golpes_l))
             self.fase = "conversando"
+        grados_r = self.grados_respuesta(len(golpes_r))
         eventos = sorted([(i, self.llamada, self.llamada.orden[k % len(self.llamada.orden)])
                           for k, i in enumerate(golpes_l)]
-                         + [(i, self.respuesta, self.respuesta.orden[k % len(self.respuesta.orden)])
-                            for k, i in enumerate(golpes_r)], key=lambda e: e[0])
+                         + [(i, self.respuesta, grados_r[k]) for k, i in enumerate(golpes_r)], key=lambda e: e[0])
         inicios, retrasos = self._desplazar(compas, eventos)
         # Cada nota dura según su largo, pero termina antes de que entre la siguiente
         # (de cualquier voz, también el uno del compás que viene): no se pisan.

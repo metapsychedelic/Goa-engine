@@ -25,6 +25,12 @@ PASOS_POR_COMPAS = 16
 log = logging.getLogger("goa")
 
 
+def limpiar_molde(molde):
+    """Molde de 16 pasos (x, -, .); vacío si no marca nada: entonces no cambia nada."""
+    molde = "".join(c if c in "x-" else "." for c in str(molde or ""))[:16].ljust(16, ".")
+    return molde if set(molde) - {"."} else ""
+
+
 class Secuencia:
     def __init__(self, cfg):
         self.nombre = cfg.get("nombre", "?")
@@ -57,6 +63,7 @@ class Secuencia:
         self.largas = float(cfg.get("largas", 0.0))
         self.armonia = cfg.get("armonia", "general")  # general, guiada o libre
         self.escala_color = cfg.get("escala_color", "")
+        self.molde = limpiar_molde(cfg.get("molde", ""))
         self.semitono = float(cfg.get("semitono", 0.0))
         self.fx = bool(cfg.get("fx", False))            # el motor de FX la interviene
         self.cc_filtro = int(cfg.get("cc_filtro", 74))
@@ -1018,8 +1025,11 @@ class Motor:
             i = fuente % s.largo
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
-            if (raiz is None or not s.activa or not generador.pasa_posicion(s.posicion, fuente)
-                    or not p["suena"] or x["densidad"] >= s.densidad):
+            # Molde (opcional): "x" = acá siempre nota, "-" = acá nunca, "." = lo que salga.
+            celda = s.molde[paso % 16] if s.molde else "."
+            if (raiz is None or not s.activa or celda == "-"
+                    or (celda != "x" and (not generador.pasa_posicion(s.posicion, fuente)
+                                          or not p["suena"] or x["densidad"] >= s.densidad))):
                 s.slide_previo = False
                 continue
             guiada = self._modo_armonia(s.armonia) == "guiada"

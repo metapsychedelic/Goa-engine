@@ -505,6 +505,27 @@ llamada siempre tiene un golpe en el uno, así nada se arrastra contra el bombo.
 - **Sigue a los pads** (por defecto): usa su escala y la raíz de cada acorde.
 - Ninguna nota pisa a la siguiente, aunque las dos voces vayan al mismo sinte.
 
+## Control de las frases (todo opcional)
+
+**Molde** (en cada secuencia, grupo Ritmo, y en cada voz del diálogo): una fila de
+16 pasos como un step sequencer. Tocas un paso para pasarlo de libre (·) a "quiero
+nota" (●) a "nunca" (×). Atajos: Libre, Al inicio, Al final y Contras.
+- En las secuencias, en un ● siempre suena una nota (aunque la densidad sea baja)
+  y en un × nunca; en los · manda el patrón como siempre.
+- En el diálogo, los golpes de la voz van primero a los ●; si sobran, se reparten
+  en los ·, y nunca caen en un ×. En corcheas cada lugar ocupa 2 pasos.
+- La seed, la mutación y los giros siguen variando dentro del molde. Vacío, todo
+  suena exactamente como antes.
+
+**Otra frase · Volver · Fijar** (en cada voz del diálogo): «Otra frase» cambia
+las notas y el ritmo de esa voz sin tocar la seed ni la otra voz; «Volver» trae
+la anterior (se guardan todas: frase 1, 2, 3…); «Fijar» congela la frase para que
+la mutación no la cambie.
+
+**La respuesta contesta** (Voces del diálogo): con lo suyo (como siempre), en
+**eco** (repite las notas de la llamada), en **espejo** (la llamada dada vuelta:
+si sube, la respuesta baja) o **cerrando** (con sus notas, pero termina en la raíz).
+
 ## Si algo falla
 
 - `goa-log` muestra lo que está haciendo el motor.

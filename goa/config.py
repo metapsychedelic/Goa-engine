@@ -77,6 +77,7 @@ ESQUEMA_SECCIONES = {
         "evolucion": (float, 0.5, 0.0, 1.0),
         "mutar_cada": (int, 4, 1, 16),
         "seed": (str, "CR-0001", None, None),
+        "responde": (str, "contraste", None, dialogo.RESPONDE),
         "genero": (str, "goa", None, generos.ORDEN),
         "armonia": (str, "general", None, armonia.MODOS_MOTOR),
     },
@@ -95,6 +96,9 @@ def _esquema_voz(salida, canal, golpes, gate, velocidad):
         "velocidad": (int, velocidad, 1, 127),
         "vel_random": (float, 0.15, 0.0, 1.0),
         "desplazamiento": (float, -1.0, -1.0, 1.0),  # menos de 0 = usa el general
+        "molde": (str, "", None, None),     # opcional: 16 pasos, x = quiero nota, - = nunca, . = libre
+        "variante": (int, 0, 0, 999),       # «Otra» / «Volver»: otra frase sin cambiar la seed
+        "fija": (bool, False, None, None),  # «Fijar»: la mutación no la cambia
     }
 
 
@@ -229,6 +233,7 @@ ESQUEMA_SECUENCIA = {
     "repeticion": (float, 0.0, 0.0, 1.0),
     "largas": (float, 0.0, 0.0, 1.0),
     "escala_color": (str, "", None, ("",) + tuple(ESCALAS_COLOR)),  # "" = la de Música
+    "molde": (str, "", None, None),  # opcional: 16 pasos, x = siempre nota, - = nunca, . = lo que salga
     "semitono": (float, 0.0, 0.0, 1.0),  # cuánto aparece el ♭2 sobre la raíz en los pasos débiles
     "fx": (bool, False, None, None),         # el motor de FX la interviene: filtro y stutter en las subidas, glitches
     "cc_filtro": (int, 74, 0, 127),          # CC del filtro de su sinte

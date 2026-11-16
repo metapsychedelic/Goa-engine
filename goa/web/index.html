@@ -30,6 +30,14 @@ h3{margin:0;font-size:13px;font-weight:650;color:var(--txt2)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px}
 .fila{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .mut{color:var(--mut);font-size:13px}
+.molde{display:grid;grid-template-columns:repeat(16,1fr);gap:3px}
+.molde button{min-width:0;height:36px;padding:0;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:13px;font-weight:700}
+.molde button.tiempo{border-color:var(--mut)}
+.molde button.x{background:var(--acc);color:#1A1408;border-color:var(--acc)}
+.molde button.no{background:#3A1E19;color:var(--bad);border-color:#3A1E19}
+.molde-presets{display:flex;flex-wrap:wrap;gap:6px}
+.molde-presets button{flex:1;min-width:0;padding:8px 6px;font-size:13px}
+.molde-presets button.activo{background:var(--acc);color:#1A1408;border-color:var(--acc)}
 .pill{font-size:12px;font-weight:650;padding:4px 10px;border-radius:999px;background:var(--line);color:var(--mut);white-space:nowrap}
 .pill.ok{background:var(--acc);color:#1A1408}
 .pill.mal{background:#3A1E19;color:var(--bad)}
@@ -726,7 +734,7 @@ function panelSecuencia(i) {
       deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
     ]),
     el("div", {className: "grupos"}, [
-      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.largo} pasos · swing ${Math.round(s.swing * 200)} %`, [
+      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.largo} pasos · swing ${Math.round(s.swing * 200)} %${s.molde ? " · molde" : ""}`, [
         campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; renderMotores(); guardar(); }, 2)),
         ayuda(POS_TEXTO[s.posicion]),
         campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
@@ -734,6 +742,7 @@ function panelSecuencia(i) {
         deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
         deslizador(s, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
+        moldePlegable(s, "Guía el patrón dentro de cada compás: ● = ahí siempre suena una nota, × = ahí nunca, · = lo que salga. La seed y la mutación siguen variando lo demás. Vacío, todo sigue como siempre."),
       ]),
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
@@ -807,6 +816,69 @@ function golpesTexto(d, v, papel) {
   return libres >= pedido ? `${pedido} de ${lugares}` : `${pedido} pedidos · caben ${libres}`;
 }
 
+// --- Molde: guía opcional de dónde caen las notas (como un step sequencer) ---
+
+const MOLDES = [["................", "Libre"], ["x.x.x...--------", "Al inicio"], ["--------..x.x.x.", "Al final"],
+  ["-.x.-.x.-.x.-.x.", "Contras"]];
+
+function moldeTexto(m) {
+  if (!m || !/[x-]/.test(m)) return "libre";
+  const n = (m.match(/x/g) || []).length, no = (m.match(/-/g) || []).length;
+  const igual = MOLDES.find(([valor]) => valor === m);
+  return igual ? igual[1].toLowerCase() : [n ? `${n} fijas` : null, no ? `${no} en silencio` : null].filter(Boolean).join(" · ");
+}
+
+function moldeEditor(obj, ayudaTexto, resumen) {
+  // Cada paso del compás: toca para pasar de libre (·) a "quiero nota" (●) a "nunca" (×).
+  const caja = el("div", {style: "display:flex;flex-direction:column;gap:8px"});
+  const pintar = () => {
+    caja.innerHTML = "";
+    const m = (obj.molde || "").padEnd(16, ".").slice(0, 16);
+    const fila = el("div", {className: "molde"});
+    [...m].forEach((c, i) => {
+      const b = el("button", {type: "button", className: (i % 4 === 0 ? "tiempo " : "") + (c === "x" ? "x" : c === "-" ? "no" : ""),
+        textContent: c === "x" ? "●" : c === "-" ? "×" : (i % 4 === 0 ? String(i / 4 + 1) : "·"),
+        onclick: () => {
+          const sig = {".": "x", "x": "-", "-": "."}[c];
+          const nuevo = m.slice(0, i) + sig + m.slice(i + 1);
+          obj.molde = /[x-]/.test(nuevo) ? nuevo : "";
+          pintar(); guardar();
+          if (resumen) resumen.textContent = moldeTexto(obj.molde);
+        }});
+      fila.appendChild(b);
+    });
+    caja.appendChild(fila);
+    caja.appendChild(el("div", {className: "molde-presets"}, MOLDES.map(([valor, nombre]) =>
+      el("button", {type: "button", textContent: nombre, onclick: () => { obj.molde = valor.includes("x") || valor.includes("-") ? valor : ""; pintar(); guardar();
+        if (resumen) resumen.textContent = moldeTexto(obj.molde); }}))));
+    caja.appendChild(ayuda(ayudaTexto));
+  };
+  pintar();
+  return caja;
+}
+
+function moldePlegable(obj, texto) {
+  const resumen = el("span", {className: "der", textContent: moldeTexto(obj.molde)});
+  return el("details", {className: "voz"}, [
+    el("summary", {}, [el("span", {textContent: "Molde (opcional)"}), resumen]),
+    el("div", {className: "cuerpo"}, [moldeEditor(obj, texto, resumen)]),
+  ]);
+}
+
+function frasesVoz(v) {
+  // Otra · Volver · Fijar: elegir la frase de la voz sin tocar la seed.
+  const fijar = el("button", {type: "button", textContent: v.fija ? "Fijada ✓" : "Fijar",
+    className: v.fija ? "activo" : "", onclick: () => { v.fija = !v.fija; renderMotores(); guardar(); }});
+  return el("div", {style: "display:flex;flex-direction:column;gap:6px"}, [
+    el("div", {className: "molde-presets"}, [
+      el("button", {type: "button", textContent: "Otra frase", onclick: () => { v.variante = (v.variante || 0) + 1; v.fija = false; renderMotores(); guardar(); }}),
+      el("button", {type: "button", textContent: "Volver", disabled: !v.variante, onclick: () => { v.variante = Math.max(0, (v.variante || 0) - 1); renderMotores(); guardar(); }}),
+      fijar,
+    ]),
+    ayuda(`Frase ${(v.variante || 0) + 1}${v.fija ? " · fijada: la mutación no la cambia" : ""}. «Otra» cambia sus notas y su ritmo sin tocar la otra voz; «Volver» trae la anterior.`),
+  ]);
+}
+
 function bloqueVoz(v, titulo, papel, extra = []) {
   const d = cfg.dialogo;
   const estado = el("span", {className: "pill", "data-salida": v.salida});
@@ -816,8 +888,10 @@ function bloqueVoz(v, titulo, papel, extra = []) {
   return recordar(el("details", {className: "voz"}, [
     el("summary", {}, [el("span", {textContent: `${titulo} · ${v.salida} canal ${v.canal}`}), el("span", {className: "der"}, [estado])]),
     el("div", {className: "cuerpo"}, [
+      frasesVoz(v),
       golpes,
       deslizador(v, "oscuridad", "Luminoso ↔ Oscuro", 0, 1, 0.05, colorTexto),
+      moldePlegable(v, `● = quiero una nota ahí, × = nunca, · = libre. Los golpes van primero a los ●; si sobran, se reparten en los ·. ${d.rejilla === "corcheas" ? "En corcheas cada lugar ocupa 2 pasos." : ""} Vacío, todo sigue como siempre.`),
       ...extra.filter(Boolean),
       el("div", {className: "dos"}, [destinoDe(v, renderMotores), numeroDe(v, "canal", "Canal MIDI", 1, 16, renderMotores)]),
       numeroDe(v, "programa", "Parche (Program Change, 0 = no cambia)", 0, 128),
@@ -896,6 +970,8 @@ function panelDialogo() {
         d.forma === "turnos" && !vivo ? campo("Compases por turno", segmentado([["1","1"],["2","2"],["4","4"]], String(d.compases_turno), (x) => { d.compases_turno = parseInt(x); guardar(); }, 3)) : null,
       ]),
       grupo("g-dlg-voces", "Voces", vivo ? `respuesta: ${cfg.respuesta.salida}` : `llamada: ${cfg.llamada.salida} · respuesta: ${cfg.respuesta.salida}`, [
+        campo("La respuesta contesta", segmentado([["contraste","Con lo suyo"],["eco","Eco"],["espejo","Espejo"],["cierra","Cerrando"]], d.responde || "contraste", (x) => { d.responde = x; renderMotores(); guardar(); }, 4)),
+        ayuda({contraste: "Con sus propias notas, como siempre.", eco: "Repite las notas de la llamada.", espejo: "Las notas de la llamada dadas vuelta: si la llamada sube, la respuesta baja.", cierra: "Con sus notas, pero termina en la raíz: la llamada pregunta y la respuesta cierra."}[d.responde || "contraste"]),
         vivo ? null : bloqueVoz(cfg.llamada, "Llamada", "llamada"),
         bloqueVoz(cfg.respuesta, "Respuesta", "respuesta", [mismo]),
       ]),

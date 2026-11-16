@@ -192,5 +192,62 @@ if __name__ == "__main__":
                and d.respuesta.golpes == 5 and d.respuesta.salida == "FM-1",
                "el clip entra en el compás siguiente con todo su seteo")
 
+    print("\nMolde, frases y cómo contesta la respuesta")
+    def pasos_de(salida, cfg, letra, compases=range(4)):
+        out = set()
+        for c in compases:
+            out |= {i for i, x in enumerate(grilla(salida, cfg, c)) if x == letra}
+        return out
+    cfg = base(evolucion=0.0)
+    sin_molde = correr(cfg, compases=4)[0]
+    cfg["llamada"]["molde"] = "................"
+    todo &= ok(correr(normalizar(cfg), compases=4)[0] == sin_molde, "molde vacío: suena exactamente igual que antes")
+    cfg = base(evolucion=0.0)
+    cfg["llamada"].update(golpes=3, molde="--------..x.x.x.")
+    cfg = normalizar(cfg)
+    salida, _ = correr(cfg, compases=4)
+    todo &= ok(pasos_de(salida, cfg, "L") == {10, 12, 14}, f"llamada «al final»: sus 3 golpes en 10, 12 y 14 ({sorted(pasos_de(salida, cfg, 'L'))})")
+    cfg["llamada"].update(golpes=4, molde="x.x.............")
+    cfg = normalizar(cfg)
+    salida, _ = correr(cfg, compases=4)
+    l = pasos_de(salida, cfg, "L")
+    todo &= ok({0, 2} <= l and len(l) >= 4, f"con más golpes que ●, van a los ● y el resto se reparte ({sorted(l)})")
+    cfg = base(evolucion=0.0, rejilla="semicorcheas")
+    cfg["respuesta"].update(golpes=3, molde="xxxx--------....")
+    cfg = normalizar(cfg)
+    salida, _ = correr(cfg, compases=4)
+    r = pasos_de(salida, cfg, "R")
+    todo &= ok(r and not (r & set(range(4, 12))), f"la respuesta nunca toca en los × ({sorted(r)})")
+    # Otra · Volver · Fijar
+    cfg = base(evolucion=0.0)
+    a, motor_a = correr(cfg, compases=2)
+    cfg["llamada"]["variante"] = 1
+    b, motor_b = correr(normalizar(cfg), compases=2)
+    cfg["llamada"]["variante"] = 0
+    c, _ = correr(normalizar(cfg), compases=2)
+    notas = lambda sal, cfg: [(t, n) for t, s_, ti, ca, n, _ in sal if ti == "note_on" and ca == cfg["llamada"]["canal"] - 1 and s_ == cfg["llamada"]["salida"]]  # noqa: E731
+    todo &= ok(notas(a, cfg) != notas(b, cfg) and a == c and motor_b.dialogo.respuesta.orden == motor_a.dialogo.respuesta.orden,
+               "«Otra frase» cambia la llamada (no la respuesta) y «Volver» trae la de antes")
+    cfg = base(evolucion=1.0, mutar_cada=1)
+    cfg["llamada"]["fija"] = True
+    _, m = correr(normalizar(cfg), compases=12)
+    todo &= ok(m.dialogo.llamada.orden == base()["llamada"] and False or m.dialogo.llamada.giro == 0
+               and m.dialogo.llamada.orden == correr(base(evolucion=0.0), compases=1)[1].dialogo.llamada.orden,
+               "«Fijar»: con mutación al máximo la frase no cambia")
+    # Cómo contesta
+    for modo in ("eco", "espejo", "cierra"):
+        cfg = base(evolucion=0.0, responde=modo)
+        cfg["llamada"]["golpes"] = 3
+        cfg["respuesta"]["golpes"] = 3
+        _, m = correr(normalizar(cfg), compases=1)
+        d = m.dialogo
+        g = d.grados_respuesta(3)
+        esperado = {"eco": [d.llamada.orden[k % len(d.llamada.orden)] for k in range(3)],
+                    "espejo": [7 - d.llamada.orden[k % len(d.llamada.orden)] for k in range(3)]}.get(modo)
+        todo &= ok((g == esperado) if esperado else g[-1] == 7, f"la respuesta contesta en {modo}: {g} (llamada {d.llamada.orden})")
+    cfg = base(evolucion=0.0, responde="espejo")
+    salida, _ = correr(normalizar(cfg), compases=8)
+    todo &= ok(colgadas(salida) == 0, "sin notas colgadas")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

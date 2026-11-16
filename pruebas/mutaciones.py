@@ -155,5 +155,21 @@ if __name__ == "__main__":
     todo &= ok(r == ritmos(1.0), "y evoluciona igual con la variación larga andando")
     todo &= ok(len({tuple(x) for x in ritmos(0.0, congelar=True)}) == 1, "congelada, el ritmo no cambia")
 
+    print("\nMolde de las secuencias (opcional)")
+    from .armonia import armar as armar_arm, de_secuencia
+    from .dialogo import correr as correr_d
+    def pasos(molde, densidad=0.4, compases=8):
+        cfg = armar_arm(modo="libre")
+        cfg["secuencia"][0].update(densidad=densidad, posicion="todos", molde=molde)
+        cfg = normalizar(cfg)
+        sal = de_secuencia(correr_d(cfg, compases=compases)[0], cfg)
+        return sal, [{(t // 6) % 16 for t, _ in sal if (t // 6) // 16 == c} for c in range(1, compases)]
+    base_, _ = pasos("")
+    todo &= ok(pasos("................")[0] == base_, "molde vacío: la secuencia suena igual que antes")
+    _, por_compas = pasos("x...x...x...x...")
+    todo &= ok(all({0, 4, 8, 12} <= c for c in por_compas), "● en los tiempos: ahí siempre hay nota, aunque la densidad sea baja")
+    _, por_compas = pasos("--------........", densidad=1.0)
+    todo &= ok(all(c and not (c & set(range(8))) for c in por_compas), "× en la primera mitad: solo suena en la segunda")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)
