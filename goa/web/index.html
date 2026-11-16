@@ -344,6 +344,8 @@ const ESTILOS_BAJO = [["rolling","Rolling","K B B B"],["fullon","Full-on","K B B
 const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat"],
   psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","rolling","offbeat","galope"],
   chillout: ["dub","offbeat","sub"], ambient: ["sub","dub"]};
+const LFO_FORMAS = [["seno","Seno"],["triangulo","Triángulo"],["azar","Al azar"],["sube","Sube"],["baja","Baja"]];
+const LFO_CICLOS = [["0.25","1 tiempo"],["0.5","2 tiempos"],["1","1 compás"],["2","2 compases"],["4","4 compases"],["8","8 compases"],["16","16 compases"],["32","32 compases"]];
 const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa y el full-on.",
   fullon: "Rolling con una celda melódica por tiempo (raíz, quinta, octava y el ♭2 en frigio).",
   tresillo: "Bombo y dos notas en tresillo: un balanceo más oscuro, muy Goa de los 90.",
@@ -825,6 +827,21 @@ function panelSecuencia(i) {
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
       ]),
       grupoMolde(`g-sec-molde`, s, "La seed arma las notas y el filtro decide cuáles pasan: ● = pasa, ? = a veces, vacío = bloqueado. Cambiar la seed cambia las notas que pasan.", "Orden de los pasos", () => s.mutar_cada),
+      grupo(`g-sec-lfo`, "Filtro (LFO)", s.lfo ? `${LFO_FORMAS.find((x) => x[0] === (s.lfo_forma || "seno"))[1].toLowerCase()} · ${LFO_CICLOS.find((x) => parseFloat(x[0]) === s.lfo_compases)?.[1] || s.lfo_compases + " compases"} · CC ${s.lfo_cc}` : "apagado", [
+        el("label", {className: "fila", style: "min-height:44px"}, [
+          el("span", {}, ["LFO de filtro", el("br"), el("span", {className: "mut", textContent: "El motor mueve el filtro del sinte de esta secuencia por MIDI CC, al compás"})]),
+          el("input", {type: "checkbox", className: "switch", checked: !!s.lfo, "aria-label": "LFO de filtro",
+            onchange: (e) => { s.lfo = e.target.checked; guardar(); renderMotores(); }})]),
+        ...(s.lfo ? [
+          campo("Qué mueve", segmentado([["74","Corte (CC 74)"],["71","Resonancia (CC 71)"]], String(s.lfo_cc), (v) => { s.lfo_cc = parseInt(v); guardar(); renderMotores(); }, 2)),
+          ayuda("Sirve igual para la MC-101 y para la FM-1 con Shrub: los dos usan 74 para el corte y 71 para la resonancia."),
+          campo("Forma", segmentado(LFO_FORMAS, s.lfo_forma || "seno", (v) => { s.lfo_forma = v; guardar(); renderMotores(); }, 3)),
+          campo("Una vuelta dura", segmentado(LFO_CICLOS, String(s.lfo_compases), (v) => { s.lfo_compases = parseFloat(v); guardar(); renderMotores(); }, 4)),
+          deslizador(s, "lfo_min", "Abajo", 0, 127, 1, (x) => String(x)),
+          deslizador(s, "lfo_max", "Arriba", 0, 127, 1, (x) => String(x)),
+          ayuda("Va sincronizado al compás. Si el motor de FX interviene el mismo filtro en una subida, el LFO espera y sigue después."),
+        ] : []),
+      ]),
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
         numeroDe(s, "octava", "Octava", -3, 3),

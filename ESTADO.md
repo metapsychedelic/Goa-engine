@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.46.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.47.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.47.0 · LFO de filtro en las secuencias:** `lfo*` por secuencia (CC 74/71, seno/triángulo/azar/sube/baja, 1 tiempo a 32 compases, rango). Motor._lfo_secuencias cada 3 pulsos, solo al cambiar; espera si el FX interviene ese CC. Mapa de CC de la FM-1 con Shrub en el LEEME. Prueba: pruebas/lfo.py.
 
 - **0.46.0 · Se saca el estilo Deepnotic y la plantilla 10:** el intento de bajo estilo Dekel no funcionó (se dio por fallido). Configs guardadas con `deepnotic` pasan a `offbeat` (config.ESTILOS_BAJO_RETIRADOS, bajo.ALIAS). Se quedan el filtro automático por CC, el golpe de filtro por nota y el portamento, que sirven para cualquier estilo.
 

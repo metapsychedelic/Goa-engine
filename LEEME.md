@@ -336,6 +336,27 @@ compás. Se guarda en las escenas, así cada parte puede tener su sonido. Si dos
 motores van al mismo sinte y canal, manda el que está sonando. Funciona con
 sintes que reciben Program Change (revisa que tu firmware lo tenga activo).
 
+## LFO de filtro de las secuencias
+
+Cada secuencia tiene un grupo **Filtro (LFO)**, apagado por defecto. Prendido, el
+motor mueve el filtro del sinte de esa secuencia por MIDI CC, sincronizado al
+compás (un CC cada media semicorchea, solo cuando el valor cambia):
+- **Qué mueve**: corte (CC 74) o resonancia (CC 71). Sirve igual para la MC-101 y
+  para la FM-1 con Shrub.
+- **Forma**: seno, triángulo, al azar (valores al azar que se unen suave, repetibles
+  con la seed), sube o baja (rampas).
+- **Una vuelta dura**: de 1 tiempo a 32 compases.
+- **Abajo** y **Arriba**: el rango del CC.
+Si el motor de FX interviene el mismo filtro en una subida, el LFO espera y sigue
+después.
+
+CC de la FM-1 con Shrub (leídos del editor web shrub.audio/editor, mapa de
+fábrica; se pueden cambiar con MIDI Learn): corte 74, resonancia 71, drive del
+filtro 70, posición de wavetable 20 y 21 (osc A y B), nivel 24 y 25, detune 28 y
+29, glide 5, volumen 7, macros 16 a 19, envolvente 1: ataque 73, decay 75, sustain
+78, release 72; envolvente 2: 81, 82, 83, 85 (cantidad al filtro 80); velocidades
+de los LFO 76, 77, 86 y 87.
+
 ## Mutación de las secuencias
 
 Cada secuencia evoluciona cada *Mutar cada* compases (en Motores › Variación):
