@@ -116,20 +116,24 @@ del sinte.
 
 ## La app
 
-Cuatro pestañas abajo:
+Cinco pestañas abajo:
 
-- **Tocar:** lo que usas en vivo. Un botón por motor (Pads, Bajo, cada
-  secuencia y Diálogo) para prenderlo o apagarlo: entra o sale en el próximo
-  compás y mientras espera dice "entra" o "sale". Abajo, el acorde que suena.
-  Arriba a la derecha, el botón de pánico (apaga todas las notas).
+- **Tocar:** lo que usas en vivo, en este orden: **Escenas**; un botón por
+  motor (Pads, Bajo, cada secuencia, Diálogo, FX) para prenderlo o apagarlo
+  (entra o sale en el próximo compás y mientras espera dice "entra" o "sale");
+  **Energía**; **Subida**; **Frases del diálogo** (si suena: Otra frase · Volver
+  · Fijar de cada voz, sin ir a Motores); **Piloto automático** y **Variación
+  larga**. Abajo, el acorde que suena. Arriba a la derecha, el botón de pánico.
 - **Motores:** un motor a la vez, elegido arriba (el **+** añade una
   secuencia). Todos tienen la misma forma: activo, género, estilo (o textura en
-  los pads), variante, los tres controles principales y cuatro grupos plegados
-  con el resto: **Ritmo**, **Notas**, **Variación** y **Salida MIDI** (en el
-  diálogo, **Voces** en vez de Notas). Cada grupo cerrado muestra un resumen de
-  cómo está.
+  los pads), variante, los controles principales y grupos plegados con el resto:
+  **Ritmo**, **Notas**, **Variación** y **Salida MIDI** (en las secuencias además
+  **Molde y orden** y **FX**; en el diálogo, **Voces** en vez de Notas, y las
+  frases de cada voz junto a los principales). Cada grupo cerrado muestra un
+  resumen de cómo está.
 - **Armonía:** género para todo, tónica, escala (y qué poner en la Circuit),
   guiada o libre, tensión, anticipar y Pegado ↔ Desplazado.
+- **Canción:** el modo canción y sus partes (ver más abajo).
 - **Ajustes:** proyecto, conexión MIDI, canal general de la nota larga y qué
   pasa cuando cambia.
 

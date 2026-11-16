@@ -170,12 +170,13 @@ details.grupo.parte-actual{border-color:var(--acc)}
 
 <main>
   <section class="vista" id="v-tocar" aria-label="Tocar">
-    <div id="tocar_extra" style="display:flex;flex-direction:column;gap:16px"></div>
+    <div id="tocar_escenas"></div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <h3>Motores</h3>
       <div class="mutes" id="mutes"></div>
       <p class="ayuda" style="margin:0">Toca para prender o apagar. Entra o sale en el próximo compás, sin cortar notas.</p>
     </div>
+    <div id="tocar_extra" style="display:flex;flex-direction:column;gap:16px"></div>
     <div id="tocar_forma"></div>
     <div class="card estadolinea">
       <span class="mut" id="acorde">Sin acorde</span>
@@ -735,7 +736,7 @@ function panelSecuencia(i) {
       deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
     ]),
     el("div", {className: "grupos"}, [
-      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.largo} pasos · swing ${Math.round(s.swing * 200)} %${s.molde ? " · molde" : ""}${s.recorrido && s.recorrido !== "adelante" ? " · " + RECORRIDOS.find((r) => r[0] === s.recorrido)[1].toLowerCase() : ""}`, [
+      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.largo} pasos · swing ${Math.round(s.swing * 200)} %`, [
         campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; renderMotores(); guardar(); }, 2)),
         ayuda(POS_TEXTO[s.posicion]),
         campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
@@ -743,8 +744,8 @@ function panelSecuencia(i) {
         deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
         deslizador(s, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
-        moldePlegable(s, "Guía el patrón dentro de cada compás: ● = ahí siempre suena una nota, ? = a veces, × = ahí nunca, · = lo que salga. La seed y la mutación siguen variando lo demás. Vacío, todo sigue como siempre.", "Orden de los pasos", () => s.mutar_cada),
       ]),
+      grupoMolde(`g-sec-molde`, s, "Guía el patrón dentro de cada compás: ● = ahí siempre suena una nota, ? = a veces, × = ahí nunca, · = lo que salga. La seed y la mutación siguen variando lo demás. Vacío, todo sigue como siempre.", "Orden de los pasos", () => s.mutar_cada),
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
         numeroDe(s, "octava", "Octava", -3, 3),
@@ -886,6 +887,14 @@ function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
   return caja;
 }
 
+function grupoMolde(clave, obj, texto, textoOrden, cada) {
+  // «Molde y orden» como un grupo más (en las secuencias): su resumen se actualiza al tocar.
+  const g = grupo(clave, "Molde y orden", moldeTexto(obj.molde, obj), []);
+  const resumen = g.querySelector(".cab span");
+  g.querySelector(".cuerpo").append(moldeEditor(obj, texto, resumen, textoOrden, cada));
+  return g;
+}
+
 function moldePlegable(obj, texto, textoOrden, cada) {
   const resumen = el("span", {className: "der", textContent: moldeTexto(obj.molde, obj)});
   return el("details", {className: "voz"}, [
@@ -894,17 +903,34 @@ function moldePlegable(obj, texto, textoOrden, cada) {
   ]);
 }
 
-function frasesVoz(v) {
-  // Otra · Volver · Fijar: elegir la frase de la voz sin tocar la seed.
-  const fijar = el("button", {type: "button", textContent: v.fija ? "Fijada ✓" : "Fijar",
-    className: v.fija ? "activo" : "", onclick: () => { v.fija = !v.fija; renderMotores(); guardar(); }});
-  return el("div", {style: "display:flex;flex-direction:column;gap:6px"}, [
+function filaFrase(v, titulo, alCambiar) {
+  // Otra · Volver · Fijar: elegir la frase de una voz sin tocar la seed.
+  const cambiar = (f) => { f(); alCambiar(); guardar(); };
+  return el("div", {style: "display:flex;flex-direction:column;gap:4px"}, [
+    el("span", {className: "mut", textContent: `${titulo} · frase ${(v.variante || 0) + 1}${v.fija ? " · fijada" : ""}`}),
     el("div", {className: "molde-presets"}, [
-      el("button", {type: "button", textContent: "Otra frase", onclick: () => { v.variante = (v.variante || 0) + 1; v.fija = false; renderMotores(); guardar(); }}),
-      el("button", {type: "button", textContent: "Volver", disabled: !v.variante, onclick: () => { v.variante = Math.max(0, (v.variante || 0) - 1); renderMotores(); guardar(); }}),
-      fijar,
+      el("button", {type: "button", textContent: "Otra frase", onclick: () => cambiar(() => { v.variante = (v.variante || 0) + 1; v.fija = false; })}),
+      el("button", {type: "button", textContent: "Volver", disabled: !v.variante, onclick: () => cambiar(() => { v.variante = Math.max(0, (v.variante || 0) - 1); })}),
+      el("button", {type: "button", textContent: v.fija ? "Fijada ✓" : "Fijar", className: v.fija ? "activo" : "", onclick: () => cambiar(() => { v.fija = !v.fija; })}),
     ]),
-    ayuda(`Frase ${(v.variante || 0) + 1}${v.fija ? " · fijada: la mutación no la cambia" : ""}. «Otra» cambia sus notas y su ritmo sin tocar la otra voz; «Volver» trae la anterior.`),
+  ]);
+}
+
+function frasesDialogo(alCambiar) {
+  const vivo = cfg.dialogo.modo === "en_vivo";
+  return el("div", {style: "display:flex;flex-direction:column;gap:10px"}, [
+    vivo ? null : filaFrase(cfg.llamada, "Llamada", alCambiar),
+    filaFrase(cfg.respuesta, "Respuesta", alCambiar),
+  ].filter(Boolean));
+}
+
+function bloqueFrases() {
+  // En Tocar, solo si el diálogo suena: cambiar o fijar frases sin ir a Motores.
+  if (!cfg.dialogo.activo) return null;
+  return el("div", {className: "card", style: "display:flex;flex-direction:column;gap:10px"}, [
+    h3("Frases del diálogo"),
+    frasesDialogo(() => renderTocar()),
+    ayuda("«Otra frase» cambia las notas y el ritmo de esa voz en el próximo compás; «Volver» trae la anterior; «Fijar» la congela."),
   ]);
 }
 
@@ -917,7 +943,6 @@ function bloqueVoz(v, titulo, papel, extra = []) {
   return recordar(el("details", {className: "voz"}, [
     el("summary", {}, [el("span", {textContent: `${titulo} · ${v.salida} canal ${v.canal}`}), el("span", {className: "der"}, [estado])]),
     el("div", {className: "cuerpo"}, [
-      frasesVoz(v),
       golpes,
       deslizador(v, "oscuridad", "Luminoso ↔ Oscuro", 0, 1, 0.05, colorTexto),
       moldePlegable(v, `● = quiero una nota ahí, ? = a veces, × = nunca, · = libre. Los golpes van primero a los ●; si sobran, se reparten en los ·. ${d.rejilla === "corcheas" ? "En corcheas cada lugar ocupa 2 pasos." : ""} Vacío, todo sigue como siempre.`, "Orden de sus notas", () => cfg.dialogo.mutar_cada),
@@ -988,6 +1013,7 @@ function panelDialogo() {
       colorGeneral(),
       deslizador(d, "evolucion", "Mutación", 0, 1, 0.05, (x) => x === 0 ? "fija" : `${porcentaje(x)} cada ${d.mutar_cada} compases`),
       espacio,
+      frasesDialogo(() => renderMotores()),
     ]),
     el("div", {className: "grupos"}, [
       grupo("g-dlg-ritmo", "Ritmo", `${d.rejilla}${d.forma === "turnos" && !vivo ? ` · turnos de ${d.compases_turno}` : ""} · espacio ${d.espacio}`, [
@@ -1154,7 +1180,7 @@ function renderMutes() {
   const cont = $("mutes"); cont.innerHTML = "";
   for (const [clave, nombre, obj, k] of motores()) {
     cont.append(el("button", {type: "button", className: "mute", "data-motor": clave, "aria-pressed": obj[k] ? "true" : "false",
-      onclick: () => { obj[k] = !obj[k]; renderMutes(); if (vista === "motores") renderMotores(); guardar(); }},
+      onclick: () => { obj[k] = !obj[k]; if (vista === "tocar") renderTocar(); else renderMutes(); if (vista === "motores") renderMotores(); guardar(); }},
       [el("b", {textContent: nombre}), el("span", {textContent: obj[k] ? "suena" : "apagado"})]));
   }
   pintarMutes();
@@ -1276,8 +1302,9 @@ function render() {
 }
 
 function renderTocar() {
+  $("tocar_escenas").replaceChildren(bloqueEscenas());
   const caja = $("tocar_extra"); caja.innerHTML = "";
-  caja.append(bloqueEscenas(), bloqueEnergia(), bloqueSubida(), bloquePiloto());
+  caja.append(...[bloqueEnergia(), bloqueSubida(), bloqueFrases(), bloquePiloto()].filter(Boolean));
   $("tocar_forma").replaceChildren(bloqueForma());
   renderMutes();
   if (ultimoEstado) pintarTocar(ultimoEstado);
