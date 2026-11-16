@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.43.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.43.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.43.1 · Más contraste:** bordes de tarjetas, botones, segmentados y pasos del filtro más claros; tarjetas y textos secundarios un poco más luminosos.
 
 - **0.43.0 · El molde es un filtro de notas:** interruptor propio (filtro, en secuencias y voces); prendido y vacío no suena nada, se abren pasos (x pasa, ? a veces, - bloquea). La seed arma las notas y el filtro solo deja pasar (antes el molde forzaba notas y tapaba la seed). En el diálogo las notas bloqueadas se corren al paso abierto más cercano, y la seed también gira el ritmo de las voces (cambia el sonido de diálogos guardados). Marca de bombo en los pasos 1-2-3-4. Moldes viejos: filtro prendido y . → x (config._migrar_moldes).
 
