@@ -10,7 +10,7 @@ import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, forma, generador, generos, plantillas
+from . import __version__, forma, fuentes, generador, generos, plantillas
 from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
@@ -101,6 +101,17 @@ def crear_servidor(ctx, puerto):
                 self.send_header("Content-Length", str(len(cuerpo)))
                 self.end_headers()
                 self.wfile.write(cuerpo)
+            elif self.path.startswith("/fuentes/"):
+                datos = fuentes.leer(self.path[len("/fuentes/"):])
+                if datos is None:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "font/woff2")
+                self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+                self.send_header("Content-Length", str(len(datos)))
+                self.end_headers()
+                self.wfile.write(datos)
             elif self.path == "/api/estado":
                 with ctx.candado:
                     if ctx.sincronizar():
@@ -502,6 +513,7 @@ def crear_servidor(ctx, puerto):
             ruta.unlink()
             self._responder()
 
+    fuentes.asegurar_en_segundo_plano()
     servidor = ThreadingHTTPServer(("0.0.0.0", puerto), Manejador)
     servidor.daemon_threads = True
     threading.Thread(target=servidor.serve_forever, daemon=True).start()

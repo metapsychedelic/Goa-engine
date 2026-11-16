@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.42.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.42.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -26,7 +26,8 @@ Canción, Ajustes).
 
 ## Hecho recientemente
 
-- **0.42.0 · Diseño «Yantra · Polvo estelar»:** la app se llama Yantra (logo en Megrim con contorno). Fondo casi negro con estrellas y un Sri Yantra tenue en la esquina; acento lavanda; cabecera y barra translúcidas; iconos de pestañas con geometría de yantra (el bindu aparece en la pestaña activa); deslizadores con degradé lavanda; casillas oscuras. Fuentes de Google (IBM Plex Sans/Mono, Megrim): sin internet en el teléfono cae a la letra del sistema. Propuestas en el lienzo de diseño.
+- **0.42.0 · Diseño «Yantra · Polvo estelar»:** la app se llama Yantra (logo en Megrim con contorno). Fondo casi negro con estrellas y un Sri Yantra tenue en la esquina; acento lavanda; cabecera y barra translúcidas; iconos de pestañas con geometría de yantra (el bindu aparece en la pestaña activa); deslizadores con degradé lavanda; casillas oscuras. Fuentes IBM Plex Sans/Mono y Megrim.
+- **0.42.1 · Fuentes en la Pi:** al arrancar, si tiene internet, la Pi baja las fuentes (solo latín, unos 150 KB) a goa/web/fuentes/ (fuera de git) y la app las sirve desde /fuentes/; el teléfono las guarda en caché un año. Sin internet nunca se rompe: usa Google o la letra del sistema hasta poder bajarlas. Prueba: pruebas/fuentes.py. Propuestas en el lienzo de diseño.
 - v0.36.0 Pads: «Al azar» salió del menú de progresiones y es una casilla (azar,
   azar_cada): parte de la progresión elegida, la primera variación suena tal cual y cada
   N vueltas cambia 1 o 2 acordes por otros limpios de la escala (i – X se dobla a

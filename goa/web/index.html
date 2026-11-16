@@ -10,10 +10,18 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&family=Megrim&display=swap">
 <style>
+/* fuentes guardadas en la Pi (goa/fuentes.py); si faltan, las de Google o las del sistema */
+@font-face{font-family:"Plex Local";src:url(/fuentes/plex-sans-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Plex Local";src:url(/fuentes/plex-sans-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Plex Local";src:url(/fuentes/plex-sans-600.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Plex Local";src:url(/fuentes/plex-sans-700.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Plex Mono Local";src:url(/fuentes/plex-mono-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Plex Mono Local";src:url(/fuentes/plex-mono-700.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Megrim Local";src:url(/fuentes/megrim-400.woff2) format("woff2");font-weight:400;font-display:swap}
 :root{--bg:#06060A;--card:#101016;--card2:#07070B;--line:#22222C;--line2:#33333F;--txt:#E8E8F2;--txt2:#C9C9DA;--mut:#A0A0B4;--acc:#BFC6FF;--accbg:#181A2E;--bad:#FF9A9A;--sobre:#0E1030;--badbg:#261416;--badline:#552A2E;--grad:linear-gradient(90deg,#5A5F96,#9AA2E6 60%,#D6DAFF);--glow:0 0 12px rgba(191,198,255,.35)}
 *{box-sizing:border-box}
 html{-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 "Plex Local","IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
 header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:max(10px,env(safe-area-inset-top)) 16px 10px}
 header.top .in{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
 header.top h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
@@ -161,9 +169,9 @@ body{background:transparent}
 .cielo::after{content:"";position:absolute;right:-110px;top:-150px;width:380px;height:380px;opacity:.11;background:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 aria-hidden=%22true%22 width=%22380%22 height=%22380%22 viewBox=%22-100 -100 200 200%22 fill=%22none%22 stroke=%22%23BFC6FF%22 stroke-width=%220.7%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M-96 -96 H-16 V-100 H16 V-96 H96 V-16 H100 V16 H96 V96 H16 V100 H-16 V96 H-96 V16 H-100 V-16 H-96 Z%22/%3E%3Cpath d=%22M-91 -91 H-16 V-95 H16 V-91 H91 V-16 H95 V16 H91 V91 H16 V95 H-16 V91 H-91 V16 H-95 V-16 H-91 Z%22/%3E%3Ccircle r=%2284%22/%3E%3Ccircle r=%2280%22/%3E%3Ccircle r=%2276%22/%3E%3Cpath d=%22M61.0 -11.1 Q75.0 0.0 61.0 11.1%22/%3E%3Cpath d=%22M60.6 13.1 Q69.3 28.7 52.1 33.6%22/%3E%3Cpath d=%22M51.0 35.3 Q53.0 53.0 35.3 51.0%22/%3E%3Cpath d=%22M33.6 52.1 Q28.7 69.3 13.1 60.6%22/%3E%3Cpath d=%22M11.1 61.0 Q0.0 75.0 -11.1 61.0%22/%3E%3Cpath d=%22M-13.1 60.6 Q-28.7 69.3 -33.6 52.1%22/%3E%3Cpath d=%22M-35.3 51.0 Q-53.0 53.0 -51.0 35.3%22/%3E%3Cpath d=%22M-52.1 33.6 Q-69.3 28.7 -60.6 13.1%22/%3E%3Cpath d=%22M-61.0 11.1 Q-75.0 0.0 -61.0 -11.1%22/%3E%3Cpath d=%22M-60.6 -13.1 Q-69.3 -28.7 -52.1 -33.6%22/%3E%3Cpath d=%22M-51.0 -35.3 Q-53.0 -53.0 -35.3 -51.0%22/%3E%3Cpath d=%22M-33.6 -52.1 Q-28.7 -69.3 -13.1 -60.6%22/%3E%3Cpath d=%22M-11.1 -61.0 Q-0.0 -75.0 11.1 -61.0%22/%3E%3Cpath d=%22M13.1 -60.6 Q28.7 -69.3 33.6 -52.1%22/%3E%3Cpath d=%22M35.3 -51.0 Q53.0 -53.0 51.0 -35.3%22/%3E%3Cpath d=%22M52.1 -33.6 Q69.3 -28.7 60.6 -13.1%22/%3E%3Ccircle r=%2262%22/%3E%3Cpolygon points=%220,-58 52,30 -52,30%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,-44 46,42 -46,42%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,-30 40,52 -40,52%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,-14 30,58 -30,58%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,58 54,-34 -54,-34%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,48 48,-46 -48,-46%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,38 40,-54 -40,-54%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,26 30,-58 -30,-58%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,12 20,-40 -20,-40%22 stroke=%22%23E8E8F2%22/%3E%3Ccircle r=%222.2%22 fill=%22%23BFC6FF%22/%3E%3C/svg%3E") center/contain no-repeat}
 header.top{background:rgba(6,6,10,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 nav.tabs{background:rgba(7,7,11,.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
-.sub{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
-.energia .n{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
-h1.logo{font-family:"Megrim",system-ui,sans-serif;font-weight:700;font-size:28px;letter-spacing:.14em;line-height:1.1;color:transparent;-webkit-text-stroke:1px #D6DAFF;filter:drop-shadow(0 0 5px rgba(242,196,230,.55))}
+.sub{font-family:"Plex Mono Local","IBM Plex Mono",ui-monospace,Menlo,monospace}
+.energia .n{font-family:"Plex Mono Local","IBM Plex Mono",ui-monospace,Menlo,monospace}
+h1.logo{font-family:"Megrim Local","Megrim",system-ui,sans-serif;font-weight:700;font-size:28px;letter-spacing:.14em;line-height:1.1;color:transparent;-webkit-text-stroke:1px #D6DAFF;filter:drop-shadow(0 0 5px rgba(242,196,230,.55))}
 nav.tabs svg{width:24px;height:24px}
 nav.tabs .bindu{display:none}
 nav.tabs button[aria-selected=true] .bindu{display:inline}
