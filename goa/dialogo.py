@@ -30,7 +30,7 @@ valor general o uno propio.
 
 import random
 
-from . import armonia
+from . import armonia, generador
 
 from .escalas import Tonalidad
 
@@ -74,12 +74,15 @@ def euclides(golpes, lugares, giro=0):
     return [((i + giro) * golpes) % lugares < golpes for i in range(lugares)]
 
 
-def molde_lugares(molde, lugares, paso_lugar):
+def molde_lugares(molde, lugares, paso_lugar, prob=0.5, rng=None):
     """Estado de cada lugar según el molde de 16 pasos: "x" (quiero nota), "-" (nunca)
-    o "." (libre). None si el molde está vacío: entonces todo sigue como siempre."""
+    o "." (libre); los "?" (a veces) se vuelven "x" con probabilidad `prob` en cada
+    compás, si no "-". None si el molde está vacío: entonces todo sigue como siempre."""
     if not molde or not set(molde) - {"."}:
         return None
     molde = (molde + "." * 16)[:16]
+    rng = rng or random.Random(0)
+    molde = "".join(("x" if rng.random() < prob else "-") if c == "?" else c for c in molde)
     estado = []
     for i in range(lugares):
         celdas = molde[i * paso_lugar:(i + 1) * paso_lugar]
@@ -117,6 +120,8 @@ class Voz:
         self.vel_random = float(cfg.get("vel_random", 0.15))
         self.desplazamiento = float(cfg.get("desplazamiento", -1.0))  # menos de 0 = el general
         self.molde = str(cfg.get("molde", ""))
+        self.molde_prob = float(cfg.get("molde_prob", 0.5))
+        self.recorrido = cfg.get("recorrido", "adelante")   # orden de sus notas
         self.variante = int(cfg.get("variante", 0))   # «Otra» la sube, «Volver» la baja
         self.fija = bool(cfg.get("fija", False))      # «Fijar»: la mutación no la toca
         sufijo = f":{self.variante}" if self.variante else ""
@@ -199,6 +204,7 @@ class Dialogo:
         self.plan = []          # (paso, voz, grado, dur, vel, retraso en pulsos)
         self.pendientes = []
         self.fase = None
+        self.compas_actual = 0
         self.raiz_vivo = None
         self.tocado = set()     # en vivo: lugares donde tocaste en este compás
         self.notas_vivo = []
@@ -241,9 +247,23 @@ class Dialogo:
         return [i for i in range(n)
                 if i not in ocupados and not any(1 <= (i - j) % n <= self.espacio for j in ocupados)]
 
+    def _estado_molde(self, voz):
+        rng = random.Random(f"{self.seed}:{voz.papel}:molde:{self.compas_actual}")
+        return molde_lugares(voz.molde, self.lugares, self.paso_lugar, voz.molde_prob, rng)
+
+    def notas_de(self, voz, cantidad):
+        """Las notas del motivo de la voz para este compás, en su orden (adelante, atrás,
+        péndulo o al azar). Adelante es el de siempre."""
+        n = len(voz.orden)
+        if voz.recorrido == "adelante":
+            return [voz.orden[k % n] for k in range(cantidad)]
+        base = self.compas_actual * cantidad
+        return [voz.orden[generador.recorrer(voz.recorrido, base + k, n, f"{self.seed}:{voz.papel}")]
+                for k in range(cantidad)]
+
     def lugares_llamada(self):
         voz = self.llamada
-        estado = molde_lugares(voz.molde, self.lugares, self.paso_lugar)
+        estado = self._estado_molde(voz)
         if estado is None:
             patron = euclides(voz.golpes, self.lugares, voz.giro)
             return [i for i, x in enumerate(patron) if x]
@@ -252,7 +272,7 @@ class Dialogo:
 
     def lugares_respuesta(self, ocupados):
         voz = self.respuesta
-        estado = molde_lugares(voz.molde, self.lugares, self.paso_lugar)
+        estado = self._estado_molde(voz)
         if estado is None:
             if not ocupados:  # turno propio: su euclidiano en todo el compás
                 patron = euclides(voz.golpes, self.lugares, voz.giro)
@@ -266,19 +286,19 @@ class Dialogo:
 
     def grados_respuesta(self, cantidad):
         """Las notas de la respuesta según cómo contesta."""
-        propias = [self.respuesta.orden[k % len(self.respuesta.orden)] for k in range(cantidad)]
-        llamada = self.llamada.orden
+        propias = self.notas_de(self.respuesta, cantidad)
         if self.responde == "eco":
-            return [llamada[k % len(llamada)] for k in range(cantidad)]
+            return self.notas_de(self.llamada, cantidad)
         if self.responde == "espejo":
             # La llamada dada vuelta en la octava de arriba: si la llamada sube, la respuesta baja.
-            return [7 - llamada[k % len(llamada)] for k in range(cantidad)]
+            return [7 - g for g in self.notas_de(self.llamada, cantidad)]
         if self.responde == "cierra" and propias:
             propias[-1] = 7  # termina en la raíz (una octava arriba, donde vive la respuesta)
         return propias
 
     def _compas(self, compas, paso, tocado=None):
         """Plan de un compás. En vivo, `tocado` son los lugares donde tocaste el compás anterior."""
+        self.compas_actual = compas
         if self.modo == "en_vivo":
             golpes_l = []
             golpes_r = self.lugares_respuesta(set(tocado)) if tocado else []
@@ -292,9 +312,9 @@ class Dialogo:
             golpes_l = self.lugares_llamada()
             golpes_r = self.lugares_respuesta(set(golpes_l))
             self.fase = "conversando"
+        grados_l = self.notas_de(self.llamada, len(golpes_l))
         grados_r = self.grados_respuesta(len(golpes_r))
-        eventos = sorted([(i, self.llamada, self.llamada.orden[k % len(self.llamada.orden)])
-                          for k, i in enumerate(golpes_l)]
+        eventos = sorted([(i, self.llamada, grados_l[k]) for k, i in enumerate(golpes_l)]
                          + [(i, self.respuesta, grados_r[k]) for k, i in enumerate(golpes_r)], key=lambda e: e[0])
         inicios, retrasos = self._desplazar(compas, eventos)
         # Cada nota dura según su largo, pero termina antes de que entre la siguiente

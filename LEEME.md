@@ -514,6 +514,13 @@ nota" (●) a "nunca" (×). Atajos: Libre, Al inicio, Al final y Contras.
   y en un × nunca; en los · manda el patrón como siempre.
 - En el diálogo, los golpes de la voz van primero a los ●; si sobran, se reparten
   en los ·, y nunca caen en un ×. En corcheas cada lugar ocupa 2 pasos.
+- **A veces (?)**: elige el pincel «? A veces» y marca pasos; en cada compás cada
+  uno suena con la probabilidad que pongas (por defecto 50 %), si no queda en
+  silencio. Es repetible: misma seed, mismo resultado.
+- **Orden**: adelante (como siempre), atrás, péndulo (va y vuelve) o al azar (cada
+  vuelta en otro orden, sin repetir). En las secuencias ordena los pasos del
+  patrón; en el diálogo, las notas del motivo de esa voz. El molde no se mueve:
+  los ● y × siguen en su lugar del compás.
 - La seed, la mutación y los giros siguen variando dentro del molde. Vacío, todo
   suena exactamente como antes.
 

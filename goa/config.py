@@ -96,7 +96,9 @@ def _esquema_voz(salida, canal, golpes, gate, velocidad):
         "velocidad": (int, velocidad, 1, 127),
         "vel_random": (float, 0.15, 0.0, 1.0),
         "desplazamiento": (float, -1.0, -1.0, 1.0),  # menos de 0 = usa el general
-        "molde": (str, "", None, None),     # opcional: 16 pasos, x = quiero nota, - = nunca, . = libre
+        "molde": (str, "", None, None),     # opcional: 16 pasos, x = quiero nota, ? = a veces, - = nunca, . = libre
+        "molde_prob": (float, 0.5, 0.0, 1.0),  # probabilidad de los «a veces»
+        "recorrido": (str, "adelante", None, generador.RECORRIDOS),  # orden de sus notas
         "variante": (int, 0, 0, 999),       # «Otra» / «Volver»: otra frase sin cambiar la seed
         "fija": (bool, False, None, None),  # «Fijar»: la mutación no la cambia
     }
@@ -233,7 +235,9 @@ ESQUEMA_SECUENCIA = {
     "repeticion": (float, 0.0, 0.0, 1.0),
     "largas": (float, 0.0, 0.0, 1.0),
     "escala_color": (str, "", None, ("",) + tuple(ESCALAS_COLOR)),  # "" = la de Música
-    "molde": (str, "", None, None),  # opcional: 16 pasos, x = siempre nota, - = nunca, . = lo que salga
+    "molde": (str, "", None, None),  # opcional: 16 pasos, x = siempre nota, ? = a veces, - = nunca, . = lo que salga
+    "molde_prob": (float, 0.5, 0.0, 1.0),  # probabilidad de los «a veces»
+    "recorrido": (str, "adelante", None, generador.RECORRIDOS),  # orden de los pasos: adelante, atrás, péndulo, al azar
     "semitono": (float, 0.0, 0.0, 1.0),  # cuánto aparece el ♭2 sobre la raíz en los pasos débiles
     "fx": (bool, False, None, None),         # el motor de FX la interviene: filtro y stutter en las subidas, glitches
     "cc_filtro": (int, 74, 0, 127),          # CC del filtro de su sinte

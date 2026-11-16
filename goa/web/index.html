@@ -35,6 +35,7 @@ h3{margin:0;font-size:13px;font-weight:650;color:var(--txt2)}
 .molde button.tiempo{border-color:var(--mut)}
 .molde button.x{background:var(--acc);color:#1A1408;border-color:var(--acc)}
 .molde button.no{background:#3A1E19;color:var(--bad);border-color:#3A1E19}
+.molde button.talvez{background:transparent;color:var(--acc);border:2px dashed var(--acc)}
 .molde-presets{display:flex;flex-wrap:wrap;gap:6px}
 .molde-presets button{flex:1;min-width:0;padding:8px 6px;font-size:13px}
 .molde-presets button.activo{background:var(--acc);color:#1A1408;border-color:var(--acc)}
@@ -734,7 +735,7 @@ function panelSecuencia(i) {
       deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
     ]),
     el("div", {className: "grupos"}, [
-      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.largo} pasos · swing ${Math.round(s.swing * 200)} %${s.molde ? " · molde" : ""}`, [
+      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.largo} pasos · swing ${Math.round(s.swing * 200)} %${s.molde ? " · molde" : ""}${s.recorrido && s.recorrido !== "adelante" ? " · " + RECORRIDOS.find((r) => r[0] === s.recorrido)[1].toLowerCase() : ""}`, [
         campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; renderMotores(); guardar(); }, 2)),
         ayuda(POS_TEXTO[s.posicion]),
         campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
@@ -742,7 +743,7 @@ function panelSecuencia(i) {
         deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
         deslizador(s, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
-        moldePlegable(s, "Guía el patrón dentro de cada compás: ● = ahí siempre suena una nota, × = ahí nunca, · = lo que salga. La seed y la mutación siguen variando lo demás. Vacío, todo sigue como siempre."),
+        moldePlegable(s, "Guía el patrón dentro de cada compás: ● = ahí siempre suena una nota, ? = a veces, × = ahí nunca, · = lo que salga. La seed y la mutación siguen variando lo demás. Vacío, todo sigue como siempre.", "Orden de los pasos"),
       ]),
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
@@ -821,47 +822,65 @@ function golpesTexto(d, v, papel) {
 const MOLDES = [["................", "Libre"], ["x.x.x...--------", "Al inicio"], ["--------..x.x.x.", "Al final"],
   ["-.x.-.x.-.x.-.x.", "Contras"]];
 
-function moldeTexto(m) {
-  if (!m || !/[x-]/.test(m)) return "libre";
-  const n = (m.match(/x/g) || []).length, no = (m.match(/-/g) || []).length;
-  const igual = MOLDES.find(([valor]) => valor === m);
-  return igual ? igual[1].toLowerCase() : [n ? `${n} fijas` : null, no ? `${no} en silencio` : null].filter(Boolean).join(" · ");
+const RECORRIDOS = [["adelante","Adelante"],["atras","Atrás"],["pendulo","Péndulo"],["azar","Al azar"]];
+const PINCELES = [["x","● Siempre"],["?","? A veces"],["-","× Nunca"]];
+
+function moldeTexto(m, obj) {
+  const partes = [];
+  if (m && /[x?-]/.test(m)) {
+    const igual = MOLDES.find(([valor]) => valor === m);
+    if (igual) partes.push(igual[1].toLowerCase());
+    else {
+      const n = (m.match(/x/g) || []).length, q = (m.match(/\?/g) || []).length, no = (m.match(/-/g) || []).length;
+      if (n) partes.push(`${n} fijas`); if (q) partes.push(`${q} a veces`); if (no) partes.push(`${no} en silencio`);
+    }
+  }
+  if (obj && obj.recorrido && obj.recorrido !== "adelante") partes.push(RECORRIDOS.find((r) => r[0] === obj.recorrido)[1].toLowerCase());
+  return partes.join(" · ") || "libre";
 }
 
-function moldeEditor(obj, ayudaTexto, resumen) {
-  // Cada paso del compás: toca para pasar de libre (·) a "quiero nota" (●) a "nunca" (×).
+function moldeEditor(obj, ayudaTexto, resumen, textoOrden) {
+  // Cada paso del compás: con el pincel elegido marcas «siempre», «a veces» o «nunca»;
+  // tocar de nuevo con el mismo pincel lo deja libre.
+  let pincel = "x";
   const caja = el("div", {style: "display:flex;flex-direction:column;gap:8px"});
+  const actualizar = () => { if (resumen) resumen.textContent = moldeTexto(obj.molde, obj); };
   const pintar = () => {
     caja.innerHTML = "";
     const m = (obj.molde || "").padEnd(16, ".").slice(0, 16);
+    caja.appendChild(segmentado(PINCELES, pincel, (v) => { pincel = v; pintar(); }, 3));
     const fila = el("div", {className: "molde"});
     [...m].forEach((c, i) => {
-      const b = el("button", {type: "button", className: (i % 4 === 0 ? "tiempo " : "") + (c === "x" ? "x" : c === "-" ? "no" : ""),
-        textContent: c === "x" ? "●" : c === "-" ? "×" : (i % 4 === 0 ? String(i / 4 + 1) : "·"),
+      const b = el("button", {type: "button",
+        className: (i % 4 === 0 ? "tiempo " : "") + ({x: "x", "-": "no", "?": "talvez"}[c] || ""),
+        textContent: c === "x" ? "●" : c === "-" ? "×" : c === "?" ? "?" : (i % 4 === 0 ? String(i / 4 + 1) : "·"),
         onclick: () => {
-          const sig = {".": "x", "x": "-", "-": "."}[c];
-          const nuevo = m.slice(0, i) + sig + m.slice(i + 1);
-          obj.molde = /[x-]/.test(nuevo) ? nuevo : "";
-          pintar(); guardar();
-          if (resumen) resumen.textContent = moldeTexto(obj.molde);
+          const nuevo = m.slice(0, i) + (c === pincel ? "." : pincel) + m.slice(i + 1);
+          obj.molde = /[x?-]/.test(nuevo) ? nuevo : "";
+          pintar(); guardar(); actualizar();
         }});
       fila.appendChild(b);
     });
     caja.appendChild(fila);
     caja.appendChild(el("div", {className: "molde-presets"}, MOLDES.map(([valor, nombre]) =>
-      el("button", {type: "button", textContent: nombre, onclick: () => { obj.molde = valor.includes("x") || valor.includes("-") ? valor : ""; pintar(); guardar();
-        if (resumen) resumen.textContent = moldeTexto(obj.molde); }}))));
+      el("button", {type: "button", textContent: nombre, onclick: () => {
+        obj.molde = /[x?-]/.test(valor) ? valor : ""; pintar(); guardar(); actualizar(); }}))));
     caja.appendChild(ayuda(ayudaTexto));
+    if ((obj.molde || "").includes("?")) {
+      caja.appendChild(deslizador(obj, "molde_prob", "Probabilidad de los ?", 0, 1, 0.05, porcentaje));
+      caja.appendChild(ayuda("En cada compás, cada ? suena con esta probabilidad (si no, queda en silencio)."));
+    }
+    caja.appendChild(campo(textoOrden, segmentado(RECORRIDOS, obj.recorrido || "adelante", (v) => { obj.recorrido = v; pintar(); guardar(); actualizar(); }, 4)));
   };
   pintar();
   return caja;
 }
 
-function moldePlegable(obj, texto) {
-  const resumen = el("span", {className: "der", textContent: moldeTexto(obj.molde)});
+function moldePlegable(obj, texto, textoOrden) {
+  const resumen = el("span", {className: "der", textContent: moldeTexto(obj.molde, obj)});
   return el("details", {className: "voz"}, [
-    el("summary", {}, [el("span", {textContent: "Molde (opcional)"}), resumen]),
-    el("div", {className: "cuerpo"}, [moldeEditor(obj, texto, resumen)]),
+    el("summary", {}, [el("span", {textContent: "Molde y orden (opcional)"}), resumen]),
+    el("div", {className: "cuerpo"}, [moldeEditor(obj, texto, resumen, textoOrden)]),
   ]);
 }
 
@@ -891,7 +910,7 @@ function bloqueVoz(v, titulo, papel, extra = []) {
       frasesVoz(v),
       golpes,
       deslizador(v, "oscuridad", "Luminoso ↔ Oscuro", 0, 1, 0.05, colorTexto),
-      moldePlegable(v, `● = quiero una nota ahí, × = nunca, · = libre. Los golpes van primero a los ●; si sobran, se reparten en los ·. ${d.rejilla === "corcheas" ? "En corcheas cada lugar ocupa 2 pasos." : ""} Vacío, todo sigue como siempre.`),
+      moldePlegable(v, `● = quiero una nota ahí, ? = a veces, × = nunca, · = libre. Los golpes van primero a los ●; si sobran, se reparten en los ·. ${d.rejilla === "corcheas" ? "En corcheas cada lugar ocupa 2 pasos." : ""} Vacío, todo sigue como siempre.`, "Orden de sus notas"),
       ...extra.filter(Boolean),
       el("div", {className: "dos"}, [destinoDe(v, renderMotores), numeroDe(v, "canal", "Canal MIDI", 1, 16, renderMotores)]),
       numeroDe(v, "programa", "Parche (Program Change, 0 = no cambia)", 0, 128),

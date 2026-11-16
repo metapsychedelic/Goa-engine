@@ -248,6 +248,22 @@ if __name__ == "__main__":
     cfg = base(evolucion=0.0, responde="espejo")
     salida, _ = correr(normalizar(cfg), compases=8)
     todo &= ok(colgadas(salida) == 0, "sin notas colgadas")
+    cfg = base(evolucion=0.0, rejilla="semicorcheas")
+    cfg["llamada"].update(golpes=2, molde="x...........?...", molde_prob=0.5)
+    cfg = normalizar(cfg)
+    salida, _ = correr(cfg, compases=16)
+    con12 = [grilla(salida, cfg, c)[12] == "L" for c in range(16)]
+    todo &= ok(0 < sum(con12) < 16, f"un ◑ en la llamada: a veces toca ahí ({sum(con12)} de 16 compases)")
+    cfg = base(evolucion=0.0)
+    cfg["llamada"].update(golpes=4, recorrido="azar")
+    _, m = correr(normalizar(cfg), compases=1)
+    d = m.dialogo
+    vueltas = []
+    for c in range(4):
+        d.compas_actual = c
+        vueltas.append(d.notas_de(d.llamada, 4))
+    todo &= ok(all(sorted(v) == sorted(d.llamada.orden) for v in vueltas) and len({tuple(v) for v in vueltas}) > 1,
+               f"notas al azar: las mismas del motivo, en otro orden cada compás ({vueltas})")
 
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

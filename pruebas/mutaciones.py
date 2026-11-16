@@ -171,5 +171,26 @@ if __name__ == "__main__":
     _, por_compas = pasos("--------........", densidad=1.0)
     todo &= ok(all(c and not (c & set(range(8))) for c in por_compas), "× en la primera mitad: solo suena en la segunda")
 
+    print("\nPasos «a veces» y orden de los pasos")
+    def con(densidad=1.0, compases=16, **extra):
+        cfg = armar_arm(modo="libre")
+        cfg["secuencia"][0].update(densidad=densidad, posicion="todos", **extra)
+        cfg = normalizar(cfg)
+        return de_secuencia(correr_d(cfg, compases=compases)[0], cfg)
+    sal = con(molde="?...............", molde_prob=0.5, densidad=0.0)
+    uno = [any((t // 6) == c * 16 for t, _ in sal) for c in range(1, 16)]
+    todo &= ok(0 < sum(uno) < len(uno), f"un ◑ al 50 %: suena en unos compases y en otros no ({sum(uno)} de {len(uno)})")
+    todo &= ok(con(molde="?...............", molde_prob=0.5, densidad=0.0) == sal, "y es repetible: misma seed, mismo resultado")
+    todo &= ok(not con(molde="?...............", molde_prob=0.0, densidad=0.0), "al 0 % nunca suena")
+    from goa import generador as gen
+    todo &= ok([gen.recorrer("atras", k, 4, "s") for k in range(4)] == [3, 2, 1, 0]
+               and [gen.recorrer("pendulo", k, 4, "s") for k in range(8)] == [0, 1, 2, 3, 2, 1, 0, 1]
+               and sorted(gen.recorrer("azar", k, 16, "s") for k in range(16)) == list(range(16))
+               and [gen.recorrer("azar", k, 16, "s") for k in range(16)] != [gen.recorrer("azar", k, 16, "s") for k in range(16, 32)],
+               "orden: atrás, péndulo y al azar (cada vuelta en otro orden, sin repetir pasos)")
+    adelante, atras = con(), con(recorrido="atras")
+    todo &= ok(sorted(n for _, n in adelante[:16]) == sorted(n for _, n in atras[:16]) and adelante[:16] != atras[:16],
+               "al revés: las mismas notas en otro orden")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

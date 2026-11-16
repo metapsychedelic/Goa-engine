@@ -26,9 +26,18 @@ log = logging.getLogger("goa")
 
 
 def limpiar_molde(molde):
-    """Molde de 16 pasos (x, -, .); vacío si no marca nada: entonces no cambia nada."""
-    molde = "".join(c if c in "x-" else "." for c in str(molde or ""))[:16].ljust(16, ".")
+    """Molde de 16 pasos (x = siempre, ? = a veces, - = nunca, . = libre); vacío si no
+    marca nada: entonces no cambia nada."""
+    molde = "".join(c if c in "x?-" else "." for c in str(molde or ""))[:16].ljust(16, ".")
     return molde if set(molde) - {"."} else ""
+
+
+def celda_molde(molde, prob, seed, paso):
+    """La celda del molde en este paso; las «a veces» se deciden en cada compás."""
+    celda = molde[paso % 16] if molde else "."
+    if celda == "?":
+        celda = "x" if random.Random(f"{seed}:molde:{paso}").random() < prob else "-"
+    return celda
 
 
 class Secuencia:
@@ -64,6 +73,8 @@ class Secuencia:
         self.armonia = cfg.get("armonia", "general")  # general, guiada o libre
         self.escala_color = cfg.get("escala_color", "")
         self.molde = limpiar_molde(cfg.get("molde", ""))
+        self.molde_prob = float(cfg.get("molde_prob", 0.5))
+        self.recorrido = cfg.get("recorrido", "adelante")
         self.semitono = float(cfg.get("semitono", 0.0))
         self.fx = bool(cfg.get("fx", False))            # el motor de FX la interviene
         self.cc_filtro = int(cfg.get("cc_filtro", 74))
@@ -1022,11 +1033,11 @@ class Motor:
             if glitch is not None:
                 fuente = fuente if glitch[0] is None else glitch[0]
                 forzar = glitch[1]
-            i = fuente % s.largo
+            i = generador.recorrer(s.recorrido, fuente, s.largo, s.seed)
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
-            # Molde (opcional): "x" = acá siempre nota, "-" = acá nunca, "." = lo que salga.
-            celda = s.molde[paso % 16] if s.molde else "."
+            # Molde (opcional): "x" = acá siempre nota, "?" = a veces, "-" = acá nunca, "." = lo que salga.
+            celda = celda_molde(s.molde, s.molde_prob, s.seed, paso)
             if (raiz is None or not s.activa or celda == "-"
                     or (celda != "x" and (not generador.pasa_posicion(s.posicion, fuente)
                                           or not p["suena"] or x["densidad"] >= s.densidad))):
@@ -1096,7 +1107,7 @@ class Motor:
         """True si ninguna otra nota de la secuencia suena antes del cambio de acorde."""
         for k in range(1, falta):
             q = paso + k
-            j = q % s.largo
+            j = generador.recorrer(s.recorrido, q, s.largo, s.seed)
             pq = s.patron[j]
             if (pq["suena"] and generador.pasa_posicion(s.posicion, q)
                     and s.extra[pq.get("fuente", j)]["densidad"] < s.densidad):

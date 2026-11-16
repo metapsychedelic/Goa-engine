@@ -199,6 +199,31 @@ def es_fuerte(posicion, i):
     return i % 4 == FUERTE[posicion]
 
 
+RECORRIDOS = ("adelante", "atras", "pendulo", "azar")
+
+
+def recorrer(recorrido, k, largo, seed):
+    """Qué elemento (paso del patrón o nota del motivo) toca en la vuelta `k`.
+
+    adelante: 0, 1, 2…; atrás: al revés; péndulo: va y vuelve sin repetir los
+    extremos; azar: cada vuelta completa en otro orden (sin repetir dentro de la vuelta).
+    """
+    if largo <= 1:
+        return 0
+    if recorrido == "atras":
+        return largo - 1 - k % largo
+    if recorrido == "pendulo":
+        n = 2 * largo - 2
+        j = k % n
+        return j if j < largo else n - j
+    if recorrido == "azar":
+        vuelta, j = divmod(k, largo)
+        orden = list(range(largo))
+        random.Random(f"{seed}:orden:{vuelta}").shuffle(orden)
+        return orden[j]
+    return k % largo
+
+
 def generar(seed, estilo="rolling", largo=16, pedal=0.5):
     """Devuelve una lista de pasos: dict(suena, grado, acento).
 

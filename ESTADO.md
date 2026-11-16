@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.38.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.39.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -55,7 +55,7 @@ Canción, Ajustes).
 - Escalas: doble armónica en Música; escala de color por secuencia (doble armónica,
   persa, enigmática); control ♭2; progresiones i–♭VII–♭VI–♭VII e i–♭II–♭VII–i.
 
-- Control de frases (opcional): molde de 16 pasos en secuencias y voces del diálogo;
+- Control de frases (opcional): molde de 16 pasos (siempre, a veces con probabilidad, nunca) y orden (adelante, atrás, péndulo, azar) en secuencias y voces del diálogo;
   Otra frase / Volver / Fijar por voz; la respuesta contesta con lo suyo, eco, espejo o cerrando.
 
 ## Pendiente / a revisar
