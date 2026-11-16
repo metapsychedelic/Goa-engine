@@ -174,6 +174,25 @@ if __name__ == "__main__":
     todo &= ok((raiz_tension(ESCALAS["frigio"]), raiz_tension(ESCALAS["menor_armonica"]), raiz_tension(ESCALAS["menor"])) == (1, 7, 10),
                "el acorde de tensión: ♭II en frigio, V en menor armónica, ♭VII en menor")
 
+    print("\nActualizar una canción armada con su plantilla")
+    from goa import plantillas as pl
+    vieja = pl.partes_de("template1")
+    for p in vieja:
+        if p["nombre"] in ("Rise", "Rise 2", "Break"):
+            p["compases"] = 8
+    vieja[3].update(escena=2, energia=0.9, pads_suben=True, tension=True)
+    vieja = [p for p in vieja if p["nombre"] != "Outro"] + [dict(vieja[0], nombre="Mía")]
+    nuevas, cambios = pl.actualizar(vieja, "template1")
+    por = {p["nombre"]: p for p in nuevas}
+    todo &= ok([p["nombre"] for p in nuevas][:16] == [x[0] for x in pl.PLANTILLAS["template1"]["partes"]]
+               and por["Rise"]["compases"] == 16 and por["Break"]["compases"] == 16
+               and por[vieja[3]["nombre"]]["escena"] == 2 and por[vieja[3]["nombre"]]["energia"] == 0.9
+               and por[vieja[3]["nombre"]]["pads_suben"] and por["Outro"]["escena"] == -1
+               and nuevas[-1]["nombre"] == "Mía" and len(cambios) == 5,
+               f"los largos pasan a los de la plantilla, lo tuyo se queda, entra la parte que faltaba ({cambios})")
+    todo &= ok(pl.clave_de("Template 6 · Psy chill · slot 41") == "template6" and pl.clave_de("Mi canción") is None,
+               "reconoce la plantilla por el nombre de la canción")
+
     print("\nProgram Change")
     m, v, pcs = correr(armar(), 22)
     todo &= ok(pcs[:1] == [(0, "FM-1", 5)], f"al dar Play pide el parche de la intro ({pcs[:1]})")

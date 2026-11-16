@@ -154,6 +154,7 @@ def crear_servidor(ctx, puerto):
                 "/api/subida": self._subida,
                 "/api/cancion": self._cancion,
                 "/api/cancion/plantilla": self._cancion_plantilla,
+                "/api/cancion/actualizar": self._cancion_actualizar,
                 "/api/parte/nueva": self._parte_nueva,
                 "/api/parte/guardar": self._parte_guardar,
                 "/api/parte/escuchar": self._parte_escuchar,
@@ -384,6 +385,22 @@ def crear_servidor(ctx, puerto):
                 ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
             self._responder(aviso)
+
+        def _cancion_actualizar(self, datos):
+            """Pone al día los largos de la canción armada con su plantilla, sin perder escenas ni ajustes."""
+            clave = str(datos.get("clave") or plantillas.clave_de(ctx.config["cancion"].get("nombre")) or "")
+            if clave not in plantillas.PLANTILLAS:
+                raise ValueError("No sé de qué plantilla es esta canción")
+            with ctx.candado:
+                partes, cambios = plantillas.actualizar(ctx.config["parte"], clave)
+                if len(partes) > MAX_PARTES:
+                    raise ValueError(f"Quedarían más de {MAX_PARTES} partes")
+                ctx.config["parte"] = partes
+                ctx.config["cancion"]["nombre"] = plantillas.PLANTILLAS[clave]["nombre"]
+                ctx.config = normalizar(ctx.config)
+                ctx.motor.aplicar_config(ctx.config)
+                aviso = self._guardar_activa()
+            self._responder(aviso, cambios=cambios)
 
         def _parte_nueva(self, datos):
             """Agrega una parte a la canción con lo que suena ahora como su escena."""

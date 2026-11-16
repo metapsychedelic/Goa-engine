@@ -269,6 +269,12 @@ apagado.
 **Plantillas:** *Cargar plantilla…* pone una estructura lista. Cada una tiene su
 proyecto gemelo en la Circuit (percusión con el banco FROM GOA TO PSYT):
 
+**Actualizar una canción ya armada:** si el template cambió (por ejemplo, partes
+que pasaron de 8 a 16 compases), en Canción usa **Actualizar con la plantilla…**.
+Pone los largos de la plantilla y suma las partes que falten (sin escena), y deja
+tus escenas, energías, entradas y apoyos a la subida. Tus partes que la plantilla
+no tiene quedan al final. «Cargar plantilla…», en cambio, reemplaza todo.
+
 **Samples de los templates:** se eligieron midiendo el audio del banco FROM GOA
 TO PSYT (energía por bandas, fundamental y caída de cada muestra). Bombos cortos
 con poco sub (1, 3, 4, 5, 6, 7) y nivel 105; nada con energía fuerte bajo 150 Hz

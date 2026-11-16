@@ -242,6 +242,44 @@ def partes_de(clave):
             for n, c, a, b, e in p["partes"]]
 
 
+def actualizar(partes, clave):
+    """Pone al día una canción ya armada con su plantilla sin perder lo tuyo.
+
+    Sigue el orden de la plantilla: cada parte que ya tenías (por nombre) conserva su
+    escena, energía, entrada y apoyos, y solo toma los compases de la plantilla; las
+    partes nuevas de la plantilla entran sin escena. Las tuyas que la plantilla no
+    tiene quedan al final. Devuelve (partes, cambios) con un texto por cada cambio.
+    """
+    tuyas = [dict(p) for p in partes]
+    usadas = set()
+    nuevas, cambios = [], []
+    for base in partes_de(clave):
+        i = next((i for i, p in enumerate(tuyas) if i not in usadas and p.get("nombre") == base["nombre"]), None)
+        if i is None:
+            nuevas.append(base)
+            cambios.append(f"{base['nombre']}: nueva ({base['compases']} compases, sin escena)")
+            continue
+        usadas.add(i)
+        p = tuyas[i]
+        if p.get("compases") != base["compases"]:
+            cambios.append(f"{base['nombre']}: {p.get('compases')} → {base['compases']} compases")
+            p["compases"] = base["compases"]
+        nuevas.append(p)
+    for i, p in enumerate(tuyas):
+        if i not in usadas:
+            nuevas.append(p)
+            cambios.append(f"{p.get('nombre')}: no está en la plantilla, queda al final")
+    return nuevas, cambios
+
+
+def clave_de(nombre):
+    """La plantilla de una canción por su nombre («Template 6 · Psy chill …» → template6)."""
+    import re
+    m = re.match(r"\s*Template\s+(\d+)", nombre or "")
+    clave = f"template{m.group(1)}" if m else None
+    return clave if clave in PLANTILLAS else None
+
+
 def lista():
     """Para la app: clave, nombre, descripción, partes y compases totales."""
     return [{"clave": k, "nombre": p["nombre"], "descripcion": p["descripcion"], "partes": len(p["partes"]),
