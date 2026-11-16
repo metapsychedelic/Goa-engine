@@ -492,8 +492,9 @@ corrida que baja). Controles (grupo Ritmo):
   al azar las alturas de algunas notas. Nunca se quitan ni se agregan notas.
   Repetible con la variante.
 - **Nota larga en el remate** (0 = nunca): en esa proporción de frases, una nota
-  del remate (nunca la última) dura hasta la siguiente, como un slide. A lo más
-  una por remate, para que no sature.
+  del remate (nunca la última) se alarga hacia la siguiente y termina antes de que
+  empiece: nunca se pisan. **Largo de la nota larga**: cuánto del espacio hasta la
+  siguiente ocupa (75 % por defecto). A lo más una por remate.
 - **Rango de las notas que cambian**: hasta la quinta o hasta la octava.
 - **Remate marcado**: 0 = el remate suena como el resto (puede llevar slide);
   arriba, sus notas van sin slide, se vuelven a atacar y van acentuadas (con su

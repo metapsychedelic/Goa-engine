@@ -19,6 +19,7 @@ el bajo sabe hacia dónde va la armonía (ver armonia.py):
 Todo es determinista: misma variante, mismo bajo y misma evolución.
 """
 
+import math
 import random
 
 from .azar import azar
@@ -132,7 +133,8 @@ class Bajo:
         if self.remate_rango not in GRADOS_REMATE:
             self.remate_rango = "octava"
         self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))
-        self.remate_largas = _fraccion(cfg.get("remate_largas", 0.0))  # frases con una nota larga   # 0 = como el resto, 1 = acentuado y sin slide
+        self.remate_largas = _fraccion(cfg.get("remate_largas", 0.0))  # frases con una nota larga
+        self.remate_largo = max(0.3, min(1.0, float(cfg.get("remate_largo", 0.75))))  # cuánto del hueco ocupa   # 0 = como el resto, 1 = acentuado y sin slide
         self.frase = max(1, int(cfg.get("frase", 4)))
         self.armonia = cfg.get("armonia", "general")
         self.seed = str(cfg.get("seed", "B-0001"))
@@ -240,8 +242,8 @@ class Bajo:
     def _remate(self, compas):
         """(remate, largas): se alternan los dos remates del estilo; con variación, en
         cada frase cambian las alturas de algunas notas. Con «notas largas», en esa
-        proporción de frases una nota (nunca la última) se alarga hasta la siguiente,
-        como un slide; a lo más una por remate. Nunca se quitan ni se agregan notas."""
+        proporción de frases una nota (nunca la última) se alarga hacia la siguiente
+        sin pisarla; a lo más una por remate. Nunca se quitan ni se agregan notas."""
         if not (self.remates and self.frase > 1 and compas % self.frase == self.frase - 1):
             return {}, set()
         frase = compas // self.frase
@@ -328,8 +330,10 @@ class Bajo:
         en_remate = lugar in remate and self.estilo not in ("sub", "dub") and self.remate_marca >= 0.3
         anterior = max((l for l in golpes if l < lugar), default=None)
         if lugar in largas and siguiente is not None:
-            # Nota larga del remate: dura hasta pisar la siguiente (se desliza en legato).
-            fin = tick + (siguiente - lugar) * TICKS_POR_PASO + golpes[siguiente].retraso + 2
+            # Nota larga del remate: ocupa parte del hueco hasta la siguiente y termina
+            # antes de que empiece (nunca se pisan).
+            hueco = (siguiente - lugar) * TICKS_POR_PASO + golpes[siguiente].retraso - retraso
+            fin = inicio + max(1, min(hueco - 1, math.ceil(hueco * self.remate_largo)))
         elif en_remate:
             # Remate marcado: sin slide y con su largo normal (no más corto que el resto,
             # para que no suene a corte); lo marca el acento y que cada nota se ataca.

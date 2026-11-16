@@ -131,7 +131,8 @@ ESQUEMA_SECCIONES["bajo"] = {
     "remates": (bool, True, None, None),
     "remate_var": (float, 0.3, 0.0, 1.0),     # cuánto cambia el remate en cada frase
     "remate_rango": (str, "octava", None, ("quinta", "octava")),
-    "remate_largas": (float, 0.0, 0.0, 1.0),  # frases cuyo remate alarga una nota (slide)
+    "remate_largas": (float, 0.0, 0.0, 1.0),  # frases cuyo remate alarga una nota
+    "remate_largo": (float, 0.75, 0.3, 1.0),  # cuánto del hueco hasta la siguiente ocupa
     "remate_marca": (float, 1.0, 0.0, 1.0),   # 0 = como el resto, 1 = acentuado y sin slide
     "frase": (int, 4, 1, 8),
     "octava": (int, 0, -2, 2),

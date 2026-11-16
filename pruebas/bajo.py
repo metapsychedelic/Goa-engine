@@ -217,15 +217,26 @@ if __name__ == "__main__":
         if l:
             largas.append((bb, r, l))
     bb, r, l = largas[0]
-    sal = []
-    for paso in range(4 * 16):
-        bb.paso(paso, paso * 6, 41, None, False, lambda *a: sal.append((paso,) + a))
-        bb.tick(paso * 6 + 5, lambda *a: sal.append((paso,) + a))
-    larga = 48 + min(l)
-    sig = 48 + min(x for x in r if x > min(l))
-    on = next(i for i, x in enumerate(sal) if x[0] == larga and x[2] == "note_on")
-    off = next(x for x in sal[on + 1:] if x[2] == "note_off" and x[4] == sal[on][4])
-    todo &= ok(largas and off[0] >= sig, f"«nota larga» en 50 %: en unas frases una nota del remate dura hasta la siguiente ({len(largas)} de 40)")
+    def tiempos(bajo_):
+        ev = []
+        for paso in range(4 * 16):
+            for t in range(6):
+                if t == 0:
+                    bajo_.paso(paso, paso * 6, 41, None, False, lambda *a: ev.append((paso * 6,) + a))
+                bajo_.tick(paso * 6 + t, lambda *a: ev.append((paso * 6 + t,) + a))
+        return ev
+    def largo(ev, lugar):
+        t0 = (48 + lugar) * 6
+        on = next(x for x in ev if x[0] == t0 and x[2] == "note_on")
+        off = next(x for x in ev if x[0] > t0 and x[2] == "note_off" and x[4] == on[4])
+        return off[0] - t0
+    ev = tiempos(bb)
+    normal = Bajo({"activo": True, "estilo": "rolling", "seed": bb.seed}, T("F", "frigio"))
+    larga, sig = min(l), min(x for x in r if x > min(l))
+    on_sig = next(x for x in ev if x[0] == (48 + sig) * 6 and x[2] == "note_on")
+    off = next(x for x in ev if x[0] > (48 + larga) * 6 and x[2] == "note_off")
+    todo &= ok(largo(ev, larga) > largo(tiempos(normal), larga) and ev.index(off) < ev.index(on_sig),
+               f"«nota larga» en 50 %: en unas frases una nota del remate se alarga y termina antes de la siguiente ({len(largas)} de 40)")
     todo &= ok(not any(Bajo({"activo": True, "estilo": "rolling", "seed": f"L{k}", "remate_var": 1.0}, T("F", "frigio"))._remate(f * 4 + 3)[1]
                        for k in range(20) for f in range(8)), "en 0 nunca hay notas largas, aunque la variación esté al máximo")
 
