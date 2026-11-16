@@ -155,6 +155,10 @@ class Bajo:
         self.filtro_ancla = 0
         self.filtro_ultimo = None
         self.cc_pendientes = []  # (tick, valor o None = volver al filtro de base)
+        # Portamento por CC (opcional): el motor prende el glide del sinte (CC 65) y su tiempo (CC 5).
+        self.porta = bool(cfg.get("porta", False))
+        self.porta_tiempo = max(0, min(127, int(cfg.get("porta_tiempo", 30))))
+        self.porta_enviado = None
         self.remate_largas = _fraccion(cfg.get("remate_largas", 0.0))  # frases con una nota larga
         self.remate_largo = max(0.3, min(1.0, float(cfg.get("remate_largo", 0.75))))  # cuánto del hueco ocupa   # 0 = como el resto, 1 = acentuado y sin slide
         self.frase = max(1, int(cfg.get("frase", 4)))
@@ -195,6 +199,7 @@ class Bajo:
             self.patron = dict(viejo.patron)
             self.mutado_hasta = viejo.mutado_hasta
         self.filtro_ancla = viejo.filtro_ancla  # el filtro sigue abriéndose donde iba
+        self.porta_enviado = viejo.porta_enviado  # el portamento solo se manda si cambió
         if self.filtro_cc == viejo.filtro_cc:
             self.filtro_ultimo = viejo.filtro_ultimo
 
@@ -373,6 +378,12 @@ class Bajo:
         if not self.activo or raiz is None:
             return
         compas, lugar = divmod(paso, PASOS_POR_COMPAS)
+        estado_porta = (self.porta, self.porta_tiempo)
+        if self.porta_enviado != estado_porta and (self.porta or self.porta_enviado is not None):
+            enviar(self.salida, "control_change", self.canal, 65, 127 if self.porta else 0)
+            if self.porta:
+                enviar(self.salida, "control_change", self.canal, 5, self.porta_tiempo)
+            self.porta_enviado = estado_porta
         if self.filtro and lugar % 4 == 0:
             self._mover_filtro(compas, lugar // 4, enviar)
         golpes = self.golpes(compas)

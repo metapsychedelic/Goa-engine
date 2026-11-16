@@ -316,6 +316,11 @@ if __name__ == "__main__":
     picos_sl = sum(1 for tipo, v in sl if tipo == "control_change" and v > 60)
     todo &= ok(picos_sl <= sum(1 for tipo, _ in sl if tipo == "note_on"),
                f"en un slide, las notas ligadas no vuelven a abrir el filtro ({picos_sl} golpe(s) en 12 notas ligadas)")
+    pc = []
+    fp = Bajo({"activo": True, "estilo": "rolling", "porta": True, "porta_tiempo": 40}, T("F", "frigio"))
+    for paso in range(32):
+        fp.paso(paso, paso * 6, 41, None, False, lambda sal_, tipo, ca, n, v: pc.append((n, v)) if tipo == "control_change" else None)
+    todo &= ok(pc == [(65, 127), (5, 40)], f"portamento: manda CC 65 (prendido) y CC 5 (tiempo) una sola vez ({pc})")
     sin = []
     fb3 = Bajo({"activo": True, "estilo": "rolling"}, T("F", "frigio"))
     for paso in range(32):

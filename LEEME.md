@@ -512,7 +512,12 @@ donde el bajo se mueve más con el filtro que con las notas. Elige qué controla
 o 64), la forma (sube y vuelve a cerrar, o sube y baja) y los valores cerrado y
 abierto. Manda un CC por tiempo, solo cuando cambia. **Golpe de filtro en cada
 nota** (50 % por defecto): en el ataque de cada nota el filtro se abre y vuelve
-enseguida, como una envolvente; las notas ligadas de un slide no lo reabren. En el modo canción vuelve a
+enseguida, como una envolvente; las notas ligadas de un slide no lo reabren.
+
+**Portamento** (grupo propio en el bajo, apagado por defecto): el motor prende el
+glide del sinte del bajo (CC 65) y manda su tiempo (CC 5), una sola vez y cada vez
+que lo cambias. El glide se oye entre notas ligadas (sube el «Slide»); en la MC-101
+el track del bajo debe estar en mono/legato. En el modo canción vuelve a
 cerrarse en cada quiebre (cuando la energía de la parte baja) y empieza de nuevo.
 
 **Notas que suben** (0 = siempre en la raíz): en vez de quedarse en la raíz, la

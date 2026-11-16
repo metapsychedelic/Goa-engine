@@ -742,6 +742,14 @@ function panelBajo() {
           ayuda("En el modo canción vuelve a cerrarse en cada quiebre (cuando la energía baja) y empieza a abrirse de nuevo."),
         ] : []),
       ]),
+      grupo("g-bajo-porta", "Portamento", b.porta ? `prendido · tiempo ${b.porta_tiempo}` : "apagado", [
+        el("label", {className: "fila", style: "min-height:44px"}, [
+          el("span", {}, ["Portamento del sinte", el("br"), el("span", {className: "mut", textContent: "El motor prende el glide del sinte del bajo (CC 65) para que los slides se deslicen"})]),
+          el("input", {type: "checkbox", className: "switch", checked: !!b.porta, "aria-label": "Portamento del sinte",
+            onchange: (e) => { b.porta = e.target.checked; guardar(); renderMotores(); }})]),
+        b.porta ? deslizador(b, "porta_tiempo", "Tiempo del glide (CC 5)", 0, 127, 1, (x) => x < 20 ? `corto (${x})` : x < 60 ? `medio (${x})` : `largo (${x})`) : null,
+        ayuda("El glide solo se oye entre notas ligadas: sube el «Slide» del bajo (grupo Ritmo). En la MC-101 el track del bajo debe estar en mono/legato."),
+      ]),
       grupo("g-bajo-ritmo", "Ritmo", `${b.remates ? `remate cada ${b.frase}${b.remate_var > 0 ? " variado" : ""}` : "sin remates"} · swing ${porcentaje(b.swing * 2)} · densidad ${porcentaje(b.densidad)}`, [
         casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate (se alternan dos)", () => renderMotores()),
         ...(b.remates ? [

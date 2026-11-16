@@ -128,6 +128,8 @@ ESQUEMA_SECCIONES["bajo"] = {
     "filtro_ciclo": (int, 32, 4, 128),     # compases en abrirse
     "filtro_forma": (str, "sube", None, ("sube", "ola")),
     "filtro_nota": (float, 0.5, 0.0, 1.0), # golpe de filtro en el ataque de cada nota (0 = no)
+    "porta": (bool, False, None, None),    # prende el portamento del sinte (CC 65) para los slides
+    "porta_tiempo": (int, 30, 0, 127),     # tiempo del portamento (CC 5)
     "evolucion": (float, 0.0, 0.0, 1.0),
     "mutar_cada": (int, 4, 1, 16),
     "transponer": (int, 0, -7, 7),       # grados de escala
