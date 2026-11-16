@@ -514,6 +514,9 @@ nota" (●) a "nunca" (×). Atajos: Libre, Al inicio, Al final y Contras.
   y en un × nunca; en los · manda el patrón como siempre.
 - En el diálogo, los golpes de la voz van primero a los ●; si sobran, se reparten
   en los ·, y nunca caen en un ×. En corcheas cada lugar ocupa 2 pasos.
+- **🎲 Molde al azar**: arma un molde nuevo con sentido (los tiempos tienden a ●,
+  los contratiempos a ● o ?, las semicorcheas débiles a ? o ×; siempre queda al
+  menos un ●). Tócalo hasta que salga uno que te guste y después retócalo a mano.
 - **A veces (?)**: elige el pincel «? A veces» y marca pasos; en cada compás cada
   uno suena con la probabilidad que pongas (por defecto 50 %), si no queda en
   silencio. Es repetible: misma seed, mismo resultado.
