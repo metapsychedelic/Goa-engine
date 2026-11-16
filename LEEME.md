@@ -489,8 +489,9 @@ se repiten igual y, con **remates**, el último cierra con un remate. Cada estil
 tiene dos remates clásicos que se alternan (en el rolling: rebote de octava y una
 corrida que baja). Controles (grupo Ritmo):
 - **Variación del remate** (0 = siempre los dos clásicos): en cada frase cambian
-  al azar las alturas de algunas notas; el ritmo del remate no cambia (nunca se
-  quitan ni se agregan notas). Repetible con la variante.
+  al azar las alturas de algunas notas; desde la mitad, a veces una nota se alarga
+  hasta la siguiente, como un slide. Nunca se quitan ni se agregan notas.
+  Repetible con la variante.
 - **Rango de las notas que cambian**: hasta la quinta o hasta la octava.
 - **Remate marcado**: 0 = el remate suena como el resto (puede llevar slide);
   arriba, sus notas van sin slide, se vuelven a atacar y van acentuadas (con su

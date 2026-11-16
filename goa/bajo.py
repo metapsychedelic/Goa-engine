@@ -233,30 +233,29 @@ class Bajo:
         return golpes
 
     def remate(self, compas):
-        """El remate de este compás (lugar -> grado), o {} si no toca remate. Se alternan
-        los dos del estilo; con variación, en cada frase cambian las alturas de algunas
-        notas. El ritmo del remate no cambia: nunca se quitan ni se agregan notas."""
+        """El remate de este compás (lugar -> grado), o {} si no toca remate."""
+        return self._remate(compas)[0]
+
+    def _remate(self, compas):
+        """(remate, largas): se alternan los dos remates del estilo; con variación, en
+        cada frase cambian las alturas de algunas notas, y desde la mitad a veces una
+        nota del medio se alarga hasta la siguiente (como un slide). El ritmo no
+        cambia: nunca se quitan ni se agregan notas."""
         if not (self.remates and self.frase > 1 and compas % self.frase == self.frase - 1):
-            return {}
+            return {}, set()
         frase = compas // self.frase
         remate = dict(REMATES[self.estilo][frase % 2])
         if not remate or not self.remate_var:
-            return remate
+            return remate, set()
         rng = random.Random(f"bajo:{self.seed}:remate:{frase}")
         grados = GRADOS_REMATE[self.remate_rango]
         for lugar in sorted(remate):
             if rng.random() < self.remate_var:
                 remate[lugar] = rng.choice([g for g in grados if g != remate[lugar]])
-        if self.remate_var > 0.5 and rng.random() < self.remate_var - 0.3:
-            desde = min(remate) // 4 * 4
-            libres = [l for l in range(desde, PASOS_POR_COMPAS) if l not in remate
-                      and not (self.estilo in PSY and l % 4 == 0)]
-            if libres and rng.random() < 0.5:
-                remate[rng.choice(libres)] = rng.choice(grados)
-            elif len(remate) > 2:
-                # Se calla una del medio: la primera y la última quedan, así el remate cierra.
-                del remate[rng.choice(sorted(remate)[1:-1])]
-        return remate
+        largas = set()
+        if len(remate) > 2 and self.remate_var > 0.5 and rng.random() < self.remate_var - 0.3:
+            largas.add(rng.choice(sorted(remate)[:-1]))
+        return remate, largas
 
     def _subir(self, golpes, compas):
         """«Notas que suben»: la última nota de algunos tiempos (y con el control alto,
@@ -323,9 +322,13 @@ class Bajo:
         if falta:
             dur = min(dur, falta * TICKS_POR_PASO - retraso)  # una nota no cruza el cambio de acorde
         siguiente = next((l for l in sorted(golpes) if l > lugar), None)
-        remate = self.remate(compas)
+        remate, largas = self._remate(compas)
         en_remate = lugar in remate and self.estilo not in ("sub", "dub") and self.remate_marca >= 0.3
-        if en_remate:
+        anterior = max((l for l in golpes if l < lugar), default=None)
+        if lugar in largas and siguiente is not None:
+            # Nota larga del remate: dura hasta pisar la siguiente (se desliza en legato).
+            fin = tick + (siguiente - lugar) * TICKS_POR_PASO + golpes[siguiente].retraso + 2
+        elif en_remate:
             # Remate marcado: sin slide y con su largo normal (no más corto que el resto,
             # para que no suene a corte); lo marca el acento y que cada nota se ataca.
             fin = inicio + max(1, round(dur * self.gate)) if dur <= 2 * TICKS_POR_PASO else inicio + dur - 1
@@ -345,7 +348,7 @@ class Bajo:
         if retraso:
             self.pendientes.append((inicio, nota, vel, fin))
         else:
-            self._encender(nota, vel, inicio, fin, enviar, atacar=en_remate)
+            self._encender(nota, vel, inicio, fin, enviar, atacar=en_remate and anterior not in largas)
 
     def _encender(self, nota, vel, inicio, fin, enviar, atacar=False):
         if not atacar and nota in self.sonando and (self.estilo == "sub" or self.sonando[nota] <= inicio + 3):

@@ -208,7 +208,24 @@ if __name__ == "__main__":
                   set(Bajo({"activo": True, "estilo": e, "seed": f"S{k}", "remate_var": v}, T("F", "frigio")).remate(f * 4 + 3))
                   == set(gb.REMATES[e][f % 2])
                   for e in gb.REMATES if e != "sub" for k in range(20) for v in (0.6, 1.0) for f in range(6))
-    todo &= ok(cierran, "con variación solo cambian alturas: el remate nunca pierde ni gana notas")
+    todo &= ok(cierran, "con variación cambian alturas (y a veces una nota se alarga): el remate nunca pierde ni gana notas")
+
+    largas = []
+    for k in range(40):
+        bb = Bajo({"activo": True, "estilo": "rolling", "seed": f"L{k}", "remate_var": 1.0}, T("F", "frigio"))
+        r, l = bb._remate(3)
+        if l:
+            largas.append((bb, r, l))
+    bb, r, l = largas[0]
+    sal = []
+    for paso in range(4 * 16):
+        bb.paso(paso, paso * 6, 41, None, False, lambda *a: sal.append((paso,) + a))
+        bb.tick(paso * 6 + 5, lambda *a: sal.append((paso,) + a))
+    larga = 48 + min(l)
+    sig = 48 + min(x for x in r if x > min(l))
+    on = next(i for i, x in enumerate(sal) if x[0] == larga and x[2] == "note_on")
+    off = next(x for x in sal[on + 1:] if x[2] == "note_off" and x[4] == sal[on][4])
+    todo &= ok(largas and off[0] >= sig, f"con variación alta, a veces una nota del remate se alarga hasta la siguiente ({len(largas)} de 40 variantes)")
 
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):
