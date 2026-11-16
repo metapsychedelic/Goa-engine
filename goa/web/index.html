@@ -721,9 +721,18 @@ function panelBajo() {
       deslizador(b, "transponer", "Transponer", -7, 7, 1, (x) => x === 0 ? "desde la raíz" : `${x > 0 ? "+" : ""}${x} grado${Math.abs(x) > 1 ? "s" : ""}${x === 4 ? " (la quinta)" : x === 2 ? " (la tercera)" : ""}`),
     ]),
     el("div", {className: "grupos"}, [
-      grupo("g-bajo-ritmo", "Ritmo", `${b.remates ? `remate cada ${b.frase}` : "sin remates"} · swing ${porcentaje(b.swing * 2)} · densidad ${porcentaje(b.densidad)}`, [
-        casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate; la variante elige cuál, entre cinco", () => renderMotores()),
-        b.remates ? campo("Frase de (compases)", segmentado([["2","2"],["4","4"],["8","8"]], String(b.frase), (v) => { b.frase = parseInt(v); guardar(); }, 3)) : null,
+      grupo("g-bajo-ritmo", "Ritmo", `${b.remates ? `remate cada ${b.frase}${b.remate_var > 0 ? " variado" : ""}` : "sin remates"} · swing ${porcentaje(b.swing * 2)} · densidad ${porcentaje(b.densidad)}`, [
+        casilla(b, "remates", "Remates", "El último compás de la frase cierra con un remate (se alternan dos)", () => renderMotores()),
+        ...(b.remates ? [
+          campo("Frase de (compases)", segmentado([["2","2"],["4","4"],["8","8"]], String(b.frase), (v) => { b.frase = parseInt(v); guardar(); }, 3)),
+          deslizador(b, "remate_var", "Variación del remate", 0, 1, 0.05,
+            (x) => x === 0 ? "siempre los dos clásicos" : x < 0.4 ? `cambia poco (${porcentaje(x)})` : x < 0.7 ? `cambia bastante (${porcentaje(x)})` : `muy libre (${porcentaje(x)})`),
+          b.remate_var > 0 ? campo("Rango de las notas que cambian", segmentado([["quinta","Hasta la quinta"],["octava","Hasta la octava"]], b.remate_rango || "octava",
+            (v) => { b.remate_rango = v; guardar(); }, 2)) : null,
+          deslizador(b, "remate_marca", "Remate marcado", 0, 1, 0.05,
+            (x) => x < 0.3 ? "como el resto (puede llevar slide)" : x < 0.7 ? `algo corto y acentuado (${porcentaje(x)})` : `corto y acentuado (${porcentaje(x)})`),
+          ayuda("En cada frase el remate cambia al azar según la variación (repetible con la variante). En 0 suenan siempre los dos remates clásicos del estilo."),
+        ] : []),
         deslizador(b, "densidad", "Densidad", 0, 1, 0.05, (x) => x === 1 ? "todos los golpes" : `${porcentaje(x)} de los golpes`),
         deslizador(b, "swing", "Swing", 0, 0.5, 0.05, (x) => x === 0 ? "recto" : porcentaje(x * 2)),
         deslizador(b, "fantasmas", "Notas fantasma", 0, 1, 0.05, (x) => x === 0 ? "ninguna" : porcentaje(x)),

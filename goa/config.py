@@ -129,6 +129,9 @@ ESQUEMA_SECCIONES["bajo"] = {
     "acentos": (float, 0.2, 0.0, 1.0),
     "fantasmas": (float, 0.0, 0.0, 1.0),
     "remates": (bool, True, None, None),
+    "remate_var": (float, 0.3, 0.0, 1.0),     # cuánto cambia el remate en cada frase
+    "remate_rango": (str, "octava", None, ("quinta", "octava")),
+    "remate_marca": (float, 1.0, 0.0, 1.0),   # 0 = como el resto, 1 = corto y acentuado
     "frase": (int, 4, 1, 8),
     "octava": (int, 0, -2, 2),
     "gate": (float, 0.6, 0.05, 1.0),

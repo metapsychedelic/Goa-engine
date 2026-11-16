@@ -58,31 +58,24 @@ BASES = {
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
 
-# Remates del final de la frase: lugar -> grado de escala desde la raíz. Cada estilo
-# tiene varios y la seed elige cuál cierra cada frase (nunca el mismo dos veces
-# seguidas). Desde el tiempo donde empieza el remate se reemplaza el patrón, y sus
-# notas van cortas y acentuadas, sin slide: se oyen como remate y no como desliz.
-# En los estilos psy nunca caen en el tiempo del bombo (lugares 0, 4, 8, 12).
+# Remates del final de la frase: lugar -> grado de escala desde la raíz. Dos por estilo,
+# que se alternan frase a frase. Con «variación», cada frase cambia algunas de sus
+# notas al azar (repetible con la seed). Desde el tiempo donde empieza el remate se
+# reemplaza el patrón. En los estilos psy nunca caen en el bombo (lugares 0, 4, 8, 12).
 REMATES = {
-    "rolling": ({9: 0, 10: 7, 11: 0, 13: 7, 14: 4, 15: 7},     # rebote de octava
-                {9: 7, 10: 6, 11: 4, 13: 3, 14: 1, 15: 0},     # corrida que baja
-                {13: 4, 14: 6, 15: 7},                         # sube a la octava
-                {10: 7, 11: 7, 13: 1, 14: 1, 15: 0},           # ♭2 que tensa y vuelve
-                {9: 4, 10: 4, 11: 6, 13: 7, 14: 6, 15: 7}),    # ondula arriba
-    "fullon": ({13: 7, 14: 6, 15: 4}, {13: 1, 14: 0, 15: 7}, {9: 4, 10: 6, 11: 7, 13: 7, 14: 4, 15: 1},
-               {13: 3, 14: 4, 15: 6}, {10: 7, 11: 6, 13: 4, 14: 3, 15: 1}),
-    "galope": ({14: 7, 15: 4}, {14: 4, 15: 6}, {10: 7, 11: 7, 14: 4, 15: 1}, {14: 6, 15: 7},
-               {6: 4, 7: 4, 10: 6, 11: 6, 14: 7, 15: 7}),
-    "offbeat": ({13: 7, 14: 4, 15: 0}, {14: 7, 15: 6}, {10: 4, 13: 7, 14: 6, 15: 4}, {11: 7, 14: 7, 15: 7},
-                {6: 4, 10: 6, 14: 7}),
-    "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}, {9: 7, 11: 6, 13: 4, 15: 1}, {13: 1, 15: 0},
-                {11: 7, 13: 7, 14: 4, 15: 7}),
-    "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}, {9: 7, 10: 6, 13: 4, 14: 1}, {13: 1, 14: 0}, {13: 7, 14: 7}),
-    "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}, {9: 4, 11: 6, 13: 7, 14: 6, 15: 4},
-                      {14: 1, 15: 0}, {10: 7, 11: 7, 13: 4, 15: 3}),
-    "dub": ({14: 4}, {13: 6, 15: 4}, {12: 7, 14: 4}, {11: 4, 15: 7}, {14: 6, 15: 4}),
-    "sub": ({},),
+    # rolling: rebote de octava en los tiempos 3 y 4 · corrida que baja 8-7-5 | 4-2-1
+    "rolling": ({9: 0, 10: 7, 11: 0, 13: 7, 14: 4, 15: 7}, {9: 7, 10: 6, 11: 4, 13: 3, 14: 1, 15: 0}),
+    "fullon": ({13: 7, 14: 6, 15: 4}, {13: 1, 14: 0, 15: 7}),
+    "galope": ({14: 7, 15: 4}, {14: 4, 15: 6}),
+    "offbeat": ({13: 7, 14: 4, 15: 0}, {14: 7, 15: 6}),
+    "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}),
+    "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}),
+    "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
+    "dub": ({14: 4}, {13: 6, 15: 4}),
+    "sub": ({}, {}),
 }
+# Grados que puede tomar una nota variada del remate, según el rango elegido.
+GRADOS_REMATE = {"quinta": (0, 1, 2, 3, 4), "octava": (0, 1, 3, 4, 6, 7)}
 
 # «Notas que suben»: caminos de grados para los 4 tiempos del compás, de la raíz hacia
 # arriba (como los bajos full-on que no se quedan en la raíz). El control elige cuántos
@@ -134,6 +127,11 @@ class Bajo:
         self.acentos = _fraccion(cfg.get("acentos", 0.2))
         self.fantasmas = _fraccion(cfg.get("fantasmas", 0.0))
         self.remates = bool(cfg.get("remates", True))
+        self.remate_var = _fraccion(cfg.get("remate_var", 0.3))       # notas del remate que cambian
+        self.remate_rango = cfg.get("remate_rango", "octava")
+        if self.remate_rango not in GRADOS_REMATE:
+            self.remate_rango = "octava"
+        self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))   # 0 = como el resto, 1 = corto y acentuado
         self.frase = max(1, int(cfg.get("frase", 4)))
         self.armonia = cfg.get("armonia", "general")
         self.seed = str(cfg.get("seed", "B-0001"))
@@ -235,16 +233,29 @@ class Bajo:
         return golpes
 
     def remate(self, compas):
-        """El remate de este compás (lugar -> grado), o {} si no toca remate. La seed
-        elige cuál de los remates del estilo cierra cada frase, sin repetir seguido."""
+        """El remate de este compás (lugar -> grado), o {} si no toca remate. Se alternan
+        los dos del estilo; con variación, en cada frase cambian algunas notas (y desde
+        la mitad, a veces se calla una o se agrega otra fuera del bombo)."""
         if not (self.remates and self.frase > 1 and compas % self.frase == self.frase - 1):
             return {}
-        opciones = REMATES[self.estilo]
         frase = compas // self.frase
-        elegido = int(self._azar("remate", frase) * len(opciones))
-        if len(opciones) > 1 and elegido == int(self._azar("remate", frase - 1) * len(opciones)):
-            elegido = (elegido + 1) % len(opciones)
-        return opciones[elegido]
+        remate = dict(REMATES[self.estilo][frase % 2])
+        if not remate or not self.remate_var:
+            return remate
+        rng = random.Random(f"bajo:{self.seed}:remate:{frase}")
+        grados = GRADOS_REMATE[self.remate_rango]
+        for lugar in sorted(remate):
+            if rng.random() < self.remate_var:
+                remate[lugar] = rng.choice([g for g in grados if g != remate[lugar]])
+        if self.remate_var > 0.5 and rng.random() < self.remate_var - 0.3:
+            desde = min(remate) // 4 * 4
+            libres = [l for l in range(desde, PASOS_POR_COMPAS) if l not in remate
+                      and not (self.estilo in PSY and l % 4 == 0)]
+            if libres and rng.random() < 0.5:
+                remate[rng.choice(libres)] = rng.choice(grados)
+            elif len(remate) > 2:
+                del remate[rng.choice(sorted(remate)[1:])]
+        return remate
 
     def _subir(self, golpes, compas):
         """«Notas que suben»: la última nota de algunos tiempos (y con el control alto,
@@ -311,10 +322,10 @@ class Bajo:
         if falta:
             dur = min(dur, falta * TICKS_POR_PASO - retraso)  # una nota no cruza el cambio de acorde
         siguiente = next((l for l in sorted(golpes) if l > lugar), None)
-        en_remate = lugar in self.remate(compas) and self.estilo not in ("sub", "dub")
+        en_remate = lugar in self.remate(compas) and self.estilo not in ("sub", "dub") and self.remate_marca >= 0.3
         if en_remate:
-            # Remate: corto, marcado y sin slide.
-            fin = inicio + max(1, round(min(dur, TICKS_POR_PASO) * min(self.gate, 0.6)))
+            # Remate marcado: corto y sin slide (más corto cuanto más marcado).
+            fin = inicio + max(1, round(min(dur, TICKS_POR_PASO) * min(self.gate, 1.0 - 0.4 * self.remate_marca)))
         elif self.estilo == "sub":
             fin = inicio + dur + 1  # sigue sonando cuando llega la próxima: se liga
         elif (siguiente is not None and self.estilo not in ("dub",) and self._azar("slide", lugar) < self.slide
@@ -327,7 +338,7 @@ class Bajo:
             fin = inicio + dur - 1
         vel = self._velocidad(compas, lugar, golpe)
         if en_remate:
-            vel = min(127, vel + 12)
+            vel = min(127, vel + round(12 * self.remate_marca))
         if retraso:
             self.pendientes.append((inicio, nota, vel, fin))
         else:

@@ -485,11 +485,15 @@ grupos Ritmo y Notas: densidad, swing, slide (para un sinte en legato con glide)
 acentos y notas fantasma.
 
 En los estilos psy nunca cae en el tiempo del bombo. Los compases de una frase
-se repiten igual y, con **remates**, el último cierra con un remate que se elige
-entre cinco por estilo: la variante elige cuál cierra cada frase, sin repetir el
-mismo dos veces seguidas. Las notas del remate van cortas, acentuadas y sin slide,
-para que se oigan marcadas (en el rolling: rebote de octava, corrida que baja,
-subida a la octava, ♭2 que tensa y vuelve, ondulación arriba).
+se repiten igual y, con **remates**, el último cierra con un remate. Cada estilo
+tiene dos remates clásicos que se alternan (en el rolling: rebote de octava y una
+corrida que baja). Controles (grupo Ritmo):
+- **Variación del remate** (0 = siempre los dos clásicos): en cada frase cambian
+  algunas notas al azar; desde la mitad, a veces se calla una o se agrega otra
+  (nunca en el bombo). Repetible con la variante.
+- **Rango de las notas que cambian**: hasta la quinta o hasta la octava.
+- **Remate marcado**: 0 = el remate suena como el resto (puede llevar slide);
+  arriba, sus notas van cortas, se vuelven a atacar y van acentuadas.
 
 **Notas que suben** (0 = siempre en la raíz): en vez de quedarse en la raíz, la
 última nota de algunos tiempos sigue un camino que sube, como los bajos full-on.

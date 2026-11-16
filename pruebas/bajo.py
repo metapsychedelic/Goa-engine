@@ -176,7 +176,7 @@ if __name__ == "__main__":
     print("\nRemates del rolling: marcados, no un desliz")
     from goa.bajo import Bajo
     from goa.escalas import Tonalidad as T
-    b = Bajo({"activo": True, "estilo": "rolling", "slide": 1.0, "remates": True, "frase": 4}, T("F", "frigio"))
+    b = Bajo({"activo": True, "estilo": "rolling", "slide": 1.0, "remates": True, "frase": 4, "remate_var": 0.0}, T("F", "frigio"))
     sal = []
     for paso in range(4 * 16):
         b.paso(paso, paso * 6, 41, None, False, lambda *a: sal.append((paso,) + a))
@@ -190,14 +190,18 @@ if __name__ == "__main__":
     todo &= ok(sorted(p_ - 48 for p_, _, _ in rem) == sorted(remate) and cortas and min(v for _, _, v in rem) > max(v for _, _, v in resto),
                f"el remate cambia el ritmo, va corto (sin slide aunque el slide esté al máximo) y acentuado ({len(rem)} notas)")
     import goa.bajo as gb
-    def remates_de(seed, frases=12):
-        bb = Bajo({"activo": True, "estilo": "rolling", "frase": 4, "seed": seed}, T("F", "frigio"))
+    def remates_de(var, seed="B-0001", frases=12, rango="octava"):
+        bb = Bajo({"activo": True, "estilo": "rolling", "frase": 4, "seed": seed, "remate_var": var, "remate_rango": rango}, T("F", "frigio"))
         return [tuple(sorted(bb.remate(f * 4 + 3).items())) for f in range(frases)]
-    r1 = remates_de("B-0001")
-    todo &= ok(all(len(v) >= 5 for k, v in gb.REMATES.items() if k != "sub") and len(set(r1)) >= 3
-               and all(a != b_ for a, b_ in zip(r1, r1[1:])) and remates_de("B-0001") == r1 and remates_de("B-0777") != r1,
-               f"cada estilo tiene 5 remates; la variante elige cuál en cada frase, sin repetir seguido ({len(set(r1))} distintos en 12 frases)")
-    todo &= ok(all(l % 4 for k, v in gb.REMATES.items() if k in gb.PSY for r in v for l in r), "ningún remate psy cae en el bombo")
+    clasicos = remates_de(0.0)
+    todo &= ok(set(clasicos) == {tuple(sorted(r.items())) for r in gb.REMATES["rolling"]} and clasicos[0] != clasicos[1],
+               "variación en 0: se alternan los dos remates clásicos del estilo")
+    var = remates_de(0.5)
+    todo &= ok(len(set(var)) > 2 and var == remates_de(0.5) and var != remates_de(0.5, seed="B-0777"),
+               f"con variación cada frase cambia algunas notas ({len(set(var))} remates distintos en 12 frases), repetible con la variante")
+    quinta = remates_de(1.0, rango="quinta")
+    todo &= ok(all(g <= 4 for r in quinta for _, g in r) and all(l % 4 for r in remates_de(1.0) for l, _ in r),
+               "el rango «hasta la quinta» se respeta y nunca cae en el bombo")
 
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):
