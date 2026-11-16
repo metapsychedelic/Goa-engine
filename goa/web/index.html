@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#121311">
+<meta name="theme-color" content="#06060A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Motor Goa">
-<title>Motor Goa</title>
+<meta name="apple-mobile-web-app-title" content="Yantra">
+<title>Yantra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&family=Megrim&display=swap">
 <style>
-:root{--bg:#121311;--card:#1B1C1A;--card2:#171816;--line:#2B2C29;--line2:#3A3C37;--txt:#ECE9E2;--txt2:#CFCAC0;--mut:#A39F95;--acc:#E3A64A;--accbg:#2E2616;--bad:#E2836F}
+:root{--bg:#06060A;--card:#101016;--card2:#07070B;--line:#22222C;--line2:#33333F;--txt:#E8E8F2;--txt2:#C9C9DA;--mut:#A0A0B4;--acc:#BFC6FF;--accbg:#181A2E;--bad:#FF9A9A;--sobre:#0E1030;--badbg:#261416;--badline:#552A2E;--grad:linear-gradient(90deg,#5A5F96,#9AA2E6 60%,#D6DAFF);--glow:0 0 12px rgba(191,198,255,.35)}
 *{box-sizing:border-box}
 html{-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
 header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:max(10px,env(safe-area-inset-top)) 16px 10px}
 header.top .in{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
 header.top h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
@@ -33,15 +35,15 @@ h3{margin:0;font-size:13px;font-weight:650;color:var(--txt2)}
 .molde{display:grid;grid-template-columns:repeat(16,1fr);gap:3px}
 .molde button{min-width:0;height:36px;padding:0;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:13px;font-weight:700}
 .molde button.tiempo{border-color:var(--mut)}
-.molde button.x{background:var(--acc);color:#1A1408;border-color:var(--acc)}
-.molde button.no{background:#3A1E19;color:var(--bad);border-color:#3A1E19}
+.molde button.x{background:var(--acc);color:var(--sobre);border-color:var(--acc)}
+.molde button.no{background:var(--badbg);color:var(--bad);border-color:var(--badbg)}
 .molde button.talvez{background:transparent;color:var(--acc);border:2px dashed var(--acc)}
 .molde-presets{display:flex;flex-wrap:wrap;gap:6px}
 .molde-presets button{flex:1;min-width:0;padding:8px 6px;font-size:13px}
-.molde-presets button.activo{background:var(--acc);color:#1A1408;border-color:var(--acc)}
+.molde-presets button.activo{background:var(--acc);color:var(--sobre);border-color:var(--acc)}
 .pill{font-size:12px;font-weight:650;padding:4px 10px;border-radius:999px;background:var(--line);color:var(--mut);white-space:nowrap}
-.pill.ok{background:var(--acc);color:#1A1408}
-.pill.mal{background:#3A1E19;color:var(--bad)}
+.pill.ok{background:var(--acc);color:var(--sobre)}
+.pill.mal{background:var(--badbg);color:var(--bad)}
 label.campo,div.campo{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--txt2)}
 select,input[type=text],input[type=number]{min-height:44px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--txt);padding:0 12px;font:inherit;width:100%}
 input[type=range]{width:100%;accent-color:var(--acc);min-height:28px;margin:0}
@@ -55,8 +57,8 @@ input[type=checkbox]{width:22px;height:22px;accent-color:var(--acc);margin:0;fle
 .dos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 button{min-height:44px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--txt);font:inherit;font-weight:550;padding:0 14px;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}
-button.prim{background:var(--acc);border-color:var(--acc);color:#1A1408}
-button.panico{width:44px;padding:0;display:flex;align-items:center;justify-content:center;border-color:#5A2A24;background:#2A1714;color:#E8A093}
+button.prim{background:var(--acc);border-color:var(--acc);color:var(--sobre)}
+button.panico{width:44px;padding:0;display:flex;align-items:center;justify-content:center;border-color:var(--badline);background:var(--badbg);color:var(--bad)}
 .seed{display:flex;gap:6px}
 .seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.06em;text-align:center;padding:0 6px}
 .seed button{flex:none;padding:0 12px}
@@ -87,13 +89,13 @@ details.voz>.cuerpo{display:flex;flex-direction:column;gap:12px;padding:6px 0 10
 /* motores */
 .selector{display:flex;flex-wrap:wrap;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px}
 .selector button{flex:1 1 56px;min-height:40px;border:none;border-radius:10px;font-size:13px;font-weight:600;color:var(--mut);padding:0 8px}
-.selector button[aria-selected=true]{background:var(--acc);color:#1A1408}
+.selector button[aria-selected=true]{background:var(--acc);color:var(--sobre)}
 .selector button.apagado:not([aria-selected=true]){opacity:.55}
 .selector button.mas{flex:0 0 auto;color:var(--acc)}
 input.switch{appearance:none;-webkit-appearance:none;width:44px;height:26px;border-radius:13px;background:var(--line2);position:relative;cursor:pointer;transition:background .15s}
 input.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--txt);transition:transform .15s}
 input.switch:checked{background:var(--acc)}
-input.switch:checked::after{transform:translateX(18px);background:#1A1408}
+input.switch:checked::after{transform:translateX(18px);background:var(--sobre)}
 input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .cabmotor{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .cabmotor .tit{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -111,7 +113,7 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .mute.cola{border-style:dashed}
 .clips{display:flex;flex-wrap:wrap;gap:8px}
 .clip{min-height:48px;min-width:88px;flex:1 1 88px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--txt);font-weight:600;padding:6px 10px;text-align:center}
-.clip.sonando{background:var(--acc);border-color:var(--acc);color:#1A1408}
+.clip.sonando{background:var(--acc);border-color:var(--acc);color:var(--sobre)}
 .clip.cola{border:2px dashed var(--acc);color:var(--acc)}
 @media (prefers-reduced-motion:no-preference){.clip.cola,.mute.cola{animation:titila 1s steps(2) infinite}}
 @keyframes titila{50%{opacity:.5}}
@@ -123,16 +125,16 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .escena .t span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .escena .d{font-size:11px;color:var(--mut);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .escena .e{font-size:10px;font-weight:650;border-radius:999px;padding:2px 8px;flex:none}
-.escena .barra{height:4px;width:100%;background:#2A2B28;border-radius:4px;overflow:hidden}
-.escena .barra i{display:block;height:100%;background:#6B675F;border-radius:4px}
+.escena .barra{height:4px;width:100%;background:var(--line);border-radius:4px;overflow:hidden}
+.escena .barra i{display:block;height:100%;background:#4A4E7A;border-radius:4px}
 .escena.actual{border:2px solid var(--acc)}
 .cbarra{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden}
-.cbarra i{display:block;background:#3A3B37;min-width:3px}
-.cbarra i.hecho{background:#6B675F}
+.cbarra i{display:block;background:var(--line2);min-width:3px}
+.cbarra i.hecho{background:#4A4E7A}
 .cbarra i.actual{background:var(--acc)}
 details.grupo.parte-actual{border-color:var(--acc)}
-.escena.actual .e{background:var(--acc);color:#1A1408}
-.escena.actual .barra i,.escena.cola .barra i{background:var(--acc)}
+.escena.actual .e{background:var(--acc);color:var(--sobre)}
+.escena.actual .barra i,.escena.cola .barra i{background:var(--grad)}
 .escena.cola{border:2px dashed var(--acc)}
 .escena.cola .e{color:var(--acc);padding:2px 0}
 .escena.nueva{align-items:center;justify-content:center;color:var(--mut);border-style:dashed;font-size:13px}
@@ -146,18 +148,44 @@ details.grupo.parte-actual{border-color:var(--acc)}
 .plan{display:flex;gap:4px}
 .plan button{flex:1 1 0;min-width:0;min-height:48px;padding:4px 0;border-radius:10px;border-color:var(--line);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:11.5px;font-weight:650}
 .plan button small{font-size:10px;color:var(--mut);font-weight:500}
-.plan button.hecho{color:#8C887F;background:#1F201D}
+.plan button.hecho{color:var(--mut);background:#14141B}
 .plan button.actual{border-color:var(--acc);background:var(--accbg);color:var(--acc)}
 .mute.piloto{border-style:dotted}
 .guardado{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:6;max-width:calc(100vw - 32px)}
 .guardado.ver{opacity:1}
-.guardado.error{color:var(--bad);border-color:#8C3B32}
+.guardado.error{color:var(--bad);border-color:#8C3B42}
+
+html{background:var(--bg)}
+body{background:transparent}
+.cielo{position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(320px 280px at 95% 0%,rgba(150,160,255,.08),transparent 70%),url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 aria-hidden=%22true%22 width=%22390%22 height=%22844%22 viewBox=%220 0 390 844%22 opacity=%220.35%22%3E%3Ccircle cx=%2264%22 cy=%22582%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22187%22 cy=%22182%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22315%22 cy=%22433%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22307%22 cy=%2212%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2227%22 cy=%22670%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22359%22 cy=%22586%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22389%22 cy=%22623%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22240%22 cy=%2229%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22211%22 cy=%22586%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%229%22 cy=%22625%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2249%22 cy=%22783%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2263%22 cy=%22615%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22189%22 cy=%22158%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22183%22 cy=%22692%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22304%22 cy=%22176%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2248%22 cy=%22402%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2278%22 cy=%22779%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22114%22 cy=%22806%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22124%22 cy=%22409%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2210%22 cy=%2279%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%221%22 cy=%2259%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22223%22 cy=%22269%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2270%22 cy=%22144%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22325%22 cy=%22281%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2296%22 cy=%22142%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22303%22 cy=%22316%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22264%22 cy=%22759%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22159%22 cy=%22835%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22344%22 cy=%22414%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22260%22 cy=%22790%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2263%22 cy=%2259%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22302%22 cy=%22408%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2220%22 cy=%22218%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2214%22 cy=%22210%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2227%22 cy=%22285%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22384%22 cy=%22629%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2219%22 cy=%22118%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2211%22 cy=%22179%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22310%22 cy=%22744%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22189%22 cy=%22762%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22120%22 cy=%22451%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2254%22 cy=%22608%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22267%22 cy=%22805%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22103%22 cy=%22275%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22332%22 cy=%22493%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22266%22 cy=%22634%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2252%22 cy=%2280%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2273%22 cy=%22542%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2228%22 cy=%22100%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2249%22 cy=%22455%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22155%22 cy=%22749%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2271%22 cy=%22724%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22277%22 cy=%22464%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22236%22 cy=%22426%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22308%22 cy=%227%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22337%22 cy=%22336%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22333%22 cy=%22197%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22291%22 cy=%22207%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22121%22 cy=%22760%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22319%22 cy=%22678%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22370%22 cy=%2283%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22198%22 cy=%22620%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22114%22 cy=%22527%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2225%22 cy=%22688%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22139%22 cy=%22268%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2242%22 cy=%2264%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22244%22 cy=%22682%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22197%22 cy=%22799%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22184%22 cy=%22433%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2227%22 cy=%2221%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2216%22 cy=%22233%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22282%22 cy=%22385%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22156%22 cy=%22276%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22246%22 cy=%22813%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2215%22 cy=%22146%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22280%22 cy=%22752%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22244%22 cy=%22640%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2296%22 cy=%22774%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22119%22 cy=%22322%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2263%22 cy=%22171%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22279%22 cy=%2277%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2231%22 cy=%22255%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22290%22 cy=%22390%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22386%22 cy=%22140%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2280%22 cy=%22283%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22102%22 cy=%22803%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22201%22 cy=%22798%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22351%22 cy=%22428%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22233%22 cy=%22234%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2261%22 cy=%22331%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22170%22 cy=%22521%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22261%22 cy=%22564%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2239%22 cy=%22823%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2213%22 cy=%22684%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%227%22 cy=%22423%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22155%22 cy=%22372%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2294%22 cy=%226%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2237%22 cy=%22261%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22145%22 cy=%223%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2253%22 cy=%22668%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22206%22 cy=%2241%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22163%22 cy=%22745%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2288%22 cy=%22677%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22345%22 cy=%2215%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2231%22 cy=%22759%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2259%22 cy=%22420%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22184%22 cy=%22675%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2260%22 cy=%22130%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22116%22 cy=%22529%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22261%22 cy=%22157%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22264%22 cy=%22160%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22137%22 cy=%22137%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22107%22 cy=%22666%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2262%22 cy=%2288%22 r=%221.0%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22210%22 cy=%22345%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22284%22 cy=%22443%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22127%22 cy=%22185%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%22284%22 cy=%22512%22 r=%220.8%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%228%22 cy=%22311%22 r=%221.3%22 fill=%22%23E8E8F2%22/%3E%3Ccircle cx=%2263%22 cy=%22718%22 r=%220.6%22 fill=%22%23E8E8F2%22/%3E%3C/svg%3E") 0 0/390px 844px repeat}
+.cielo::after{content:"";position:absolute;right:-110px;top:-150px;width:380px;height:380px;opacity:.11;background:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 aria-hidden=%22true%22 width=%22380%22 height=%22380%22 viewBox=%22-100 -100 200 200%22 fill=%22none%22 stroke=%22%23BFC6FF%22 stroke-width=%220.7%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M-96 -96 H-16 V-100 H16 V-96 H96 V-16 H100 V16 H96 V96 H16 V100 H-16 V96 H-96 V16 H-100 V-16 H-96 Z%22/%3E%3Cpath d=%22M-91 -91 H-16 V-95 H16 V-91 H91 V-16 H95 V16 H91 V91 H16 V95 H-16 V91 H-91 V16 H-95 V-16 H-91 Z%22/%3E%3Ccircle r=%2284%22/%3E%3Ccircle r=%2280%22/%3E%3Ccircle r=%2276%22/%3E%3Cpath d=%22M61.0 -11.1 Q75.0 0.0 61.0 11.1%22/%3E%3Cpath d=%22M60.6 13.1 Q69.3 28.7 52.1 33.6%22/%3E%3Cpath d=%22M51.0 35.3 Q53.0 53.0 35.3 51.0%22/%3E%3Cpath d=%22M33.6 52.1 Q28.7 69.3 13.1 60.6%22/%3E%3Cpath d=%22M11.1 61.0 Q0.0 75.0 -11.1 61.0%22/%3E%3Cpath d=%22M-13.1 60.6 Q-28.7 69.3 -33.6 52.1%22/%3E%3Cpath d=%22M-35.3 51.0 Q-53.0 53.0 -51.0 35.3%22/%3E%3Cpath d=%22M-52.1 33.6 Q-69.3 28.7 -60.6 13.1%22/%3E%3Cpath d=%22M-61.0 11.1 Q-75.0 0.0 -61.0 -11.1%22/%3E%3Cpath d=%22M-60.6 -13.1 Q-69.3 -28.7 -52.1 -33.6%22/%3E%3Cpath d=%22M-51.0 -35.3 Q-53.0 -53.0 -35.3 -51.0%22/%3E%3Cpath d=%22M-33.6 -52.1 Q-28.7 -69.3 -13.1 -60.6%22/%3E%3Cpath d=%22M-11.1 -61.0 Q-0.0 -75.0 11.1 -61.0%22/%3E%3Cpath d=%22M13.1 -60.6 Q28.7 -69.3 33.6 -52.1%22/%3E%3Cpath d=%22M35.3 -51.0 Q53.0 -53.0 51.0 -35.3%22/%3E%3Cpath d=%22M52.1 -33.6 Q69.3 -28.7 60.6 -13.1%22/%3E%3Ccircle r=%2262%22/%3E%3Cpolygon points=%220,-58 52,30 -52,30%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,-44 46,42 -46,42%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,-30 40,52 -40,52%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,-14 30,58 -30,58%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,58 54,-34 -54,-34%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,48 48,-46 -48,-46%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,38 40,-54 -40,-54%22 stroke=%22%23E8E8F2%22/%3E%3Cpolygon points=%220,26 30,-58 -30,-58%22 stroke=%22%23BFC6FF%22/%3E%3Cpolygon points=%220,12 20,-40 -20,-40%22 stroke=%22%23E8E8F2%22/%3E%3Ccircle r=%222.2%22 fill=%22%23BFC6FF%22/%3E%3C/svg%3E") center/contain no-repeat}
+header.top{background:rgba(6,6,10,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+nav.tabs{background:rgba(7,7,11,.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.sub{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+.energia .n{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+h1.logo{font-family:"Megrim",system-ui,sans-serif;font-weight:700;font-size:28px;letter-spacing:.14em;line-height:1.1;color:transparent;-webkit-text-stroke:1px #D6DAFF;filter:drop-shadow(0 0 5px rgba(242,196,230,.55))}
+nav.tabs svg{width:24px;height:24px}
+nav.tabs .bindu{display:none}
+nav.tabs button[aria-selected=true] .bindu{display:inline}
+nav.tabs button[aria-selected=true] svg{filter:drop-shadow(0 0 6px rgba(191,198,255,.45))}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;accent-color:auto;--p:50%}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:var(--grad) 0 0/var(--p) 100% no-repeat,var(--line2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:#F2F2FA;border:none;box-shadow:var(--glow)}
+input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:var(--line2)}
+input[type=range]::-moz-range-progress{height:6px;border-radius:6px;background:var(--grad)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#F2F2FA;border:none;box-shadow:var(--glow)}
+input[type=range]:focus-visible{outline:2px solid var(--acc);outline-offset:4px;border-radius:6px}
+.clip.sonando,.escena.actual{box-shadow:var(--glow)}
+input[type=checkbox]:not(.switch){-webkit-appearance:none;appearance:none;border:1.5px solid var(--line2);border-radius:6px;background:var(--bg);cursor:pointer}
+input[type=checkbox]:not(.switch):checked{background:var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E1030' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='5 12 10 17 19 7'/%3E%3C/svg%3E") center/16px no-repeat;border-color:var(--acc)}
+input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </style>
 </head>
 <body>
+<div class="cielo" aria-hidden="true"></div>
 <header class="top"><div class="in">
   <div style="min-width:0">
-    <h1>Motor Goa</h1>
+    <h1 class="logo">yantra</h1>
     <div class="sub" id="sub">Conectando…</div>
   </div>
   <div class="der">
@@ -234,11 +262,11 @@ details.grupo.parte-actual{border-color:var(--acc)}
 </main>
 
 <nav class="tabs" aria-label="Secciones"><div class="in" role="tablist">
-  <button type="button" role="tab" data-vista="tocar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>Tocar</button>
-  <button type="button" role="tab" data-vista="motores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Motores</button>
-  <button type="button" role="tab" data-vista="armonia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Armonía</button>
-  <button type="button" role="tab" data-vista="cancion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="6" height="16" rx="1"/><rect x="11" y="4" width="4" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>Canción</button>
-  <button type="button" role="tab" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M1 12h4M19 12h4M4.2 19.8 7 17M17 7l2.8-2.8"/></svg>Ajustes</button>
+  <button type="button" role="tab" data-vista="tocar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><polygon points="9.2 7 17.2 12 9.2 17"/><circle class="bindu" cx="11.9" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>Tocar</button>
+  <button type="button" role="tab" data-vista="motores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 5 18.4 16 5.6 16" stroke-dasharray="2 2"/><circle cx="12" cy="5" r="2.6"/><circle cx="18.4" cy="16" r="2.6"/><circle cx="5.6" cy="16" r="2.6"/><circle class="bindu" cx="12" cy="12.3" r="1.5" fill="currentColor" stroke="none"/></svg>Motores</button>
+  <button type="button" role="tab" data-vista="armonia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 20 17 4 17"/><polygon points="12 21 20 7 4 7"/><circle class="bindu" cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>Armonía</button>
+  <button type="button" role="tab" data-vista="cancion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5H9.5V2H14.5V3.5H20.5V9.5H22V14.5H20.5V20.5H14.5V22H9.5V20.5H3.5V14.5H2V9.5H3.5Z"/><line x1="7" y1="15" x2="7" y2="13"/><line x1="10" y1="15" x2="10" y2="11"/><line x1="13.5" y1="15" x2="13.5" y2="9"/><line x1="17" y1="15" x2="17" y2="12"/><circle class="bindu" cx="13.5" cy="7" r="1.4" fill="currentColor" stroke="none"/></svg>Canción</button>
+  <button type="button" role="tab" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(0.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(45.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(90.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(135.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(180.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(225.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(270.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(315.0)"/><circle class="bindu" cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>Ajustes</button>
 </div></nav>
 <div class="guardado" id="aviso" role="status" aria-live="polite"></div>
 
@@ -784,7 +812,7 @@ function panelSecuencia(i) {
         el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), destinoDe(s, renderMotores)]),
         el("div", {className: "dos"}, [numeroDe(s, "canal", "Canal MIDI", 1, 16, renderMotores), numeroDe(s, "disparo", "Canal de su nota larga (0 = general)", 0, 16, renderMotores)]),
         programaDe(s),
-        el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:#5A2A24",
+        el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:var(--badline)",
           onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); motorSel = "pads"; render(); guardar(); } }}),
       ]),
     ]),
@@ -1769,7 +1797,7 @@ async function estado() {
     const partes = [d.bpm ? Math.round(d.bpm) + " BPM" : null, d.compas ? `compás ${d.compas}` : null, d.raiz ? `nota ${d.raiz}` : null, ton,
       d.cambios_en_cola ? "cambios al próximo compás" : null].filter(Boolean);
     $("sub").textContent = partes.join(" · ") || "Esperando la Circuit";
-    $("ver").textContent = "Motor Goa v" + d.version;
+    $("ver").textContent = "Yantra v" + d.version;
     $("acorde").textContent = d.acorde ? "Acorde: " + d.acorde : "Sin acorde";
     const azar = document.getElementById("prog_azar");
     if (azar) azar.textContent = d.progresion || "";
@@ -1811,6 +1839,15 @@ mostrar(["tocar", "motores", "armonia", "ajustes"].includes(vista) ? vista : "to
   catch (e) { aviso("No pude cargar la configuración", true); }
   estado(); setInterval(estado, 1000);
 })();
+
+// relleno de los deslizadores: --p = porcentaje recorrido
+function pintarRango(r) {
+  const min = +r.min || 0, max = r.max === "" ? 100 : +r.max;
+  r.style.setProperty("--p", ((+r.value - min) / ((max - min) || 1) * 100) + "%");
+}
+document.addEventListener("input", (e) => { if (e.target.type === "range") pintarRango(e.target); });
+new MutationObserver(() => document.querySelectorAll('input[type=range]').forEach(pintarRango))
+  .observe(document.body, {childList: true, subtree: true});
 </script>
 </body>
 </html>

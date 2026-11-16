@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.41.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.42.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.42.0 · Diseño «Yantra · Polvo estelar»:** la app se llama Yantra (logo en Megrim con contorno). Fondo casi negro con estrellas y un Sri Yantra tenue en la esquina; acento lavanda; cabecera y barra translúcidas; iconos de pestañas con geometría de yantra (el bindu aparece en la pestaña activa); deslizadores con degradé lavanda; casillas oscuras. Fuentes de Google (IBM Plex Sans/Mono, Megrim): sin internet en el teléfono cae a la letra del sistema. Propuestas en el lienzo de diseño.
 - v0.36.0 Pads: «Al azar» salió del menú de progresiones y es una casilla (azar,
   azar_cada): parte de la progresión elegida, la primera variación suena tal cual y cada
   N vueltas cambia 1 o 2 acordes por otros limpios de la escala (i – X se dobla a
