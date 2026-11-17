@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.50.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.50.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.50.1 · Arreglos:** remates del bajo offbeat solo en contratiempos (antes 13/15, pegados al bombo). La mutación del filtro de notas parte siempre del molde original y no toca los pasos del bombo (antes se acumulaba y la secuencia perdía el tiempo). Con el filtro puesto, el cambio garantizado de la mutación de notas cae en un paso que se oye (generador.mutar(audibles)). Medido: la mutación de notas sin filtro es idéntica a la de la 0.40.
 
 - **0.50.0 · Versión tablet automática:** desde 700 px de ancho, columna de 720 px y controles más grandes; desde 1000 px (iPad horizontal), Tocar fijo a la izquierda (sticky, con su propio scroll) y la pestaña elegida a la derecha; la pestaña Tocar se oculta. Solo CSS + mostrar()/tocarVisible(); el teléfono no cambia.
 

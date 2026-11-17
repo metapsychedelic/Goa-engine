@@ -235,13 +235,17 @@ def molde_al_azar(rng, estilo="goa"):
 
 
 def mutar_molde(molde, rng, cantidad, estilo="goa"):
-    """Cambia uno o dos pasos del molde con probabilidad `cantidad` (como la mutación
-    de notas). Nunca deja el molde sin ningún «x» si tenía alguno."""
+    """Cambia uno o dos pasos del molde con probabilidad `cantidad`, sin tocar los del
+    bombo. Se llama siempre sobre el molde original (no sobre el ya mutado): el filtro
+    se aleja a lo más uno o dos pasos de lo que pintaste y vuelve, así no pierde el
+    tiempo. Nunca deja el molde sin ningún «x» si tenía alguno."""
     if cantidad <= 0 or rng.random() >= cantidad:
         return molde
     m = list((molde or "").ljust(16, "-")[:16])
     for _ in range(2 if cantidad >= 0.66 else 1):
-        i = rng.randrange(16)
+        # Los pasos del bombo (1, 2, 3, 4) no mutan: son el ancla que mantiene la
+        # secuencia pegada al tiempo.
+        i = rng.choice([k for k in range(16) if k % 4])
         opciones = [(c, p) for c, p in _pesos_paso(estilo, i) if c != m[i]]
         m[i] = _elegir_peso(rng, opciones)
     if "x" not in m and "x" in (molde or ""):
@@ -382,8 +386,10 @@ def mutar_ritmo(patron, seed, compas, probabilidad, posicion, ritmo_base):
     return nuevo
 
 
-def mutar(patron, seed, compas, probabilidad, pedal=0.5):
-    """Evolución tipo Turing Machine, determinista para cada seed y compás."""
+def mutar(patron, seed, compas, probabilidad, pedal=0.5, audibles=None):
+    """Evolución tipo Turing Machine, determinista para cada seed y compás. `audibles`
+    (opcional): los pasos que deja pasar el filtro de notas; el cambio garantizado cae
+    en uno de ellos, para que la mutación se oiga."""
     if probabilidad <= 0:
         return patron
     rng = random.Random(f"mutacion:{seed}:{compas}")
@@ -393,7 +399,9 @@ def mutar(patron, seed, compas, probabilidad, pedal=0.5):
             anterior = nuevo[i - 1]["grado"] if i > 0 else 0
             paso["grado"] = _siguiente_grado(rng, anterior, pedal)
     sonando = [i for i, p in enumerate(nuevo) if p["suena"]]
-    if sonando and pedal < 1 and all(a["grado"] == b["grado"] for a, b in zip(nuevo, patron)):
+    if audibles:
+        sonando = [i for i in sonando if i in audibles] or sonando
+    if sonando and pedal < 1 and all(nuevo[i]["grado"] == patron[i]["grado"] for i in sonando):
         # Cada mutación cambia al menos una nota. Sin esto, un patrón de pocas notas
         # con el pedal alto se quedaba pegado en la nota larga y dejaba de evolucionar.
         i = rng.choice(sonando)

@@ -609,7 +609,9 @@ apaga con su interruptor; apagado suena todo y el filtro queda guardado.
 - **A veces (?)**: con el pincel «? A veces», en cada compás ese paso deja pasar
   la nota con la probabilidad que pongas (50 % por defecto). Repetible con la seed.
 - **El filtro muta solo** (0 = no): cada «mutar cada» compases abre o cierra uno o
-  dos pasos, al estilo del último 🎲. «Fijar» o «Congelar» lo detienen.
+  dos pasos, al estilo del último 🎲, siempre a partir de lo que pintaste (se aleja
+  a lo más dos pasos y vuelve) y sin tocar los pasos del bombo, para que la
+  secuencia no pierda el tiempo. «Fijar» o «Congelar» lo detienen.
 - **Orden**: adelante, atrás, péndulo o al azar. En las secuencias ordena los pasos
   del patrón; en el diálogo, las notas del motivo. El filtro no se mueve.
 - Los moldes de antes (versiones hasta la 0.42) quedan con el filtro prendido y sus

@@ -105,7 +105,7 @@ class Secuencia:
             return
         if self.filtro and self.molde_muta > 0:
             rng = random.Random(f"{self.seed}:molde:{compas}")
-            self.molde_vivo = limpiar_molde(generador.mutar_molde(self.molde_vivo, rng, self.molde_muta, self.molde_estilo))
+            self.molde_vivo = limpiar_molde(generador.mutar_molde(self.molde, rng, self.molde_muta, self.molde_estilo))
         if self.mutacion <= 0 and self.mutacion_ritmo <= 0:
             return
         self.patron = self._mutado(self.patron, compas)
@@ -117,7 +117,12 @@ class Secuencia:
             self._director_patron = (clave, self._mutado(propio, compas))
 
     def _mutado(self, patron, compas):
-        nuevo = generador.mutar(patron, self.seed, compas, self.mutacion, self.pedal)
+        audibles = None
+        if self.filtro:  # que la mutación caiga donde el filtro deja oír
+            molde = self.molde_vivo
+            audibles = {generador.recorrer(self.recorrido, compas * 16 + p, len(patron), self.seed)
+                        for p in range(16) if molde[p] != "-"}
+        nuevo = generador.mutar(patron, self.seed, compas, self.mutacion, self.pedal, audibles)
         if self.mutacion_ritmo > 0 and len(nuevo) == len(self.ritmo_base):
             nuevo = generador.mutar_ritmo(nuevo, self.seed, compas, self.mutacion_ritmo, self.posicion, self.ritmo_base)
         return nuevo

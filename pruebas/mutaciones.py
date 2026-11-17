@@ -223,9 +223,14 @@ if __name__ == "__main__":
     quieto, vivo = moldes(0.0), moldes(1.0)
     cambios = sum(1 for a, b in zip(vivo, vivo[1:]) if a != b)
     todo &= ok(len(set(quieto)) == 1 and quieto[0] == "x---x---x---x---", "en 0 el molde no se mueve")
-    todo &= ok(cambios >= 5 and all(sum(x != y for x, y in zip(a, b)) <= 2 for a, b in zip(vivo, vivo[1:]))
-               and all("x" in m for m in vivo),
-               f"al máximo cambia de a 1 o 2 pasos cada 4 compases ({cambios} cambios en 32; nunca se queda sin ●)")
+    from goa import generador as gen
+    pat = [{"suena": True, "grado": 0} for _ in range(16)]
+    oidos = [any(gen.mutar(pat, f"S{k}", 4, 0.01, 0.5, audibles={2, 6})[i]["grado"] != 0 for i in (2, 6)) for k in range(20)]
+    todo &= ok(all(oidos), "con el filtro puesto, el cambio garantizado de la mutación cae en un paso que se oye")
+    original = "x---x---x---x---"
+    todo &= ok(cambios >= 5 and all(sum(x != y for x, y in zip(m_, original)) <= 2 for m_ in vivo)
+               and all(m_[k] == original[k] for m_ in vivo for k in (0, 4, 8, 12)) and all("x" in m_ for m_ in vivo),
+               f"al máximo se aleja 1 o 2 pasos de lo que pintaste y vuelve; los pasos del bombo nunca cambian ({cambios} cambios en 32)")
     todo &= ok(moldes(1.0) == vivo, "es repetible: misma seed, mismo camino")
     vacio = moldes(0.5, molde="")
     todo &= ok(any("x" in m or "?" in m for m in vacio), "desde un filtro cerrado también empieza a abrir pasos")

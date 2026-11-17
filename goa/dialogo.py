@@ -366,7 +366,7 @@ class Dialogo:
         for voz in (self.llamada, self.respuesta):
             if voz.filtro and voz.molde_muta > 0 and not voz.fija:
                 rng = random.Random(f"{self.seed}:{voz.papel}:molde_muta:{compas}")
-                voz.molde_vivo = generador.mutar_molde(voz.molde_vivo, rng, voz.molde_muta, voz.molde_estilo)
+                voz.molde_vivo = generador.mutar_molde(voz.molde, rng, voz.molde_muta, voz.molde_estilo)
 
     # --- En vivo ---
 

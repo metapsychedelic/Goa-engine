@@ -272,7 +272,7 @@ if __name__ == "__main__":
                f"notas al azar: las mismas del motivo, en otro orden cada compás ({vueltas})")
 
     cfg = base(evolucion=0.0, mutar_cada=2)
-    cfg["llamada"].update(molde="x---x---x---x---", molde_muta=1.0, molde_estilo="psy", filtro=True, golpes=4)
+    cfg["llamada"].update(molde="--x---x---x---x-", molde_muta=1.0, molde_estilo="goa", filtro=True, golpes=4)
     cfg = normalizar(cfg)
     salida, m = correr(cfg, compases=16)
     filas = {"".join("L" if x == "L" else "." for x in grilla(salida, cfg, c)) for c in range(16)}

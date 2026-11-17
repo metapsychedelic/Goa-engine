@@ -311,6 +311,10 @@ if __name__ == "__main__":
         fb3.paso(paso, paso * 6, 41, None, False, lambda sal_, tipo, *a: sin.append(tipo))
     todo &= ok("control_change" not in sin, "apagado no manda ningún CC")
 
+    ob = [Bajo({"activo": True, "estilo": "offbeat", "seed": f"O{k}", "remate_var": v}, T("F", "frigio")).remate(f * 4 + 3)
+          for k in range(10) for v in (0.0, 1.0) for f in range(4)]
+    todo &= ok(all(l % 4 == 2 for r in ob for l in r), "offbeat: el remate se queda en los contratiempos, nunca pegado al bombo")
+
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):
         bb = Bajo({"activo": True, "estilo": estilo, "sube": sube, "remates": False, "movimiento": 0.0}, T("F", "frigio"))
