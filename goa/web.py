@@ -78,6 +78,17 @@ def _nombre_corto(nombre):
     return nombre.split(":")[0].strip()
 
 
+def _nombres_cortos(nombres):
+    """Nombres cortos para la app. Con dos aparatos iguales (dos dongles CH345) quedan
+    «CH345 #1» y «CH345 #2», que es como el motor elige cada uno."""
+    cortos = [_nombre_corto(n) for n in nombres if "through" not in n.lower()]
+    vistos, salida = {}, []
+    for c in cortos:
+        vistos[c] = vistos.get(c, 0) + 1
+        salida.append(f"{c} #{vistos[c]}" if cortos.count(c) > 1 else c)
+    return sorted(set(salida))
+
+
 def crear_servidor(ctx, puerto):
     class Manejador(BaseHTTPRequestHandler):
         def log_message(self, formato, *args):
@@ -120,10 +131,8 @@ def crear_servidor(ctx, puerto):
                     estado["version"] = __version__
                     estado["entrada"] = ctx.entrada
                     estado["salidas"] = {clave: clave in ctx.puertos.abiertos for clave in ctx.puertos.salidas}
-                    estado["disponibles"] = sorted({_nombre_corto(n) for n in ctx.puertos.disponibles
-                                                    if "through" not in n.lower()})
-                    estado["entradas"] = sorted({_nombre_corto(n) for n in ctx.entradas_disponibles
-                                                 if "through" not in n.lower()})
+                    estado["disponibles"] = _nombres_cortos(ctx.puertos.disponibles)
+                    estado["entradas"] = _nombres_cortos(ctx.entradas_disponibles)
                 self._json(estado)
             elif self.path == "/api/config":
                 with ctx.candado:

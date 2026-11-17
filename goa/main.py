@@ -1,6 +1,7 @@
 """Punto de entrada: abre los puertos MIDI, conecta la Circuit con el motor y sirve la app."""
 
 import argparse
+import re
 import logging
 import signal
 import threading
@@ -15,11 +16,13 @@ log = logging.getLogger("goa")
 
 
 def buscar_puerto(nombres, parte):
-    parte = parte.lower()
-    for n in nombres:
-        if parte in n.lower():
-            return n
-    return None
+    """El puerto cuyo nombre contiene `parte`. Con dos aparatos iguales (dos dongles
+    CH345, por ejemplo) «CH345 #2» elige el segundo, en el orden en que los ve el sistema."""
+    m = re.fullmatch(r"(.*?)\s*#(\d+)", parte.strip())
+    cual = int(m.group(2)) if m else 1
+    parte = (m.group(1) if m else parte).lower()
+    hallados = [n for n in nombres if parte in n.lower()]
+    return hallados[cual - 1] if 0 < cual <= len(hallados) else None
 
 
 class Puertos:

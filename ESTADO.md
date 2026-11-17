@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.49.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.49.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.49.1 · Dos dongles iguales:** buscar_puerto acepta «Nombre #n»; la app y goa-ports muestran «CH345 #1/#2» (antes se fundían en uno). Prueba: pruebas/puertos.py.
 
 - **0.49.0 · Filtro que se abre en las subidas:** `subida_filtro`, `subida_desde`, `subida_hasta`, `subida_despues` (vuelve/queda) por secuencia, sin necesitar el FX; el último paso de la subida llega a «hasta». Con FX, `curva_filtro(..., tope=subida_hasta)`. Grupo de la app renombrado «Filtro del sinte» (no confundir con el filtro de notas).
 

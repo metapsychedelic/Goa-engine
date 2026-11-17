@@ -71,7 +71,11 @@ Los puertos se eligen en la app: cada motor tiene un menú **Destino** (en
 Motores › Salida MIDI) y Ajustes › Conexión MIDI tiene la entrada y la salida
 del reenvío. Los menús muestran lo que la Pi ve conectado en ese momento y se
 actualizan solos al enchufar algo; un puerto elegido que no está enchufado
-aparece como "(desconectado)". Para cambiar una máquina de lugar (por ejemplo,
+aparece como "(desconectado)". **Dos aparatos iguales** (por ejemplo dos dongles CH345)
+aparecen como «CH345 #1» y «CH345 #2», en el orden en que los ve la Pi; déjalos
+siempre en los mismos puertos USB para que no se crucen. `goa-ports` muestra
+cómo se llama cada uno en el motor y `goa-ports --probar "CH345 #2" 4` prueba el
+segundo. Para cambiar una máquina de lugar (por ejemplo,
 la FM-1 por USB y la MC-101 por el cable MIDI), basta con elegir el puerto y el
 canal nuevos en cada motor.
 

@@ -6,16 +6,26 @@
 """
 
 import argparse
+import re
 import time
 
 import mido
 
 
 def buscar(nombres, parte):
-    for n in nombres:
-        if parte.lower() in n.lower():
-            return n
-    return None
+    from .main import buscar_puerto
+    return buscar_puerto(nombres, parte)
+
+
+def con_numero(nombres):
+    """Cada puerto con una pista cuando hay dos aparatos iguales (dos dongles CH345):
+    cómo llamarlos en el motor para elegir cada uno («CH345 #2»)."""
+    base = [re.sub(r"\s+\d+:\d+$", "", n) for n in nombres]
+    vistos = {}
+    for n, b in zip(nombres, base):
+        vistos[b] = vistos.get(b, 0) + 1
+        corto = b.split(":")[-1].strip()
+        yield n, (f"(en el motor: «{corto} #{vistos[b]}»)" if base.count(b) > 1 else "")
 
 
 def main():
@@ -64,11 +74,11 @@ def main():
         return
 
     print("Entradas:")
-    for n in mido.get_input_names():
-        print("  ", n)
+    for n, extra in con_numero(mido.get_input_names()):
+        print("  ", n, extra)
     print("Salidas:")
-    for n in mido.get_output_names():
-        print("  ", n)
+    for n, extra in con_numero(mido.get_output_names()):
+        print("  ", n, extra)
 
 
 if __name__ == "__main__":
