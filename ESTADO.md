@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.51.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.51.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -26,6 +26,7 @@ Canción, Ajustes).
 
 ## Hecho recientemente
 
+- **0.51.1 · Remates offbeat clásicos otra vez:** vuelven {13:7,14:4,15:0}/{14:7,15:6}; en offbeat, las notas del remate junto al bombo (l%4 1 o 3) con grado <3 suben una octava y van sin acento (sonaban a segundo bombo).
 - **0.51.0 · Motor Texturas:** goa/texturas.py + sección [texturas] (config, motor, motor_forma._paso_texturas, forma: escenas/energía/transiciones, app: panel y botón). Largas de 1/2/4 compases con CC que respira (seno^1.5), notas comunes con el acorde siguiente, cortas fuera del bombo. Prueba: pruebas/texturas.py.
 
 - **0.50.1 · Arreglos:** remates del bajo offbeat solo en contratiempos (antes 13/15, pegados al bombo). La mutación del filtro de notas parte siempre del molde original y no toca los pasos del bombo (antes se acumulaba y la secuencia perdía el tiempo). Con el filtro puesto, el cambio garantizado de la mutación de notas cae en un paso que se oye (generador.mutar(audibles)). Medido: la mutación de notas sin filtro es idéntica a la de la 0.40.

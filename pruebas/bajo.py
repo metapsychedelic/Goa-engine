@@ -313,7 +313,10 @@ if __name__ == "__main__":
 
     ob = [Bajo({"activo": True, "estilo": "offbeat", "seed": f"O{k}", "remate_var": v}, T("F", "frigio")).remate(f * 4 + 3)
           for k in range(10) for v in (0.0, 1.0) for f in range(4)]
-    todo &= ok(all(l % 4 == 2 for r in ob for l in r), "offbeat: el remate se queda en los contratiempos, nunca pegado al bombo")
+    todo &= ok(all(l % 4 != 0 for r in ob for l in r), "offbeat: el remate nunca cae en el bombo")
+    todo &= ok(all(g >= 3 for r in ob for l, g in r.items() if l % 4 in (1, 3)),
+               "offbeat: junto al bombo el remate nunca toca una nota grave (no suena a segundo bombo)")
+    todo &= ok(any(13 in r or 15 in r for r in ob), "offbeat: vuelven los remates clásicos (corrida al final del compás)")
 
     print("\nNotas que suben")
     def golpes_sube(sube, estilo="rolling", compases=4):

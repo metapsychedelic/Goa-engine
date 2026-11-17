@@ -68,8 +68,8 @@ REMATES = {
     "rolling": ({9: 0, 10: 7, 11: 0, 13: 7, 14: 4, 15: 7}, {9: 7, 10: 6, 11: 4, 13: 3, 14: 1, 15: 0}),
     "fullon": ({13: 7, 14: 6, 15: 4}, {13: 1, 14: 0, 15: 7}),
     "galope": ({14: 7, 15: 4}, {14: 4, 15: 6}),
-    # offbeat: el remate se queda en los contratiempos (nunca pegado al bombo)
-    "offbeat": ({6: 4, 10: 7, 14: 6}, {10: 7, 14: 4}),
+    # offbeat: los clásicos (corrida al final); junto al bombo nunca va una nota grave
+    "offbeat": ({13: 7, 14: 4, 15: 0}, {14: 7, 15: 6}),
     "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}),
     "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}),
     "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
@@ -276,6 +276,10 @@ class Bajo:
         for lugar in sorted(remate):
             if rng.random() < self.remate_var:
                 remate[lugar] = rng.choice([g for g in grados if g != remate[lugar]])
+        if self.estilo == "offbeat":
+            # Una nota grave pegada al bombo (justo antes o después) suena como un segundo
+            # bombo: esas suben una octava.
+            remate = {l: g + 7 if l % 4 in (1, 3) and g < 3 else g for l, g in remate.items()}
         largas = set()
         azar_larga = random.Random(f"bajo:{self.seed}:larga:{frase}")
         if len(remate) > 2 and azar_larga.random() < self.remate_largas:
@@ -418,7 +422,7 @@ class Bajo:
             r_sig = golpes[siguiente].retraso or (round(self.swing * TICKS_POR_PASO) if self.swing and siguiente % 2 else 0)
             fin = max(inicio + 1, min(fin, tick + (siguiente - lugar) * TICKS_POR_PASO + r_sig))
         vel = self._velocidad(compas, lugar, golpe)
-        if en_remate:
+        if en_remate and not (self.estilo == "offbeat" and lugar % 4 in (1, 3)):
             # Acento suave y parejo: no se suma a los acentos al azar (antes llegaba a 127).
             vel = min(127, min(vel, self.velocidad) + round(6 * self.remate_marca))
         if self.filtro and self.filtro_nota and not self._ligada(nota, inicio):
