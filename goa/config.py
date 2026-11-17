@@ -193,6 +193,7 @@ ESQUEMA_SECCIONES["texturas"] = {
     "largas": (float, 0.6, 0.0, 1.0),        # 0 = solo cortas, 1 = solo largas
     "largo": (int, 2, 1, 4),                 # largo típico de las largas, en compases (1, 2 o 4)
     "octava": (int, 0, -2, 3),
+    "registro": (int, 2, 1, 3),              # en cuántas octavas se reparten las notas
     "velocidad": (int, 90, 1, 127),
     "cc": (int, 74, 0, 127),                 # qué respira: 74 corte, 71 resonancia (MC-101)
     "reposo": (int, 40, 0, 127),             # dónde queda ese CC entre notas largas

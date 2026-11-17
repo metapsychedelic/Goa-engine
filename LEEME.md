@@ -356,8 +356,11 @@ un canal propio de la MC-101 (por defecto el 2; distinto al de los FX y al del b
   sonando cuando la armonía cambia (si no, terminan solas). Cada una **respira**: el
   CC elegido (corte 74 o resonancia 71) sube despacio hasta la mitad de la nota y
   vuelve al **reposo**. **Cuánto se abre** da la hondura.
-- **Notas cortas** salpicadas entre medio, una octava más arriba y más suaves, nunca
-  en el tiempo del bombo.
+- **Notas cortas** con ritmo: cada 4 compases se elige una figura (contratiempos,
+  síncopas, dobles) y sobre ella un motivo de 2 compases que se repite. Más suaves y
+  nunca en el tiempo del bombo.
+- **Se reparten en** 1, 2 o 3 octavas desde la **octava más baja** (0 = C3): graves y
+  agudas mezcladas; las largas prefieren la parte de abajo.
 - **Cantidad** (la energía la sube y la baja) y **Largas o cortas** (0 = solo
   cortas, 1 = solo largas). En las subidas aparecen más largas y respiran más hondo.
 - Entra en las escenas, el modo canción y el piloto como los demás motores.

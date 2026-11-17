@@ -169,7 +169,8 @@ disparo = 0               # canal de su nota larga; 0 = el general
 densidad = 0.5            # cuántas notas (la energía la sube y la baja)
 largas = 0.6              # 0 = solo cortas, 1 = solo largas
 largo = 2                 # largo típico de las largas: 1, 2 o 4 compases
-octava = 0
+octava = 0                # la octava más baja (0 = desde C3)
+registro = 2              # en cuántas octavas se reparten (1 a 3): graves y agudas mezcladas
 velocidad = 90
 cc = 74                   # qué respira: 74 corte, 71 resonancia
 reposo = 40               # dónde queda ese CC entre notas largas

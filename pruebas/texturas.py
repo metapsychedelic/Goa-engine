@@ -65,6 +65,17 @@ def main():
     todo &= ok(tocar(armar(densidad=0.8)) == out or True, "repetible con la seed")
     a, b = tocar(armar(seed="TX-A")), tocar(armar(seed="TX-B"))
     todo &= ok(a != b and tocar(armar(seed="TX-A")) == a, "otra variante, otras notas; la misma, lo mismo")
+    rit, _ = notas(tocar(armar(densidad=1.0, largas=0.0), compases=8))
+    from goa.texturas import FIGURAS
+    lugares = lambda c: sorted({(a // 6) % 16 for a, _, _ in rit if a // 96 == c})
+    juntos = set(lugares(0)) | set(lugares(1))
+    todo &= ok(lugares(0) and lugares(0) == lugares(2) and lugares(1) == lugares(3) and any(juntos <= set(f) for f in FIGURAS),
+               f"las cortas siguen una figura rítmica con un motivo de 2 compases que se repite ({sorted(juntos)})")
+    alturas = lambda **k: [n for _, _, n in notas(tocar(armar(densidad=1.0, largas=0.3, **k), compases=16))[0]]
+    tres, una = alturas(registro=3), alturas(registro=1)
+    todo &= ok(max(tres) - min(tres) > 18 and min(tres) >= 48 and max(tres) < 48 + 36 + 12,
+               f"con 3 octavas mezcla graves y agudas ({min(tres)}–{max(tres)})")
+    todo &= ok(max(una) - min(una) <= 12 + 4 and min(una) >= 48, f"con 1 octava se queda junta ({min(una)}–{max(una)})")
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)
 

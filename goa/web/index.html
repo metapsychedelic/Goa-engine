@@ -1296,9 +1296,10 @@ function panelTexturas() {
         numeroDe(x, "reposo", "Reposo entre notas (0-127)", 0, 127),
         ayuda("En cada nota larga el CC sube despacio hasta la mitad de la nota y vuelve al reposo. Si el acorde cambia y la nota ya no le pertenece, termina sola."),
       ]),
-      grupo("g-tx-notas", "Notas", `octava ${x.octava} · fuerza ${x.velocidad}`, [
-        el("div", {className: "dos"}, [numeroDe(x, "octava", "Octava", -2, 3), numeroDe(x, "velocidad", "Fuerza", 1, 127)]),
-        ayuda("Las cortas van una octava más arriba y más suaves, nunca en el tiempo del bombo."),
+      grupo("g-tx-notas", "Notas", `${x.registro || 2} octava${(x.registro || 2) > 1 ? "s" : ""} desde la ${x.octava} · fuerza ${x.velocidad}`, [
+        campo("Se reparten en", segmentado([["1","1 octava"],["2","2 octavas"],["3","3 octavas"]], String(x.registro || 2), (v) => { x.registro = parseInt(v); guardar(); renderMotores(); }, 3)),
+        el("div", {className: "dos"}, [numeroDe(x, "octava", "Octava más baja", -2, 3), numeroDe(x, "velocidad", "Fuerza", 1, 127)]),
+        ayuda("Graves y agudas mezcladas al azar dentro de esas octavas (las largas prefieren abajo). Octava 0 parte en C3. Las cortas siguen una figura rítmica que cambia cada 4 compases, con un motivo de 2 compases que se repite, nunca en el tiempo del bombo."),
       ]),
       grupo("g-tx-midi", "Salida MIDI", salidaTexto(x), [
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),

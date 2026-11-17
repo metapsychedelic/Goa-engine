@@ -4,8 +4,11 @@ de la MC-101 (o cualquier sinte polifónico).
 - Notas largas de 1, 2 o 4 compases, sacadas del acorde que suena. Cada una mueve un
   CC (el corte del filtro, la resonancia u otro) mientras dura: sube despacio y vuelve,
   como si la nota respirara.
-- Notas cortas salpicadas entre medio (nunca en el tiempo del bombo), una octava más
-  arriba y más suaves, sin modulación.
+- Notas cortas con ritmo: cada 4 compases se elige una figura rítmica (contratiempos,
+  síncopas...) y sobre ella un motivo de 2 compases que se repite. Nunca en el tiempo
+  del bombo, más suaves y sin modulación.
+- Las notas se reparten en un registro de 1 a 3 octavas (graves y agudas mezcladas);
+  las largas prefieren la parte baja.
 - Sigue la armonía: si el acorde cambia y la nota larga ya no le pertenece, termina.
 - En las subidas las largas aparecen más y respiran más hondo.
 
@@ -20,6 +23,12 @@ from . import armonia
 TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
 TICKS_POR_COMPAS = TICKS_POR_PASO * PASOS_POR_COMPAS
+PISO = 48  # C3: dónde empieza el registro con octava 0
+
+# Figuras rítmicas de las cortas (lugares del compás, nunca en el bombo).
+FIGURAS = ((2, 6, 10, 14), (3, 6, 11, 14), (2, 3, 10, 11), (3, 7, 11, 15), (6, 14),
+           (2, 5, 10, 13), (3, 6, 10, 13), (2, 7, 10, 15), (6, 7, 14, 15), (3, 11),
+           (2, 6, 9, 14), (5, 6, 13, 14))
 
 
 def _f(x):
@@ -35,6 +44,7 @@ class Texturas:
         self.largas = _f(cfg.get("largas", 0.6))            # 0 = solo cortas, 1 = solo largas
         self.largo = int(cfg.get("largo", 2))               # largo típico de las largas (1, 2 o 4 compases)
         self.octava = int(cfg.get("octava", 0))
+        self.registro = max(1, min(3, int(cfg.get("registro", 2))))  # octavas en que se reparten
         self.velocidad = int(cfg.get("velocidad", 90))
         self.cc = max(0, min(127, int(cfg.get("cc", 74))))
         self.reposo = max(0, min(127, int(cfg.get("reposo", 40))))
@@ -98,8 +108,11 @@ class Texturas:
     def _azar(self, *clave):
         return random.Random(":".join(["tx", self.seed, *map(str, clave)]))
 
-    def _nota(self, raiz, momento, rng, arriba=0, larga=False):
-        base = raiz + 12 * (self.octava + 1 + arriba)
+    def _nota(self, raiz, momento, rng, larga=False):
+        octavas = range(self.registro)
+        # Las largas prefieren las octavas de abajo; las cortas se reparten parejo.
+        pesos = [self.registro - k for k in octavas] if larga else [1] * self.registro
+        base = PISO + 12 * (self.octava + rng.choices(octavas, weights=pesos)[0]) + raiz % 12
         if momento is not None and momento.clases:
             clases = sorted(momento.clases)
             if larga and momento.clases_siguiente:
@@ -142,8 +155,11 @@ class Texturas:
                 enviar(self.salida, "note_on", self.canal, nota, self._vel(rng.uniform(0.85, 1.0)))
                 self.larga = (nota, tick, fin, hondo)
                 return
-        if lugar % 4 and rng.random() < self.densidad * (1 - self.largas) * 0.3:
-            nota = self._nota(raiz, momento, rng, arriba=1)
+        figura = FIGURAS[self._azar("figura", compas // 4).randrange(len(FIGURAS))]
+        # El motivo (qué lugares suenan y con qué nota) dura 2 compases y se repite.
+        motivo = self._azar("motivo", compas // 4, compas % 2, lugar)
+        if lugar in figura and motivo.random() < min(1.0, self.densidad * (1 - self.largas) * 1.8):
+            nota = self._nota(raiz, momento, motivo)
             if self.larga is not None and nota == self.larga[0]:
                 return
             if nota in self.cortas:
