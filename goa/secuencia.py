@@ -74,6 +74,12 @@ class Secuencia:
         self.semitono = float(cfg.get("semitono", 0.0))
         self.fx = bool(cfg.get("fx", False))            # el motor de FX la interviene
         self.cc_filtro = int(cfg.get("cc_filtro", 74))
+        # Filtro en las subidas (opcional, sin el motor de FX): se abre de «desde» a «hasta»
+        # a lo largo del rise; después del drop vuelve al reposo o se queda donde llegó.
+        self.subida_filtro = bool(cfg.get("subida_filtro", False))
+        self.subida_desde = max(0, min(127, int(cfg.get("subida_desde", 20))))
+        self.subida_hasta = max(0, min(127, int(cfg.get("subida_hasta", 127))))
+        self.subida_despues = cfg.get("subida_despues", "vuelve")
         # Dos LFO de filtro (opcionales): cada uno mueve un CC del sinte de la secuencia,
         # sincronizados al compás. Así se pueden mover, por ejemplo, corte y resonancia a la vez.
         self.lfos = [Lfo(cfg, p, self.seed) for p in PREFIJOS_LFO]

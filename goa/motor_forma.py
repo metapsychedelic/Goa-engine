@@ -216,11 +216,11 @@ class FormaMotor:
         """Los filtros intervenidos vuelven a su reposo. Con `secuencias`, solo los que ya no se intervienen."""
         siguen = set()
         if secuencias is not None and self.subida is not None:
-            siguen = {(s.salida, s.canal, s.cc_filtro) for s in secuencias if s.fx}
+            siguen = {(s.salida, s.canal, s.cc_filtro) for s in secuencias if s.fx or s.subida_filtro}
         for clave, (valor, reposo) in list(self.cc_secuencias.items()):
             if clave in siguen:
                 continue
-            if valor != reposo:
+            if reposo is not None and valor != reposo:  # None: se queda donde llegó
                 self.enviar(clave[0], "control_change", clave[1], clave[2], reposo)
             del self.cc_secuencias[clave]
 
@@ -233,17 +233,26 @@ class FormaMotor:
         self.fx.tick(self.tick, self.enviar)  # lo que empieza en este paso sale ya, sin un pulso de atraso
 
     def _filtro_secuencias(self, paso):
-        """En la subida, el filtro de cada secuencia con FX baja y se va abriendo hasta el drop."""
+        """En la subida, el filtro se va abriendo hasta el drop: en las secuencias con
+        «filtro en la subida», de su «desde» a su «hasta»; en las que interviene el FX,
+        primero baja y después se abre hasta su «hasta» (127 si no lo cambias)."""
         if self.subida is None:
             return
         t = fx.avance(self.subida, paso)
         for s in self.secuencias:
-            if not (s.fx and s.activa) or self.disparos[s.disparo].raiz is None:
+            if not ((s.fx or s.subida_filtro) and s.activa) or self.disparos[s.disparo].raiz is None:
                 continue
-            valor = fx.curva_filtro(t, s.filtro_reposo)
+            if s.subida_filtro:
+                # El último paso de la subida ya está en «hasta» (el drop cae justo después).
+                largo = max(1, self.subida["hasta"] - self.subida["desde"] - 1)
+                x = max(0.0, min(1.0, (paso - self.subida["desde"]) / largo))
+                valor = round(s.subida_desde + (s.subida_hasta - s.subida_desde) * x ** 1.6)
+            else:
+                valor = fx.curva_filtro(t, s.filtro_reposo, s.subida_hasta)
+            reposo = None if s.subida_filtro and s.subida_despues == "queda" else s.filtro_reposo
             clave = (s.salida, s.canal, s.cc_filtro)
             if self.cc_secuencias.get(clave, (None,))[0] != valor:
-                self.cc_secuencias[clave] = (valor, s.filtro_reposo)
+                self.cc_secuencias[clave] = (valor, reposo)
                 self.enviar(s.salida, "control_change", s.canal, s.cc_filtro, valor)
 
     def _glitch(self, s, paso):

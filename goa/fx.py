@@ -45,10 +45,10 @@ DENSIDAD_GENERO = {"goa": 1.0, "psy_chill": 0.7, "chillgressive": 0.8, "chillout
 _ORDEN = {"off": 0, "bend": 1, "cc": 1, "on": 2}
 
 
-def curva_filtro(t, reposo):
+def curva_filtro(t, reposo, tope=127):
     """Valor del filtro en el avance `t` (0 a 1) de una subida: en el primer cuarto
     baja suave desde donde estaba hasta casi cerrado; después se abre de a poco,
-    cada vez más rápido, hasta quedar abierto justo en el drop."""
+    cada vez más rápido, hasta llegar a `tope` justo en el drop."""
     reposo = max(0, min(127, int(reposo)))
     cerrado = max(8, round(reposo * 0.2))
     t = max(0.0, min(1.0, t))
@@ -56,7 +56,7 @@ def curva_filtro(t, reposo):
         x = t / 0.25
         return round(reposo + (cerrado - reposo) * (x * x * (3 - 2 * x)))  # baja en curva suave
     x = (t - 0.25) / 0.75
-    return round(cerrado + (127 - cerrado) * x ** 1.6)
+    return round(cerrado + (max(0, min(127, int(tope))) - cerrado) * x ** 1.6)
 
 
 def avance(subida, paso):

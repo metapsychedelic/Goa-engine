@@ -827,7 +827,18 @@ function panelSecuencia(i) {
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
       ]),
       grupoMolde(`g-sec-molde`, s, "La seed arma las notas y el filtro decide cuáles pasan: ● = pasa, ? = a veces, vacío = bloqueado. Cambiar la seed cambia las notas que pasan.", "Orden de los pasos", () => s.mutar_cada),
-      grupo(`g-sec-lfo`, "Filtro (LFO)", lfoResumen(s), [
+      grupo(`g-sec-lfo`, "Filtro del sinte", [s.subida_filtro ? `se abre en las subidas hasta ${Math.round(s.subida_hasta / 1.27)} %` : "", lfoResumen(s) === "apagado" ? "" : lfoResumen(s)].filter(Boolean).join(" · ") || "apagado", [
+        el("label", {className: "fila", style: "min-height:44px"}, [
+          el("span", {}, ["Se abre en las subidas", el("br"), el("span", {className: "mut", textContent: "Durante el rise el filtro se va abriendo hasta el drop"})]),
+          el("input", {type: "checkbox", className: "switch", checked: !!s.subida_filtro, "aria-label": "Se abre en las subidas",
+            onchange: (e) => { s.subida_filtro = e.target.checked; guardar(); renderMotores(); }})]),
+        ...(s.subida_filtro ? [
+          deslizador(s, "subida_desde", "Parte en", 0, 127, 1, (x) => `${x} (${Math.round(x / 1.27)} %)`),
+          deslizador(s, "subida_hasta", "Al final de la subida", 0, 127, 1, (x) => x >= 127 ? "abierto del todo (127)" : `${x} (${Math.round(x / 1.27)} %)`),
+          campo("Después del drop", segmentado([["vuelve","Vuelve al reposo"],["queda","Se queda ahí"]], s.subida_despues || "vuelve", (v) => { s.subida_despues = v; guardar(); renderMotores(); }, 2)),
+          el("div", {className: "dos"}, [numeroDe(s, "cc_filtro", "CC del filtro", 0, 127), (s.subida_despues || "vuelve") === "vuelve" ? numeroDe(s, "filtro_reposo", "Reposo (0-127)", 0, 127) : el("span")]),
+          ayuda("Se abre cada vez más rápido y llega a «Al final de la subida» justo en el drop. El reposo es dónde vuelve después: ponlo donde tienes la perilla del sinte. CC 74 = corte en la MC-101 y en la FM-1 con Shrub. Mientras dura la subida, un LFO sobre el mismo CC espera."),
+        ] : []),
         ...editorLfo(s, "lfo", "LFO 1"),
         ...editorLfo(s, "lfo2", "LFO 2"),
         ayuda("Van sincronizados al compás y pueden mover cosas distintas a la vez (por ejemplo, corte y resonancia). Si el motor de FX interviene el mismo filtro en una subida, ese LFO espera y sigue después."),
@@ -864,6 +875,7 @@ function panelSecuencia(i) {
         casilla(s, "fx", "La interviene el motor de FX",
           "En las subidas su filtro baja y se va abriendo hasta el drop, y suma redobles cada vez más seguidos. Fuera de las subidas, a veces el último tiempo de la frase se traba (stutter). Cuánto, lo decide la Locura del FX.", () => renderMotores()),
         s.fx ? el("div", {className: "dos"}, [numeroDe(s, "cc_filtro", "CC del filtro de su sinte", 0, 127), numeroDe(s, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]) : null,
+        s.fx && !s.subida_filtro ? deslizador(s, "subida_hasta", "Filtro al final de la subida", 0, 127, 1, (x) => x >= 127 ? "abierto del todo (127)" : `${x} (${Math.round(x / 1.27)} %)`) : null,
         s.fx ? ayuda("El reposo es dónde vuelve el filtro después del drop: ponlo donde tienes la perilla del sinte. El CC del cutoff suele ser el 74; en la MicroFreak es el 23. Revisa la tabla MIDI de tu sinte (en la FM-1 con Shrub, la de su manual).") : null,
       ]),
       grupo(`g-sec-midi`, "Salida MIDI", salidaTexto(s), [

@@ -262,6 +262,10 @@ ESQUEMA_SECUENCIA = {
     "semitono": (float, 0.0, 0.0, 1.0),  # cuánto aparece el ♭2 sobre la raíz en los pasos débiles
     "fx": (bool, False, None, None),         # el motor de FX la interviene: filtro y stutter en las subidas, glitches
     "cc_filtro": (int, 74, 0, 127),          # CC del filtro de su sinte
+    "subida_filtro": (bool, False, None, None),  # el filtro se abre durante la subida (sin el FX)
+    "subida_desde": (int, 20, 0, 127),       # dónde parte al empezar la subida
+    "subida_hasta": (int, 127, 0, 127),      # cuánto queda abierto justo en el drop
+    "subida_despues": (str, "vuelve", None, ("vuelve", "queda")),  # después del drop: al reposo o se queda
     "lfo": (bool, False, None, None),        # LFO de filtro por CC (opcional)
     "lfo_cc": (int, 74, 0, 127),             # 74 = corte, 71 = resonancia; 20 y 21 = wavetable A y B (FM-1 con Shrub)
     "lfo_forma": (str, "seno", None, ("seno", "triangulo", "sube", "baja", "azar")),

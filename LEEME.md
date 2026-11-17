@@ -336,9 +336,18 @@ compás. Se guarda en las escenas, así cada parte puede tener su sonido. Si dos
 motores van al mismo sinte y canal, manda el que está sonando. Funciona con
 sintes que reciben Program Change (revisa que tu firmware lo tenga activo).
 
-## LFO de filtro de las secuencias
+## Filtro del sinte de las secuencias: subidas y LFO
 
-Cada secuencia tiene un grupo **Filtro (LFO)** con dos LFO (LFO 1 y LFO 2),
+**Se abre en las subidas** (grupo **Filtro del sinte** de cada secuencia, apagado
+por defecto, no necesita el motor de FX): durante el rise el filtro se va abriendo,
+cada vez más rápido, desde **Parte en** hasta **Al final de la subida**, que es la
+intensidad con que llega al drop (127 = abierto del todo). **Después del drop**
+vuelve al reposo (pon el reposo donde tienes la perilla del sinte) o se queda ahí.
+Usa el CC del filtro de la secuencia (74 = corte en la MC-101 y en la FM-1 con
+Shrub). En las secuencias que interviene el motor de FX también se elige con qué
+intensidad termina la subida (grupo FX).
+
+En el mismo grupo hay dos LFO (LFO 1 y LFO 2),
 apagados por defecto. Cada uno mueve un CC del sinte de esa secuencia,
 sincronizado al compás (un CC cada media semicorchea, solo cuando el valor cambia),
 así que se pueden mover dos cosas a la vez, por ejemplo el corte con un seno lento

@@ -61,6 +61,35 @@ def main():
         m.reloj()
     todo &= ok(not any(t == "control_change" and n == 74 and s_ == "SEQ" for s_, t, n in enviados),
                "mientras el FX interviene el mismo filtro, el LFO espera")
+    print("\nFiltro que se abre en las subidas")
+    from goa.fx import curva_filtro
+    def subida(**k):
+        c = tomllib.load(open(RAIZ / "config.ejemplo.toml", "rb"))
+        c["secuencia"][0].update(salida="SEQ", canal=4, cc_filtro=74, filtro_reposo=90, **k)
+        c = normalizar(c)
+        ev = []
+        m = Motor(c, lambda sal, tipo, canal, nota, vel: ev.append((m.tick // 96, sal, tipo, nota, vel)))
+        m.start()
+        for compas in range(8):
+            if compas == 1:
+                m.pedir_subida(4)  # empieza en el compás 2 y el drop cae en el 6
+            for t in range(96):
+                m.reloj()
+                if compas == 0 and t == 1:
+                    m.nota_on(m.canal_disparo, 41)
+                if t == 1 and compas:
+                    m.nota_off(m.canal_disparo, 41)
+                    m.nota_on(m.canal_disparo, 41)
+        return [(c_, v) for c_, sal, tipo, n, v in ev if sal == "SEQ" and tipo == "control_change" and n == 74]
+    cc = subida(subida_filtro=True, subida_desde=20, subida_hasta=100)
+    durante = [v for c_, v in cc if c_ >= 1][:-1] if cc and cc[-1][1] == 90 else [v for c_, v in cc]
+    todo &= ok(durante and durante[0] <= 25 and max(durante) == 100 and durante == sorted(durante),
+               f"se abre de 20 a 100 a lo largo de la subida, siempre hacia arriba ({durante[0]} → {max(durante)})")
+    todo &= ok(cc[-1][1] == 90, f"después del drop vuelve al reposo ({cc[-1]})")
+    queda = subida(subida_filtro=True, subida_desde=20, subida_hasta=100, subida_despues="queda")
+    todo &= ok(queda[-1][1] == 100, f"con «se queda ahí» el filtro sigue en 100 después del drop ({queda[-1]})")
+    todo &= ok(not subida(), "sin la opción, la subida no toca el filtro")
+    todo &= ok(curva_filtro(1.0, 100) == 127 and curva_filtro(1.0, 100, 90) == 90, "con el FX, el final de la subida también se elige (127 por defecto)")
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)
 
