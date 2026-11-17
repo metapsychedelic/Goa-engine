@@ -349,8 +349,8 @@ function desplTexto(x) {
   return x === 0 ? t : `${t} (${Math.round(x * 100)} %)`;
 }
 const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"],
-  ["psy_chill","Psy chill"],["euclidiano","Euclidiano"],["largas","Notas largas"],["ambient","Ambient"]];
-const ESTILOS_POR_GENERO = {goa: ["rolling","galope","arpegio3","acido"], psy_chill: ["psy_chill","galope","arpegio3"],
+  ["psy_chill","Psy chill"],["euclidiano","Euclidiano"],["largas","Notas largas"],["ambient","Ambient"],["clasico","Goa clásico"]];
+const ESTILOS_POR_GENERO = {goa: ["rolling","galope","arpegio3","acido","clasico"], psy_chill: ["psy_chill","galope","arpegio3"],
   chillgressive: ["rolling","euclidiano","acido"], chillout: ["largas","euclidiano","arpegio3"], ambient: ["ambient","largas","arpegio3"]};
 const POSICIONES = [["onbeat","Con el bombo"],["offbeat","Entre bombos"],["todos","Todas"],["desplazado","Corrida"]];
 const POS_TEXTO = {onbeat: "Las notas caen junto al bombo.", offbeat: "Entre bombo y bombo: el clásico del psytrance.",
@@ -840,7 +840,11 @@ function panelSecuencia(i) {
   return [
     cabMotor(`Secuencia ${s.nombre}`, `${s.salida} · canal ${s.canal} · ${armoniaTexto(s)}`, s, "activa"),
     campo("Género", segmentado(GENEROS, s.genero, (v) => cambiarGenero(v, {parte: "secuencia", indice: i}), 3)),
-    campo("Estilo · solo cambia el patrón, tus ajustes se quedan", segmentado(estilos, s.estilo, (v) => { s.estilo = v; renderMotores(); guardar(); }, 2)),
+    campo("Estilo · solo cambia el patrón, tus ajustes se quedan", segmentado(estilos, s.estilo, (v) => {
+      s.estilo = v;
+      if (v === "clasico") s.posicion = "todos";  // suena en todas las semicorcheas, también con el bombo
+      renderMotores(); guardar(); }, 2)),
+    ...(s.estilo === "clasico" ? panelClasico(s) : []),
     campo("Variante", variante(s, `sec-${s.nombre}`)),
     el("div", {className: "card principales"}, [
       deslizador(s, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas las notas" : porcentaje(v)),
@@ -848,11 +852,13 @@ function panelSecuencia(i) {
       deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
     ]),
     el("div", {className: "grupos"}, [
-      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.largo} pasos · swing ${Math.round(s.swing * 200)} %`, [
+      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.estilo === "clasico" ? `frase de ${s.frase || 2} compases` : `${s.largo} pasos`} · swing ${Math.round(s.swing * 200)} %`, [
         campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; renderMotores(); guardar(); }, 2)),
         ayuda(POS_TEXTO[s.posicion]),
-        campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
-        ayuda("16 da un compás. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
+        ...(s.estilo === "clasico" ? [] : [
+          campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
+          ayuda("16 da un compás. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
+        ]),
         deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
         deslizador(s, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
@@ -877,9 +883,20 @@ function panelSecuencia(i) {
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
         numeroDe(s, "octava", "Octava", -3, 3),
+        deslizador(s, "techo", "Techo (nota más alta)", 60, 127, 1, (v) => v >= 127 ? "sin techo" : `${nombreMidi(v)} · lo de arriba baja una octava`),
+        ayuda("Si una seed o el director la llevan muy aguda, lo que pasa del techo vuelve a sonar una octava abajo: misma nota, mismo ritmo."),
         deslizador(s, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
         ayuda("Cuánto regresa a la nota base entre las demás: más alto, más hipnótico."),
         deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
+        deslizador(s, "deslices", "Deslices de notas", 0, 1, 0.05, (v) => v === 0 ? "apagado" : porcentaje(v)),
+        ayuda("Opcional. Notas que respiran (se sostienen sobre la raíz que sigue), notas llenas y aproximaciones por grado al adorno que viene, todo en la rejilla y sin pisarse. No cambia la escala."),
+        campo("Raga", segmentado(RAGAS, s.raga || "", (v) => { s.raga = v; renderMotores(); guardar(); }, 3)),
+        ayuda(RAGA_TEXTO[s.raga || ""]),
+        ...(s.raga ? [
+          deslizador(s, "ornamentos", "Ornamentos de la raga", 0, 1, 0.05, (v) => v === 0 ? "solo la escala" : v < 0.3 ? `${porcentaje(v)} · sin frase típica` : `${porcentaje(v)} · con frase típica`),
+          numeroDe(s, "bend_rango", "Rango de pitch bend del sinte (semitonos, 0 = sin bend)", 0, 24),
+          ayuda("Todo cae en la rejilla de semicorcheas, sin fusas ni notas pisadas: los ornamentos toman los pasos de nota fija (Sa o Pa) que rodean a la nota adornada. Kan: el paso antes lleva la gracia que manda la raga. Gamak: los pasos después de una nota que tiembla hacen el trino (vecina, nota). Meend: la nota llega deslizándose con el pitch bend (pon el rango de tu sinte; 0 = sin bend). Andolan: vaivén de un cuarto de tono en las notas que tiemblan cuando se sostienen. Desde 30 %, en Goa clásico la respuesta cierra con la frase típica de la raga."),
+        ] : []),
         campo("Escala de color", segmentado(ESCALAS_COLOR, s.escala_color || "", (v) => { s.escala_color = v; renderMotores(); guardar(); }, 2)),
         ayuda(COLOR_TEXTO[s.escala_color || ""]),
         deslizador(s, "semitono", "♭2 (medio tono sobre la raíz)", 0, 1, 0.05, (v) => v === 0 ? "como sale" : porcentaje(v)),
@@ -918,6 +935,44 @@ function panelSecuencia(i) {
       ]),
     ]),
   ];
+}
+
+// Goa clásico: figura, frase y respuesta (solo con ese estilo).
+const FIGURAS = [["auto","Auto (seed)"],["pedal","Pedal"],["ciclo","Ciclo"],["acordes","Acordes"]];
+const FIGURA_TEXTO = {
+  auto: "La seed elige la figura: cambia la seed para pasar por las tres.",
+  pedal: "Rodante: las 16 semicorcheas con la raíz en dos octavas y adornos que vuelven (♭2, ♭7, 4.ª, 5.ª).",
+  ciclo: "Un motivo de 3, 5, 6 o 7 notas que corre sobre el compás: el acento se va corriendo y vuelve a calzar al empezar la frase.",
+  acordes: "Arpegio por tiempo (raíz, octava, tercera o segunda arriba) que sigue el acorde que suena. Con pads o armonía guiada cambia con la progresión."};
+const RAGAS = [["","Sin raga"],["bhairav","Bhairav"],["bhairavi","Bhairavi"],["todi","Todi"],["marwa","Marwa"],["hijaz","Hijaz (israelí)"]];
+const RAGA_TEXTO = {
+  "": "Sin raga: la secuencia usa la escala de Música (o su escala de color).",
+  bhairav: "1 ♭2 3 4 5 ♭6 7 · la doble armónica de Bhairav: re y dha tiemblan, el re llega con gracia del ga y cierra con G m r S. La más «Goa».",
+  bhairavi: "1 ♭2 ♭3 4 5 ♭6 ♭7 · todo komal (frigio): devocional, oscura. Cierra con m g r S.",
+  todi: "1 ♭2 ♭3 ♯4 5 ♭6 7 · seria, mucho pathos: el re toma su gracia del ga y tiembla. Cierra con g r g r S.",
+  marwa: "1 ♭2 3 ♯4 5 6 7 · crepuscular e inquieta: el re pesa más que la tónica. Cierra con G M G r S.",
+  hijaz: "1 ♭2 3 4 5 ♭6 ♭7 · freygish / Ahava Rabbah del Goa israelí: segunda aumentada, trino en el ♭2 y la caída ♭6 5 4 3 ♭2 1."};
+
+function panelClasico(s) {
+  const fig = s.figura || "auto";
+  const conCiclo = fig === "ciclo" || fig === "auto";
+  return [el("div", {className: "card principales"}, [
+    campo("Figura", segmentado(FIGURAS, fig, (v) => { s.figura = v; renderMotores(); guardar(); }, 2)),
+    ayuda(FIGURA_TEXTO[fig]),
+    campo("Frase", segmentado([["2","2 compases (A B)"],["4","4 compases (A B A C)"]], String(s.frase || 2), (v) => { s.frase = parseInt(v); guardar(); }, 2)),
+    deslizador(s, "remate", "Respuesta (cuánto cambia la segunda mitad)", 0, 1, 0.05, (v) => v === 0 ? "loop exacto" : v < 0.4 ? "sutil" : v < 0.75 ? porcentaje(v) : `${porcentaje(v)} · con corrida`),
+    deslizador(s, "variar", "Respuestas distintas", 0, 1, 0.05, (v) => { const n = 1 + Math.round(v * 3); return n === 1 ? "siempre la misma" : `${n} respuestas que se turnan`; }),
+    ayuda("Cada vez que vuelve la frase toca otra respuesta (el compás A queda igual) y después de unas vueltas regresa a la primera."),
+    ...(conCiclo ? [
+      campo("Largo del ciclo", segmentado([["0","Seed"],["3","3"],["5","5"],["6","6"],["7","7"]], String(s.ciclo || 0), (v) => { s.ciclo = parseInt(v); guardar(); }, 5)),
+      campo("Octavas del ciclo", segmentado([["1","1"],["2","2"],["3","3"]], String(s.registro || 2), (v) => { s.registro = parseInt(v); guardar(); }, 3)),
+    ] : []),
+    ayuda("«Vuelve a la nota larga» (en Notas) regula cuánta raíz lleva el pedal. La mutación cambia una nota y todas sus repeticiones, sin tocar la raíz."),
+  ])];
+}
+
+function nombreMidi(n) {
+  return ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"][n % 12] + (Math.floor(n / 12) - 1);
 }
 
 function h3(texto) { return el("h3", {textContent: texto}); }

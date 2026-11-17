@@ -96,7 +96,7 @@ ESTILOS_BAJO_POR_GENERO = {
 }
 
 # Estilos de secuencia que necesitan sonar también en el tiempo.
-POSICION_NECESARIA = {"largas": "todos", "ambient": "todos"}
+POSICION_NECESARIA = {"largas": "todos", "ambient": "todos", "clasico": "todos"}
 
 ORDEN = tuple(GENEROS)
 PARTES = ("pads", "dialogo", "secuencia", "bajo", "fx")

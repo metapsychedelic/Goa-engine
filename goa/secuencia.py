@@ -42,9 +42,29 @@ class Secuencia:
         self.posicion = cfg.get("posicion", "offbeat")
         self.relacion = generador.RELACIONES[cfg.get("relacion", "unisono")]
         self.octava = int(cfg.get("octava", 0))
+        self.techo = int(cfg.get("techo", 127))   # nota más alta (127 = sin techo)
+        # Deslices (opcional, 0 = apagado): notas de gracia, ligados y notas que respiran
+        # en vez de la raíz martillada. No cambia la escala.
+        self.deslices = float(cfg.get("deslices", 0.0))
+        # Raga (opcional): su escala desde la tónica y sus ornamentos (kan, meend con
+        # pitch bend, gamak, andolan) en la cantidad de «ornamentos». Ver goa/raga.py.
+        self.raga = cfg.get("raga", "")
+        self.ornamentos = float(cfg.get("ornamentos", 0.5))
+        self.bend_rango = int(cfg.get("bend_rango", 2))   # semitonos del pitch bend del sinte (0 = sin bend)
+        self.bends = []          # (tick, valor) de pitch bend programados
+        self.bend_movido = False
         self.largo = int(cfg.get("largo", 16))
         self.gate = float(cfg.get("gate", 0.55))
         self.pedal = float(cfg.get("pedal", 0.5))
+        # Goa clásico: su patrón dura la frase (2 o 4 compases), no `largo`.
+        self.clasico = {"figura": cfg.get("figura", "auto"), "frase": int(cfg.get("frase", 2)),
+                        "remate": float(cfg.get("remate", 0.5)), "ciclo": int(cfg.get("ciclo", 0)),
+                        "registro": int(cfg.get("registro", 2)),
+                        # Con raga y ornamentos desde 30 %, la respuesta cierra con su frase típica.
+                        "raga": cfg.get("raga", "") if float(cfg.get("ornamentos", 0.5)) >= 0.3 else ""}
+        # Respuestas distintas: cada vuelta de la frase toca otra respuesta (B, C) y
+        # vuelve a la primera después de 1 + round(variar * 3) vueltas. El A no cambia.
+        self.variar = float(cfg.get("variar", 0.0))
         self.seed = str(cfg.get("seed", "goa"))
         self.mutacion = float(cfg.get("mutacion", 0.0))
         self.mutar_cada = max(1, int(cfg.get("mutar_cada", 8)))
@@ -96,12 +116,39 @@ class Secuencia:
     def reiniciar(self):
         if self.posicion not in generador.POSICIONES:
             raise ValueError(f"Posición desconocida: {self.posicion!r}. Opciones: {', '.join(generador.POSICIONES)}")
-        self.patron = generador.generar(self.seed, self.estilo, self.largo, self.pedal)
+        self.patron = generador.generar(self.seed, self.estilo, self.largo, self.pedal, self.clasico)
+        if self.estilo == "clasico":
+            self.largo = len(self.patron)
         self.ritmo_base = [bool(p["suena"]) for p in self.patron]
         self.extra = generador.extras(self.seed, self.largo)
 
+    def firma(self):
+        """Lo que define el patrón de base: si cambia, el patrón se vuelve a generar."""
+        extra = tuple(sorted(self.clasico.items())) if self.estilo == "clasico" else ()
+        return (self.seed, self.estilo, self.largo, self.pedal) + extra
+
+    def vueltas_respuesta(self):
+        return 1 + round(self.variar * 3) if self.estilo == "clasico" and self.variar > 0 else 1
+
+    def _variar_respuesta(self, compas):
+        """Al empezar cada frase, el Goa clásico cambia de respuesta (si «variar» > 0)."""
+        frase = self.clasico["frase"]
+        n = self.vueltas_respuesta()
+        if n <= 1 or compas % frase:
+            return
+        vuelta = (compas // frase) % n
+        otra = generador.clasico(self.seed, pedal=self.pedal, vuelta=vuelta, **self.clasico)
+        self.patron = generador.con_respuesta(self.patron, otra, frase)
+        guardado = getattr(self, "_director_patron", None)
+        if guardado is not None:
+            clave, propio = guardado
+            self._director_patron = (clave, generador.con_respuesta(propio, otra, frase))
+
     def evolucionar(self, compas):
-        if self.bloqueada or compas <= 0 or compas % self.mutar_cada:
+        if self.bloqueada or compas <= 0:
+            return
+        self._variar_respuesta(compas)
+        if compas % self.mutar_cada:
             return
         if self.filtro and self.molde_muta > 0:
             rng = random.Random(f"{self.seed}:molde:{compas}")
@@ -122,7 +169,10 @@ class Secuencia:
             molde = self.molde_vivo
             audibles = {generador.recorrer(self.recorrido, compas * 16 + p, len(patron), self.seed)
                         for p in range(16) if molde[p] != "-"}
-        nuevo = generador.mutar(patron, self.seed, compas, self.mutacion, self.pedal, audibles)
+        if self.estilo == "clasico":
+            nuevo = generador.mutar_clasico(patron, self.seed, compas, self.mutacion, audibles)
+        else:
+            nuevo = generador.mutar(patron, self.seed, compas, self.mutacion, self.pedal, audibles)
         if self.mutacion_ritmo > 0 and len(nuevo) == len(self.ritmo_base):
             nuevo = generador.mutar_ritmo(nuevo, self.seed, compas, self.mutacion_ritmo, self.posicion, self.ritmo_base)
         return nuevo

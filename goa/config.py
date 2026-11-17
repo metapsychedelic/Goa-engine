@@ -6,7 +6,7 @@ import tomllib
 
 import json
 
-from . import armonia, bajo, dialogo, forma, fx, generador, generos, pads
+from . import armonia, bajo, dialogo, forma, fx, generador, generos, pads, raga
 from .escalas import ESCALAS, ESCALAS_COLOR, nombre_a_clase
 
 MAX_SECUENCIAS = 8
@@ -193,7 +193,8 @@ ESQUEMA_SECCIONES["texturas"] = {
     "largas": (float, 0.6, 0.0, 1.0),        # 0 = solo cortas, 1 = solo largas
     "largo": (int, 2, 1, 4),                 # largo típico de las largas, en compases (1, 2 o 4)
     "octava": (int, 0, -2, 3),
-    "registro": (int, 2, 1, 3),              # en cuántas octavas se reparten las notas
+    "registro": (int, 2, 1, 3),
+    "variar": (float, 0.0, 0.0, 1.0),       # respuestas distintas en cada vuelta de la frase (0 = siempre la misma)              # en cuántas octavas se reparten las notas
     "velocidad": (int, 90, 1, 127),
     "cc": (int, 74, 0, 127),                 # qué respira: 74 corte, 71 resonancia (MC-101)
     "reposo": (int, 40, 0, 127),             # dónde queda ese CC entre notas largas
@@ -253,9 +254,21 @@ ESQUEMA_SECUENCIA = {
     "posicion": (str, "offbeat", None, generador.POSICIONES),
     "relacion": (str, "unisono", None, tuple(generador.RELACIONES)),
     "octava": (int, 0, -3, 3),
+    "techo": (int, 127, 36, 127),
+    "deslices": (float, 0.0, 0.0, 1.0),       # notas de gracia, ligados y notas que respiran (0 = apagado)
+    "raga": (str, "", None, raga.NOMBRES),     # "" = sin raga · bhairav, bhairavi, todi, marwa, hijaz
+    "ornamentos": (float, 0.5, 0.0, 1.0),     # cuánto adorna la raga: kan, meend, gamak, andolan
+    "bend_rango": (int, 2, 0, 24),            # semitonos del pitch bend del sinte (0 = no usa pitch bend)           # nota más alta: lo que pasa baja de octava (127 = sin techo)
     "largo": (int, 16, 2, 64),
     "gate": (float, 0.55, 0.05, 1.0),
     "pedal": (float, 0.5, 0.0, 1.0),
+    # Goa clásico (solo ese estilo): figura, frase de 2 o 4 compases, cuánto cambia la
+    # respuesta, largo del ciclo (0 = lo elige la seed) y octavas que abarca el ciclo.
+    "figura": (str, "auto", None, generador.FIGURAS_CON_AUTO),
+    "frase": (int, 2, 2, 4),
+    "remate": (float, 0.5, 0.0, 1.0),
+    "ciclo": (int, 0, 0, 7),
+    "registro": (int, 2, 1, 3),
     "seed": (str, "goa", None, None),
     "mutacion": (float, 0.0, 0.0, 1.0),
     "mutar_cada": (int, 8, 1, 64),

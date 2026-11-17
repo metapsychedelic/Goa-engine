@@ -38,11 +38,11 @@ TRANSICIONES_ACIDO = {
     7: {6: 2.0, 0: 3.0, 4: 1.0},
 }
 
-ESTILOS = ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano", "largas", "ambient")
+ESTILOS = ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano", "largas", "ambient", "clasico")
 
 # Estilos que muestra cada género (el primero es el que pone al elegir el género).
 ESTILOS_POR_GENERO = {
-    "goa": ("rolling", "galope", "arpegio3", "acido"),
+    "goa": ("rolling", "galope", "arpegio3", "acido", "clasico"),
     "psy_chill": ("psy_chill", "galope", "arpegio3"),
     "chillgressive": ("rolling", "euclidiano", "acido"),
     "chillout": ("largas", "euclidiano", "arpegio3"),
@@ -149,6 +149,258 @@ def _acido(rng, largo, pedal):
             compas[i]["octava"] = compas[fuente[i]]["octava"]
             compas[i]["gate_mult"] = compas[fuente[i]]["gate_mult"]
     return [dict(compas[i % 16]) for i in range(largo)]
+
+
+# --- Goa clásico -------------------------------------------------------------------------
+# Sacado de secuencias Goa de los 90 (análisis de MIDIs de referencia, 0.53): grilla
+# de semicorcheas sin swing, la raíz manda (40-85 % de las notas) saltando entre dos
+# octavas, adornos breves que vuelven (♭2 sobre todo, ♭7, 4.ª, 5.ª), frases de 2 o 4
+# compases (A B o A B A C) donde la variación cae en la segunda mitad del último compás.
+# Tres figuras:
+#   pedal   · rodante: las 16 semicorcheas, raíz en dos octavas y adornos que se repiten.
+#   ciclo   · motivo de 3, 5, 6 o 7 notas en varias octavas que corre sobre los 16
+#             pasos (el acento se va corriendo) y vuelve a empezar con la frase.
+#   acordes · arpegio por tiempo (raíz, octava, tercera o segunda arriba) que sigue el
+#             acorde que suena (pads o armonía guiada).
+
+FIGURAS = ("pedal", "ciclo", "acordes")
+FIGURAS_CON_AUTO = ("auto",) + FIGURAS
+CICLOS = (0, 3, 5, 6, 7)  # 0 = lo elige la seed
+
+# Octavas de la raíz por tiempo (1 = arriba): las alternancias de las referencias.
+CELDAS_OCTAVA = {"1001": 3, "0101": 2, "1010": 2, "0110": 1.5, "1011": 1, "0010": 1, "1000": 1}
+# Adornos sobre la raíz: ♭2 (1), ♭7 abajo (-1), 4.ª (3), 5.ª (4), 3.ª (2).
+ADORNOS = {1: 4.0, -1: 2.5, 3: 2.0, 4: 2.0, 2: 1.0}
+# Notas del motivo del ciclo (grados desde la raíz, pueden pasar la octava).
+NOTAS_CICLO = {7: 3.0, 4: 2.5, 11: 2.0, 8: 2.0, 6: 1.5, 14: 1.5, 9: 1.0, 1: 1.0, 2: 1.0, 13: 1.0}
+CORRIDAS_ACORDE = ([7, 9, 11, 14], [11, 9, 8, 7], [14, 11, 9, 7], [7, 8, 9, 11], [9, 7, 9, 11], [11, 14, 11, 9])
+CELDAS_ACORDE = {"x.xx": 4.0, "xx.x": 1.5, "xxx.": 1.5, "x.x.": 1.0, "xxxx": 1.0}
+
+
+def figura_de(seed, figura="auto"):
+    """Qué figura toca: la elegida o, en «auto», la que elige la seed."""
+    if figura in FIGURAS:
+        return figura
+    r = random.Random(f"clasico:figura:{seed}").random()
+    return "pedal" if r < 0.4 else "ciclo" if r < 0.75 else "acordes"
+
+
+def _forma_frase(frase):
+    """Qué compás es cada uno de la frase: A, B (respuesta) o C (remate fuerte)."""
+    return ["A", "B"] if frase <= 2 else ["A", "B", "A", "C"]
+
+
+def _paso(grado, octava=0, suena=True, acento=False, fuente=None):
+    p = {"suena": suena, "grado": grado, "acento": acento, "slide": False, "octava": octava}
+    if fuente is not None:
+        p["fuente"] = fuente
+    return p
+
+
+def _corrida(rng, desde_paso, final):
+    """Corrida del remate: escalera que baja o con la raíz intercalada (como en las
+    referencias), siempre terminando cerca de la raíz para volver al uno."""
+    n = 16 - desde_paso
+    tope = rng.choice([4, 4, 6, 7]) if final else rng.choice([3, 4])
+    if rng.random() < 0.5:   # escalera: grados seguidos que bajan
+        grados = [max(0, tope - k) for k in range(n)]
+    else:                    # intercalada: nota, raíz, nota más abajo, raíz…
+        grados, g = [], tope
+        for k in range(n):
+            grados.append(g if k % 2 == 0 else 0)
+            if k % 2 == 1:
+                g = max(1, g - 1)
+    return grados
+
+
+def _clasico_pedal(rng, frase, remate, pedal, rr=None):
+    rr = rr or rng  # azar de la respuesta (otra vuelta = otra respuesta, mismo compás A)
+    celdas = [_elegir(rng, CELDAS_OCTAVA) for _ in range(4)]
+    octavas = [int(c) for celda in celdas for c in celda]
+    raiz = 0.55 + 0.35 * pedal                       # parte de raíz (pedal 0.5 → 72 %)
+    adornos = max(1, round(16 * (1 - raiz)))
+    color = [_elegir(rng, ADORNOS)]                   # uno o dos adornos que se repiten en el compás
+    if rng.random() < 0.6:
+        color.append(_elegir(rng, {k: v for k, v in ADORNOS.items() if k != color[0]}))
+    pesos_lugar = {i: (0.4 if i % 4 == 0 else 1.6 if i % 4 in (2, 3) else 1.0) for i in range(1, 16)}
+    lugares = set()
+    while len(lugares) < adornos:
+        lugares.add(_elegir(rng, {k: v for k, v in pesos_lugar.items() if k not in lugares}))
+    silencio = rng.choice([i for i in range(1, 16) if i not in lugares and i % 4]) if rng.random() < 0.5 else None
+
+    def compas(lugares_adorno, colores, octs):
+        c = []
+        for i in range(16):
+            if i == silencio:
+                c.append(_paso(0, suena=False, fuente=i))
+            elif i in lugares_adorno:
+                c.append(_paso(lugares_adorno[i], 0, fuente=i))
+            else:
+                c.append(_paso(0, octs[i], acento=(i == 0), fuente=i))
+        return c
+
+    base = {i: color[k % len(color)] for k, i in enumerate(sorted(lugares))}
+    a = compas(base, color, octavas)
+    resultado = []
+    for tipo in _forma_frase(frase):
+        if tipo == "A" or remate <= 0:
+            resultado += [dict(p) for p in a]
+            continue
+        # Respuesta: la primera mitad igual (a veces con otro color), la segunda mitad nueva.
+        nuevo = dict(base)
+        otros = [g for g in ADORNOS if g not in color] or list(ADORNOS)
+        if rr.random() < remate * 0.6:
+            g = rr.choice(otros)
+            for i in [i for i in nuevo if i < 8][:2]:
+                nuevo[i] = g
+        mitad = {i: g for i, g in nuevo.items() if i < 8}
+        extra = round(adornos * (0.5 + remate)) + (1 if tipo == "C" else 0)
+        sube = rr.random() < 0.35
+        libres = [i for i in range(8, 16) if i != silencio]
+        elegidos = sorted(rr.sample(libres, min(len(libres), max(1, extra))))
+        for k, i in enumerate(elegidos):
+            mitad[i] = (1 + k) if sube else _elegir(rr, {g: ADORNOS[g] for g in otros + color})
+        c = compas(mitad, color, octavas)
+        if (tipo == "C" or remate >= 0.75) and rr.random() < 0.4 + 0.6 * remate:
+            desde = 12 if remate < 0.9 else 10
+            for k, g in enumerate(_corrida(rr, desde, tipo == "C")):
+                c[desde + k] = _paso(g, 0 if g else 1, fuente=desde + k)
+        for p in c[8:]:
+            p.pop("fuente", None)  # la respuesta tiene sus propios matices
+        resultado += c
+    return resultado
+
+
+def _clasico_ciclo(rng, frase, remate, ciclo, registro, rr=None):
+    rr = rr or rng
+    largo_ciclo = ciclo if ciclo in CICLOS[1:] else rng.choice([3, 3, 5, 6, 6, 7])
+    tope = 7 * max(1, registro)
+    if largo_ciclo == 3 and rng.random() < 0.4:
+        motivo = [0, 7, 14 if tope >= 14 else 4]       # octavas puras (G#3 G#4 G#5)
+    else:
+        motivo = [0]
+        posibles = {g: p for g, p in NOTAS_CICLO.items() if g <= tope}
+        while len(motivo) < largo_ciclo:
+            g = _elegir(rng, {k: v for k, v in posibles.items() if k != motivo[-1]})
+            motivo.append(g)
+    # Variantes de la respuesta: una nota sube medio paso de escala (♭2) y, en la
+    # segunda mitad, las notas altas bajan a su vecina (como la ♭7 de las referencias).
+    i_sube = rr.randrange(1, largo_ciclo)
+    resultado = []
+    for b, tipo in enumerate(_forma_frase(frase)):
+        for i in range(16):
+            k = (b * 16 + i) % largo_ciclo
+            g = motivo[k]
+            if tipo != "A" and remate > 0:
+                fuerza = remate * (1.3 if tipo == "C" else 1.0)
+                if i < 8 and k == i_sube and fuerza >= 0.25 and g + 1 <= tope:
+                    g += 1
+                elif i >= 8 and g > 0 and rr.random() < fuerza:
+                    g -= 1
+            resultado.append(_paso(g, acento=(k == 0), fuente=k))
+    return resultado
+
+
+def _clasico_acordes(rng, frase, remate, rr=None):
+    otra = rr is not None
+    rr = rr or rng
+    celda = _elegir(rng, CELDAS_ACORDE)
+    sonantes = [i for i, ch in enumerate(celda) if ch == "x"]
+    # Arriba alterna tercera y segunda sobre la octava (A3 C4 / A3 B3), o tercera y quinta.
+    altos = rng.choice([(9, 8), (9, 8), (9, 11), (8, 9)])
+    baja = rng.random() < 0.25          # algunos arpegios bajan en vez de subir
+    resultado = []
+    for b, tipo in enumerate(_forma_frase(frase)):
+        for t in range(4):
+            notas = [0, altos[t % 2]] if len(sonantes) == 2 else [0, 7, altos[t % 2], 11][:len(sonantes)]
+            if baja:
+                notas = [notas[0]] + sorted(notas[1:], reverse=True)
+            ultimo = t == 3 and tipo != "A" and rr.random() < min(1.0, remate * 1.6)
+            if ultimo:
+                corrida = rr.choice(CORRIDAS_ACORDE) if otra else ([11, 9, 8, 7] if tipo == "C" else [7, 9, 11, 14])
+            for i in range(4):
+                paso = t * 4 + i
+                if ultimo:   # remate: el último tiempo corre hacia arriba o abajo
+                    g = corrida[i]
+                    resultado.append(_paso(g))
+                elif i in sonantes:
+                    g = notas[sonantes.index(i)]
+                    resultado.append(_paso(g, acento=(i == 0 and t == 0), fuente=paso))
+                else:
+                    resultado.append(_paso(0, suena=False, fuente=paso))
+    return resultado
+
+
+def clasico(seed, figura="auto", frase=2, remate=0.5, ciclo=0, registro=2, pedal=0.5, vuelta=0, raga=""):
+    """Patrón «Goa clásico» de `frase` compases (16 pasos cada uno).
+
+    `vuelta` > 0 da otra respuesta para la misma frase: el compás A y la figura
+    quedan iguales, cambian los compases B y C (ver `con_respuesta`).
+    `raga`: la respuesta cierra con la frase típica (pakad) de esa raga."""
+    frase = 4 if frase >= 4 else 2
+    rng = random.Random(f"clasico:{seed}")
+    rr = random.Random(f"clasico:{seed}:respuesta:{vuelta}") if vuelta else None
+    figura = figura_de(seed, figura)
+    if figura == "ciclo":
+        patron = _clasico_ciclo(rng, frase, remate, ciclo, registro, rr)
+    elif figura == "acordes":
+        patron = _clasico_acordes(rng, frase, remate, rr)
+    else:
+        patron = _clasico_pedal(rng, frase, remate, pedal, rr)
+    if raga and remate > 0:
+        _cerrar_con_pakad(patron, frase, raga)
+    return patron
+
+
+def _cerrar_con_pakad(patron, frase, raga):
+    """El último compás de la frase termina con la frase típica de la raga (G m r S
+    en Bhairav…), cayendo en la raíz justo antes de volver al uno. Va una octava
+    sobre la raíz, como un canto sobre el pedal."""
+    from . import raga as ragas
+    grados = ragas.pakad_en_grados(raga)
+    inicio = frase * 16 - len(grados)
+    for k, g in enumerate(grados):
+        patron[inicio + k] = _paso(g + 7)
+
+
+def con_respuesta(patron, otra, frase):
+    """El patrón que suena con los compases de respuesta (B, C) de `otra`; los A
+    quedan como estaban (con lo que hayan mutado)."""
+    frase = 4 if frase >= 4 else 2
+    if len(patron) != len(otra) or len(patron) != frase * 16:
+        return patron
+    nuevo = [dict(p) for p in patron]
+    for b, tipo in enumerate(_forma_frase(frase)):
+        if tipo != "A":
+            nuevo[b * 16:(b + 1) * 16] = [dict(p) for p in otra[b * 16:(b + 1) * 16]]
+    return nuevo
+
+
+def mutar_clasico(patron, seed, compas, probabilidad, audibles=None):
+    """Mutación del Goa clásico: cambia una nota del vocabulario de la figura (o su
+    vecina de escala) y el cambio se aplica a todas sus repeticiones (mismo «fuente»),
+    así el ciclo sigue siendo ciclo y la frase sigue siendo A B. La raíz no cambia."""
+    if probabilidad <= 0 or not patron:
+        return patron
+    rng = random.Random(f"mutacion:clasico:{seed}:{compas}")
+    nuevo = [dict(p) for p in patron]
+    vocabulario = sorted({p["grado"] for p in nuevo if p["suena"]})
+    veces = 1 + (1 if rng.random() < probabilidad else 0) + (1 if rng.random() < probabilidad - 0.5 else 0)
+    for _ in range(veces):
+        # La raíz no muta: es el pedal que sostiene la figura.
+        candidatos = [i for i, p in enumerate(nuevo)
+                      if p["suena"] and p["grado"] != 0 and i % 16 and (not audibles or i in audibles)]
+        if not candidatos:
+            break
+        i = rng.choice(candidatos)
+        actual = nuevo[i]["grado"]
+        opciones = [g for g in vocabulario + [actual + 1, actual - 1] if g != actual and g >= -1]
+        g = rng.choice(opciones or [0])
+        clave = nuevo[i].get("fuente")
+        for j, p in enumerate(nuevo):
+            if j == i or (clave is not None and p.get("fuente") == clave and p["grado"] == actual and j % 16):
+                p["grado"] = g
+    return nuevo
 
 
 def _ritmo(estilo, largo, rng):
@@ -280,12 +532,15 @@ def _orden_azar(seed, vuelta, largo):
     return tuple(orden)
 
 
-def generar(seed, estilo="rolling", largo=16, pedal=0.5):
+def generar(seed, estilo="rolling", largo=16, pedal=0.5, clasico_opciones=None):
     """Devuelve una lista de pasos: dict(suena, grado, acento).
 
     La posición rítmica (onbeat, offbeat...) no se aplica aquí sino al tocar,
     con el paso global, para que un patrón de 13 pasos siga en la grilla.
+    «clasico» ignora `largo`: dura su frase (32 o 64 pasos).
     """
+    if estilo == "clasico":
+        return clasico(seed, pedal=pedal, **(clasico_opciones or {}))
     rng = random.Random(f"patron:{seed}")
     if estilo == "acido":
         return _acido(rng, largo, pedal)

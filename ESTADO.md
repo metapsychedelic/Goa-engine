@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.52.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.53.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -21,11 +21,12 @@ Canción, Ajustes).
 - `goa/plantillas.py` (templates de canción de la app)
 - `herramientas/circuit_cancion.py` (genera los .ncs de la Circuit; `todas carpeta/`)
 - Pruebas: `python3 -m pruebas.<nombre>` (cancion, director, dialogo, en_vivo,
-  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular).
+  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
 
+- **0.53.0 · Estilo «Goa clásico»:** salió del análisis de 7 MIDIs de referencia (PT_01/02/05/43/45): grilla de semicorcheas, la raíz manda, ♭2 como firma y frases A B / A B A C con la variación en la segunda mitad del último compás. `generador.clasico` con figuras pedal / ciclo / acordes (+ auto por seed) y campos `figura`, `frase` (2/4), `remate`, `ciclo` (0 = seed, 3/5/6/7), `registro` (1-3). El patrón dura la frase (Secuencia.largo = 32/64); `Secuencia.firma()` reemplaza la tupla (seed, estilo, largo, pedal) en motor y director. Mutación propia (`mutar_clasico`): cambia una nota y todas sus repeticiones, nunca la raíz. `variar` (0-1): cada vuelta de la frase toca otra respuesta (B/C desde `clasico(..., vuelta=k)` + `con_respuesta`; el A no cambia) y regresa a la primera tras 1 + round(variar·3) vueltas; se aplica en Secuencia.evolucionar al inicio de cada frase (también sobre el patrón guardado del director). Director: con este estilo la «hermana» usa mutar_clasico y el «recuerdo» no usa espejo (se corre un compás). Todas las secuencias tienen `deslices` (0-1, opcional; 0 = idéntico a antes): respiraciones (la raíz débil no se ataca y la anterior se sostiene, Motor._respira), notas llenas que terminan justo al entrar la siguiente y aproximaciones por grado al adorno que viene; sin cambiar la escala. Y `raga` (goa/raga.py: bhairav, bhairavi, todi, marwa, hijaz) con `ornamentos` y `bend_rango`: la escala de la raga desde la tónica (Tonalidad «raga:x», manda sobre la escala de color). **Todo en la rejilla de semicorcheas** (la 1.ª versión partía pasos en fusas: sonaba a redoble, corría la nota del tiempo y los ligados se pisaban; medido y corregido): Motor._en_rejilla cambia la nota de los pasos de nota fija (Sa o Pa, nunca el uno del compás) que rodean a la nota adornada: kan = el paso anterior lleva la gracia de la raga; gamak = los dos pasos después de una nota que tiembla hacen el trino (vecina, nota). Motor._ornamento_raga deja solo lo de pitch bend, que no agrega notas: meend (si cabe en bend_rango) y andolan (¼ de tono en notas sostenidas que tiemblan). Los bends van en Secuencia.bends y vuelven al centro al callar o sacar la raga. Prueba: notas fuera de rejilla / de ≤2 pulsos / pisadas = 0 con todo al máximo. Con ornamentos ≥ 30 %, el Goa clásico cierra la frase con el pakad de la raga (generador._cerrar_con_pakad). Y `techo` (nota más alta, 127 = sin techo): lo que pasa baja de octava en Motor._tocar_paso, después de la armonía y del director. App: tarjeta «Goa clásico» en la secuencia; al elegirlo pone posición «todas». Prueba: pruebas/clasico.py. Escuchar: `python3 -m pruebas.escuchar_clasico carpeta/` (8 ejemplos a 145 BPM con bajo del motor, MP3).
 - **0.52.0 · Texturas con ritmo y registro:** cortas sobre FIGURAS rítmicas (una cada 4 compases, motivo de 2 compases repetido, seeds tx:figura/tx:motivo); notas desde PISO C3 + octava (antes salían de la raíz del disparo +1/+2 octavas: muy agudas), repartidas en `registro` 1–3 octavas (largas prefieren abajo).
 - **0.51.1 · Remates offbeat clásicos otra vez:** vuelven {13:7,14:4,15:0}/{14:7,15:6}; en offbeat, las notas del remate junto al bombo (l%4 1 o 3) con grado <3 suben una octava y van sin acento (sonaban a segundo bombo).
 - **0.51.0 · Motor Texturas:** goa/texturas.py + sección [texturas] (config, motor, motor_forma._paso_texturas, forma: escenas/energía/transiciones, app: panel y botón). Largas de 1/2/4 compases con CC que respira (seno^1.5), notas comunes con el acorde siguiente, cortas fuera del bombo. Prueba: pruebas/texturas.py.
@@ -115,6 +116,7 @@ Canción, Ajustes).
   Otra frase / Volver / Fijar por voz; la respuesta contesta con lo suyo, eco, espejo o cerrando.
 
 ## Pendiente / a revisar
+- Goa clásico (0.53.0) por afinar después de probarlo en el hardware: rango de pitch bend real de la FM-1 con Shrub (bend_rango, 2 por defecto); si se extrañan los ligados con glide (ahora no se pisan), opción que solo los pise con el sinte en legato; más vocabulario para que las seeds se distancien más (celdas de octava del pedal, celdas de acordes, arpegios que suben y bajan). Seeds de referencia que suenan distintas: pedal S-017 S-025 S-040 S-100 · ciclo S-006 S-059 S-001 S-028 · acordes S-007 S-003 S-079 S-012.
 - Numeración de proyectos: la herramienta usa slot 0–63 y la Circuit muestra 1–64.
   El envío a "slot 40" cayó en el proyecto 41 (T5–T9 quedaron en 41–45; el 45 fue
   sobrescrito). Hay que cargar los archivos corregidos `p40_goa_epico.ncs` …

@@ -46,7 +46,8 @@ def nombre_midi(nota):
 
 class Tonalidad:
     def __init__(self, tonica, escala):
-        todas = ESCALAS | ESCALAS_COLOR
+        from . import raga  # «raga:bhairav»: la escala de una raga (goa/raga.py)
+        todas = ESCALAS | ESCALAS_COLOR | {f"raga:{k}": v["escala"] for k, v in raga.RAGAS.items()}
         if escala not in todas:
             raise ValueError(f"Escala desconocida: {escala!r}. Opciones: {', '.join(todas)}")
         self.tonica = nombre_a_clase(tonica)

@@ -11,7 +11,7 @@ import random
 import time
 from collections import deque
 
-from . import armonia, forma, fx, generador
+from . import armonia, forma, fx, generador, raga
 from .azar import azar as azar_fijo
 from .bajo import Bajo
 from .dialogo import Dialogo
@@ -98,8 +98,9 @@ class Motor(FormaMotor):
         tonalidad = Tonalidad(musica.get("tonica", "F"), musica.get("escala", "frigio"))
         secuencias = [Secuencia(c) for c in config.get("secuencia", [])]
         for s in secuencias:
-            if s.escala_color:
-                s.tonalidad = Tonalidad(musica.get("tonica", "F"), s.escala_color)
+            color = f"raga:{s.raga}" if s.raga else s.escala_color  # la raga manda sobre la escala de color
+            if color:
+                s.tonalidad = Tonalidad(musica.get("tonica", "F"), color)
         desplazamiento = musica.get("desplazamiento", 0.0)
         anterior = self.config_aplicada or {}
         mismo = lambda *secciones: all(anterior.get(k) == config.get(k) for k in secciones)  # noqa: E731
@@ -159,9 +160,12 @@ class Motor(FormaMotor):
                 if (vieja.salida, vieja.canal) == (s.salida, s.canal):
                     # Las notas que suenan terminan solas, sin cortarse.
                     s.sonando, s.pendientes, s.slide_previo = vieja.sonando, vieja.pendientes, vieja.slide_previo
+                    s.bends, s.bend_movido = vieja.bends, vieja.bend_movido
+                    if not s.raga:
+                        self._soltar_bend(s)  # sacaron la raga: el pitch bend vuelve al centro
                 else:
                     self._callar(vieja)
-                if (vieja.seed, vieja.estilo, vieja.largo, vieja.pedal) == (s.seed, s.estilo, s.largo, s.pedal):
+                if vieja.firma() == s.firma():
                     # Mismo patrón de base: conserva lo que ya mutó. Antes, mover cualquier
                     # control de la app devolvía la secuencia a su patrón original.
                     s.patron = vieja.patron
@@ -586,6 +590,8 @@ class Motor(FormaMotor):
                     or not p["suena"] or x["densidad"] >= s.densidad):
                 s.slide_previo = False
                 continue
+            if self._respira(s, paso, i):
+                continue  # deslices: la nota anterior se sostiene sobre esta raíz
             guiada = self._modo_armonia(s.armonia) == "guiada"
             momento = self._momento(paso, raiz) if guiada else None
             if momento is not None and momento.siguiente is not None:
@@ -594,6 +600,11 @@ class Motor(FormaMotor):
             elif not guiada and self.seguir_pads and self.pads.activo and self.pads.raiz_acorde is not None:
                 # Toma como base la raíz del acorde que suena, cerca de su nota larga.
                 raiz = _cerca(self.pads.raiz_acorde % 12, raiz)
+            ornado = self._en_rejilla(s, paso, p)
+            if ornado is not None:
+                # Ornamento en la rejilla: este paso de pedal toma la nota del adorno (kan,
+                # trino del gamak o aproximación de los deslices). Mismo ritmo, nunca fusas.
+                p = dict(p, grado=ornado[0], octava=ornado[1])
             octava = s.octava + p.get("octava", 0) + (x["direccion"] if x["salto"] < s.saltos else 0)
             tonalidad = s.tonalidad or self.tonalidad
             nota = tonalidad.nota(raiz, p["grado"] + s.relacion, self.adaptacion) + 12 * octava
@@ -606,6 +617,8 @@ class Motor(FormaMotor):
             if s.semitono and not fuerte and azar_fijo(f"{s.seed}:semitono:{i}") < s.semitono:
                 # El ♭2: medio tono sobre la raíz que suena, en los pasos débiles (el fuerte queda firme).
                 nota = _cerca((raiz + 1) % 12, nota)
+            while nota > s.techo and nota - 12 >= 0:
+                nota -= 12  # techo: lo que pasa de la nota más alta baja de octava (misma nota, más grave)
             nota = max(0, min(127, nota))
             if "pref_acento" in p:
                 # Ácido 303: la cantidad de acentos y slides la regula el usuario;
@@ -632,7 +645,22 @@ class Motor(FormaMotor):
                     silencios += 1
                 if silencios:
                     duracion = (silencios + 1) * TICKS_POR_PASO - 1
+            ornamento = None
+            if s.raga and s.ornamentos > 0 and not slide:
+                ornamento = self._ornamento_raga(s, nota, i, duracion)
+            if ornamento is None and s.deslices > 0 and not slide:
+                # Deslices (opcional): notas que respiran y notas llenas que se tocan con la
+                # siguiente sin pisarla. Cada paso tiene su número fijo: se suman de a poco.
+                siguiente = generador.recorrer(s.recorrido, paso + 1, s.largo, s.seed)
+                if self._respira(s, paso + 1, siguiente):
+                    duracion = 2 * TICKS_POR_PASO       # se sostiene sobre la raíz que sigue
+                elif azar_fijo(f"{s.seed}:liga:{i}") < s.deslices * 0.3:
+                    duracion = TICKS_POR_PASO           # llena, termina justo cuando entra la siguiente
             inicio = self.tick + (round(s.swing * TICKS_POR_PASO) if paso % 2 == 1 else 0)
+            if ornamento is not None and not (s.slide_previo and nota in s.sonando):
+                self._tocar_ornamento(s, ornamento, inicio, nota, velocidad, duracion)
+                s.slide_previo = False
+                continue
             if s.slide_previo and nota in s.sonando:
                 # Tie: misma nota después de un slide, se prolonga sin volver a tocarla.
                 s.sonando[nota] = max(s.sonando[nota], inicio + duracion)
@@ -644,6 +672,89 @@ class Motor(FormaMotor):
             else:
                 self._programar(s, inicio, nota, velocidad, duracion)
             s.slide_previo = slide
+
+    def _ornamento_raga(self, s, nota, i, duracion):
+        """Ornamentos de pitch bend de la raga sobre la nota del paso (no agregan notas,
+        así nada sale de la rejilla): meend si la raga desliza hacia esta nota y el
+        bend alcanza; andolan si es una nota que tiembla y se sostiene."""
+        if not s.bend_rango:
+            return None
+        tonica = (s.tonalidad or self.tonalidad).tonica
+        d = raga.meend(s.raga, nota, tonica)
+        if d and abs(d) <= s.bend_rango and duracion >= 3 and azar_fijo(f"{s.seed}:meend:{i}") < s.ornamentos * 0.45:
+            return ("meend", d)
+        if (raga.oscila(s.raga, nota, tonica) and duracion >= 2 * TICKS_POR_PASO - 1
+                and azar_fijo(f"{s.seed}:andolan:{i}") < s.ornamentos):
+            return ("andolan", None)
+        return None
+
+    def _tocar_ornamento(self, s, ornamento, inicio, nota, velocidad, duracion):
+        tipo, dato = ornamento
+        if tipo == "meend":      # parte desde la otra nota con el pitch bend y llega deslizándose
+            pasos = max(2, min(duracion - 1, 5))
+            self._bend(s, inicio, raga.bend(dato, s.bend_rango))
+            for k in range(1, pasos + 1):
+                self._bend(s, inicio + k, raga.bend(dato * (1 - k / pasos) ** 1.5, s.bend_rango))
+        elif tipo == "andolan":  # vaivén lento y poco profundo (un cuarto de tono)
+            for k in range(2, duracion, 2):
+                self._bend(s, inicio + k, raga.bend(0.25 * (1 if (k // 2) % 2 else -1) * min(1, k / 6), s.bend_rango))
+            self._bend(s, inicio + duracion, 0)
+        self._programar(s, inicio, nota, velocidad, duracion)
+
+    def _en_rejilla(self, s, paso, p):
+        """Ornamento en la rejilla de semicorcheas: si este paso es una nota fija (Sa o
+        Pa, nunca el uno del compás) y al lado hay una nota que la raga adorna, este paso
+        toma la nota del adorno. Devuelve (grado, octava) o None.
+        - kan: el paso antes de la nota adornada toma su nota de gracia (r con gracia de G).
+        - gamak: los dos pasos después de una nota que tiembla hacen el trino (vecina, nota).
+        - deslices sin raga: el paso antes de un adorno se le acerca por grado (aproximación)."""
+        fija = lambda q: q["suena"] and q["grado"] % 7 in (0, 4)  # noqa: E731  (Sa o Pa: notas fijas)
+        if (not fija(p) or paso % PASOS_POR_COMPAS == 0
+                or not (s.raga and s.ornamentos > 0 or s.deslices > 0)):
+            return None
+        vecino = lambda k: s.patron[generador.recorrer(s.recorrido, paso + k, s.largo, s.seed)]  # noqa: E731
+        sig, ant, ant2 = vecino(1), vecino(-1), vecino(-2)
+        j = generador.recorrer(s.recorrido, paso, s.largo, s.seed)
+        if s.raga and s.ornamentos > 0:
+            r = raga.RAGAS[s.raga]
+            esc = r["escala"]
+            adornada = lambda q: q["suena"] and not fija(q) and esc[q["grado"] % 7] in r["oscila"]  # noqa: E731
+            if adornada(ant):
+                if azar_fijo(f"{s.seed}:gamak:{j}") < s.ornamentos * 0.6:
+                    return (ant["grado"] + 1, ant.get("octava", 0))      # trino: la vecina de arriba
+            if (adornada(ant2) and fija(ant)
+                    and azar_fijo(f"{s.seed}:gamak:{j - 1}") < s.ornamentos * 0.6
+                    and azar_fijo(f"{s.seed}:gamak2:{j}") < s.ornamentos * 0.5):
+                return (ant2["grado"], ant2.get("octava", 0))            # …y vuelve a la nota
+            if sig["suena"] and not fija(sig):
+                clase = esc[sig["grado"] % 7]
+                if clase in r["kan"] and azar_fijo(f"{s.seed}:kan:{j}") < s.ornamentos * 0.7:
+                    fuente = esc.index(r["kan"][clase]) if r["kan"][clase] in esc else None
+                    if fuente is not None:
+                        d = (fuente - sig["grado"] % 7 + 3) % 7 - 3      # el camino corto en la escala
+                        return (sig["grado"] + d, sig.get("octava", 0))
+        if s.deslices > 0 and sig["suena"] and not fija(sig) and azar_fijo(f"{s.seed}:aprox:{j}") < s.deslices * 0.4:
+            arriba = azar_fijo(f"{s.seed}:aprox_dir:{j}") < 0.6
+            return (sig["grado"] + (1 if arriba else -1), sig.get("octava", 0))
+        return None
+
+    def _bend(self, s, tick, valor):
+        if tick <= self.tick:
+            self.enviar(s.salida, "pitchwheel", s.canal, valor, 0)
+            s.bend_movido = valor != 0
+        else:
+            s.bends.append((tick, valor))
+
+    @staticmethod
+    def _respira(s, paso, i):
+        """Deslices: esta raíz (en un paso débil) no se ataca; la nota anterior se
+        sostiene sobre ella. Menos ametralladora, más canto."""
+        if s.deslices <= 0 or paso % PASOS_POR_COMPAS == 0 or generador.es_fuerte(s.posicion, paso):
+            return False
+        p = s.patron[i]
+        anterior = s.patron[generador.recorrer(s.recorrido, paso - 1, s.largo, s.seed)]
+        return (p["suena"] and p["grado"] == 0 and anterior["suena"]
+                and azar_fijo(f"{s.seed}:respira:{i}") < s.deslices * 0.35)
 
     @staticmethod
     def _ultima_antes_del_cambio(s, paso, falta):
@@ -674,6 +785,14 @@ class Motor(FormaMotor):
             self.enviar(s.salida, "note_off", s.canal, nota, 0)
         s.sonando.clear()
         s.pendientes = []
+        self._soltar_bend(s)
+
+    def _soltar_bend(self, s):
+        """El pitch bend vuelve al centro (si una raga lo había movido)."""
+        s.bends = []
+        if s.bend_movido:
+            self.enviar(s.salida, "pitchwheel", s.canal, 0, 0)
+            s.bend_movido = False
 
     def _apagar_vencidas(self):
         for s in self.secuencias:
@@ -681,6 +800,11 @@ class Motor(FormaMotor):
                 if fin <= self.tick:
                     self.enviar(s.salida, "note_off", s.canal, nota, 0)
                     del s.sonando[nota]
+            if s.bends:
+                for _, valor in sorted(b for b in s.bends if b[0] <= self.tick):
+                    self.enviar(s.salida, "pitchwheel", s.canal, valor, 0)
+                    s.bend_movido = valor != 0
+                s.bends = [b for b in s.bends if b[0] > self.tick]
             if s.pendientes:
                 listas = [p for p in s.pendientes if p[0] <= self.tick]
                 s.pendientes = [p for p in s.pendientes if p[0] > self.tick]
@@ -694,6 +818,7 @@ class Motor(FormaMotor):
             s.sonando.clear()
             s.pendientes = []
             s.slide_previo = False
+            self._soltar_bend(s)
         if pads and self.pads is not None:
             self.pads.apagar(self.enviar)
         if self.dialogo is not None:
@@ -704,3 +829,10 @@ class Motor(FormaMotor):
             self.fx.apagar(self.enviar)
         if self.texturas is not None:
             self.texturas.apagar(self.enviar)
+
+
+def _vecina(tonalidad, nota, arriba=True):
+    """La nota de la escala justo arriba (o abajo) de `nota`, para un mordente."""
+    if arriba:
+        return next((n for n in tonalidad.notas if n > nota), None)
+    return next((n for n in reversed(tonalidad.notas) if n < nota), None)

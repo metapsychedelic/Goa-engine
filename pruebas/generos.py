@@ -81,7 +81,8 @@ if __name__ == "__main__":
         for estilo in estilos:
             for largo in (16, 13, 7):
                 patron = generador.generar("prueba", estilo, largo, 0.5)
-                assert len(patron) == largo and any(p["suena"] for p in patron), (estilo, largo)
+                esperado = 32 if estilo == "clasico" else largo  # el clásico dura su frase
+                assert len(patron) == esperado and any(p["suena"] for p in patron), (estilo, largo)
     psy = generador.generar("x", "psy_chill", 16)
     todo &= ok([i for i, p in enumerate(psy) if p["suena"]] == [2, 3, 6, 7, 10, 11, 14, 15],
                "psy chill: bombo, silencio, bajo, bajo")

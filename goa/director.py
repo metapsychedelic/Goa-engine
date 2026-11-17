@@ -33,14 +33,16 @@ TRANSFORMACIONES = ("corrido", "tercera", "espejo")
 def firma(s):
     """Lo que define el patrón de base de una secuencia: si cambia (otro clip, estilo,
     seed o largo), un cambio pensado para el patrón anterior ya no le corresponde."""
-    return (s.seed, s.estilo, s.largo, s.pedal)
+    return s.firma()
 
 
-def transformar(patron, como):
-    """Un motivo que vuelve, cambiado: corrido en el tiempo, una tercera arriba o en espejo."""
+def transformar(patron, como, giro=None):
+    """Un motivo que vuelve, cambiado: corrido en el tiempo, una tercera arriba o en espejo.
+    `giro`: cuántos pasos se corre (por defecto un cuarto del patrón; el Goa clásico
+    se corre un compás entero, así la frase empieza por la respuesta)."""
     nuevo = [dict(p) for p in patron]
     if como == "corrido":
-        giro = max(1, len(nuevo) // 4)
+        giro = giro or max(1, len(nuevo) // 4)
         nuevo = nuevo[-giro:] + nuevo[:-giro]
         for i, p in enumerate(nuevo):
             p.pop("fuente", None)  # los matices (densidad, acentos) siguen al lugar, no a la nota
@@ -185,11 +187,17 @@ class Director:
             extra = None
             if tipo == "hermana":
                 s = motor.secuencias[objetivo]
-                extra = (firma(s), generador.mutar(s.patron, f"{s.seed}~hermana", compas, 0.2, s.pedal))
+                if s.estilo == "clasico":  # sin tocar la raíz y con todas las repeticiones iguales
+                    hermana = generador.mutar_clasico(s.patron, f"{s.seed}~hermana", compas, 0.6)
+                else:
+                    hermana = generador.mutar(s.patron, f"{s.seed}~hermana", compas, 0.2, s.pedal)
+                extra = (firma(s), hermana)
             elif tipo == "recuerdo":
                 s = motor.secuencias[objetivo]
                 viejos = [p for p in list(self.memoria[objetivo])[:-1] if len(p) == len(s.patron) and p != s.patron]
-                extra = (firma(s), transformar(viejos[0], rng.choice(TRANSFORMACIONES)))
+                # En el Goa clásico el espejo lleva el ciclo dos octavas abajo: solo corrido o tercera.
+                formas = TRANSFORMACIONES[:2] if s.estilo == "clasico" else TRANSFORMACIONES
+                extra = (firma(s), transformar(viejos[0], rng.choice(formas), 16 if s.estilo == "clasico" else None))
             elif tipo == "protagonista":
                 objetivo = rng.choice(candidatos)
             efectos.append((tipo, objetivo, extra))

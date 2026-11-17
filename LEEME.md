@@ -444,9 +444,34 @@ En cada secuencia y en el bajo, el género solo cambia el estilo (y muestra los
 suyos): tu swing, largo y demás ajustes se quedan como los dejaste. El
 *Género para todo* (en Armonía) sí pone el perfil completo. En cada secuencia, el
 género filtra sus estilos: Goa (rolling, galope, arpegio
-de 3, ácido), psy chill (bombo, silencio, bajo, bajo), chillgressive (rolling,
+de 3, ácido, Goa clásico), psy chill (bombo, silencio, bajo, bajo), chillgressive (rolling,
 euclidiano 7 de 16), chillout (notas largas en 3 de 16, casi solo raíz y quinta)
 y ambient (notas muy largas en un patrón de 13 pasos que se desfasa).
+
+**Goa clásico** (estilo de secuencia, sacado de secuencias Goa de los 90): frases de
+2 compases (A B) o 4 (A B A C) en las que la respuesta cambia la segunda mitad del
+último compás. Tiene tres figuras, o *Auto* para que la elija la seed:
+*Pedal* (las 16 semicorcheas con la raíz en dos octavas y adornos ♭2, ♭7, 4.ª, 5.ª),
+*Ciclo* (un motivo de 3, 5, 6 o 7 notas en 1-3 octavas que corre sobre el compás y
+vuelve a empezar con la frase) y *Acordes* (arpegio por tiempo que sigue el acorde
+de los pads). *Respuestas distintas* hace que cada vuelta de la frase toque otra
+respuesta (el compás A queda igual) y después de unas vueltas regrese a la primera.
+La mutación cambia una nota y todas sus repeticiones, nunca la raíz.
+Para escucharlo sin hardware: `python3 -m pruebas.escuchar_clasico carpeta/`.
+
+En Notas, cualquier secuencia tiene además: **Deslices de notas** (opcional; en 0
+no cambia nada): notas de gracia, ligados y notas que respiran en vez de la raíz
+martillada y aproximaciones al adorno que viene, sin cambiar la escala. **Raga**: Bhairav, Bhairavi, Todi, Marwa o Hijaz
+(el freygish del Goa israelí) ponen su escala desde la tónica y, según
+**Ornamentos**, sus adornos, siempre en la rejilla de semicorcheas (nada de fusas ni
+notas pisadas: toman los pasos de Sa o Pa que rodean a la nota adornada): kan (el
+paso anterior lleva la gracia que manda la raga), gamak (trino nota-vecina-nota en
+semicorcheas tras las notas que tiemblan),
+meend (la nota llega deslizándose con pitch bend; pon el **rango de pitch bend** de tu
+sinte, 0 = sin bend) y andolan
+(vaivén de un cuarto de tono en esas notas cuando se sostienen). Sa y Pa nunca se
+adornan. Desde 30 %, el Goa clásico cierra la frase con la frase típica de la raga.
+**Techo** fija la nota más alta: lo que pasa suena una octava abajo.
 
 - **Goa:** frigio, i–♭II, diálogo en corcheas pegado al beat.
 - **Psy chill:** dórica, i–IV–i–♭VII con un pulso euclidiano suave en los pads.
