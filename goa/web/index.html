@@ -308,6 +308,8 @@ const PROGRESIONES = [
   ["i_bII_bIII_bII","i – ♭II – ♭III – ♭II · la subida clásica del Goa · frigio"],
   ["i_bIII_bII_i","i – ♭III – ♭II – i · baja al ♭II y cierra · frigio"],
   ["i_bVI_bII","i – ♭VI – ♭II · oscura y amplia · frigio"],
+  ["i_iv_bVI_bIII","i – iv – ♭VI – ♭III · el del drop psy · menor"],
+  ["i_v_bVI_iv","i – v – ♭VI – iv · con menor armónica, V mayor"],
   ["i_bII_bVII_i","i – ♭II – ♭VII – i · sube al ♭II y baja por el ♭VII · frigio"],
   ["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks · frigio"],
   ["i_bVII_bVI_bVII","i – ♭VII – ♭VI – ♭VII · va y vuelve, hipnótica · frigio, menor"],
@@ -337,8 +339,9 @@ const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","M
 const ESCALA_CIRCUIT = {frigio: ["Phrygian", 0], menor_armonica: ["Harmonic Minor", 0], frigio_dominante: ["Harmonic Minor", 5],
   menor: ["Natural Minor", 0], hungara_menor: ["Hungarian Minor", 0], dorico: ["Dorian", 0], lidio: ["Major", 7], doble_armonica: ["Hungarian Minor", 5]};
 const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"],["dorico","Dórica"],["lidio","Lidia"],["doble_armonica","Doble armónica"]];
-const GENEROS = [["goa","Goa"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["chillout","Chillout"],["ambient","Ambient"]];
+const GENEROS = [["goa","Goa"],["psytrance","Psytrance"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["chillout","Chillout"],["ambient","Ambient"]];
 const GENERO_TEXTO = {goa: "Frigio, i – ♭II, llamada y respuesta en corcheas, pegada al beat.",
+  psytrance: "Frigio, i – ♭II cada 16 compases, riffs con huecos para el bombo, notas cortas y bajo rolling.",
   psy_chill: "Dórica, i – IV – i – ♭VII con pulso suave en los pads, motivos cortos.",
   chillgressive: "Menor, i – ♭VI – ♭VII – v cada 8 compases, diálogo en semicorcheas.",
   chillout: "Menor, acordes de séptima y novena juntos, notas largas y algo de swing.",
@@ -349,8 +352,9 @@ function desplTexto(x) {
   return x === 0 ? t : `${t} (${Math.round(x * 100)} %)`;
 }
 const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"],
-  ["psy_chill","Psy chill"],["euclidiano","Euclidiano"],["largas","Notas largas"],["ambient","Ambient"],["clasico","Goa clásico"]];
-const ESTILOS_POR_GENERO = {goa: ["rolling","galope","arpegio3","acido","clasico"], psy_chill: ["psy_chill","galope","arpegio3"],
+  ["psy_chill","Psy chill"],["euclidiano","Euclidiano"],["largas","Notas largas"],["ambient","Ambient"],["clasico","Goa clásico"],["psytrance","Psytrance"]];
+const ESTILOS_POR_GENERO = {goa: ["rolling","galope","arpegio3","acido","clasico","psytrance"],
+  psytrance: ["psytrance","rolling","galope","acido"], psy_chill: ["psy_chill","galope","arpegio3"],
   chillgressive: ["rolling","euclidiano","acido"], chillout: ["largas","euclidiano","arpegio3"], ambient: ["ambient","largas","arpegio3"]};
 const POSICIONES = [["onbeat","Con el bombo"],["offbeat","Entre bombos"],["todos","Todas"],["desplazado","Corrida"]];
 const POS_TEXTO = {onbeat: "Las notas caen junto al bombo.", offbeat: "Entre bombo y bombo: el clásico del psytrance.",
@@ -359,11 +363,12 @@ const RELACIONES = [["unisono","La nota larga"],["tercera","Su tercera"],["quint
 const FASES = {llamada: "Llamando", respuesta: "Respondiendo", conversando: "Conversando", escuchando: "Escuchándote"};
 const FORMAS_TEXTO = {entrelazado: "La respuesta toca solo en los huecos que deja la llamada, en el mismo compás.",
   turnos: "La llamada toca unos compases y después contesta la respuesta."};
-const ESTILOS_BAJO = [["rolling","Rolling","K B B B"],["fullon","Full-on","K B B B ♪"],["tresillo","Tresillo","K ³B B"],
+const ESTILOS_BAJO = [["sincopado","Sincopado","· · B B · · B ·"],["rolling","Rolling","K B B B"],["fullon","Full-on","K B B B ♪"],["tresillo","Tresillo","K ³B B"],
   ["galope","Galope","K · B B"],["saltado","Saltado","K B · B"],["offbeat","Offbeat","K · B ·"],
   ["chillgressive","Chillgressive","K B b B"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
 const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat"],
-  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","rolling","offbeat","galope"],
+  psytrance: ["rolling","fullon","galope","saltado","tresillo","sincopado"],
+  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","rolling","offbeat","galope","sincopado"],
   chillout: ["dub","offbeat","sub"], ambient: ["sub","dub"]};
 const LFO_FORMAS = [["seno","Seno"],["triangulo","Triángulo"],["azar","Al azar"],["sube","Sube"],["baja","Baja"]];
 const LFO_CICLOS = [["0.25","1 tiempo"],["0.5","2 tiempos"],["1","1 compás"],["2","2 compases"],["4","4 compases"],["8","8 compases"],["16","16 compases"],["32","32 compases"]];
@@ -374,6 +379,7 @@ const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del G
   saltado: "Bombo, bajo, silencio, bajo: rolling con aire, minimal.",
   offbeat: "Una corchea a contratiempo: el bajo del progressive y del psy chill.",
   chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
+  sincopado: "Progresivo: lejos del bombo, notas largas en la «y» y la «a» del tiempo, cambia de nota con el acorde.",
   dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
   sub: "Una nota grave por acorde, ligada: casi un drone."};
 
@@ -672,7 +678,8 @@ function panelPads() {
     for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === p[k]}));
     return s;
   };
-  const pulso = deslizador(p, "pulso", "Pulso", 0, 8, 1, (v) => v === 0 ? "sostenidos" : `${v} golpe${v > 1 ? "s" : ""} por compás`);
+  const pulso = deslizador(p, "pulso", "Pulso", 0, 8, 1, (v) => v === 0 ? "sostenidos"
+    : p.ritmo === "stabs" ? `stabs · ritmo ${((v - 1) % 4) + 1}` : `${v} golpe${v > 1 ? "s" : ""} por compás`);
   pulso.querySelector("input").addEventListener("change", () => renderMotores());
   return [
     cabMotor("Pads y drones", `${p.salida} · canal ${p.canal} · ${p.suenan ? "guían la armonía" : "callados, solo guían"}`, p, "activo"),
@@ -693,6 +700,10 @@ function panelPads() {
         el("span", {textContent: " · " + (AZAR_ESCALA[cfg.musica.escala] || "") + " «Otra variante» (arriba) trae otras variaciones y se oye desde el próximo compás."})]) : null,
       el("label", {className: "campo"}, ["Tipo de acorde", select(ACORDES, "acorde")]),
       pulso,
+      campo("Ritmo del pulso", segmentado([["euclides","Parejo (euclidiano)"],["stabs","Stabs psy"]], p.ritmo || "euclides",
+        (v) => { p.ritmo = v; if (v === "stabs" && !p.pulso) p.pulso = 1; renderMotores(); guardar(); }, 2)),
+      ayuda(p.ritmo === "stabs" ? "Acordes cortos a contratiempo, con ritmos sacados de packs de psytrance. El pulso (1 a 4) elige el ritmo: 1 · ....xx.xx.x.x.x. · 2 · x...x.xx.xx.x.x. · 3 · .x.x.xx.x.xx.xxx · 4 · x...x...x.....x."
+        : "Parejo: los golpes del pulso se reparten en corcheas, el primero en el uno."),
       deslizador(p, "golpe", "Largo del golpe", 0.1, 1, 0.05,
         (x) => x < 0.3 ? `corto (${porcentaje(x)})` : x < 0.6 ? `medio (${porcentaje(x)})` : x < 0.95 ? `largo (${porcentaje(x)})` : "hasta el siguiente"),
       ayuda(p.pulso ? "Cuánto dura cada golpe del pulso. Corto se oye como pulso; largo, casi como un pad continuo. Si igual suena pegado, baja el release del sinte."
@@ -793,6 +804,8 @@ function panelBajo() {
           b.remate_largas > 0 ? deslizador(b, "remate_largo", "Largo de la nota larga", 0.3, 1, 0.05,
             (x) => `${porcentaje(x)} del espacio hasta la siguiente`) : null,
           ayuda("Una nota del remate (nunca la última) se alarga hacia la siguiente y siempre termina antes de que empiece: nunca se pisan. A lo más una por remate."),
+          deslizador(b, "fusas", "Remate en fusas", 0, 1, 0.05, (x) => x === 0 ? "nunca" : x > 0.6 ? `en ${porcentaje(x)} de las frases · también el tiempo 3` : `en ${porcentaje(x)} de las frases`),
+          ayuda("Un redoble corto antes del uno: las últimas notas del compás que cierra la frase se parten en dos fusas (la segunda repite, salta a la octava o cae en la ♭7)."),
           deslizador(b, "remate_marca", "Remate marcado", 0, 1, 0.05,
             (x) => x < 0.3 ? "como el resto (puede llevar slide)" : x < 0.7 ? `algo acentuado, sin slide (${porcentaje(x)})` : `acentuado, sin slide (${porcentaje(x)})`),
           ayuda("En cada frase cambian al azar las alturas de algunas notas del remate, nunca su ritmo (repetible con la variante). En 0 suenan siempre los dos remates clásicos del estilo."),
@@ -842,9 +855,9 @@ function panelSecuencia(i) {
     campo("Género", segmentado(GENEROS, s.genero, (v) => cambiarGenero(v, {parte: "secuencia", indice: i}), 3)),
     campo("Estilo · solo cambia el patrón, tus ajustes se quedan", segmentado(estilos, s.estilo, (v) => {
       s.estilo = v;
-      if (v === "clasico") s.posicion = "todos";  // suena en todas las semicorcheas, también con el bombo
+      if (FRASEADOS.includes(v)) s.posicion = "todos";  // suena en todas las semicorcheas, también con el bombo
       renderMotores(); guardar(); }, 2)),
-    ...(s.estilo === "clasico" ? panelClasico(s) : []),
+    ...(s.estilo === "clasico" ? panelClasico(s) : s.estilo === "psytrance" ? panelPsy(s) : []),
     campo("Variante", variante(s, `sec-${s.nombre}`)),
     el("div", {className: "card principales"}, [
       deslizador(s, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas las notas" : porcentaje(v)),
@@ -852,10 +865,10 @@ function panelSecuencia(i) {
       deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
     ]),
     el("div", {className: "grupos"}, [
-      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${s.estilo === "clasico" ? `frase de ${s.frase || 2} compases` : `${s.largo} pasos`} · swing ${Math.round(s.swing * 200)} %`, [
+      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${FRASEADOS.includes(s.estilo) ? `frase de ${s.frase || 2} compases` : `${s.largo} pasos`} · swing ${Math.round(s.swing * 200)} %`, [
         campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; renderMotores(); guardar(); }, 2)),
         ayuda(POS_TEXTO[s.posicion]),
-        ...(s.estilo === "clasico" ? [] : [
+        ...(FRASEADOS.includes(s.estilo) ? [] : [
           campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
           ayuda("16 da un compás. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
         ]),
@@ -880,9 +893,19 @@ function panelSecuencia(i) {
         ...editorLfo(s, "lfo2", "LFO 2"),
         ayuda("Van sincronizados al compás y pueden mover cosas distintas a la vez (por ejemplo, corte y resonancia). Si el motor de FX interviene el mismo filtro en una subida, ese LFO espera y sigue después."),
       ]),
+      i > 0 ? grupo(`g-sec-voces`, "Con la otra voz", [s.corrimiento ? `corrida ${s.corrimiento}` : "", s.complementar ? `complementa ${porcentaje(s.complementar)}` : "", s.separar ? "se separa" : ""].filter(Boolean).join(" · ") || "libre", [
+        ayuda(`Para que dos secuencias no se pisen. Esta mira a la primera secuencia activa de la lista (la ${cfg.secuencia[0].nombre || "1"}, normalmente el lead). Todo es opcional: en cero toca libre.`),
+        deslizador(s, "corrimiento", "Corrimiento", 0, 15, 1, (v) => v === 0 ? "en su lugar" : `entra ${v} semicorchea${v > 1 ? "s" : ""} tarde`),
+        ayuda("Corre el patrón dentro de la rejilla. 1 o 3 suelen caer en los huecos del lead; 2 lo pone a contratiempo. Moverlo en vivo es un efecto en sí."),
+        deslizador(s, "complementar", "Complementar", 0, 1, 0.05, (v) => v === 0 ? "apagado" : v <= 0.5 ? `${porcentaje(v)} · cede en los tiempos y acentos del lead` : v < 1 ? `${porcentaje(v)} · cede también en el resto` : "100 % · hocket: solo en los huecos del lead"),
+        ayuda("Calla donde el lead ataca: hasta 50 % cede en sus tiempos fuertes y acentos, más arriba también en las demás notas. Al 100 % las dos voces arman una sola línea (hocket). Necesita un lead con huecos: con un pedal que toca todas las semicorcheas, esta voz se queda casi muda."),
+        casilla(s, "separar", "Separar las notas", "Arregla los choques con el lead. En las notas: si choca de cerca (segunda, séptima o tritono a menos de una octava, o la misma nota), va a la nota consonante más cercana, primero del acorde; la ♭9 del frigio (raíz abajo, ♭2 arriba) se respeta, y si el lead ataca encima de una nota larga que choca, esa nota se corta. En el ritmo: las notas corridas (tresillos, swing) que caerían pegadas a un golpe del lead se alinean con él, para que no suenen como flam", () => renderMotores()),
+      ]) : null,
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
         numeroDe(s, "octava", "Octava", -3, 3),
+        campo("Voz doble", segmentado([["","No"],["tercera","3.ª"],["cuarta","4.ª"],["quinta","5.ª"],["sexta","6.ª"],["octava","8.ª"]], s.doble || "", (v) => { s.doble = v; guardar(); }, 6)),
+        ayuda("Una segunda voz paralela por grados de la escala, un poco más suave (como los stabs de dos notas de los packs). Necesita un sinte polifónico."),
         deslizador(s, "techo", "Techo (nota más alta)", 60, 127, 1, (v) => v >= 127 ? "sin techo" : `${nombreMidi(v)} · lo de arriba baja una octava`),
         ayuda("Si una seed o el director la llevan muy aguda, lo que pasa del techo vuelve a sonar una octava abajo: misma nota, mismo ritmo."),
         deslizador(s, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
@@ -937,6 +960,35 @@ function panelSecuencia(i) {
   ];
 }
 
+const FRASEADOS = ["clasico", "psytrance"];  // estilos cuyo patrón dura una frase de 2 o 4 compases
+const FIGURAS_PSY = [["auto","Auto (seed)"],["riff","Riff"],["rafaga","Ráfaga"],["octavas","Octavas"],["arpegio","Arpegio"],["pulsos","Pulsos"],
+  ["espacio","Espacio ✦"],["mantra","Mantra ✦"],["tresillo","Tresillo ✦"],["descenso","Descenso ✦"],["puntillo","Puntillo"],["melodia","Melodía"]];
+const FIGURA_PSY_TEXTO = {
+  auto: "La seed elige la figura: cambia la seed para pasar por las cinco.",
+  riff: "El riff del psytrance: deja huecos donde cae el bombo, raíz en dos octavas y el color (♭7, ♭3, ♭2) al cierre de cada medio compás. Notas cortas, alguna larga de acento.",
+  rafaga: "Un bloque de notas iguales a mitad de compás que cambia de altura en cada compás (4.ª, raíz, ♭7…): una progresión hecha con el riff.",
+  octavas: "Rolling de octavas (semicorcheas, o corcheas con más huecos); el paso 15 cambia de color en cada compás.",
+  arpegio: "Célula de 8 pasos con silencios, raíz alta y color de acorde (♭3, 5.ª, ♭7) en sus notas interiores.",
+  pulsos: "Negras de raíz en octavas que se sostienen; el último tiempo cambia de nota en cada compás. Para bajo, stabs o un lead que respira.",
+  espacio: "✦ Místico. Solo raíz, octava (notas de un tiempo y medio) y una nota corta en el contratiempo: lo místico es el aire. Más huecos, más silencio.",
+  mantra: "✦ Místico. Drone de raíz de tres tiempos y, al final de la frase, un canto lento en negras con anacrusa de ♭7. Con la raga Hijaz canta 1 ♭2 3 ♭2.",
+  tresillo: "✦ Místico. Tresillos de corchea (raíz, ♭2, 4.ª) y tresillos de negra sobre el 4/4: el galope oriental.",
+  puntillo: "Notas cada 3 semicorcheas (3-3-2, 3-3-3-3-2-2): el acento cruza el compás sin salir de la rejilla. Raíz con alguna octava y color al final del compás. Huecos elige de la máscara más llena a la más vacía.",
+  melodia: "Una línea por grados que sube en el compás A, baja desde el ♭6 en el B y resuelve en la raíz al cerrar la frase. Con armonía guiada y pads cae en el acorde; con menor armónica suena a drop de psytrance.",
+  descenso: "✦ Místico. La raíz en cada tiempo y entre medio una línea que baja por la escala (♭7 ♭6 5 4), acento en el tres."};
+function panelPsy(s) {
+  const fig = s.figura && FIGURAS_PSY.some((f) => f[0] === s.figura) ? s.figura : "auto";
+  return [el("div", {className: "card principales"}, [
+    campo("Figura", segmentado(FIGURAS_PSY, fig, (v) => { s.figura = v; renderMotores(); guardar(); }, 3)),
+    ayuda(FIGURA_PSY_TEXTO[fig]),
+    deslizador(s, "huecos", "Huecos", 0, 1, 0.05, (v) => v < 0.3 ? `${porcentaje(v)} · riff lleno` : v < 0.7 ? `${porcentaje(v)} · clásico` : `${porcentaje(v)} · mucho aire`),
+    ayuda("De la máscara de riff más llena a la más vacía (sacadas de un pack de psytrance). En octavas pasa a corcheas y en pulsos acorta las notas."),
+    campo("Frase", segmentado([["2","2 compases (A B)"],["4","4 compases (A B A C)"]], String(s.frase || 2), (v) => { s.frase = parseInt(v); guardar(); }, 2)),
+    deslizador(s, "remate", "Respuesta (cuánto cambia el compás B)", 0, 1, 0.05, (v) => v === 0 ? "loop exacto" : porcentaje(v)),
+    deslizador(s, "variar", "Respuestas distintas", 0, 1, 0.05, (v) => { const n = 1 + Math.round(v * 3); return n === 1 ? "siempre la misma" : `${n} respuestas que se turnan`; }),
+  ])];
+}
+
 // Goa clásico: figura, frase y respuesta (solo con ese estilo).
 const FIGURAS = [["auto","Auto (seed)"],["pedal","Pedal"],["ciclo","Ciclo"],["acordes","Acordes"]];
 const FIGURA_TEXTO = {
@@ -954,7 +1006,7 @@ const RAGA_TEXTO = {
   hijaz: "1 ♭2 3 4 5 ♭6 ♭7 · freygish / Ahava Rabbah del Goa israelí: segunda aumentada, trino en el ♭2 y la caída ♭6 5 4 3 ♭2 1."};
 
 function panelClasico(s) {
-  const fig = s.figura || "auto";
+  const fig = s.figura && FIGURAS.some((f) => f[0] === s.figura) ? s.figura : "auto";
   const conCiclo = fig === "ciclo" || fig === "auto";
   return [el("div", {className: "card principales"}, [
     campo("Figura", segmentado(FIGURAS, fig, (v) => { s.figura = v; renderMotores(); guardar(); }, 2)),
@@ -1298,7 +1350,7 @@ function panelFx() {
     cabMotor("FX", `${x.salida} · canal ${x.canal} · ${gestos.join(", ") || "sin gestos"}`, x, "activo",
       el("span", {className: "pill", id: "fx_gesto", textContent: "En silencio"})),
     campo("Género", segmentado(GENEROS, x.genero, (v) => cambiarGenero(v, {parte: "fx"}), 3)),
-    ayuda({goa: "Goa: zaps, ácido y glitches, todos a la mano.", psy_chill: "Psy chill: sobre todo burbujas, pocos zaps.",
+    ayuda({goa: "Goa: zaps, ácido y glitches, todos a la mano.", psytrance: "Psytrance: zaps y glitches, algo de ácido.", psy_chill: "Psy chill: sobre todo burbujas, pocos zaps.",
       chillgressive: "Chillgressive: de todo, un poco menos seguido.", chillout: "Chillout: burbujas y algún zap, espaciados.",
       ambient: "Ambient: solo burbujas, muy de vez en cuando."}[x.genero]),
     campo("Variante", variante(x, "fx")),

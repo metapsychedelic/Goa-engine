@@ -459,6 +459,25 @@ respuesta (el compás A queda igual) y después de unas vueltas regrese a la pri
 La mutación cambia una nota y todas sus repeticiones, nunca la raíz.
 Para escucharlo sin hardware: `python3 -m pruebas.escuchar_clasico carpeta/`.
 
+**Psytrance** (estilo y género, sacado de un pack de loops de psytrance a 140 BPM):
+cinco figuras, o *Auto* para que la elija la seed: *Riff* (deja huecos donde cae el
+bombo, raíz en dos octavas y el color —♭7, ♭3, ♭2— al cierre de cada medio compás),
+*Ráfaga* (un bloque de notas iguales que cambia de altura cada compás), *Octavas*
+(rolling de octavas), *Arpegio* (célula de 8 con silencios) y *Pulsos* (negras
+sostenidas). Y cuatro místicas (✦): *Espacio* (raíz y octava largas y mucho aire),
+*Mantra* (drone y un canto lento; con la raga Hijaz canta 1 ♭2 3 ♭2), *Tresillo*
+(tresillos de corchea y de negra sobre el 4/4) y *Descenso* (raíz en cada tiempo con
+una línea que baja ♭7 ♭6 5 4). Del análisis de una carpeta de 413 loops: *Puntillo*
+(notas cada 3 semicorcheas, 3-3-2) y *Melodía* (una línea por grados que sube, baja
+desde el ♭6 y resuelve en la raíz; con pads y armonía guiada sigue los acordes).
+
+Del mismo análisis: el bajo tiene el estilo **Sincopado** (progresivo, lejos del bombo)
+y el **Remate en fusas** (un redoble corto antes del uno al cerrar la frase); toda
+secuencia puede llevar **Voz doble** (una 3.ª, 4.ª, 5.ª, 6.ª u 8.ª paralela; necesita un
+sinte polifónico); y los pads pueden tocar **Stabs psy** (acordes cortos a contratiempo:
+el pulso 1-4 elige el ritmo). Progresiones nuevas: i–iv–♭VI–♭III y i–v–♭VI–iv. *Huecos* va de la máscara más llena a la más vacía. Comparte frase,
+respuesta, respuestas distintas, raga y techo con el Goa clásico.
+
 En Notas, cualquier secuencia tiene además: **Deslices de notas** (opcional; en 0
 no cambia nada): notas de gracia, ligados y notas que respiran en vez de la raíz
 martillada y aproximaciones al adorno que viene, sin cambiar la escala. **Raga**: Bhairav, Bhairavi, Todi, Marwa o Hijaz
@@ -699,3 +718,8 @@ período, que todo vuelva al terminar y que respete las secuencias congeladas.
 `python3 -m pruebas.piloto` prueba el piloto: el orden y largo de las secciones, quién suena en
 cada una, la energía (que el drop entre de golpe) y que al apagarlo vuelva todo.
 `python3 -m pruebas.app` levanta la app con una Circuit simulada en http://localhost:8080.
+
+
+### Dos sintes juntos: «Con la otra voz»
+
+Desde la segunda secuencia aparece el grupo **Con la otra voz** (todo opcional): **Corrimiento** corre el patrón 1 a 15 semicorcheas, **Complementar** calla donde el lead ataca (100 % = hocket) y **Separar las notas** evita segundas, séptimas y tritonos contra el lead.

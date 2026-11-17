@@ -187,7 +187,7 @@ class Director:
             extra = None
             if tipo == "hermana":
                 s = motor.secuencias[objetivo]
-                if s.estilo == "clasico":  # sin tocar la raíz y con todas las repeticiones iguales
+                if s.estilo in generador.FRASEADOS:  # sin tocar la raíz y con todas las repeticiones iguales
                     hermana = generador.mutar_clasico(s.patron, f"{s.seed}~hermana", compas, 0.6)
                 else:
                     hermana = generador.mutar(s.patron, f"{s.seed}~hermana", compas, 0.2, s.pedal)
@@ -196,8 +196,8 @@ class Director:
                 s = motor.secuencias[objetivo]
                 viejos = [p for p in list(self.memoria[objetivo])[:-1] if len(p) == len(s.patron) and p != s.patron]
                 # En el Goa clásico el espejo lleva el ciclo dos octavas abajo: solo corrido o tercera.
-                formas = TRANSFORMACIONES[:2] if s.estilo == "clasico" else TRANSFORMACIONES
-                extra = (firma(s), transformar(viejos[0], rng.choice(formas), 16 if s.estilo == "clasico" else None))
+                formas = TRANSFORMACIONES[:2] if s.estilo in generador.FRASEADOS else TRANSFORMACIONES
+                extra = (firma(s), transformar(viejos[0], rng.choice(formas), 16 if s.estilo in generador.FRASEADOS else None))
             elif tipo == "protagonista":
                 objetivo = rng.choice(candidatos)
             efectos.append((tipo, objetivo, extra))

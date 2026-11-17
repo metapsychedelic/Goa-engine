@@ -34,13 +34,14 @@ GESTOS = ("zap", "burbujas", "acido", "glitch")
 # Cuánto aparece cada gesto en cada género (0 = nunca).
 PALETAS = {
     "goa": {"zap": 3, "burbujas": 2, "acido": 3, "glitch": 2},
+    "psytrance": {"zap": 3, "burbujas": 1, "acido": 2, "glitch": 3},
     "psy_chill": {"zap": 1, "burbujas": 3, "acido": 1, "glitch": 1},
     "chillgressive": {"zap": 2, "burbujas": 2, "acido": 2, "glitch": 2},
     "chillout": {"zap": 1, "burbujas": 3, "acido": 0, "glitch": 0},
     "ambient": {"zap": 0, "burbujas": 1, "acido": 0, "glitch": 0},
 }
 # Cuánto aparecen los gestos en cada género (multiplica la locura).
-DENSIDAD_GENERO = {"goa": 1.0, "psy_chill": 0.7, "chillgressive": 0.8, "chillout": 0.5, "ambient": 0.35}
+DENSIDAD_GENERO = {"goa": 1.0, "psytrance": 0.9, "psy_chill": 0.7, "chillgressive": 0.8, "chillout": 0.5, "ambient": 0.35}
 
 _ORDEN = {"off": 0, "bend": 1, "cc": 1, "on": 2}
 

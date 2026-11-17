@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 from scipy.signal import butter, sosfilt
 
-from goa.config import cargar
+from goa.config import cargar, normalizar
 from goa.motor import Motor
 from pruebas.simular import RAIZ
 
@@ -43,27 +43,43 @@ EJEMPLOS = [
 ]
 
 
-def eventos(nota_larga, escala, ajustes, progresion, compases):
+def eventos(nota_larga, escala, ajustes, progresion, compases, estilo="clasico", bajo=None, pads=None, segunda=None,
+            cambios=None, director=0.0):
     cfg = cargar(RAIZ / "config.ejemplo.toml")
     cfg["entrada"].update(canal_disparo=2, nota_maxima=0)
+    cfg["forma"]["variacion"] = director   # el director (cambios cada 16 compases): apagado salvo que se pida
     tonica = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][nota_larga % 12]
-    cfg["musica"].update(tonica=tonica, escala=escala, armonia="guiada" if progresion else "libre", seguir_pads=bool(progresion))
+    guiada = bool(progresion or (pads and pads.get("activo")))
+    cfg["musica"].update(tonica=tonica, escala=escala, armonia="guiada" if guiada else "libre", seguir_pads=guiada)
     s = cfg["secuencia"][0]
-    s.update(disparo=0, estilo="clasico", posicion="todos", salida="LEAD", gate=0.6, velocidad=100, acento=118,
+    s.update(disparo=0, estilo=estilo, posicion="todos", salida="LEAD", gate=0.6, velocidad=100, acento=118,
              octava=0, filtro=False, mutacion=0.0, densidad=1.0, slide=0.0, acentos=0.0, saltos=0.0, largas=0.0,
              semitono=0.0, swing=0.0, repeticion=0.0)
     s.update(ajustes)
     for otra in cfg["secuencia"][1:]:
         otra["activa"] = False
+    if segunda:
+        # Segunda secuencia (sinte secundario): mismos ajustes de base, su propia salida.
+        b = cfg["secuencia"][1]
+        b.update({k: v for k, v in s.items() if k not in ("salida", "seed", "figura", "estilo")})
+        b.update(activa=True, salida="SEC", disparo=0, mutacion=0.0, variar=0.0)
+        b.update(segunda)
     cfg["bajo"].update(activo=True, salida="BAJO", disparo=0, estilo="rolling", octava=-1)
+    cfg["bajo"].update(bajo or {})
     if progresion:
         cfg["pads"].update(activo=True, suenan=False, salida="PADS", disparo=0, progresion=progresion,
                            cambia_cada=2, azar=False, variacion=0.0)
+    if pads:
+        cfg["pads"].update(pads)
     out = []
     m = Motor(cfg, lambda sal, tipo, canal, nota, vel: out.append((sal, m.tick, tipo, nota, vel)))
     m.start()
     m.nota_on(1, nota_larga)
-    for _ in range(compases * 96):
+    for k in range(compases * 96):
+        if cambios and k % 96 == 0 and k // 96 in cambios:
+            # Cambios en vivo de la segunda secuencia (como mover un control en la app).
+            cfg["secuencia"][1].update(cambios[k // 96])
+            m.aplicar_config(normalizar(cfg))
         m.reloj()
     m.stop()
     return out
@@ -166,7 +182,7 @@ def bajo(lista, n):
     return out
 
 
-def bateria(n):
+def bateria(n, psy=False):
     out, duck = np.zeros(n), np.ones(n)
     negra = 60 / BPM
     t = np.arange(int(0.25 * SR)) / SR
@@ -179,11 +195,18 @@ def bateria(n):
     abierto = sosfilt(hp, ruido) * np.exp(-th * 30)
     cerrado = sosfilt(hp, ruido)[: int(0.03 * SR)] * np.exp(-th[: int(0.03 * SR)] * 120)
     caida = np.concatenate([np.linspace(0.25, 1, int(0.12 * SR)), np.ones(1)])
+    tp = np.arange(int(0.18 * SR)) / SR
+    bp = butter(2, (900, 3500), btype="band", fs=SR, output="sos")
+    ruido_p = np.random.default_rng(3).uniform(-1, 1, len(tp))
+    palma = sosfilt(bp, ruido_p) * (np.exp(-tp * 22) + 0.6 * np.exp(-((tp - 0.012) % 0.011) * 400) * (tp < 0.035))
     k = 0
     while k * negra * SR < n:
         a = int(k * negra * SR)
         out[a:a + len(bombo)] += bombo[: n - a]
         duck[a:a + len(caida)] = np.minimum(duck[a:a + len(caida)], caida[: n - a])
+        if psy and k % 2 == 1:   # palmas en el 2 y el 4, como en el psytrance
+            a2 = int(k * negra * SR)
+            out[a2:a2 + len(palma)] += palma[: n - a2] * 0.38
         for j, golpe, g in ((2, abierto, 0.32), (1, cerrado, 0.12), (3, cerrado, 0.15)):
             h = int((k + j / 4) * negra * SR)
             if h < n:
@@ -192,15 +215,61 @@ def bateria(n):
     return out, duck
 
 
-def render(nombre, nota_larga, escala, ajustes, progresion, compases, carpeta):
-    evs = eventos(nota_larga, escala, ajustes, progresion, compases)
+def pad(lista, n):
+    """Acordes: dos sierras suaves con filtro cerrado (para oír los stabs y la progresión)."""
+    izq, der = np.zeros(n), np.zeros(n)
+    lp = butter(2, 1800, fs=SR, output="sos")
+    for ini, fin, nota, vel, _ in lista:
+        a = int(ini * SR)
+        k = min(n - a, int((fin - ini) * SR) + int(0.08 * SR))
+        if k <= 0:
+            continue
+        f = 440 * 2 ** ((nota - 69) / 12)
+        t = np.arange(k) / SR
+        largo = max(1, int((fin - ini) * SR))
+        env = np.minimum(1, t / 0.008) * np.where(np.arange(k) < largo, 1.0, np.exp(-(np.arange(k) - largo) / (0.05 * SR)))
+        for canal, des in ((izq, -0.1), (der, 0.1)):
+            osc = sosfilt(lp, _sierra(f * 2 ** (des / 12), k))
+            canal[a:a + k] += osc * env * (vel / 127) * 0.16
+    return izq, der
+
+
+def pluck(lista, n):
+    """Sinte secundario: un pulso cuadrado más redondo, filtro que se cierra rápido, mono."""
+    out = np.zeros(n)
+    claro, oscuro = butter(2, 3000, fs=SR, output="sos"), butter(2, 500, fs=SR, output="sos")
+    for ini, fin, nota, vel, _ in lista:
+        a = int(ini * SR)
+        largo = max(int((fin - ini) * SR), 200)
+        k = min(n - a, largo + int(0.04 * SR))
+        if k <= 0:
+            continue
+        f = 440 * 2 ** ((nota - 69) / 12)
+        t = np.arange(k) / SR
+        cuadrada = np.sign(np.sin(2 * np.pi * f * t)) * 0.6 + _sierra(f * 1.003, k) * 0.4
+        env = np.exp(-t / 0.035)
+        y = sosfilt(oscuro, cuadrada) * (1 - env) + sosfilt(claro, cuadrada) * env
+        amp = np.minimum(1, np.arange(k) / 30) * np.where(np.arange(k) < largo, 1.0, np.exp(-(np.arange(k) - largo) / (0.012 * SR)))
+        out[a:a + k] += y * amp * (vel / 127) * 0.3
+    return out
+
+
+def render(nombre, nota_larga, escala, ajustes, progresion, compases, carpeta, estilo="clasico", bajo_cfg=None,
+           pads_cfg=None, segunda=None, cambios=None):
+    evs = eventos(nota_larga, escala, ajustes, progresion, compases, estilo, bajo_cfg, pads_cfg, segunda, cambios)
     dur = compases * 4 * 60 / BPM + 1.0
     n = int(dur * SR)
-    tambores, duck = bateria(n)
+    tambores, duck = bateria(n, psy=estilo == "psytrance")
     li, ld = lead(notas(evs, "LEAD"), n, curva_bend(evs, "LEAD", n, ajustes.get("bend_rango", 2)))
     b = bajo(notas(evs, "BAJO"), n) * duck
     li, ld = li * (0.55 + 0.45 * duck), ld * (0.55 + 0.45 * duck)
-    mezcla = np.stack([tambores * 0.75 + b * 0.75 + li * 3.0, tambores * 0.75 + b * 0.75 + ld * 3.0], axis=1)
+    sec = pluck(notas(evs, "SEC"), n) * (0.55 + 0.45 * duck) * 2.6
+    li, ld = li * (0.8 if segunda else 1.0), ld * (1.15 if segunda else 1.0)   # lead algo a la derecha
+    li, ld = li + sec * 0.75, ld + sec * 0.4                                  # secundario algo a la izquierda
+    pi, pd = pad(notas(evs, "PADS"), n)
+    pi, pd = pi * (0.5 + 0.5 * duck), pd * (0.5 + 0.5 * duck)
+    mezcla = np.stack([tambores * 0.75 + b * 0.75 + li * 3.0 + pi * 2.5, tambores * 0.75 + b * 0.75 + ld * 3.0 + pd * 2.5],
+                      axis=1)
     mezcla = np.tanh(mezcla * 1.1) * 0.85
     wav = carpeta / f"{nombre}.wav"
     with wave.open(str(wav), "wb") as w:

@@ -433,6 +433,7 @@ class Motor(FormaMotor):
                 self.pads.forzado = self._momento_puente(paso, raiz).raiz % 12
             else:
                 self.pads.forzado = self.tension_pc  # acorde de tensión al final de una subida (o None)
+            self._momentos = {}
             if not self._en_hueco(paso):
                 self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
 
@@ -481,6 +482,7 @@ class Motor(FormaMotor):
     # --- Lógica interna ---
 
     def _paso(self, paso):
+        self._momentos = {}
         if paso % PASOS_POR_COMPAS == 0:
             self._compas_forma(paso // PASOS_POR_COMPAS)
             self._compas_subida(paso // PASOS_POR_COMPAS)
@@ -512,7 +514,15 @@ class Motor(FormaMotor):
     # --- FX: subidas, riser, filtros y glitches ---
 
     def _momento(self, paso, raiz):
-        """Momento armónico en `paso`: el de los pads, o el acorde sobre la nota larga `raiz`."""
+        """Momento armónico en `paso`: el de los pads, o el acorde sobre la nota larga `raiz`.
+        Se calcula una vez por paso y raíz (lo piden el bajo, cada secuencia y el diálogo)."""
+        cache = self.__dict__.setdefault("_momentos", {})   # se vacía en cada paso y al moverse los pads
+        clave = (paso, raiz)
+        if clave not in cache:
+            cache[clave] = self._calcular_momento(paso, raiz)
+        return cache[clave]
+
+    def _calcular_momento(self, paso, raiz):
         if self.puente is not None:
             r = self.disparos[self.pads.disparo].raiz if self.pads.activo else None
             r = r if r is not None else raiz
@@ -571,9 +581,21 @@ class Motor(FormaMotor):
         self.dialogo.paso(paso, self.tick, raiz, self.enviar)
 
     def _tocar_paso(self, paso, solo_canal=None):
+        tocadas = []   # las secuencias ya tocadas en este paso (la primera activa es la referencia)
         for s in self.secuencias:
             if solo_canal is not None and s.disparo != solo_canal:
                 continue
+            referencia = next((r for r in tocadas if r.activa), None)
+            tocadas.append(s)
+            s.toco_previo = s.toco if s.toco is not None and s.toco[0] == paso - 1 else None
+            s.toco = None
+            if s.separar and referencia is not None and referencia.toco is not None:
+                # La referencia atacó una nota que choca con una larga nuestra: la cortamos.
+                otra = referencia.toco[1]
+                for n in [n for n, fin in s.sonando.items() if fin > self.tick]:
+                    if choca(n, otra):
+                        self.enviar(s.salida, "note_off", s.canal, n, 0)
+                        del s.sonando[n]
             raiz = self.disparos[s.disparo].raiz
             fuente = paso if self.roll_desde is None else forma.roll(paso, self.roll_desde, self.roll_compases)
             forzar = False
@@ -581,7 +603,7 @@ class Motor(FormaMotor):
             if glitch is not None:
                 fuente = fuente if glitch[0] is None else glitch[0]
                 forzar = glitch[1]
-            i = generador.recorrer(s.recorrido, fuente, s.largo, s.seed)
+            i = _indice(s, fuente)
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
             # Filtro (molde, opcional): la seed arma las notas y el filtro decide cuáles pasan.
@@ -592,6 +614,14 @@ class Motor(FormaMotor):
                 continue
             if self._respira(s, paso, i):
                 continue  # deslices: la nota anterior se sostiene sobre esta raíz
+            if s.complementar > 0 and referencia is not None and referencia.toco is not None:
+                # Complementar (opcional): calla donde la voz de referencia ataca. Primero
+                # cede en sus acentos (hasta 50 %) y después en el resto (100 % = hocket).
+                azar_c = azar_fijo(f"{s.seed}:complementar:{i}")
+                umbral = min(1.0, 2 * s.complementar) if referencia.toco[2] else max(0.0, 2 * s.complementar - 1)
+                if azar_c < umbral:
+                    s.slide_previo = False
+                    continue
             guiada = self._modo_armonia(s.armonia) == "guiada"
             momento = self._momento(paso, raiz) if guiada else None
             if momento is not None and momento.siguiente is not None:
@@ -620,6 +650,11 @@ class Motor(FormaMotor):
             while nota > s.techo and nota - 12 >= 0:
                 nota -= 12  # techo: lo que pasa de la nota más alta baja de octava (misma nota, más grave)
             nota = max(0, min(127, nota))
+            if s.separar and referencia is not None:
+                # Separar (opcional): si choca con lo que suena en la referencia (segunda,
+                # séptima, tritono o la misma nota), va a la nota consonante de la escala más cercana.
+                nota = _separar(tonalidad, nota, self._suenan(referencia), s.techo,
+                                momento.clases if momento is not None else None)
             if "pref_acento" in p:
                 # Ácido 303: la cantidad de acentos y slides la regula el usuario;
                 # el patrón solo dice dónde calzan mejor.
@@ -631,10 +666,16 @@ class Motor(FormaMotor):
             azar = random.Random(f"{s.seed}:{paso}")  # determinista: misma seed, mismo resultado
             velocidad = (s.acento if acento else s.velocidad) + round(s.vel_random * 30 * azar.uniform(-1, 1))
             velocidad = max(1, min(127, velocidad))
+            # Para las voces que la complementan o se separan: el ataque y si es fuerte
+            # (acento o tiempo del compás).
+            s.toco = (paso, nota, acento or paso % 4 == 0, _desfase(s, paso, p))
             gate = s.gate * p.get("gate_mult", 1.0)
             gate = max(0.05, min(1.0, gate * (1 + s.gate_random * azar.uniform(-1, 1))))
             duracion = max(1, round(TICKS_POR_PASO * gate))
-            if slide:
+            if p.get("sostener") and not slide:
+                # Nota sostenida del patrón (pulsos del psytrance): dura varios pasos.
+                duracion = max(1, round(p["sostener"] * TICKS_POR_PASO) - 1)
+            elif slide:
                 # Slide 303: la nota dura hasta pisar la siguiente; un sinte en modo
                 # legato con glide hace el deslizamiento.
                 duracion = TICKS_POR_PASO + 2
@@ -651,12 +692,30 @@ class Motor(FormaMotor):
             if ornamento is None and s.deslices > 0 and not slide:
                 # Deslices (opcional): notas que respiran y notas llenas que se tocan con la
                 # siguiente sin pisarla. Cada paso tiene su número fijo: se suman de a poco.
-                siguiente = generador.recorrer(s.recorrido, paso + 1, s.largo, s.seed)
+                siguiente = _indice(s, paso + 1)
                 if self._respira(s, paso + 1, siguiente):
                     duracion = 2 * TICKS_POR_PASO       # se sostiene sobre la raíz que sigue
                 elif azar_fijo(f"{s.seed}:liga:{i}") < s.deslices * 0.3:
                     duracion = TICKS_POR_PASO           # llena, termina justo cuando entra la siguiente
-            inicio = self.tick + (round(s.swing * TICKS_POR_PASO) if paso % 2 == 1 else 0)
+            # Desfase dentro del paso: swing en los pasos impares y retraso del patrón
+            # (pulsos tarde dentro del paso: así caben los tresillos).
+            desfase = _desfase(s, paso, p)
+            if s.separar and referencia is not None:
+                # Separar también en el ritmo: a 1-3 ticks de un ataque de la referencia sería un flam.
+                if referencia.toco is not None and referencia.toco[0] == paso:
+                    desfase = referencia.toco[3]   # ataca en este paso: va con ella (derecha o corrida)
+                elif desfase >= TICKS_POR_PASO - 3:
+                    sig = referencia.patron[_indice(referencia, paso + 1)]
+                    if sig["suena"] and TICKS_POR_PASO + _desfase(referencia, paso + 1, sig) - desfase <= 3:
+                        desfase = 0   # quedaría pegada al golpe que la referencia da en el paso siguiente
+                previo = referencia.toco_previo
+                if previo is not None and 0 < TICKS_POR_PASO - previo[3] + desfase <= 3:
+                    # La referencia atacó tarde en el paso anterior, pegada a esta nota: flam. Calla.
+                    s.slide_previo = False
+                    s.toco = None
+                    continue
+                s.toco = s.toco[:3] + (desfase,)
+            inicio = self.tick + desfase
             if ornamento is not None and not (s.slide_previo and nota in s.sonando):
                 self._tocar_ornamento(s, ornamento, inicio, nota, velocidad, duracion)
                 s.slide_previo = False
@@ -671,7 +730,23 @@ class Motor(FormaMotor):
                 self._programar(s, inicio + mitad, nota, max(1, velocidad - 15), max(1, mitad - 1))
             else:
                 self._programar(s, inicio, nota, velocidad, duracion)
+            if s.doble and not (s.slide_previo and nota in s.sonando and slide):
+                # Voz doble (Apex 004): una segunda voz paralela por grados de la escala,
+                # un poco más suave; respeta el techo bajándola una octava.
+                segunda = _por_grados(s.tonalidad or self.tonalidad, nota, VOZ_DOBLE[s.doble])
+                while segunda > min(s.techo, 127) and segunda - 12 > nota:
+                    segunda -= 12
+                if segunda != nota and segunda <= 127:   # arriba de todo, la voz doble no cabe
+                    self._programar(s, inicio, segunda, max(1, velocidad - 12), duracion)
             s.slide_previo = slide
+
+    def _suenan(self, r):
+        """Notas de la secuencia `r` que suenan en este paso (las que siguen y las que atacó)."""
+        notas = {n for n, fin in r.sonando.items() if fin > self.tick}
+        notas |= {n for t, n, _, _ in r.pendientes if t < self.tick + TICKS_POR_PASO}
+        if r.toco is not None:
+            notas.add(r.toco[1])
+        return notas
 
     def _ornamento_raga(self, s, nota, i, duracion):
         """Ornamentos de pitch bend de la raga sobre la nota del paso (no agregan notas,
@@ -712,9 +787,9 @@ class Motor(FormaMotor):
         if (not fija(p) or paso % PASOS_POR_COMPAS == 0
                 or not (s.raga and s.ornamentos > 0 or s.deslices > 0)):
             return None
-        vecino = lambda k: s.patron[generador.recorrer(s.recorrido, paso + k, s.largo, s.seed)]  # noqa: E731
+        vecino = lambda k: s.patron[_indice(s, paso + k)]  # noqa: E731
         sig, ant, ant2 = vecino(1), vecino(-1), vecino(-2)
-        j = generador.recorrer(s.recorrido, paso, s.largo, s.seed)
+        j = _indice(s, paso)
         if s.raga and s.ornamentos > 0:
             r = raga.RAGAS[s.raga]
             esc = r["escala"]
@@ -752,7 +827,7 @@ class Motor(FormaMotor):
         if s.deslices <= 0 or paso % PASOS_POR_COMPAS == 0 or generador.es_fuerte(s.posicion, paso):
             return False
         p = s.patron[i]
-        anterior = s.patron[generador.recorrer(s.recorrido, paso - 1, s.largo, s.seed)]
+        anterior = s.patron[_indice(s, paso - 1)]
         return (p["suena"] and p["grado"] == 0 and anterior["suena"]
                 and azar_fijo(f"{s.seed}:respira:{i}") < s.deslices * 0.35)
 
@@ -761,7 +836,7 @@ class Motor(FormaMotor):
         """True si ninguna otra nota de la secuencia suena antes del cambio de acorde."""
         for k in range(1, falta):
             q = paso + k
-            j = generador.recorrer(s.recorrido, q, s.largo, s.seed)
+            j = _indice(s, q)
             pq = s.patron[j]
             if (pq["suena"] and generador.pasa_posicion(s.posicion, q)
                     and s.extra[pq.get("fuente", j)]["densidad"] < s.densidad):
@@ -769,12 +844,16 @@ class Motor(FormaMotor):
         return True
 
     def _programar(self, s, tick, nota, velocidad, duracion):
+        if not 0 <= nota <= 127:
+            return   # fuera del MIDI (una octava o voz paralela arriba de todo): no se toca
         if tick <= self.tick:
             self._encender(s, nota, velocidad, self.tick + duracion)
         else:
             s.pendientes.append((tick, nota, velocidad, duracion))
 
     def _encender(self, s, nota, velocidad, fin):
+        if not 0 <= nota <= 127:
+            return
         if nota in s.sonando:
             self.enviar(s.salida, "note_off", s.canal, nota, 0)
         self.enviar(s.salida, "note_on", s.canal, nota, velocidad)
@@ -829,6 +908,54 @@ class Motor(FormaMotor):
             self.fx.apagar(self.enviar)
         if self.texturas is not None:
             self.texturas.apagar(self.enviar)
+
+
+VOZ_DOBLE = {"tercera": 2, "cuarta": 3, "quinta": 4, "sexta": 5, "octava": 7}
+
+
+def _desfase(s, paso, p):
+    """Ticks tarde dentro del paso: swing (pasos impares) más el retraso del patrón."""
+    return (round(s.swing * TICKS_POR_PASO) if paso % 2 == 1 else 0) + p.get("retraso", 0)
+
+
+def _indice(s, paso):
+    """Índice del patrón de `s` en `paso`, con su corrimiento (el patrón entra N pasos tarde)."""
+    return generador.recorrer(s.recorrido, paso - s.corrimiento, s.largo, s.seed)
+
+
+CHOCAN = {1, 2, 6, 10, 11}   # segundas, tritono y séptimas (y la misma nota exacta)
+
+
+def choca(n, o):
+    """Choque cercano: la misma nota, o segunda, séptima o tritono a menos de una octava.
+    A más distancia (la ♭9 del frigio: raíz abajo, ♭2 arriba) es la tensión del estilo."""
+    return n == o or (abs(n - o) < 12 and abs(n - o) % 12 in CHOCAN)
+
+
+def _separar(tonalidad, nota, otras, techo=127, acorde=None):
+    """La nota de la escala más cercana a `nota` (hasta una quinta) que no choca de cerca
+    con ninguna de `otras`; ante un empate, la de abajo. Sin choques, `nota` tal cual.
+    Con armonía guiada (`acorde` = clases del acorde que suena), si `nota` era del acorde
+    busca primero entre las notas del acorde: así no se pierde la armonía en los tiempos."""
+    if not otras:
+        return nota
+    chocan = lambda n: any(choca(n, o) for o in otras)  # noqa: E731
+    if not chocan(nota):
+        return nota
+    del_acorde = bool(acorde) and nota % 12 in acorde
+    posibles = set(tonalidad.notas) | ({n for n in range(128) if n % 12 in acorde} if del_acorde else set())
+    candidatas = [n for n in posibles if abs(n - nota) <= 7 and n <= techo and not chocan(n)]
+    if not candidatas:
+        return nota
+    return min(candidatas, key=lambda n: (del_acorde and n % 12 not in acorde, abs(n - nota), n))
+
+
+def _por_grados(tonalidad, nota, grados):
+    """La nota de la escala `grados` pasos arriba de `nota` (la octava: 12 semitonos)."""
+    if grados == 7:
+        return nota + 12
+    arriba = [n for n in tonalidad.notas if n > nota]
+    return arriba[grados - 1] if len(arriba) >= grados else nota + 12
 
 
 def _vecina(tonalidad, nota, arriba=True):

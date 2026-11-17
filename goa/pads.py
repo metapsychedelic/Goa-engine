@@ -42,6 +42,8 @@ PROGRESIONES = {
     "i_bII_bIII_bII": [0, 1, 2, 1],  # la subida clásica del Goa: ♭II, ♭III y vuelve al ♭II
     "i_bIII_bII_i": [0, 2, 1, 0],    # baja del ♭III al ♭II y cierra en la i
     "i_bVI_bII": [0, 5, 1],          # oscura y amplia: del ♭VI cae al ♭II
+    "i_iv_bVI_bIII": [0, 3, 5, 2],   # de los packs de psytrance (Chakra 17, 19, 20): el clásico del drop
+    "i_v_bVI_iv": [0, 4, 5, 3],      # Chakra 3: con menor armónica, i–V–♭VI–iv
     "aleatoria": [0],                # se arma al azar con la seed y la escala (ver progresion_aleatoria)
 }
 
@@ -214,6 +216,11 @@ def _sin_semitonos(notas, piso=36, techo=96):
     return notas
 
 
+# Stabs de acordes (Chakra Synth 17 y 19, Apex 004, acordes de Impact): acordes cortos
+# a contratiempo; el pulso (1-4) elige cuál.
+STABS = ("....xx.xx.x.x.x.", "x...x.xx.xx.x.x.", ".x.x.xx.x.xx.xxx", "x...x...x.....x.")
+
+
 def euclides(golpes, lugares):
     """`golpes` repartidos parejo en `lugares`, con el primero en el uno."""
     golpes = max(0, min(golpes, lugares))
@@ -255,6 +262,11 @@ class Pads:
         self.drone = bool(cfg.get("drone", False))
         self.rasgueo = max(0, min(24, int(cfg.get("rasgueo", 1))))
         self.pulso = max(0, min(8, int(cfg.get("pulso", 0))))
+        # Ritmo del pulso: «euclides» reparte los golpes parejo; «stabs» usa ritmos de
+        # stabs de acordes sacados de packs de psytrance (el pulso elige cuál, 1 a 4).
+        self.ritmo = cfg.get("ritmo", "euclides")
+        if self.ritmo == "stabs":
+            self.pulso = max(1, self.pulso)
         # Largo de cada golpe del pulso, como parte del hueco hasta el siguiente:
         # corto = staccato (se oye el pulso), 1 = hasta el golpe siguiente (casi un pad continuo).
         self.golpe = max(0.1, min(1.0, float(cfg.get("golpe", 0.35))))
@@ -630,6 +642,9 @@ class Pads:
         débiles se atrasan un pulso (swing) o se humanizan."""
         rng = random.Random(f"pulso:{self.seed}:{compas}")
         d = self.desplazamiento
+        if self.ritmo == "stabs":
+            mascara = STABS[(self.pulso - 1) % len(STABS)]
+            return {i: 0 for i, c in enumerate(mascara) if c == "x"}
         pasos = [i * 2 for i in euclides(self.pulso, 8)]
         golpes = {}
         for k, p in enumerate(pasos):

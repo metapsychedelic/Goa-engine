@@ -38,11 +38,13 @@ TRANSICIONES_ACIDO = {
     7: {6: 2.0, 0: 3.0, 4: 1.0},
 }
 
-ESTILOS = ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano", "largas", "ambient", "clasico")
+ESTILOS = ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano", "largas", "ambient", "clasico",
+           "psytrance")
 
 # Estilos que muestra cada género (el primero es el que pone al elegir el género).
 ESTILOS_POR_GENERO = {
-    "goa": ("rolling", "galope", "arpegio3", "acido", "clasico"),
+    "goa": ("rolling", "galope", "arpegio3", "acido", "clasico", "psytrance"),
+    "psytrance": ("psytrance", "rolling", "galope", "acido"),
     "psy_chill": ("psy_chill", "galope", "arpegio3"),
     "chillgressive": ("rolling", "euclidiano", "acido"),
     "chillout": ("largas", "euclidiano", "arpegio3"),
@@ -164,7 +166,11 @@ def _acido(rng, largo, pedal):
 #             acorde que suena (pads o armonía guiada).
 
 FIGURAS = ("pedal", "ciclo", "acordes")
-FIGURAS_CON_AUTO = ("auto",) + FIGURAS
+# Psytrance (análisis del pack Zenhiser Analog Psytrance, 0.54): ver _psy_*.
+FIGURAS_PSY = ("riff", "rafaga", "octavas", "arpegio", "pulsos", "espacio", "mantra", "tresillo", "descenso",
+               "puntillo", "melodia")
+FIGURAS_CON_AUTO = ("auto",) + FIGURAS + FIGURAS_PSY
+FRASEADOS = ("clasico", "psytrance")   # estilos cuyo patrón dura una frase de 2 o 4 compases
 CICLOS = (0, 3, 5, 6, 7)  # 0 = lo elige la seed
 
 # Octavas de la raíz por tiempo (1 = arriba): las alternancias de las referencias.
@@ -177,8 +183,15 @@ CORRIDAS_ACORDE = ([7, 9, 11, 14], [11, 9, 8, 7], [14, 11, 9, 7], [7, 8, 9, 11],
 CELDAS_ACORDE = {"x.xx": 4.0, "xx.x": 1.5, "xxx.": 1.5, "x.x.": 1.0, "xxxx": 1.0}
 
 
-def figura_de(seed, figura="auto"):
+def figura_de(seed, figura="auto", familia="clasico"):
     """Qué figura toca: la elegida o, en «auto», la que elige la seed."""
+    if familia == "psytrance":
+        if figura in FIGURAS_PSY:
+            return figura
+        return _elegir(random.Random(f"psy:figura:{seed}"),
+                       {"riff": 4.0, "rafaga": 1.5, "octavas": 1.5, "arpegio": 2.0, "pulsos": 1.0,
+                        "espacio": 1.5, "mantra": 1.0, "tresillo": 1.5, "descenso": 1.5,
+                        "puntillo": 2.5, "melodia": 1.5})
     if figura in FIGURAS:
         return figura
     r = random.Random(f"clasico:figura:{seed}").random()
@@ -310,7 +323,7 @@ def _clasico_acordes(rng, frase, remate, rr=None):
     altos = rng.choice([(9, 8), (9, 8), (9, 11), (8, 9)])
     baja = rng.random() < 0.25          # algunos arpegios bajan en vez de subir
     resultado = []
-    for b, tipo in enumerate(_forma_frase(frase)):
+    for tipo in _forma_frase(frase):
         for t in range(4):
             notas = [0, altos[t % 2]] if len(sonantes) == 2 else [0, 7, altos[t % 2], 11][:len(sonantes)]
             if baja:
@@ -331,7 +344,8 @@ def _clasico_acordes(rng, frase, remate, rr=None):
     return resultado
 
 
-def clasico(seed, figura="auto", frase=2, remate=0.5, ciclo=0, registro=2, pedal=0.5, vuelta=0, raga=""):
+def clasico(seed, figura="auto", frase=2, remate=0.5, ciclo=0, registro=2, pedal=0.5, vuelta=0, raga="",
+            familia="clasico", huecos=0.5):
     """Patrón «Goa clásico» de `frase` compases (16 pasos cada uno).
 
     `vuelta` > 0 da otra respuesta para la misma frase: el compás A y la figura
@@ -340,8 +354,12 @@ def clasico(seed, figura="auto", frase=2, remate=0.5, ciclo=0, registro=2, pedal
     frase = 4 if frase >= 4 else 2
     rng = random.Random(f"clasico:{seed}")
     rr = random.Random(f"clasico:{seed}:respuesta:{vuelta}") if vuelta else None
-    figura = figura_de(seed, figura)
-    if figura == "ciclo":
+    figura = figura_de(seed, figura, familia)
+    if familia == "psytrance":
+        rng = random.Random(f"psy:{seed}")
+        rr = random.Random(f"psy:{seed}:respuesta:{vuelta}") if vuelta else None
+        patron = PSY[figura](rng, frase, remate, huecos, rr or rng)
+    elif figura == "ciclo":
         patron = _clasico_ciclo(rng, frase, remate, ciclo, registro, rr)
     elif figura == "acordes":
         patron = _clasico_acordes(rng, frase, remate, rr)
@@ -401,6 +419,370 @@ def mutar_clasico(patron, seed, compas, probabilidad, audibles=None):
             if j == i or (clave is not None and p.get("fuente") == clave and p["grado"] == actual and j % 16):
                 p["grado"] = g
     return nuevo
+
+
+# --- Psytrance ----------------------------------------------------------------------------
+# Del pack Zenhiser Analog Psytrance (25 loops a 140 BPM): el riff deja huecos fijos
+# (sobre todo los pasos 5 y 9, donde cae el bombo); 60-90 % de raíz saltando de
+# octava; el color (♭7 sobre todo, luego ♭3, ♭2, 4.ª) cae en los pasos de cierre de
+# cada medio compás (8, 11, 15, 16); notas muy cortas con alguna larga de acento;
+# frases A/B donde el B cambia de uno a tres pasos.
+
+# Máscaras de riff del pack, de la más llena a la más vacía (el control «huecos» elige).
+MASCARAS_PSY = ("xxx.xxxx.xx.x.xx", "x.x..xxxxxx.xxxx", "x.x..xxx.xxx.xxx", "x.x..xxx.xx.xxxx",
+                "xxxxx.x..xxxx.x.", "xxx.x.xxx.x.xxx.", "x.x..xxx.xx..xxx", ".xx..xxx.xx..xxx",
+                "x..xx.xx.xx..xxx", "x.x..xxx.xx.x.x.", "xxxx.x.x..x...xx", "x...x.x.x...x.x.")
+# Color sobre la raíz alta: ♭7 (abajo), ♭3, ♭2, 4.ª, 5.ª, ♭6 (grados de la escala).
+COLOR_PSY = {-1: 4.0, 2: 3.0, 1: 2.0, 3: 2.0, 4: 0.7, 5: 0.7}
+CIERRES_PSY = (7, 10, 14, 15, 13, 6)          # dónde cae el color, en orden de preferencia
+CELDAS_ARPEGIO_PSY = ("xxxxx.x.", "xx.xx.x.", "xxx.xxx.", "x.xxx.x.", "xx.x.xx.", "x.x.x.x.")
+
+
+def _corto(grado, octava, fuente=None, largo=False):
+    p = _paso(grado, octava, fuente=fuente)
+    p["gate_mult"] = 1.8 if largo else 0.55   # staccato; las notas antes de un hueco se alargan
+    return p
+
+
+def _mascara_psy(rng, huecos, opciones=MASCARAS_PSY):
+    i = round(huecos * (len(opciones) - 1)) + rng.choice((-2, -1, 0, 0, 1, 2))
+    return opciones[max(0, min(len(opciones) - 1, i))]
+
+
+def _psy_riff(rng, frase, remate, huecos, rr):
+    mascara = _mascara_psy(rng, huecos)
+    sonantes = [i for i, c in enumerate(mascara) if c == "x"]
+    abajo = {sonantes[0]} if rng.random() < 0.75 else set()
+    abajo |= {i for i in sonantes[1:] if rng.random() < 0.12}
+    cierres = [i for i in CIERRES_PSY if i in sonantes]
+    n_color = min(len(cierres), 1 + (rng.random() < 0.6) + (rng.random() < 0.25))
+    color = {i: _elegir(rng, COLOR_PSY) for i in cierres[:n_color]}
+    largos = {i for i in sonantes if (i + 1) % 16 not in sonantes and rng.random() < 0.5}  # acento antes de un hueco
+
+    def compas(colores):
+        c = []
+        for i in range(16):
+            if i not in sonantes:
+                c.append(_paso(0, suena=False, fuente=i))
+                continue
+            if i in colores:
+                c.append(_corto(colores[i], 1, i, largo=i in largos))
+            else:
+                c.append(_corto(0, 0 if i in abajo else 1, i, largo=i in largos))
+        return c
+
+    a = compas(color)
+    resultado = []
+    for tipo in _forma_frase(frase):
+        if tipo == "A" or remate <= 0:
+            resultado += [dict(p) for p in a]
+            continue
+        nuevo = dict(color)
+        cambios = 1 + round(remate * (2 if tipo == "C" else 1))
+        candidatos = [i for i in cierres if i >= 6] or cierres
+        for i in rr.sample(candidatos, min(len(candidatos), cambios)):
+            nuevo[i] = _elegir(rr, {g: p for g, p in COLOR_PSY.items() if g != color.get(i)})
+        c = compas(nuevo)
+        for p in c[6:]:
+            p.pop("fuente", None)
+        resultado += c
+    return resultado
+
+
+def _psy_rafaga(rng, frase, remate, huecos, rr):
+    """Ráfaga transpuesta: un bloque de notas iguales a mitad de compás que cambia de
+    altura cada compás (4.ª → raíz → ♭7 → raíz), como una progresión hecha con el riff."""
+    largo_bloque = 5 if huecos < 0.5 else 4
+    desde = 5
+    progresion = rng.choice(([3, 0, -1, 0], [-1, 0, 3, 0], [2, 0, -1, 1], [4, 3, 0, -1], [3, -1, 0, 1]))
+    cola = rng.choice(([2, 1], [1, 2], [2, -1], [-1, 1]))
+    resultado = []
+    for b in range(frase):
+        bloque = progresion[b % 4] if frase == 4 else progresion[(b * 2) % 4]
+        if remate > 0 and b == frase - 1 and rr is not rng and rr.random() < remate:
+            bloque = _elegir(rr, {g: p for g, p in COLOR_PSY.items() if g != bloque})
+        for i in range(16):
+            if i in (1, 3, 4) or i == desde + largo_bloque + 1:
+                resultado.append(_paso(0, suena=False))
+            elif desde <= i < desde + largo_bloque:
+                resultado.append(_corto(bloque, 1))
+            elif i == desde + largo_bloque:
+                resultado.append(_corto(cola[b % 2], 1, largo=True))
+            else:
+                resultado.append(_corto(0, 0 if i == 0 else 1))
+    return resultado
+
+
+def _psy_octavas(rng, frase, remate, huecos, rr):
+    """Rolling de octavas: raíz alta y baja alternadas (semicorcheas, o corcheas con
+    más huecos); el color del paso 15 cambia cada compás."""
+    corcheas = huecos >= 0.6
+    colores = rng.choice(([-1, 1, -1, 2], [-1, 2, -1, 1], [1, -1, 2, -1], [-1, -1, 1, 2]))
+    segundo = rng.random() < 0.35            # a veces también un color en el paso 7
+    resultado = []
+    for b in range(frase):
+        c = colores[b % 4] if frase == 4 else colores[(b * 2) % 4]
+        if remate > 0 and b == frase - 1 and rr is not rng and rr.random() < remate:
+            c = _elegir(rr, {g: p for g, p in COLOR_PSY.items() if g != c})
+        for i in range(16):
+            if corcheas and i % 2:
+                resultado.append(_paso(0, suena=False))
+                continue
+            alto = (i // 2) % 2 == 0 if corcheas else i % 2 == 0
+            if i == 14:
+                resultado.append(_corto(c, 1))
+            elif segundo and i == 6:
+                resultado.append(_corto(-1, 1))
+            else:
+                p = _paso(0, 1 if alto else 0)
+                p["gate_mult"] = 1.0 if corcheas else 0.9
+                resultado.append(p)
+    return resultado
+
+
+def _psy_arpegio(rng, frase, remate, huecos, rr):
+    """Arpegio con huecos: una célula de 8 pasos (dos por compás) con la raíz alta y
+    color de acorde (♭3, 5.ª, ♭7, 4.ª) en sus notas interiores."""
+    celda = _mascara_psy(rng, huecos, CELDAS_ARPEGIO_PSY)
+    sonantes = [i for i, c in enumerate(celda) if c == "x"]
+    acorde = {2: 3.0, 4: 2.5, -1: 2.5, 3: 1.5, 1: 0.8}
+    # Color en algunas notas interiores (al menos una, a lo más la mitad): la raíz manda.
+    interiores = sonantes[1:]
+    cuantas = max(1, min(len(sonantes) // 2, sum(rng.random() < 0.55 for _ in interiores)))
+    notas = {i: _elegir(rng, acorde) for i in sorted(rng.sample(interiores, min(cuantas, len(interiores))))}
+    abajo = sonantes[-1] if rng.random() < 0.4 else None    # la última de la célula, raíz baja
+    resultado = []
+    for tipo in _forma_frase(frase):
+        mitad2 = dict(notas)
+        if tipo != "A" and remate > 0 and notas:
+            i = rr.choice(list(notas))
+            mitad2[i] = _elegir(rr, {g: p for g, p in acorde.items() if g != notas[i]})
+            if tipo == "C" and rr.random() < remate:
+                mitad2[sonantes[-1]] = rr.choice((1, -1, 2))
+        for m, tabla in enumerate((notas, mitad2)):
+            for i in range(8):
+                if i not in sonantes:
+                    resultado.append(_paso(0, suena=False, fuente=i))
+                elif i in tabla:
+                    resultado.append(_corto(tabla[i], 1, i if m == 0 else None))
+                else:
+                    resultado.append(_corto(0, 0 if i == abajo else 1, i if m == 0 else None))
+    return resultado
+
+
+def _psy_pulsos(rng, frase, remate, huecos, rr):
+    """Pulsos: negras de raíz en octavas que se sostienen; el último tiempo cambia de
+    nota cada compás (♭2, ♭3, ♭7, ♭6). Para bajo, stabs o un lead que respira."""
+    octavas = rng.choice(([1, 0, 1, 1], [0, 1, 1, 0], [1, 0, 1, 0]))
+    ultimos = rng.choice(([1, 2, 1, 2], [0, 1, -1, -2], [1, 2, -1, 5], [2, 1, 2, 4]))
+    resultado = []
+    for b in range(frase):
+        u = ultimos[b % 4] if frase == 4 else ultimos[(b * 2 + 1) % 4]
+        for i in range(16):
+            if i % 4:
+                resultado.append(_paso(0, suena=False))
+                continue
+            t = i // 4
+            g, o = (u, 1) if t == 3 else (0, octavas[t])
+            p = _paso(g, o, acento=(t == 0))
+            p["sostener"] = 4 if huecos < 0.5 else 2   # negras sostenidas (o corcheas con aire)
+            resultado.append(p)
+    return resultado
+
+
+# --- Psytrance místico (LD Magic, LD Mystic, LD Protest, SY Supernova) ---------------------
+
+def _nota(grado, octava=0, sostener=None, retraso=0, acento=False, fuente=None, gate_mult=None):
+    p = _paso(grado, octava, acento=acento, fuente=fuente)
+    if sostener:
+        p["sostener"] = sostener
+    if retraso:
+        p["retraso"] = retraso
+    if gate_mult:
+        p["gate_mult"] = gate_mult
+    return p
+
+
+def _silencios(n=16):
+    return [_paso(0, suena=False) for _ in range(n)]
+
+
+def _psy_espacio(rng, frase, remate, huecos, rr):
+    """Espacio: por medio compás, raíz baja y octava largas (un tiempo y medio) y una
+    nota corta (5.ª, ♭7 o 4.ª) en el contratiempo. Solo tres notas: lo místico es el aire."""
+    largo = rng.choice((1.5, 1.5, 2.5))
+    tercera = _elegir(rng, {4: 4.0, 6: 1.5, 3: 1.5})       # la nota corta (sobre la raíz baja)
+    lugar = rng.choice((6, 6, 7))
+    resultado = []
+    for tipo in _forma_frase(frase):
+        c = _silencios()
+        for m in (0, 8):
+            c[m] = _nota(0, 0, largo, fuente=m, acento=m == 0)
+            quita_octava = m == 8 and (tipo != "A" or huecos > 0.6)   # el compás B respira más
+            if not quita_octava:
+                c[m + 4] = _nota(0, 1, largo, fuente=m + 4)
+            if not (huecos > 0.85 and m == 0):
+                g = tercera
+                if tipo == "C" and m == 8 and rr.random() < remate:
+                    g = _elegir(rr, {k: v for k, v in {4: 1, 6: 1, 3: 1, 1: 1}.items() if k != tercera})
+                c[m + lugar - (0 if m + lugar < 16 else 1)] = _nota(g, 0, gate_mult=0.9, fuente=m + lugar)
+        resultado += c
+    return resultado
+
+
+def _psy_mantra(rng, frase, remate, huecos, rr):
+    """Mantra: un drone de raíz de tres tiempos y, al final de la frase, un canto lento en
+    negras (1 ♭2 3 ♭2 en Hijaz) que entra con una ♭7 de anacrusa."""
+    cantos = ([0, 1, 2, 1], [0, 1, 0, -1], [2, 1, 0, 1], [0, 1, 2, 3], [-1, 0, 1, 0])
+    canto = rng.choice(cantos)
+    resultado = []
+    for b in range(frase):
+        c = _silencios()
+        ultimo = b == frase - 1
+        if ultimo:
+            melodia = canto
+            if remate > 0 and rr is not rng and rr.random() < remate:
+                melodia = rr.choice([x for x in cantos if x != canto])
+            for t, g in enumerate(melodia):
+                c[t * 4] = _nota(g, 1, 4 if huecos < 0.6 else 3, acento=t == 0)
+        elif b % 2 == 0 or huecos < 0.4:
+            c[0] = _nota(0, 0, 12 if huecos < 0.7 else 8, acento=True, fuente=0)
+            if b == frase - 2:
+                c[12] = _nota(-1, 1, 4)                      # anacrusa: la ♭7 antes del canto
+        resultado += c
+    return resultado
+
+
+def _psy_tresillo(rng, frase, remate, huecos, rr):
+    """Tresillos sobre el 4/4: tresillos de corchea (raíz, ♭2, 4.ª / raíz, ♭2, ♭7) en los
+    primeros tiempos y tresillos de negra al final del compás. Un pulso = 1/24 de negra:
+    el tresillo de corchea cae en los pulsos 0, 8 y 16 (paso 0, paso 1 + 2, paso 2 + 4)."""
+    t1 = rng.choice(([0, 1, 3], [0, 1, 2], [0, 2, 3]))
+    t2 = rng.choice(([0, 1, -1], [0, -1, -2], [0, 1, 0]))
+    fin = rng.choice(([0, 0], [0, -1], [1, 0]))
+    resultado = []
+    for tipo in _forma_frase(frase):
+        a, d, f = list(t1), list(t2), list(fin)
+        if tipo != "A" and remate > 0:
+            if rr.random() < remate:
+                a[2] = a[2] + rr.choice((1, 2))             # el tresillo sube (E3, C#3 en la referencia)
+            if tipo == "C" and rr.random() < remate:
+                d = [x + 2 for x in d]
+                f = [rr.choice((1, -1)), 0]
+        c = _silencios()
+        for k, g in enumerate(a):
+            c[k] = _nota(g, 0, retraso=2 * k, gate_mult=1.2, acento=k == 0, fuente=k if tipo == "A" else None)
+        if huecos < 0.75:
+            for k, g in enumerate(d):
+                c[4 + k] = _nota(g, 0, retraso=2 * k, gate_mult=1.2, fuente=4 + k if tipo == "A" else None)
+        c[8] = _nota(0, 0, gate_mult=1.4)
+        # tresillo de negra: pulsos 64 y 80 del compás (paso 10 + 4, paso 13 + 2)
+        c[10] = _nota(f[0], 0, 1.1, retraso=4)
+        if huecos < 0.5 or tipo != "A":
+            c[13] = _nota(f[1], 0, 1.1, retraso=2)
+        resultado += c
+    return resultado
+
+
+def _psy_descenso(rng, frase, remate, huecos, rr):
+    """Descenso: la raíz en cada tiempo y, entre medio, una línea que baja por la escala
+    (♭7 ♭6 5 4); acento en el tiempo 3."""
+    lineas = ([-1, -2, -3, -4], [1, -1, -2, -3], [-1, -3, -2, -4], [-2, -1, -3, -4])
+    linea = rng.choice(lineas)
+    corcheas = huecos < 0.6
+    resultado = []
+    for tipo in _forma_frase(frase):
+        ln = list(linea)
+        if tipo == "C" and remate > 0 and rr.random() < remate:
+            ln = rr.choice([x for x in lineas if x != linea])
+        elif tipo == "B" and remate > 0 and rr.random() < remate * 0.6:
+            ln[-1] = ln[-1] - 1
+        c = _silencios()
+        for t in range(4):
+            c[t * 4] = _nota(0, 1, gate_mult=1.6, acento=t == 2, fuente=t * 4)
+            if corcheas or t % 2 == 1:
+                c[t * 4 + 2] = _nota(ln[t], 1, gate_mult=1.6, fuente=t * 4 + 2 if tipo == "A" else None)
+        resultado += c
+    return resultado
+
+
+# --- De la carpeta completa de MIDIs (413 loops, 0.54) ---------------------------------------
+
+# Puntillo: agrupar de a 3 semicorcheas (el acento cruza el 4/4 sin salir de la rejilla).
+# Máscaras de Ghosthack (Riff 3, Riff 5), Apex (010, 011, 041) y Progressive (019),
+# de la más llena a la más vacía.
+MASCARAS_PUNTILLO = ("x..x..x..x..x.xx", "x..x..x.x..x..x.", "x..x..x..x..x.x.", "..x..x..x.xx..xx",
+                     "x..x..x..x...x.x", "x.x..x..x.x..x..", "x....x..x..x..x.", "x..x..x.........")
+
+
+def _psy_puntillo(rng, frase, remate, huecos, rr):
+    """Puntillo: notas cada 3 semicorcheas (3-3-2, 3-3-3-3-2-2…). Raíz con alguna octava
+    y el color en las últimas notas del compás, que cambian en la respuesta."""
+    mascara = _mascara_psy(rng, huecos, MASCARAS_PUNTILLO)
+    sonantes = [i for i, c in enumerate(mascara) if c == "x"]
+    arriba = {i for i in sonantes[1:] if rng.random() < 0.3}
+    colores_a = {i: _elegir(rng, COLOR_PSY) for i in sonantes[-(1 + (rng.random() < 0.5)):] if i != sonantes[0]}
+    resultado = []
+    for tipo in _forma_frase(frase):
+        colores = dict(colores_a)
+        if tipo != "A" and remate > 0:
+            for i in list(colores) or sonantes[-1:]:
+                if rr.random() < remate:
+                    colores[i] = _elegir(rr, {g: p for g, p in COLOR_PSY.items() if g != colores_a.get(i)})
+            if tipo == "C" and rr.random() < remate and len(sonantes) > 3:
+                colores[sonantes[-3]] = _elegir(rr, COLOR_PSY)
+        for i in range(16):
+            if i not in sonantes:
+                resultado.append(_paso(0, suena=False, fuente=i))
+            elif i in colores:
+                resultado.append(_nota(colores[i], 1, gate_mult=1.6, fuente=i if tipo == "A" else None))
+            else:
+                resultado.append(_nota(0, 1 if i in arriba else 0, gate_mult=1.6, acento=i == sonantes[0], fuente=i))
+    return resultado
+
+
+# Melodía con progresión: líneas por grados (drop leads de Impact, Chakra 13/14/18,
+# Progressive 004). Suben por grados en el compás A, bajan desde el ♭6 en el B y
+# resuelven en la raíz al cerrar la frase. Con armonía guiada caen en el acorde.
+RITMOS_MELODIA = ("x.x.x.x.x.x.x.x.", "x...x...x...x...", "x.x.x...x.x.x...", "x.x.x.x.x...x...",
+                  "x..x..x.x..x..x.")
+CONTORNOS_A = ([0, 0, 2, 2, 1, 1, 0, 0], [0, 1, 2, 3, 2, 1, 0, 0], [0, 2, 4, 2, 3, 1, 0, 0], [0, 0, 1, 1, 2, 2, 4, 4],
+               [4, 3, 2, 1, 2, 3, 4, 2])
+CONTORNOS_B = ([5, 5, 4, 4, 3, 3, 0, 0], [5, 4, 3, 2, 1, 0, -1, 0], [6, 5, 4, 3, 4, 2, 1, 0], [4, 5, 4, 3, 2, 1, 0, 0],
+               [2, 3, 4, 5, 4, 3, 1, 0])
+
+
+def _psy_melodia(rng, frase, remate, huecos, rr):
+    ritmo = _mascara_psy(rng, huecos, RITMOS_MELODIA)
+    sonantes = [i for i, c in enumerate(ritmo) if c == "x"]
+    a, bajada = rng.choice(CONTORNOS_A), rng.choice(CONTORNOS_B)
+    largo = 1.8 if len(sonantes) <= 6 else 1.4
+
+    def compas(contorno, fuente):
+        c = _silencios()
+        for k, i in enumerate(sonantes):
+            # el contorno se reparte en las notas del ritmo: la primera y la última siempre caen
+            g = contorno[round(k * (len(contorno) - 1) / max(1, len(sonantes) - 1))]
+            c[i] = _nota(g, 1, gate_mult=largo, acento=k == 0, fuente=i if fuente else None)
+        return c
+
+    resultado = []
+    for b, tipo in enumerate(_forma_frase(frase)):
+        if tipo == "A":
+            resultado += compas(a, True)
+        else:
+            contorno = list(bajada)
+            if remate > 0 and rr.random() < remate:
+                contorno = rr.choice([x for x in CONTORNOS_B if x != bajada])
+            if tipo == "C" or b == frase - 1:
+                contorno[-1] = 0          # la frase resuelve en la raíz
+            resultado += compas(contorno, False)
+    return resultado
+
+
+PSY = {"riff": _psy_riff, "rafaga": _psy_rafaga, "octavas": _psy_octavas,
+       "arpegio": _psy_arpegio, "pulsos": _psy_pulsos, "espacio": _psy_espacio, "mantra": _psy_mantra,
+       "tresillo": _psy_tresillo, "descenso": _psy_descenso, "puntillo": _psy_puntillo, "melodia": _psy_melodia}
 
 
 def _ritmo(estilo, largo, rng):
@@ -539,8 +921,10 @@ def generar(seed, estilo="rolling", largo=16, pedal=0.5, clasico_opciones=None):
     con el paso global, para que un patrón de 13 pasos siga en la grilla.
     «clasico» ignora `largo`: dura su frase (32 o 64 pasos).
     """
-    if estilo == "clasico":
-        return clasico(seed, pedal=pedal, **(clasico_opciones or {}))
+    if estilo in FRASEADOS:
+        opciones = dict(clasico_opciones or {})
+        opciones["familia"] = estilo
+        return clasico(seed, pedal=pedal, **opciones)
     rng = random.Random(f"patron:{seed}")
     if estilo == "acido":
         return _acido(rng, largo, pedal)

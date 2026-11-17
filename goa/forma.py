@@ -86,7 +86,7 @@ def resumen(escena):
         suenan.append("FX")
     if d.get("texturas", {}).get("activo"):
         suenan.append("texturas")
-    genero = {"goa": "Goa", "psy_chill": "Psy chill", "chillgressive": "Chillgressive",
+    genero = {"goa": "Goa", "psytrance": "Psytrance", "psy_chill": "Psy chill", "chillgressive": "Chillgressive",
               "chillout": "Chillout", "ambient": "Ambient"}.get(d.get("musica", {}).get("genero"), "")
     return f"{genero} · {', '.join(suenan) or 'silencio'}"
 

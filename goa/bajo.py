@@ -29,9 +29,9 @@ TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
 TICKS_POR_COMPAS = TICKS_POR_PASO * PASOS_POR_COMPAS
 
-ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "dub", "sub")
+ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "dub", "sub")
 ALIAS = {"psy_chill": "galope", "deepnotic": "offbeat"}  # nombres que tuvo (0.18) o estilos que se sacaron (0.45)
-PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive"}
+PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado"}
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,7 @@ class Golpe:
     dur: int            # ticks
     retraso: int = 0    # ticks después del paso (tresillos)
     grado: int = 0      # grado de escala desde la raíz del acorde
+    fusa: object = None  # remate en fusas: grado de la segunda fusa (el golpe se parte en dos)
 
 
 def _cada_tiempo(lugares, dur, retrasos=None):
@@ -55,6 +56,9 @@ BASES = {
     "saltado": _cada_tiempo((1, 3), 6),                    # K B · B
     "tresillo": _cada_tiempo((1, 2), 8, {1: 2, 2: 4}),     # K y dos de tresillo (ticks 8 y 16 del tiempo)
     "chillgressive": _cada_tiempo((1, 2, 3), 6),           # rolling oscuro, acento que se mueve
+    # Sincopado progresivo (Chakra Bass 3, 12, 15): lejos del bombo, notas largas en
+    # «y» y «a» del tiempo; cambia de nota con el acorde.
+    "sincopado": {2: Golpe(6), 3: Golpe(12), 6: Golpe(12), 10: Golpe(6), 11: Golpe(12), 14: Golpe(12)},
     "dub": {0: Golpe(30), 7: Golpe(12), 10: Golpe(24)},    # en el uno, antes del tres y en el tres
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
@@ -73,6 +77,7 @@ REMATES = {
     "saltado": ({13: 7, 15: 4}, {13: 4, 14: 6, 15: 7}),
     "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}),
     "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
+    "sincopado": ({11: 4, 14: 7}, {10: 6, 11: 4, 14: 1}),
     "dub": ({14: 4}, {13: 6, 15: 4}),
     "sub": ({}, {}),
 }
@@ -99,6 +104,7 @@ MOVIMIENTOS = {
     "saltado": [(lambda l: l % 4 == 3, 7, 0.5), (lambda l: l % 4 == 1, 4, 0.2)],
     "tresillo": [(lambda l: l % 4 == 2, 7, 0.5)],
     "chillgressive": [(lambda l: l % 4 == 3, 7, 0.4), (lambda l: l % 4 == 1, 4, 0.2)],
+    "sincopado": [(lambda l: l in (6, 14), 4, 0.4), (lambda l: l == 11, 7, 0.3)],
     "dub": [(lambda l: l == 7, 7, 0.6), (lambda l: l == 10, 4, 0.6)],
     "sub": [],
 }
@@ -135,6 +141,10 @@ class Bajo:
         if self.remate_rango not in GRADOS_REMATE:
             self.remate_rango = "octava"
         self.remate_marca = _fraccion(cfg.get("remate_marca", 1.0))
+        # Remate en fusas (Apex 027, Ghosthack Riff 7): en esa proporción de frases, las
+        # últimas notas del compás que cierra se parten en dos fusas (un redoble corto
+        # antes del uno). Con más de 60 % también el final del tiempo 3.
+        self.fusas = _fraccion(cfg.get("fusas", 0.0))
         # Filtro automático por CC (opcional): se abre de a poco y vuelve a cerrarse.
         self.filtro = bool(cfg.get("filtro", False))
         self.filtro_cc = max(0, min(127, int(cfg.get("filtro_cc", 74))))
@@ -254,6 +264,26 @@ class Bajo:
             for lugar, grado in remate.items():
                 molde = BASES[self.estilo].get(lugar, Golpe(12 if self.estilo == "dub" else 6))
                 golpes[lugar] = replace(molde, grado=grado)
+        return self._fusas(golpes, compas)
+
+    def _fusas(self, golpes, compas):
+        """Remate en fusas: en el compás que cierra la frase (o cada 4, sin frase), las
+        notas del último tiempo (y con más de 60 %, la última del tiempo 3) se parten en
+        dos fusas. La segunda repite la nota, salta a la octava o cae en la ♭7."""
+        if not self.fusas or self.estilo in ("sub", "dub"):
+            return golpes
+        largo = self.frase if self.frase > 1 else 4
+        if compas % largo != largo - 1:
+            return golpes
+        rng = random.Random(f"bajo:{self.seed}:fusas:{compas // largo}")
+        if rng.random() >= self.fusas:
+            return golpes
+        lugares = [l for l in golpes if l >= 13 and not golpes[l].retraso]
+        if self.fusas > 0.6:
+            lugares += [l for l in golpes if l in (10, 11) and not golpes[l].retraso][-1:]
+        golpes = dict(golpes)
+        for l in lugares:
+            golpes[l] = replace(golpes[l], fusa=rng.choice((golpes[l].grado, golpes[l].grado + 7, golpes[l].grado - 1)))
         return golpes
 
     def remate(self, compas):
@@ -433,6 +463,12 @@ class Bajo:
             self.cc_pendientes += [(inicio, pico), (inicio + max(2, round(min(fin - inicio, TICKS_POR_PASO) * 0.7)), None)]
             if not retraso:
                 self._enviar_cc(tick, enviar)
+        if golpe.fusa is not None:
+            # Remate en fusas: dos notas de medio paso, la segunda un poco más suave.
+            mitad = TICKS_POR_PASO // 2
+            fin = min(fin, inicio + mitad - 1)
+            segunda = self._nota(raiz, golpe.fusa, momento, False, False)
+            self.pendientes.append((inicio + mitad, segunda, max(1, vel - 12), inicio + 2 * mitad - 1))
         if retraso:
             self.pendientes.append((inicio, nota, vel, fin))
         else:

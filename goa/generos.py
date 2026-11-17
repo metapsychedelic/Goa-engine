@@ -23,6 +23,15 @@ GENEROS = {
         "llamada": {"golpes": 3, "gate": 0.5, "oscuridad": 0.7},
         "respuesta": {"golpes": 2, "gate": 0.6, "oscuridad": 0.7},
     },
+    "psytrance": {
+        "nombre": "Psytrance",
+        "musica": {"escala": "frigio", "desplazamiento": 0.0, "tension": 0.5},
+        "pads": {"progresion": "i_bII", "acorde": "menor_add9", "cambia_cada": 16, "apertura": "abierta",
+                 "ataque": "ligado", "drone": False, "rasgueo": 1, "pulso": 0, "variacion": 0.1, "suspensiones": 0.2},
+        "dialogo": {"rejilla": "semicorcheas", "espacio": 2, "evolucion": 0.5, "mutar_cada": 4},
+        "llamada": {"golpes": 3, "gate": 0.35, "oscuridad": 0.8},
+        "respuesta": {"golpes": 2, "gate": 0.35, "oscuridad": 0.8},
+    },
     "psy_chill": {
         "nombre": "Psy chill",
         "musica": {"escala": "dorico", "desplazamiento": 0.2, "tension": 0.3},
@@ -64,6 +73,7 @@ GENEROS = {
 # Carácter de una secuencia por género (el estilo es el primero de su lista).
 SECUENCIAS = {
     "goa": {"posicion": "offbeat", "largo": 16, "gate": 0.55, "pedal": 0.5, "swing": 0.0, "largas": 0.0},
+    "psytrance": {"posicion": "todos", "largo": 16, "gate": 0.5, "pedal": 0.6, "swing": 0.0, "largas": 0.0},
     "psy_chill": {"posicion": "offbeat", "largo": 16, "gate": 0.5, "pedal": 0.6, "swing": 0.05, "largas": 0.0},
     "chillgressive": {"posicion": "offbeat", "largo": 16, "gate": 0.45, "pedal": 0.55, "swing": 0.0, "largas": 0.0},
     "chillout": {"posicion": "todos", "largo": 16, "gate": 0.9, "pedal": 0.5, "swing": 0.1, "largas": 0.6},
@@ -76,6 +86,8 @@ for _g, _s in SECUENCIAS.items():
 BAJO = {
     "goa": {"estilo": "rolling", "gate": 0.6, "movimiento": 0.3, "frase": 4, "octava": 0,
             "evolucion": 0.3, "swing": 0.0, "slide": 0.0},
+    "psytrance": {"estilo": "rolling", "gate": 0.5, "movimiento": 0.2, "frase": 4, "octava": 0,
+                  "evolucion": 0.2, "swing": 0.0, "slide": 0.0},
     "psy_chill": {"estilo": "galope", "gate": 0.7, "movimiento": 0.4, "frase": 4, "octava": 0,
                   "evolucion": 0.3, "swing": 0.05, "slide": 0.1},
     "chillgressive": {"estilo": "chillgressive", "gate": 0.45, "movimiento": 0.3, "frase": 8, "octava": 0,
@@ -89,14 +101,15 @@ BAJO = {
 # Estilos de bajo que muestra cada género (el primero es el que pone al elegir el género).
 ESTILOS_BAJO_POR_GENERO = {
     "goa": ("rolling", "fullon", "tresillo", "galope", "saltado", "offbeat"),
+    "psytrance": ("rolling", "fullon", "galope", "saltado", "tresillo", "sincopado"),
     "psy_chill": ("galope", "offbeat", "saltado", "dub"),
-    "chillgressive": ("chillgressive", "rolling", "offbeat", "galope"),
+    "chillgressive": ("chillgressive", "rolling", "offbeat", "galope", "sincopado"),
     "chillout": ("dub", "offbeat", "sub"),
     "ambient": ("sub", "dub"),
 }
 
 # Estilos de secuencia que necesitan sonar también en el tiempo.
-POSICION_NECESARIA = {"largas": "todos", "ambient": "todos", "clasico": "todos"}
+POSICION_NECESARIA = {"largas": "todos", "ambient": "todos", "clasico": "todos", "psytrance": "todos"}
 
 ORDEN = tuple(GENEROS)
 PARTES = ("pads", "dialogo", "secuencia", "bajo", "fx")
