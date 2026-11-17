@@ -287,6 +287,14 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
         <input type="number" min="0" max="64" id="nota_maxima"></label>
       <p class="ayuda">0 = nunca. Evita que algo quede sonando si la Circuit deja de mandar la nota.</p>
     </div>
+    <div class="card">
+      <h2>Actualización</h2>
+      <p class="ayuda" id="act_estado">Busca si hay una versión nueva del motor en GitHub.</p>
+      <ul class="ayuda" id="act_cambios" style="margin:0;padding-left:18px" hidden></ul>
+      <div class="dos"><button id="act_buscar">Buscar actualización</button><button id="act_instalar" class="prim" hidden>Actualizar y reiniciar</button></div>
+      <button id="act_anterior" hidden>Volver a la versión anterior</button>
+      <p class="ayuda">Al actualizar, el motor se reinicia y el sonido se corta unos segundos. Tu configuración, escenas y proyectos se mantienen. Si la versión nueva no arranca con tu configuración, vuelve sola a la que tenías.</p>
+    </div>
     <p class="mut" id="ver" style="text-align:center;margin:0"></p>
   </section>
 </main>
@@ -2045,6 +2053,73 @@ async function api(ruta, datos) {
   if (!r.ok) throw new Error(d.error || "No se pudo");
   return d;
 }
+
+// --- Actualización ---
+let versionActual = null;
+async function buscarActualizacion(buscar) {
+  const est = $("act_estado"), lista = $("act_cambios");
+  if (buscar) { est.textContent = "Buscando en GitHub…"; $("act_buscar").disabled = true; }
+  let d;
+  try { d = await (await fetch("/api/actualizacion" + (buscar ? "?buscar=1" : ""))).json(); }
+  catch (e) { est.textContent = "No pude preguntarle al motor."; $("act_buscar").disabled = false; return; }
+  $("act_buscar").disabled = false;
+  if (!d.git) { est.textContent = "Esta instalación no viene de GitHub: se actualiza a mano."; $("act_buscar").hidden = true; return; }
+  versionActual = d.version;
+  $("act_anterior").hidden = !d.hay_anterior;
+  lista.hidden = true; $("act_instalar").hidden = true;
+  if (d.error) { est.textContent = `Tienes la ${d.version}. ${d.error}`; return; }
+  if (!buscar) { est.textContent = d.en_anterior ? `Estás en una versión anterior (${d.version}). «Buscar actualización» te lleva a la última.` : `Tienes la versión ${d.version}.`; return; }
+  if (d.hay_nueva) {
+    est.textContent = d.version_nueva !== d.version ? `Hay una versión nueva: ${d.version_nueva} (tienes la ${d.version}).` : `Hay cambios nuevos en la ${d.version_nueva}.`;
+    lista.replaceChildren(...d.cambios.map((c) => el("li", {textContent: c.split("\n")[0]})));
+    lista.hidden = !d.cambios.length;
+    $("act_instalar").hidden = false;
+    $("act_instalar").textContent = d.servicio ? "Actualizar y reiniciar" : "Actualizar";
+  } else {
+    est.textContent = `Tienes la última versión (${d.version}).`;
+  }
+}
+async function cambiarVersion(ruta, pregunta) {
+  if (!confirm(pregunta)) return;
+  const est = $("act_estado");
+  for (const b of ["act_buscar", "act_instalar", "act_anterior"]) $(b).disabled = true;
+  est.textContent = ruta.endsWith("anterior") ? "Volviendo a la versión anterior…" : "Bajando la versión nueva y probándola con tu configuración…";
+  try {
+    const d = await api(ruta);
+    if (!d.reinicia) {
+      await buscarActualizacion(false);
+      est.textContent = d.cambio === false ? `Ya tenías la última versión (${d.version}).`
+        : `Quedó la versión ${d.version}. Reinicia el motor para usarla (goa-restart).`;
+    } else {
+      est.textContent = `Instalada la ${d.version}. Reiniciando el motor…`;
+      if (d.instalar) aviso("Esta versión cambia la instalación: cuando puedas, corre ./install.sh en la Pi", true);
+      await esperarReinicio(d.version);
+      return;
+    }
+  } catch (e) { est.textContent = e.message; }
+  for (const b of ["act_buscar", "act_instalar", "act_anterior"]) $(b).disabled = false;
+}
+async function esperarReinicio(version) {
+  // El motor se apaga y systemd lo levanta: espera a que conteste un proceso nuevo
+  // (otro «inicio») y recarga la página (la app también puede haber cambiado).
+  let antes = null;
+  try { antes = (await (await fetch("/api/estado", {cache: "no-store"})).json()).inicio; } catch (e) { /* ya se apagó */ }
+  await new Promise((r) => setTimeout(r, 2500));
+  for (let k = 0; k < 60; k++) {
+    try {
+      const d = await (await fetch("/api/estado", {cache: "no-store"})).json();
+      if (d.inicio !== antes) { location.reload(); return; }
+    } catch (e) { /* todavía arrancando */ }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  $("act_estado").textContent = "El motor tarda en volver. Recarga la página en un rato; si no vuelve, revisa con goa-log en la Pi.";
+}
+$("act_buscar").onclick = () => buscarActualizacion(true);
+$("act_instalar").onclick = () => cambiarVersion("/api/actualizar",
+  "¿Actualizar ahora? El motor se reinicia y el sonido se corta unos segundos.");
+$("act_anterior").onclick = () => cambiarVersion("/api/actualizar/anterior",
+  "¿Volver a la versión anterior? El motor se reinicia y el sonido se corta unos segundos.");
+buscarActualizacion(false);
 
 async function recargar() {
   cfg = await (await fetch("/api/config")).json();

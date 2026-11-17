@@ -28,8 +28,11 @@ cd goa-engine
 sudo reboot
 ```
 
-Para actualizar más adelante: `goa-update`. Para volver a la versión
-anterior si algo suena peor: `goa-update --anterior`.
+Para actualizar más adelante: en la app, **Ajustes › Actualización › Buscar
+actualización** y luego **Actualizar y reiniciar** (desde la 0.55; antes, o desde la
+terminal: `goa-update`). Si la versión nueva no arranca con tu configuración, la app
+vuelve sola a la que tenías. Para volver a la versión anterior si algo suena peor:
+**Volver a la versión anterior** en la misma tarjeta, o `goa-update --anterior`.
 
 ## 3. Configurar la Circuit Tracks
 

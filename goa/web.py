@@ -6,11 +6,12 @@ import logging
 import random
 import re
 import threading
+import time
 import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, forma, fuentes, generador, generos, plantillas
+from . import __version__, actualizar, forma, fuentes, generador, generos, plantillas
 from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
@@ -18,6 +19,10 @@ from .motor import Motor
 log = logging.getLogger("goa")
 PAGINA = Path(__file__).parent / "web" / "index.html"
 MAX_CUERPO = 1024 * 1024  # la configuración trae las escenas
+
+
+INICIO = time.time()   # cuándo arrancó este proceso: la app nota así que el motor se reinició
+_CAMBIANDO = threading.Lock()   # una sola actualización a la vez
 
 
 class Contexto:
@@ -129,6 +134,7 @@ def crear_servidor(ctx, puerto):
                         self._guardar_activa()
                     estado = ctx.motor.estado()
                     estado["version"] = __version__
+                    estado["inicio"] = INICIO
                     estado["entrada"] = ctx.entrada
                     estado["salidas"] = {clave: clave in ctx.puertos.abiertos for clave in ctx.puertos.salidas}
                     estado["disponibles"] = _nombres_cortos(ctx.puertos.disponibles)
@@ -146,6 +152,12 @@ def crear_servidor(ctx, puerto):
                 self._json({"molde": generador.molde_al_azar(random.Random(), estilo), "estilo": estilo})
             elif self.path == "/api/plantillas":
                 self._json({"plantillas": plantillas.lista()})
+            elif self.path.startswith("/api/actualizacion"):
+                try:
+                    datos = actualizar.estado(buscar="buscar=1" in self.path)
+                except actualizar.ErrorActualizacion as e:
+                    datos = dict(actualizar.estado(buscar=False), error=str(e))
+                self._json(dict(datos, servicio=actualizar.con_servicio()))
             elif self.path == "/api/proyectos":
                 self._json({"proyectos": listar_proyectos(ctx)})
             else:
@@ -188,6 +200,8 @@ def crear_servidor(ctx, puerto):
                 "/api/proyecto/guardar": self._proyecto_guardar,
                 "/api/proyecto/abrir": self._proyecto_abrir,
                 "/api/proyecto/borrar": self._proyecto_borrar,
+                "/api/actualizar": self._actualizar,
+                "/api/actualizar/anterior": self._actualizar_anterior,
             }
             accion = rutas.get(self.path)
             if accion is None:
@@ -203,6 +217,37 @@ def crear_servidor(ctx, puerto):
                 self._json({"error": str(e)}, 400)
 
         # --- Acciones ---
+
+        def _actualizar(self, datos):
+            self._cambiar_version(lambda: actualizar.actualizar(ctx.ruta_config))
+
+        def _actualizar_anterior(self, datos):
+            self._cambiar_version(lambda: actualizar.anterior(ctx.ruta_config))
+
+        def _cambiar_version(self, cambio):
+            """Actualiza (o vuelve atrás) y reinicia el motor. Sin systemd que lo vuelva a
+            levantar (corriendo a mano), no lo apaga: avisa que hay que reiniciarlo."""
+            if not _CAMBIANDO.acquire(blocking=False):
+                raise ValueError("Ya se está actualizando")
+            try:
+                with ctx.candado:
+                    aviso = self._guardar_activa()   # que la config quede en la tarjeta antes
+                if aviso:
+                    raise ValueError("No se pudo guardar la configuración: no actualizo")
+                res = cambio()
+            except actualizar.ErrorActualizacion as e:
+                _CAMBIANDO.release()
+                raise ValueError(str(e)) from None
+            except Exception:
+                _CAMBIANDO.release()
+                raise
+            reinicia = res.get("cambio", True) and actualizar.con_servicio()
+            self._json(dict(res, ok=True, reinicia=reinicia))
+            if reinicia:
+                log.info("Versión %s instalada desde la app: reinicio el motor", res["version"])
+                actualizar.reiniciar()
+            else:
+                _CAMBIANDO.release()
 
         def _panico(self, datos):
             with ctx.candado:
