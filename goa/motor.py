@@ -22,6 +22,7 @@ from .fx import Fx
 from .motor_forma import FormaMotor
 from .pads import Pads, _cerca
 from .secuencia import PASOS_POR_COMPAS, TICKS_POR_PASO, Secuencia, celda_molde
+from .texturas import Texturas
 
 log = logging.getLogger("goa")
 
@@ -57,6 +58,7 @@ class Motor(FormaMotor):
         self.tension_pc, self.tension_fin, self.resolver_en = None, None, None
         self.saltar_parte_a = None  # parte pedida desde la app (entra en el próximo compás)
         self.fx = None
+        self.texturas = None
         # Subida de FX: {"desde": paso, "hasta": paso del drop, "origen": manual, cancion o piloto}
         self.subida = None
         self.subida_pedida = None   # compases de la subida pedida desde la app (0 = cancelar)
@@ -131,6 +133,12 @@ class Motor(FormaMotor):
         else:
             nuevo_fx = Fx(fx_cfg, tonalidad)
             nuevo_fx.continuar_de(self.fx, self.enviar)
+        tx_cfg = config.get("texturas", {})
+        if self.texturas is not None and mismo("texturas", "entrada") and musica_igual:
+            nuevas_texturas = self.texturas
+        else:
+            nuevas_texturas = Texturas(tx_cfg, tonalidad)
+            nuevas_texturas.continuar_de(self.texturas, self.enviar)
         self.config_aplicada = config
         self._programas(config)
         self.tonalidad = tonalidad
@@ -165,7 +173,10 @@ class Motor(FormaMotor):
         bajo.disparo = self._canal_de(config.get("bajo", {}))
         nuevo_fx.disparo = self._canal_de(fx_cfg)
         self.fx = nuevo_fx
-        canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, bajo.disparo, nuevo_fx.disparo, self.canal_disparo}
+        nuevas_texturas.disparo = self._canal_de(tx_cfg)
+        self.texturas = nuevas_texturas
+        canales = {s.disparo for s in secuencias} | {pads.disparo, dialogo.disparo, bajo.disparo, nuevo_fx.disparo,
+                                                     nuevas_texturas.disparo, self.canal_disparo}
         anteriores = self.disparos
         self.disparos = {c: anteriores.get(c) or Disparo(c) for c in canales}
         for vieja in self.secuencias[len(secuencias):]:
@@ -311,7 +322,8 @@ class Motor(FormaMotor):
             "cancion": self._cancion_estado(),
             "version_base": self.version_base,
             "motores": dict({"pads": bool(self.pads and self.pads.activo), "bajo": bool(self.bajo and self.bajo.activo),
-                             "dialogo": bool(self.dialogo and self.dialogo.activo), "fx": bool(self.fx and self.fx.activo)},
+                             "dialogo": bool(self.dialogo and self.dialogo.activo), "fx": bool(self.fx and self.fx.activo),
+                             "texturas": bool(self.texturas and self.texturas.activo)},
                             **{f"sec{i}": s.activa for i, s in enumerate(self.secuencias)}),
             "bajo": {"estilo": self.bajo.estilo, "activo": self.bajo.activo,
                      "cola": self.cola_bajo.estilo if self.cola_bajo is not None else None} if self.bajo else None,
@@ -404,6 +416,7 @@ class Motor(FormaMotor):
         self.pads.tick(self.tick, self.enviar)
         self.bajo.tick(self.tick, self.enviar)
         self.fx.tick(self.tick, self.enviar)
+        self.texturas.tick(self.tick, self.enviar)
         if self.tick % TICKS_POR_PASO == 0:
             self._paso(self.tick // TICKS_POR_PASO)
         elif self.tick % TICKS_POR_PASO == 2:
@@ -489,6 +502,7 @@ class Motor(FormaMotor):
         self._paso_dialogo(paso)
         self._paso_bajo(paso)
         self._paso_fx(paso)
+        self._paso_texturas(paso)
         self._filtro_secuencias(paso)
 
     # --- FX: subidas, riser, filtros y glitches ---
@@ -688,3 +702,5 @@ class Motor(FormaMotor):
             self.bajo.apagar(self.enviar)
         if self.fx is not None:
             self.fx.apagar(self.enviar)
+        if self.texturas is not None:
+            self.texturas.apagar(self.enviar)

@@ -612,6 +612,7 @@ function motores() {
   cfg.secuencia.forEach((s, i) => lista.push(["sec" + i, s.nombre, s, "activa"]));
   lista.push(["dialogo", "Diálogo", cfg.dialogo, "activo"]);
   lista.push(["fx", "FX", cfg.fx, "activo"]);
+  if (cfg.texturas) lista.push(["texturas", "Texturas", cfg.texturas, "activo"]);
   return lista;
 }
 
@@ -637,6 +638,7 @@ function renderMotores() {
   else if (motorSel === "bajo") panel.append(...panelBajo());
   else if (motorSel === "dialogo") panel.append(...panelDialogo());
   else if (motorSel === "fx") panel.append(...panelFx());
+  else if (motorSel === "texturas") panel.append(...panelTexturas());
   else panel.append(...panelSecuencia(parseInt(motorSel.slice(3))));
 }
 // Nombres de antes: cualquier cambio vuelve a dibujar el motor que está a la vista.
@@ -1267,6 +1269,40 @@ function panelFx() {
         ayuda("Un canal libre de la MC-101 (una pista con un sonido para efectos)."),
         el("div", {className: "dos"}, [numeroDe(x, "cc_corte", "CC del filtro", 0, 127), numeroDe(x, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]),
         ayuda("El ácido, el riser y la caída mueven el filtro por ese CC y después lo dejan en el reposo."),
+        numeroDe(x, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
+        programaDe(x),
+      ]),
+    ]),
+  ];
+}
+
+function panelTexturas() {
+  const x = cfg.texturas;
+  const cc = {74: "corte", 71: "resonancia"}[x.cc] || `CC ${x.cc}`;
+  return [
+    cabMotor("Texturas", `${x.salida} · canal ${x.canal} · respira el ${cc}`, x, "activo"),
+    ayuda("Notas largas que respiran (el filtro sube despacio y vuelve en cada una) mezcladas con notas cortas, en un canal propio de la MC-101. Salen del acorde que suena. Usa un sonido polifónico con release, tipo pad o pluck largo."),
+    campo("Variante", variante(x, "texturas")),
+    el("div", {className: "card principales"}, [
+      deslizador(x, "densidad", "Cantidad", 0, 1, 0.05, (v) => v === 0 ? "nada" : v < 0.3 ? `poca (${porcentaje(v)})` : v < 0.7 ? `media (${porcentaje(v)})` : `mucha (${porcentaje(v)})`),
+      deslizador(x, "largas", "Largas o cortas", 0, 1, 0.05, (v) => v === 0 ? "solo cortas" : v === 1 ? "solo largas" : v < 0.4 ? `más cortas (${porcentaje(v)} largas)` : v > 0.6 ? `más largas (${porcentaje(v)})` : `mitad y mitad`),
+      ayuda("La energía sube y baja la cantidad. En las subidas aparecen más largas y respiran más hondo."),
+    ]),
+    el("div", {className: "grupos"}, [
+      grupo("g-tx-largas", "Notas largas", `${x.largo} compás${x.largo > 1 ? "es" : ""} · respira el ${cc}`, [
+        campo("Duran sobre todo", segmentado([["1","1 compás"],["2","2 compases"],["4","4 compases"]], String(x.largo), (v) => { x.largo = parseInt(v); guardar(); renderMotores(); }, 3)),
+        campo("Qué respira", segmentado([["74","Corte (CC 74)"],["71","Resonancia (CC 71)"]], String(x.cc), (v) => { x.cc = parseInt(v); guardar(); renderMotores(); }, 2)),
+        deslizador(x, "profundidad", "Cuánto se abre", 0, 1, 0.05, (v) => v === 0 ? "nada (sin modulación)" : `${porcentaje(v)}`),
+        numeroDe(x, "reposo", "Reposo entre notas (0-127)", 0, 127),
+        ayuda("En cada nota larga el CC sube despacio hasta la mitad de la nota y vuelve al reposo. Si el acorde cambia y la nota ya no le pertenece, termina sola."),
+      ]),
+      grupo("g-tx-notas", "Notas", `octava ${x.octava} · fuerza ${x.velocidad}`, [
+        el("div", {className: "dos"}, [numeroDe(x, "octava", "Octava", -2, 3), numeroDe(x, "velocidad", "Fuerza", 1, 127)]),
+        ayuda("Las cortas van una octava más arriba y más suaves, nunca en el tiempo del bombo."),
+      ]),
+      grupo("g-tx-midi", "Salida MIDI", salidaTexto(x), [
+        el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
+        ayuda("Un canal de la MC-101 distinto al de los FX y al del bajo."),
         numeroDe(x, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
         programaDe(x),
       ]),

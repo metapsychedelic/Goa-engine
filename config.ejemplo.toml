@@ -159,6 +159,23 @@ cc_corte = 74             # CC del filtro del sinte de FX
 filtro_reposo = 100       # dónde queda el filtro cuando no hay gestos
 seed = "FX-0001"
 
+[texturas]
+# Texturas: notas largas que respiran (el filtro sube despacio y vuelve en cada una)
+# mezcladas con notas cortas, en un canal propio de la MC-101. Salen del acorde que suena.
+activo = false
+salida = "MC-101"
+canal = 2
+disparo = 0               # canal de su nota larga; 0 = el general
+densidad = 0.5            # cuántas notas (la energía la sube y la baja)
+largas = 0.6              # 0 = solo cortas, 1 = solo largas
+largo = 2                 # largo típico de las largas: 1, 2 o 4 compases
+octava = 0
+velocidad = 90
+cc = 74                   # qué respira: 74 corte, 71 resonancia
+reposo = 40               # dónde queda ese CC entre notas largas
+profundidad = 0.6         # cuánto se abre en cada nota larga
+seed = "TX-0001"
+
 [forma]
 # Escenas y energía (pestaña Tocar). Las escenas se guardan desde la app,
 # abajo de todo como [[escena]]: cada una es una foto de lo musical, sin destinos.

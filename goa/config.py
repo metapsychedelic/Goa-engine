@@ -181,6 +181,25 @@ ESQUEMA_SECCIONES["fx"] = {
     "seed": (str, "FX-0001", None, None),
 }
 
+# Texturas: notas largas que respiran (un CC que sube y vuelve en cada una) mezcladas
+# con notas cortas, en un canal propio de la MC-101. Ver texturas.py.
+ESQUEMA_SECCIONES["texturas"] = {
+    "activo": (bool, False, None, None),
+    "salida": (str, "MC-101", None, None),
+    "canal": (int, 2, 1, 16),
+    "programa": (int, 0, 0, 128),
+    "disparo": (int, 0, 0, 16),              # canal de su nota larga; 0 = el general
+    "densidad": (float, 0.5, 0.0, 1.0),      # cuántas notas (la energía la sube y la baja)
+    "largas": (float, 0.6, 0.0, 1.0),        # 0 = solo cortas, 1 = solo largas
+    "largo": (int, 2, 1, 4),                 # largo típico de las largas, en compases (1, 2 o 4)
+    "octava": (int, 0, -2, 3),
+    "velocidad": (int, 90, 1, 127),
+    "cc": (int, 74, 0, 127),                 # qué respira: 74 corte, 71 resonancia (MC-101)
+    "reposo": (int, 40, 0, 127),             # dónde queda ese CC entre notas largas
+    "profundidad": (float, 0.6, 0.0, 1.0),   # cuánto se abre en cada nota larga
+    "seed": (str, "TX-0001", None, None),
+}
+
 # Modo canción: la canción es una lista de partes (intro, build, groove...), cada una
 # con sus compases, la escena que suena y su curva de energía. Ver forma.py.
 ESQUEMA_SECCIONES["cancion"] = {
@@ -455,7 +474,7 @@ def _suenan_en_cancion(cfg):
                 datos = json.loads(cfg["escena"][p["escena"]]["datos"])
             except ValueError:
                 continue
-            for motor in ("pads", "bajo", "dialogo", "fx"):
+            for motor in ("pads", "bajo", "dialogo", "fx", "texturas"):
                 if (datos.get(motor) or {}).get("activo"):
                     suenan.add(motor)
     return suenan
@@ -473,6 +492,8 @@ def salidas(cfg):
         claves.append(cfg["bajo"]["salida"])
     if cfg["fx"]["activo"] or "fx" in cancion:
         claves.append(cfg["fx"]["salida"])
+    if cfg["texturas"]["activo"] or "texturas" in cancion:
+        claves.append(cfg["texturas"]["salida"])
     if cfg["dialogo"]["activo"] or "dialogo" in cancion:
         if cfg["dialogo"]["modo"] == "motor":
             claves.append(cfg["llamada"]["salida"])

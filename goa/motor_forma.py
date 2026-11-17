@@ -232,6 +232,13 @@ class FormaMotor:
         self.fx.paso(paso, self.tick, raiz, momento, self.subida, self.enviar)
         self.fx.tick(self.tick, self.enviar)  # lo que empieza en este paso sale ya, sin un pulso de atraso
 
+    def _paso_texturas(self, paso):
+        if not self.texturas.activo:
+            return
+        raiz = self.disparos[self.texturas.disparo].raiz
+        momento = self._momento(paso, raiz) if raiz is not None else None
+        self.texturas.paso(paso, self.tick, raiz, momento, self.subida, self.enviar)
+
     def _filtro_secuencias(self, paso):
         """En la subida, el filtro se va abriendo hasta el drop: en las secuencias con
         «filtro en la subida», de su «desde» a su «hasta»; en las que interviene el FX,

@@ -23,7 +23,7 @@ compás.
 import copy
 import json
 
-SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx")
+SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas")
 ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_filtro", "filtro_reposo"))
 # Floats que no se pueden mover de a poco: rehacen el patrón entero.
 DISCRETOS = frozenset((("secuencia", "pedal"), ("bajo", "movimiento")))
@@ -35,8 +35,8 @@ PASO_ENERGIA = 0.1  # lo más que se mueve la energía en un compás
 
 # Orden en que entran (y, al revés, salen) los motores en una transición:
 # primero la armonía, al final el bajo.
-ORDEN_ENTRADA = ("pads", "secuencia", "dialogo", "bajo", "fx")
-ORDEN_SALIDA = ("fx", "secuencia", "dialogo", "bajo", "pads")
+ORDEN_ENTRADA = ("pads", "texturas", "secuencia", "dialogo", "bajo", "fx")
+ORDEN_SALIDA = ("fx", "secuencia", "dialogo", "bajo", "texturas", "pads")
 
 
 # --- Escenas ---
@@ -84,6 +84,8 @@ def resumen(escena):
         suenan.append("diálogo")
     if d.get("fx", {}).get("activo"):
         suenan.append("FX")
+    if d.get("texturas", {}).get("activo"):
+        suenan.append("texturas")
     genero = {"goa": "Goa", "psy_chill": "Psy chill", "chillgressive": "Chillgressive",
               "chillout": "Chillout", "ambient": "Ambient"}.get(d.get("musica", {}).get("genero"), "")
     return f"{genero} · {', '.join(suenan) or 'silencio'}"
@@ -142,6 +144,8 @@ def energizar(cfg, energia):
         v["velocidad"] = int(_limitar(v["velocidad"] + round(20 * f), 1, 127))
     if "fx" in c:
         c["fx"]["locura"] = round(_limitar(_escala(c["fx"]["locura"], f)), 3)
+    if "texturas" in c:
+        c["texturas"]["densidad"] = round(_limitar(_escala(c["texturas"]["densidad"], f)), 3)
     return c
 
 
@@ -159,7 +163,7 @@ def _mezcla(seccion, k, a, b, t):
     return a
 
 
-ACTIVO = {"pads": "activo", "bajo": "activo", "dialogo": "activo", "fx": "activo"}
+ACTIVO = {"pads": "activo", "bajo": "activo", "dialogo": "activo", "fx": "activo", "texturas": "activo"}
 
 
 def _motores(cfg):

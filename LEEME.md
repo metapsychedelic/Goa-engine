@@ -347,6 +347,22 @@ compás. Se guarda en las escenas, así cada parte puede tener su sonido. Si dos
 motores van al mismo sinte y canal, manda el que está sonando. Funciona con
 sintes que reciben Program Change (revisa que tu firmware lo tenga activo).
 
+## Texturas (notas largas y cortas en la MC-101)
+
+Un motor más (Motores › Texturas, y su botón en Tocar), apagado por defecto, para
+un canal propio de la MC-101 (por defecto el 2; distinto al de los FX y al del bajo):
+- **Notas largas** de 1, 2 o 4 compases (**Duran sobre todo**), sacadas del acorde
+  que suena; prefieren una nota que también esté en el acorde que viene, así siguen
+  sonando cuando la armonía cambia (si no, terminan solas). Cada una **respira**: el
+  CC elegido (corte 74 o resonancia 71) sube despacio hasta la mitad de la nota y
+  vuelve al **reposo**. **Cuánto se abre** da la hondura.
+- **Notas cortas** salpicadas entre medio, una octava más arriba y más suaves, nunca
+  en el tiempo del bombo.
+- **Cantidad** (la energía la sube y la baja) y **Largas o cortas** (0 = solo
+  cortas, 1 = solo largas). En las subidas aparecen más largas y respiran más hondo.
+- Entra en las escenas, el modo canción y el piloto como los demás motores.
+Usa en la MC-101 un sonido polifónico con release (pad o pluck largo).
+
 ## Filtro del sinte de las secuencias: subidas y LFO
 
 **Se abre en las subidas** (grupo **Filtro del sinte** de cada secuencia, apagado
