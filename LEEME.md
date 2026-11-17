@@ -67,6 +67,13 @@ goa-ports --escuchar Circuit      # dale Play: ¿aparece "reloj OK" con el BPM?
 goa-debug                         # mantén una nota en la pista Synth 2 y mira las notas
 ```
 
+**En el iPad o una tablet** la app se acomoda sola según el ancho de la pantalla
+(el teléfono queda igual): en vertical, una columna más ancha con botones y
+deslizadores más grandes; en horizontal, **Tocar** queda fijo a la izquierda
+(escenas, motores, energía, subida, piloto) y las pestañas eligen lo de la
+derecha (Motores, Armonía, Canción, Ajustes). En Safari, Compartir › Agregar a
+pantalla de inicio la deja a pantalla completa.
+
 Los puertos se eligen en la app: cada motor tiene un menú **Destino** (en
 Motores › Salida MIDI) y Ajustes › Conexión MIDI tiene la entrada y la salida
 del reenvío. Los menús muestran lo que la Pi ve conectado en ese momento y se

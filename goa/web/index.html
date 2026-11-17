@@ -185,6 +185,27 @@ input[type=range]::-moz-range-progress{height:6px;border-radius:6px;background:v
 input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#F2F2FA;border:none;box-shadow:var(--glow)}
 input[type=range]:focus-visible{outline:2px solid var(--acc);outline-offset:4px;border-radius:6px}
 .clip.sonando,.escena.actual{box-shadow:var(--glow)}
+
+/* --- Tablet: se elige solo, por el ancho de la pantalla. El teléfono no cambia. --- */
+@media (min-width:700px){
+  header.top .in,nav.tabs .in,main{max-width:720px}
+  body{font-size:16px}
+  .seg label{min-height:50px}
+  nav.tabs button{min-height:58px;font-size:12px}
+  nav.tabs svg{width:26px;height:26px}
+  input[type=range]::-webkit-slider-thumb{width:26px;height:26px;margin-top:-10px}
+  input[type=range]::-moz-range-thumb{width:26px;height:26px}
+}
+/* Tablet horizontal: Tocar fijo a la izquierda y la pestaña elegida a la derecha. */
+@media (min-width:1000px){
+  header.top .in,nav.tabs .in{max-width:1400px}
+  main{max-width:1400px;display:grid;grid-template-columns:minmax(380px,460px) minmax(0,1fr);gap:24px;align-items:start}
+  #v-tocar{grid-column:1;grid-row:1;position:sticky;top:76px;max-height:calc(100vh - 76px - 96px - env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
+  #v-tocar[hidden]{display:flex}
+  .vista:not(#v-tocar){grid-column:2;grid-row:1}
+  nav.tabs .in{grid-template-columns:repeat(4,minmax(0,1fr));max-width:720px}
+  nav.tabs button[data-vista=tocar]{display:none}
+}
 input[type=checkbox]:not(.switch){-webkit-appearance:none;appearance:none;border:1.5px solid var(--line2);border-radius:6px;background:var(--bg);cursor:pointer}
 input[type=checkbox]:not(.switch):checked{background:var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E1030' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='5 12 10 17 19 7'/%3E%3C/svg%3E") center/16px no-repeat;border-color:var(--acc)}
 input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);outline-offset:2px}
@@ -567,13 +588,21 @@ async function cambiarGenero(genero, motor = {}) {
 // --- Navegación ---
 
 let vista = leerLocal("vista", "tocar");
+// Tablet horizontal (pantalla ancha): Tocar queda siempre a la izquierda y las pestañas eligen
+// lo de la derecha. Se elige solo por el ancho; en el teléfono todo sigue igual.
+const ancha = window.matchMedia("(min-width: 1000px)");
+const dosColumnas = () => ancha.matches;
+const tocarVisible = () => vista === "tocar" || dosColumnas();
 function mostrar(v) {
   vista = v; escribirLocal("vista", v);
-  for (const s of document.querySelectorAll(".vista")) s.hidden = s.id !== "v-" + v;
-  for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.vista === v ? "true" : "false");
+  const derecha = dosColumnas() && v === "tocar" ? "motores" : v;
+  for (const s of document.querySelectorAll(".vista")) s.hidden = s.id !== "v-" + derecha;
+  for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.vista === derecha ? "true" : "false");
+  if (dosColumnas() && cfg) { renderTocar(); if (derecha === "motores") renderMotores(); }
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("nav.tabs button").forEach((b) => b.onclick = () => mostrar(b.dataset.vista));
+ancha.addEventListener("change", () => mostrar(vista));
 
 // --- Motores: uno a la vez, todos con la misma forma ---
 
@@ -1331,7 +1360,7 @@ function renderMutes() {
   const cont = $("mutes"); cont.innerHTML = "";
   for (const [clave, nombre, obj, k] of motores()) {
     cont.append(el("button", {type: "button", className: "mute", "data-motor": clave, "aria-pressed": obj[k] ? "true" : "false",
-      onclick: () => { obj[k] = !obj[k]; if (vista === "tocar") renderTocar(); else renderMutes(); if (vista === "motores") renderMotores(); guardar(); }},
+      onclick: () => { obj[k] = !obj[k]; if (tocarVisible()) renderTocar(); else renderMutes(); if (vista === "motores" || (dosColumnas() && vista === "tocar")) renderMotores(); guardar(); }},
       [el("b", {textContent: nombre}), el("span", {textContent: obj[k] ? "suena" : "apagado"})]));
   }
   pintarMutes();
