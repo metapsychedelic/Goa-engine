@@ -74,14 +74,11 @@ class Secuencia:
         self.semitono = float(cfg.get("semitono", 0.0))
         self.fx = bool(cfg.get("fx", False))            # el motor de FX la interviene
         self.cc_filtro = int(cfg.get("cc_filtro", 74))
-        # LFO de filtro (opcional): mueve un CC del sinte de la secuencia, sincronizado al compás.
-        self.lfo = bool(cfg.get("lfo", False))
-        self.lfo_cc = max(0, min(127, int(cfg.get("lfo_cc", 74))))
-        self.lfo_forma = cfg.get("lfo_forma", "seno")
-        self.lfo_compases = max(0.25, min(32.0, float(cfg.get("lfo_compases", 4))))
-        self.lfo_min = max(0, min(127, int(cfg.get("lfo_min", 30))))
-        self.lfo_max = max(0, min(127, int(cfg.get("lfo_max", 100))))
-        self.lfo_ultimo = None
+        # Dos LFO de filtro (opcionales): cada uno mueve un CC del sinte de la secuencia,
+        # sincronizados al compás. Así se pueden mover, por ejemplo, corte y resonancia a la vez.
+        self.lfos = [Lfo(cfg, p, self.seed) for p in PREFIJOS_LFO]
+        self.lfo = self.lfos[0].activo
+        self.lfo_cc = self.lfos[0].cc
         self.filtro_reposo = int(cfg.get("filtro_reposo", 110))
         self.tonalidad = None   # su escala de color (None = la de Música); la arma el motor con la tónica
         self.sonando = {}       # nota -> tick en que se apaga
@@ -120,11 +117,32 @@ class Secuencia:
         return nuevo
 
     def valor_lfo(self, tick):
-        """El valor del CC del LFO en este pulso (24 por negra): seno, triángulo, sube,
-        baja o azar (valores al azar que se unen suave, repetibles con la seed)."""
-        periodo = self.lfo_compases * 96
+        """El valor del primer LFO en este pulso (ver Lfo.valor)."""
+        return self.lfos[0].valor(tick)
+
+
+PREFIJOS_LFO = ("lfo", "lfo2")
+
+
+class Lfo:
+    def __init__(self, cfg, prefijo, seed):
+        g = lambda k, d: cfg.get(f"{prefijo}{k}", d)  # noqa: E731
+        self.prefijo = prefijo
+        self.seed = seed
+        self.activo = bool(g("", False))
+        self.cc = max(0, min(127, int(g("_cc", 74 if prefijo == "lfo" else 71))))
+        self.forma = g("_forma", "seno")
+        self.compases = max(0.25, min(32.0, float(g("_compases", 4))))
+        self.minimo = max(0, min(127, int(g("_min", 30))))
+        self.maximo = max(0, min(127, int(g("_max", 100))))
+        self.ultimo = None
+
+    def valor(self, tick):
+        """El valor del CC en este pulso (24 por negra): seno, triángulo, sube, baja o
+        azar (valores al azar que se unen suave, repetibles con la seed)."""
+        periodo = self.compases * 96
         f = (tick % periodo) / periodo
-        forma = self.lfo_forma
+        forma = self.forma
         if forma == "triangulo":
             y = 1 - abs(2 * f - 1)
         elif forma == "sube":
@@ -135,9 +153,10 @@ class Secuencia:
             pasos = 8
             k, r = divmod(f * pasos, 1)
             vuelta = int(tick // periodo)
-            a = azar_fijo(f"{self.seed}:lfo:{vuelta}:{int(k)}")
-            b = azar_fijo(f"{self.seed}:lfo:{vuelta + (int(k) + 1) // pasos}:{(int(k) + 1) % pasos}")
+            clave = f"{self.seed}:{self.prefijo}"
+            a = azar_fijo(f"{clave}:{vuelta}:{int(k)}")
+            b = azar_fijo(f"{clave}:{vuelta + (int(k) + 1) // pasos}:{(int(k) + 1) % pasos}")
             y = a + (b - a) * (0.5 - 0.5 * math.cos(math.pi * r))
         else:  # seno: parte abajo, sube y vuelve
             y = 0.5 - 0.5 * math.cos(2 * math.pi * f)
-        return round(self.lfo_min + (self.lfo_max - self.lfo_min) * y)
+        return round(self.minimo + (self.maximo - self.minimo) * y)

@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.47.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.48.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -25,6 +25,8 @@ Canción, Ajustes).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
+
+- **0.48.0 · Dos LFO por secuencia:** `lfo2*` además de `lfo*` (secuencia.Lfo, PREFIJOS_LFO); la app avisa si los dos mueven el mismo CC.
 
 - **0.47.1 · El LFO también mueve el wavetable:** opciones CC 20 y 21 (posición de wavetable A y B de la FM-1 con Shrub).
 

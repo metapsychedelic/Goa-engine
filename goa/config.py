@@ -268,6 +268,12 @@ ESQUEMA_SECUENCIA = {
     "lfo_compases": (float, 4.0, 0.25, 32.0),  # una vuelta del LFO, en compases
     "lfo_min": (int, 30, 0, 127),
     "lfo_max": (int, 100, 0, 127),
+    "lfo2": (bool, False, None, None),       # un segundo LFO (p. ej. resonancia junto al corte)
+    "lfo2_cc": (int, 71, 0, 127),
+    "lfo2_forma": (str, "triangulo", None, ("seno", "triangulo", "sube", "baja", "azar")),
+    "lfo2_compases": (float, 8.0, 0.25, 32.0),
+    "lfo2_min": (int, 20, 0, 127),
+    "lfo2_max": (int, 80, 0, 127),
     "filtro_reposo": (int, 110, 0, 127),     # dónde vuelve el filtro después de la subida
 }
 

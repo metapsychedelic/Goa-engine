@@ -42,6 +42,11 @@ def main():
     todo &= ok(cc and all(ca == 3 for _, ca, _, _ in cc) and min(v for *_, v in cc) <= 12 and max(v for *_, v in cc) >= 108,
                f"el motor manda el CC 74 por el canal de la secuencia y recorre el rango ({len(cc)} mensajes en 4 compases)")
     todo &= ok(all(v1 != v2 for (_, _, _, v1), (_, _, _, v2) in zip(cc, cc[1:])), "solo cuando el valor cambia")
+    dos = tomllib.load(open(RAIZ / "config.ejemplo.toml", "rb"))
+    dos["secuencia"][0].update(salida="SEQ", canal=4, lfo=True, lfo_cc=74, lfo2=True, lfo2_cc=71, lfo2_forma="triangulo", lfo2_compases=1)
+    out = correr(normalizar(dos), {0: ("on", 41)}, compases=2)
+    ccs = {n for t, sal, tipo, ca, n, v in out if sal == "SEQ" and tipo == "control_change"}
+    todo &= ok(ccs == {74, 71}, f"dos LFO a la vez: corte y resonancia ({sorted(ccs)})")
     sin = copy.deepcopy(cfg)
     sin["secuencia"][0]["lfo"] = False
     out = correr(normalizar(sin), {0: ("on", 41)}, compases=2)

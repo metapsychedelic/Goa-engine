@@ -827,22 +827,10 @@ function panelSecuencia(i) {
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
       ]),
       grupoMolde(`g-sec-molde`, s, "La seed arma las notas y el filtro decide cuáles pasan: ● = pasa, ? = a veces, vacío = bloqueado. Cambiar la seed cambia las notas que pasan.", "Orden de los pasos", () => s.mutar_cada),
-      grupo(`g-sec-lfo`, "Filtro (LFO)", s.lfo ? `${LFO_FORMAS.find((x) => x[0] === (s.lfo_forma || "seno"))[1].toLowerCase()} · ${LFO_CICLOS.find((x) => parseFloat(x[0]) === s.lfo_compases)?.[1] || s.lfo_compases + " compases"} · CC ${s.lfo_cc}` : "apagado", [
-        el("label", {className: "fila", style: "min-height:44px"}, [
-          el("span", {}, ["LFO de filtro", el("br"), el("span", {className: "mut", textContent: "El motor mueve el filtro del sinte de esta secuencia por MIDI CC, al compás"})]),
-          el("input", {type: "checkbox", className: "switch", checked: !!s.lfo, "aria-label": "LFO de filtro",
-            onchange: (e) => { s.lfo = e.target.checked; guardar(); renderMotores(); }})]),
-        ...(s.lfo ? [
-          campo("Qué mueve", segmentado([["74","Corte (CC 74)"],["71","Resonancia (CC 71)"],["20","Wavetable A (CC 20)"],["21","Wavetable B (CC 21)"]], String(s.lfo_cc), (v) => { s.lfo_cc = parseInt(v); guardar(); renderMotores(); }, 2)),
-          ayuda([20, 21].includes(s.lfo_cc)
-            ? "Posición de wavetable de la FM-1 con Shrub (oscilador A o B): el timbre va cambiando. La MC-101 no tiene este control."
-            : "Sirve igual para la MC-101 y para la FM-1 con Shrub: los dos usan 74 para el corte y 71 para la resonancia."),
-          campo("Forma", segmentado(LFO_FORMAS, s.lfo_forma || "seno", (v) => { s.lfo_forma = v; guardar(); renderMotores(); }, 3)),
-          campo("Una vuelta dura", segmentado(LFO_CICLOS, String(s.lfo_compases), (v) => { s.lfo_compases = parseFloat(v); guardar(); renderMotores(); }, 4)),
-          deslizador(s, "lfo_min", "Abajo", 0, 127, 1, (x) => String(x)),
-          deslizador(s, "lfo_max", "Arriba", 0, 127, 1, (x) => String(x)),
-          ayuda("Va sincronizado al compás. Si el motor de FX interviene el mismo filtro en una subida, el LFO espera y sigue después."),
-        ] : []),
+      grupo(`g-sec-lfo`, "Filtro (LFO)", lfoResumen(s), [
+        ...editorLfo(s, "lfo", "LFO 1"),
+        ...editorLfo(s, "lfo2", "LFO 2"),
+        ayuda("Van sincronizados al compás y pueden mover cosas distintas a la vez (por ejemplo, corte y resonancia). Si el motor de FX interviene el mismo filtro en una subida, ese LFO espera y sigue después."),
       ]),
       grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()} · octava ${s.octava} · slides ${porcentaje(s.slide)}`, [
         campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
@@ -1002,6 +990,40 @@ function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
   };
   pintar();
   return caja;
+}
+
+// --- LFO de filtro de las secuencias (dos por secuencia) ---
+const LFO_DESTINOS = [["74","Corte (CC 74)"],["71","Resonancia (CC 71)"],["20","Wavetable A (CC 20)"],["21","Wavetable B (CC 21)"]];
+const LFO_NOMBRE_CC = {74: "corte", 71: "resonancia", 20: "wavetable A", 21: "wavetable B"};
+
+function lfoResumen(s) {
+  const activos = [["lfo", s.lfo], ["lfo2", s.lfo2]].filter(([, a]) => a).map(([p]) => {
+    const cc = s[`${p}_cc`];
+    return `${LFO_NOMBRE_CC[cc] || "CC " + cc} ${(LFO_FORMAS.find((x) => x[0] === (s[`${p}_forma`] || "seno")) || LFO_FORMAS[0])[1].toLowerCase()}`;
+  });
+  return activos.length ? activos.join(" + ") : "apagado";
+}
+
+function editorLfo(s, p, titulo) {
+  const k = (x) => `${p}${x}`;
+  const cc = s[k("_cc")];
+  const otro = p === "lfo" ? "lfo2" : "lfo";
+  const choca = s[p] && s[otro] && s[`${otro}_cc`] === cc;
+  return [
+    el("label", {className: "fila", style: "min-height:44px"}, [
+      el("span", {}, [titulo, el("br"), el("span", {className: "mut", textContent: s[p] ? `Mueve ${LFO_NOMBRE_CC[cc] || "el CC " + cc}` : "Apagado"})]),
+      el("input", {type: "checkbox", className: "switch", checked: !!s[p], "aria-label": titulo,
+        onchange: (e) => { s[p] = e.target.checked; guardar(); renderMotores(); }})]),
+    ...(s[p] ? [
+      campo("Qué mueve", segmentado(LFO_DESTINOS, String(cc), (v) => { s[k("_cc")] = parseInt(v); guardar(); renderMotores(); }, 2)),
+      [20, 21].includes(cc) ? ayuda("Posición de wavetable de la FM-1 con Shrub: el timbre va cambiando. La MC-101 no tiene este control.") : null,
+      choca ? ayuda("Los dos LFO mueven lo mismo y se van a pisar: elige otra cosa para uno de ellos.") : null,
+      campo("Forma", segmentado(LFO_FORMAS, s[k("_forma")] || "seno", (v) => { s[k("_forma")] = v; guardar(); renderMotores(); }, 3)),
+      campo("Una vuelta dura", segmentado(LFO_CICLOS, String(s[k("_compases")]), (v) => { s[k("_compases")] = parseFloat(v); guardar(); renderMotores(); }, 4)),
+      deslizador(s, k("_min"), "Abajo", 0, 127, 1, (x) => String(x)),
+      deslizador(s, k("_max"), "Arriba", 0, 127, 1, (x) => String(x)),
+    ] : []),
+  ];
 }
 
 function grupoMolde(clave, obj, texto, textoOrden, cada) {

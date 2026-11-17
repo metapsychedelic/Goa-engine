@@ -338,9 +338,11 @@ sintes que reciben Program Change (revisa que tu firmware lo tenga activo).
 
 ## LFO de filtro de las secuencias
 
-Cada secuencia tiene un grupo **Filtro (LFO)**, apagado por defecto. Prendido, el
-motor mueve el filtro del sinte de esa secuencia por MIDI CC, sincronizado al
-compás (un CC cada media semicorchea, solo cuando el valor cambia):
+Cada secuencia tiene un grupo **Filtro (LFO)** con dos LFO (LFO 1 y LFO 2),
+apagados por defecto. Cada uno mueve un CC del sinte de esa secuencia,
+sincronizado al compás (un CC cada media semicorchea, solo cuando el valor cambia),
+así que se pueden mover dos cosas a la vez, por ejemplo el corte con un seno lento
+y la resonancia con un triángulo más rápido. Cada LFO tiene:
 - **Qué mueve**: corte (CC 74) o resonancia (CC 71), que sirven igual para la
   MC-101 y para la FM-1 con Shrub, o la posición de wavetable del oscilador A
   (CC 20) o B (CC 21), solo en la FM-1 con Shrub: el timbre va cambiando.

@@ -144,8 +144,10 @@ class Motor(FormaMotor):
             if i < len(self.secuencias):
                 vieja = self.secuencias[i]
                 s.clip = vieja.clip  # recuerda qué clip sonaba en esa fila
-                if (vieja.salida, vieja.canal, vieja.lfo_cc) == (s.salida, s.canal, s.lfo_cc):
-                    s.lfo_ultimo = vieja.lfo_ultimo
+                if (vieja.salida, vieja.canal) == (s.salida, s.canal):
+                    for nuevo, viejo in zip(s.lfos, vieja.lfos):
+                        if nuevo.cc == viejo.cc:
+                            nuevo.ultimo = viejo.ultimo
                 if (vieja.salida, vieja.canal) == (s.salida, s.canal):
                     # Las notas que suenan terminan solas, sin cortarse.
                     s.sonando, s.pendientes, s.slide_previo = vieja.sonando, vieja.pendientes, vieja.slide_previo
@@ -418,15 +420,18 @@ class Motor(FormaMotor):
                 self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
 
     def _lfo_secuencias(self):
-        """LFO de filtro de cada secuencia que lo tenga: un CC cada media semicorchea,
+        """Los LFO de filtro de cada secuencia (hasta dos): un CC cada media semicorchea,
         solo cuando cambia. Mientras el motor de FX interviene ese filtro, espera."""
         for s in self.secuencias:
-            if not (s.lfo and s.activa) or (s.salida, s.canal, s.lfo_cc) in self.cc_secuencias:
+            if not s.activa:
                 continue
-            valor = s.valor_lfo(self.tick)
-            if valor != s.lfo_ultimo:
-                self.enviar(s.salida, "control_change", s.canal, s.lfo_cc, valor)
-                s.lfo_ultimo = valor
+            for lfo in s.lfos:
+                if not lfo.activo or (s.salida, s.canal, lfo.cc) in self.cc_secuencias:
+                    continue
+                valor = lfo.valor(self.tick)
+                if valor != lfo.ultimo:
+                    self.enviar(s.salida, "control_change", s.canal, lfo.cc, valor)
+                    lfo.ultimo = valor
 
     def nota_on(self, canal, nota, velocidad=100):
         if canal == self.dialogo.escucha:
