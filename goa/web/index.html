@@ -67,6 +67,7 @@ input[type=checkbox]{width:22px;height:22px;accent-color:var(--acc);margin:0;fle
 button{min-height:44px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--txt);font:inherit;font-weight:550;padding:0 14px;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}
 button.prim{background:var(--acc);border-color:var(--acc);color:var(--sobre)}
+button.icono-mini{width:34px;height:34px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center;border-radius:10px;color:var(--txt2);flex:none}
 button.panico{width:44px;padding:0;display:flex;align-items:center;justify-content:center;border-color:var(--badline);background:var(--badbg);color:var(--bad)}
 .seed{display:flex;gap:6px}
 .seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.06em;text-align:center;padding:0 6px}
@@ -658,14 +659,28 @@ function renderMotores() {
 // Nombres de antes: cualquier cambio vuelve a dibujar el motor que está a la vista.
 const renderPads = () => renderMotores(), renderBajo = () => renderMotores(), renderDialogo = () => renderMotores(), renderSecuencias = () => renderMotores();
 
-function cabMotor(titulo, sub, obj, k, extra) {
+function cabMotor(titulo, sub, obj, k, extra, accion) {
   const estado = el("span", {className: "pill", "data-salida": obj.salida || "", style: "display:none"});
   const chk = el("input", {type: "checkbox", className: "switch", checked: !!obj[k], "aria-label": `Activar ${titulo}`,
     onchange: () => { obj[k] = chk.checked; renderSelector(); renderMutes(); guardar(); }});
   return el("div", {className: "cabmotor"}, [
     el("div", {className: "tit"}, [el("b", {textContent: titulo}), el("span", {textContent: sub})]),
-    el("div", {style: "display:flex;align-items:center;gap:8px;flex:none"}, [extra || (obj.salida ? estado : null), el("label", {}, ["Activo", chk])]),
+    el("div", {style: "display:flex;align-items:center;gap:8px;flex:none"}, [accion || null, extra || (obj.salida ? estado : null), el("label", {}, ["Activo", chk])]),
   ]);
+}
+
+// Botón pequeño (espiral que vuelve al centro) en la cabecera de cada secuencia.
+const ICONO_FABRICA = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-1.5 0a1.5 1.5 0 1 1 3 0a3.5 3.5 0 1 1 -7 0a5.5 5.5 0 1 1 11 0a7.5 7.5 0 1 1 -15 0"/><polyline points="1.6 9.5 1.5 12.2 4 11"/></svg>';
+function botonFabrica(i, s) {
+  const b = el("button", {type: "button", className: "icono-mini", title: "Restaurar ajustes de fábrica",
+    "aria-label": `Restaurar ajustes de fábrica de la secuencia ${s.nombre}`,
+    onclick: async () => {
+      if (!confirm(`¿Volver la secuencia ${s.nombre} a los ajustes de fábrica?\n\nTodos sus controles vuelven a los valores de fábrica y se deshacen sus mutaciones. Se mantienen su salida MIDI, canal, nombre y seed, y las otras secuencias no cambian. Si quieres conservar cómo está ahora, guárdala antes como clip o escena.`)) return;
+      try { await api("/api/secuencia/fabrica", {fila: i}); await recargar(); aviso(`Secuencia ${s.nombre} en ajustes de fábrica`); }
+      catch (e) { aviso(e.message, true); }
+    }});
+  b.innerHTML = ICONO_FABRICA;
+  return b;
 }
 
 function salidaTexto(obj) {
@@ -859,7 +874,7 @@ function panelSecuencia(i) {
     return el("label", {className: "campo"}, [etiqueta, inp]);
   };
   return [
-    cabMotor(`Secuencia ${s.nombre}`, `${s.salida} · canal ${s.canal} · ${armoniaTexto(s)}`, s, "activa"),
+    cabMotor(`Secuencia ${s.nombre}`, `${s.salida} · canal ${s.canal} · ${armoniaTexto(s)}`, s, "activa", null, botonFabrica(i, s)),
     campo("Género", segmentado(GENEROS, s.genero, (v) => cambiarGenero(v, {parte: "secuencia", indice: i}), 3)),
     campo("Estilo · solo cambia el patrón, tus ajustes se quedan", segmentado(estilos, s.estilo, (v) => {
       s.estilo = v;

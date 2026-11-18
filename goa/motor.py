@@ -90,6 +90,15 @@ class Motor(FormaMotor):
             self.conductor.energia = None  # detenido: la energía queda donde la pediste
             self._aplicar(self.conductor.efectiva(config, 0))
 
+    def reiniciar_secuencia(self, fila):
+        """La secuencia `fila` vuelve a su patrón de base: deshace lo que mutó (notas, ritmo,
+        molde) aunque su configuración no haya cambiado."""
+        if 0 <= fila < len(self.secuencias):
+            s = self.secuencias[fila]
+            s.reiniciar()
+            s.molde_vivo = s.molde
+            s._director_patron = None
+
     def _aplicar(self, config):
         config = copy.deepcopy(config)  # una copia propia: si quien llama la modifica, no se confunde
         self.config = config

@@ -110,6 +110,43 @@ def main():
     perdidos += [k for k, v in (("ritmo", "stabs"), ("pulso", 3)) if vuelta["pads"].get(k) != v]
     todo &= ok(not perdidos, f"ninguno se pierde al guardar y volver a cargar {perdidos or ''}")
 
+    print("\nRestaurar ajustes de fábrica (una secuencia)")
+    from goa.config import ESQUEMA_SECUENCIA, fabrica_secuencia
+    from goa.motor import Motor
+    cfg = normalizar(cargar(RAIZ / "config.ejemplo.toml"))
+    propia = dict(nombre="Lead", salida="MicroFreak", canal=5, programa=12, disparo=3, seed="MIO-7", cc_filtro=23, genero="psytrance")
+    cfg["secuencia"][0].update(propia, estilo="psytrance", figura="riff", mutacion=0.8, separar=True, corrimiento=3,
+                               raga="hijaz", lfo=True, swing=0.3, octava=2, activa=True)
+    otra = dict(cfg["secuencia"][1])
+    cfg["secuencia"][0] = fabrica_secuencia(cfg["secuencia"][0])
+    cfg = normalizar(cfg)
+    s0 = cfg["secuencia"][0]
+    todo &= ok(all(s0[k] == v for k, v in propia.items()) and s0["activa"], "conserva salida, canal, programa, nota larga, nombre, seed, CC y género")
+    fabrica = {k: v[1] for k, v in ESQUEMA_SECUENCIA.items()}
+    distintos = [k for k in fabrica if k not in propia and k != "activa" and s0[k] != fabrica[k]]
+    todo &= ok(not distintos, f"todo lo demás queda de fábrica {distintos or ''}")
+    todo &= ok(cfg["secuencia"][1] == normalizar({"secuencia": [otra]})["secuencia"][0] or cfg["secuencia"][1] == otra,
+               "no toca las otras secuencias")
+    m = Motor(cfg, lambda *a: None)
+    m.start()
+    m.nota_on(1, 45)
+    for _ in range(96 * 4):
+        m.reloj()
+    todo &= ok(True, "el motor arranca con la secuencia restaurada")
+    base = dict(cfg, entrada=dict(cfg["entrada"], canal_disparo=2, nota_maxima=0))
+    base["secuencia"] = [dict(x, disparo=0) for x in cfg["secuencia"]]
+    original = Motor(normalizar(base), lambda *a: None).secuencias[0].patron
+    mutando = dict(base, secuencia=[dict(base["secuencia"][0], mutacion=1.0, mutar_cada=1, mutacion_ritmo=0.5), base["secuencia"][1]])
+    m = Motor(normalizar(mutando), lambda *a: None)
+    m.start()
+    m.nota_on(1, 45)
+    for _ in range(96 * 12):
+        m.reloj()
+    muto = m.secuencias[0].patron != original
+    m.aplicar_config(normalizar(dict(mutando, secuencia=[fabrica_secuencia(mutando["secuencia"][0]), mutando["secuencia"][1]])))
+    m.reiniciar_secuencia(0)
+    todo &= ok(muto and m.secuencias[0].patron == original, "deshace lo que mutó aunque solo cambie la mutación")
+
     print("\nTodo bien" if todo else "\nHAY FALLAS")
     raise SystemExit(0 if todo else 1)
 

@@ -572,3 +572,17 @@ def guardar(ruta, cfg):
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(a_toml(cfg))
     os.replace(temporal, ruta)
+
+
+# Lo que «Restaurar ajustes de fábrica» no toca: a dónde y cómo suena (salida, canal,
+# programa, CCs del sinte), su nota larga, si está prendida, su nombre, el género del
+# proyecto y la seed (el patrón propio de esa secuencia).
+CONSERVAR_EN_FABRICA = ("nombre", "disparo", "activa", "salida", "canal", "programa", "genero", "seed",
+                        "cc_filtro", "lfo_cc", "lfo2_cc")
+
+
+def fabrica_secuencia(secuencia):
+    """La secuencia con todos sus ajustes musicales en los valores de fábrica."""
+    nueva = {clave: valor for clave, (_, valor, _, _) in ESQUEMA_SECUENCIA.items()}
+    nueva.update({k: secuencia[k] for k in CONSERVAR_EN_FABRICA if k in secuencia})
+    return nueva

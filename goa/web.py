@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, actualizar, forma, fuentes, generador, generos, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, fabrica_secuencia, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -177,6 +177,7 @@ def crear_servidor(ctx, puerto):
                 "/api/panico": self._panico,
                 "/api/config": self._config,
                 "/api/genero": self._genero,
+                "/api/secuencia/fabrica": self._secuencia_fabrica,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/lanzar": self._lanzar,
@@ -297,6 +298,16 @@ def crear_servidor(ctx, puerto):
                 Motor(nueva, lambda *a: None)  # valida antes de tocar nada
                 aviso = self._aplicar(nueva)
             self._responder(aviso, genero=genero)
+
+        def _secuencia_fabrica(self, datos):
+            with ctx.candado:
+                fila = int(datos["fila"])
+                nueva = copy.deepcopy(ctx.config)
+                nueva["secuencia"][fila] = fabrica_secuencia(nueva["secuencia"][fila])
+                nueva = normalizar(nueva)
+                aviso = self._aplicar(nueva)
+                ctx.motor.reiniciar_secuencia(fila)   # también deshace lo que ya había mutado
+            self._responder(aviso)
 
         def _clip_guardar(self, datos):
             with ctx.candado:
