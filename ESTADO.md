@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.60.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.61.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -21,7 +21,7 @@ Canción, Ajustes).
 - `goa/plantillas.py` (templates de canción de la app)
 - `herramientas/circuit_cancion.py` (genera los .ncs de la Circuit; `todas carpeta/`)
 - Pruebas: `python3 -m pruebas.<nombre>` (cancion, director, dialogo, en_vivo,
-  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica, looper).
+  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica, looper, control).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
@@ -173,3 +173,9 @@ Para que mover controles, deshacer o la energía no le quiten tiempo al reloj:
 
 Sección [looper] (activo, salida MC-101, canal 4, clip 0-16, parar 0-16) y pestaña Motores › Looper (16 slots + Callado, aviso si otro motor va al mismo sinte y canal, fábrica). Según la tabla MIDI de la MC-101 (MC-101_MIDIImpleChart_eng03): Program Change 0-15 en el canal de la pista = clip 1-16 (en el canal de control, 0-127 = escenas). Motor._looper manda el PC solo al cambiar, solo andando, y otra vez en cada Start. Callar: no hay mensaje de parar clip en la tabla, así que se lanza un slot vacío (`parar`; 0 = no calla). Escenas: «looper» está en forma.SECCIONES (la escena guarda activo y clip; `parar` va en ENRUTAMIENTO, es de la máquina). Anticipo: con una escena en camino, en el compás antes de que llegue (tr.fin − 1) ya pide el loop de destino; en modo canción también para partes que entran de golpe (MotorForma._looper_parte_siguiente lee la escena de la parte siguiente). Con Master Step Length en 16 pasos la MC-101 lo cambia justo en el uno. Escenas guardadas antes de la 0.60 no traen looper: no lo tocan. Prueba: pruebas/looper.py.
 Por confirmar en el hardware: que la MC-101 reciba los PC del canal de la pista sin activar nada en System › MIDI, y que lanzar un slot vacío calle la pista Looper.
+
+## nanoKONTROL2 (0.61)
+
+goa/control.py (detalle en su docstring). Sección [control] (activo, puerto "nanoKONTROL2", canal 1, luces, subida 8) y tarjeta en Ajustes con el mapa. main.py abre su entrada aparte de la de la Circuit (revisar_control, cada 2 s, con reconexión); el callback solo encola. Un hilo junta lo último de cada fader/perilla y aplica cada 60 ms. Todo va por la API local (como otro teléfono) con la cabecera X-Goa-Control: mismas validaciones, deshacer y guardado; sube ctx.version_externa y la app se recarga (y rechaza un /api/config viejo: «Cambió desde el nanoKONTROL2»). Nuevos: POST /api/ajuste {cambios: [[sección, fila, clave, valor]], juntar} (unos pocos valores, armar y normalizar fuera del candado; `juntar` = un paso de deshacer como un deslizador) y POST /api/cc (CC directo al sinte de un motor).
+Canales: Pads, Bajo, Secuencia A, B, Diálogo, FX, Texturas, Looper. Fader/perilla: pads voces/variación, bajo densidad/filtro_max, secuencias densidad/mutación, diálogo golpes/oscuridad (las dos voces), FX filtro_reposo/locura, texturas densidad/profundidad, looper CC 74/CC 71 a la MC-101. **Sin volumen** (lo pidió así). Recogen el valor (RECOGER = 3 pasos o cruzarlo); si cambió por otro lado (escena, app) se sueltan y vuelven a recoger. S solo (otra vez restaura), M encendido, R seed nueva / loop siguiente. Transporte: TRACK elige escena (punteada en Tocar), PLAY lanza, STOP vuelve a la anterior, SET guarda escena, MARKER energía ±0,1, CYCLE piloto, REW deshacer, REC subida (otra vez cancela). FF libre. Luces (LED Mode External): M, S, CYCLE, REC, PLAY. Números CC de fábrica en modo CC (SET + CYCLE al prenderlo). Prueba: pruebas/control.py.
+Por confirmar en el hardware: números CC de fábrica y LEDs en modo External.

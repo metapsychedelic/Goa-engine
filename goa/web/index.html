@@ -68,6 +68,10 @@ button{min-height:44px;border-radius:10px;border:1px solid var(--line2);backgrou
 button:disabled{opacity:.4;cursor:default}
 button.prim{background:var(--acc);border-color:var(--acc);color:var(--sobre)}
 button.icono-mini{width:34px;height:34px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center;border-radius:10px;color:var(--txt2);flex:none}
+button.escena.elegida{outline:2px dashed var(--acc);outline-offset:2px}
+table.mapa{width:100%;border-collapse:collapse;font-size:12px}
+table.mapa th,table.mapa td{text-align:left;padding:5px 4px;border-bottom:1px solid var(--line)}
+table.mapa th{color:var(--txt2);font-weight:500}
 button.deshacer{width:44px;padding:0;display:flex;align-items:center;justify-content:center;color:var(--acc)}
 button.deshacer:disabled{color:var(--line2);opacity:.6}
 button.panico{width:44px;padding:0;display:flex;align-items:center;justify-content:center;border-color:var(--badline);background:var(--badbg);color:var(--bad)}
@@ -280,6 +284,12 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
       <div class="campo">Salida del reenvío
         <div id="thru_salida"></div></div>
     </div>
+    <div class="card" id="control_card">
+      <h2>nanoKONTROL2</h2>
+      <label class="fila" style="min-height:44px"><span>Usar el nanoKONTROL2<br><span class="mut" id="control_estado">Apagado</span></span>
+        <input type="checkbox" id="control_activo"></label>
+      <div id="control_resto"></div>
+    </div>
     <div class="card">
       <h2>Nota larga</h2>
       <label class="campo">Canal general de la nota larga
@@ -430,7 +440,7 @@ async function enviarConfig() {
   try {
     const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(cfg)});
     const d = await r.json();
-    if (!r.ok) { aviso(d.error || "No se pudo aplicar", true); if (r.status === 400 && /otra parte/.test(d.error || "")) recargar(); }
+    if (!r.ok) { aviso(d.error || "No se pudo aplicar", true); if (r.status === 400 && /otra parte|nanoKONTROL/.test(d.error || "")) recargar(); }
     else { aviso(d.aviso || "Aplicado", !!d.aviso); $("deshacer").disabled = false; }
   } catch (e) { aviso("Sin conexión con la Pi", true); }
 }
@@ -1707,6 +1717,47 @@ function renderAjustes() {
   ta.onchange = () => { cfg.thru.activo = ta.checked; guardar(); };
   $("thru_salida").replaceChildren(puertoSelect("salida", cfg.thru.salida, (v) => { cfg.thru.salida = v; guardar(); }));
   $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
+  renderControl();
+}
+
+// --- nanoKONTROL2 (goa/control.py) ---
+const MAPA_CONTROL = [
+  ["Pads", "voces del acorde", "variación"], ["Bajo", "densidad", "filtro (apertura)"],
+  ["Secuencia A", "densidad", "mutación"], ["Secuencia B", "densidad", "mutación"],
+  ["Diálogo", "golpes por frase", "oscuridad"], ["FX", "filtro en reposo", "locura"],
+  ["Texturas", "densidad", "profundidad"], ["Looper", "filtro (CC 74)", "resonancia (CC 71)"],
+];
+function renderControl() {
+  const c = cfg.control;
+  const ca = $("control_activo"); ca.checked = c.activo;
+  ca.onchange = () => { c.activo = ca.checked; guardar(); renderControl(); };
+  const resto = $("control_resto");
+  if (!c.activo) { resto.replaceChildren(ayuda("Ocho canales para ocho motores (fader, perilla, S, M y R) y el transporte para las escenas. Conéctalo por USB a la Pi.")); return; }
+  const tabla = el("table", {className: "mapa"}, [
+    el("tr", {}, ["", "Motor", "Fader", "Perilla"].map((t) => el("th", {textContent: t}))),
+    ...MAPA_CONTROL.map(([m, f, p], i) => el("tr", {}, [String(i + 1), m, f, p].map((t) => el("td", {textContent: t})))),
+  ]);
+  resto.replaceChildren(
+    el("div", {className: "campo"}, ["Puerto", puertoSelect("entrada", c.puerto, (v) => { c.puerto = v; guardar(); })]),
+    el("div", {className: "dos"}, [numeroDe(c, "canal", "Canal MIDI global", 1, 16), numeroDe(c, "subida", "Compases de la subida (REC)", 1, 32)]),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Prender sus botones", el("br"), el("span", {className: "mut", textContent: "Pide LED Mode = External en el Kontrol Editor de Korg"})]),
+      el("input", {type: "checkbox", checked: c.luces, onchange: (e) => { c.luces = e.target.checked; guardar(); }})]),
+    tabla,
+    ayuda("S: solo (otra vez y vuelven los demás) · M: prende o apaga el motor · R: seed nueva (en el looper, el loop siguiente)."),
+    ayuda("◀ TRACK ▶ elige escena · PLAY la lanza · STOP vuelve a la de antes · SET guarda lo que suena como escena nueva · ◀ MARKER ▶ energía −/+ · CYCLE piloto · REW deshacer · REC subida."),
+    ayuda("Faders y perillas recogen el valor: no cambian nada hasta que pasan por donde está el motor (así nada salta, tampoco después de cambiar de escena). Modo CC: al prenderlo, mantén SET + CYCLE."),
+  );
+}
+function pintarControl(d) {
+  const e = $("control_estado"); if (!e) return;
+  const c = d.control;
+  if (!cfg || !cfg.control.activo) { e.textContent = "Apagado"; return; }
+  if (!c || !c.conectado) { e.textContent = "No lo encuentro: revisa el cable USB"; e.style.color = "var(--bad)"; return; }
+  e.style.color = "";
+  const partes = ["Conectado"];
+  if (c.solo) partes.push("solo: " + c.solo);
+  if (c.ultimo) partes.push("último: " + c.ultimo);
+  e.textContent = partes.join(" · ");
 }
 
 function render() {
@@ -2271,6 +2322,10 @@ async function estado() {
     // (si estás escribiendo en un campo, espera a que termines).
     const escribiendo = document.activeElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName) && document.activeElement.type !== "range";
     if (cfg && d.version_base !== undefined && d.version_base !== cfg.version_base && !escribiendo) { await recargar(); }
+    // Algo cambió desde el nanoKONTROL2: la app muestra cómo quedó (salvo un cambio tuyo esperando).
+    else if (cfg && d.version_externa !== undefined && d.version_externa !== cfg.version_externa && !escribiendo && !temporizador) { await recargar(); }
+    pintarControl(d);
+    document.querySelectorAll("button.escena[data-escena]").forEach((b) => b.classList.toggle("elegida", !!d.control && d.control.escena === Number(b.dataset.escena)));
     const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
     $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";
     document.querySelectorAll("[data-salida]").forEach((e) => {

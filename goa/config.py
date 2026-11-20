@@ -215,6 +215,16 @@ ESQUEMA_SECCIONES["looper"] = {
     "parar": (int, 0, 0, 16),                # slot vacío que se lanza para callar (0 = no calla)
 }
 
+# Controlador (Korg nanoKONTROL2 en modo CC): cada canal maneja un motor y el transporte
+# las escenas. Ver goa/control.py.
+ESQUEMA_SECCIONES["control"] = {
+    "activo": (bool, False, None, None),
+    "puerto": (str, "nanoKONTROL2", None, None),
+    "canal": (int, 1, 1, 16),                # canal MIDI global del nanoKONTROL2
+    "luces": (bool, True, None, None),       # prende sus botones (LED Mode External)
+    "subida": (int, 8, 1, 32),               # compases de la subida del botón REC
+}
+
 # Modo canción: la canción es una lista de partes (intro, build, groove...), cada una
 # con sus compases, la escena que suena y su curva de energía. Ver forma.py.
 ESQUEMA_SECCIONES["cancion"] = {
@@ -529,6 +539,8 @@ def salidas(cfg):
         claves.append(cfg["texturas"]["salida"])
     if cfg["looper"]["activo"] or "looper" in cancion:
         claves.append(cfg["looper"]["salida"])
+    if cfg["control"]["activo"] and cfg["control"]["luces"]:
+        claves.append(cfg["control"]["puerto"])  # para prender sus botones
     if cfg["dialogo"]["activo"] or "dialogo" in cancion:
         if cfg["dialogo"]["modo"] == "motor":
             claves.append(cfg["llamada"]["salida"])

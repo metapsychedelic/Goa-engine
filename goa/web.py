@@ -11,7 +11,7 @@ import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, actualizar, forma, fuentes, generador, generos, historia, plantillas
+from . import __version__, actualizar, copia, forma, fuentes, generador, generos, historia, plantillas
 from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, fabrica_motor, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
@@ -41,6 +41,8 @@ class Contexto:
         self.entradas_disponibles = []  # puertos de entrada que ve la Pi
         self.version_base = 0  # la última parte de la canción que la app ya conoce
         self.historia = []     # pasos que se pueden deshacer (ver goa/historia.py)
+        self.control = None    # el nanoKONTROL2 (goa/control.py), si está prendido
+        self.version_externa = 0  # sube cuando el control cambia algo: la app se recarga
         # Guardar en la tarjeta va en un hilo aparte, fuera del candado: escribir el
         # archivo tardaba más que aplicar el cambio y el reloj tenía que esperarlo.
         self.error_guardado = None
@@ -196,6 +198,9 @@ def crear_servidor(ctx, puerto):
                     estado["version"] = __version__
                     estado["inicio"] = INICIO
                     estado["deshacer"] = len(ctx.historia)
+                    estado["version_externa"] = ctx.version_externa
+                    if ctx.control is not None:
+                        estado["control"] = ctx.control.estado()
                     estado["entrada"] = ctx.entrada
                     estado["salidas"] = {clave: clave in ctx.puertos.abiertos for clave in ctx.puertos.salidas}
                     estado["disponibles"] = _nombres_cortos(ctx.puertos.disponibles)
@@ -204,7 +209,7 @@ def crear_servidor(ctx, puerto):
             elif self.path == "/api/config":
                 with ctx.candado:
                     ctx.sincronizar()
-                    self._json(dict(ctx.config, version_base=ctx.version_base))
+                    self._json(dict(ctx.config, version_base=ctx.version_base, version_externa=ctx.version_externa))
             elif self.path.startswith("/api/molde/azar"):
                 # Un molde al azar (🎲): lo arma el motor, la app no repite los pesos.
                 estilo = self.path.rpartition("estilo=")[2] or "goa"
@@ -241,6 +246,8 @@ def crear_servidor(ctx, puerto):
                 "/api/fabrica": self._fabrica,
                 "/api/secuencia/fabrica": lambda d: self._fabrica(dict(d, motor="secuencia")),
                 "/api/deshacer": self._deshacer,
+                "/api/ajuste": self._ajuste,
+                "/api/cc": self._cc,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/lanzar": self._lanzar,
@@ -275,6 +282,9 @@ def crear_servidor(ctx, puerto):
                 ctx.sincronizar()
             try:
                 accion(datos)
+                if self.headers.get("X-Goa-Control") and self.path != "/api/cc":
+                    with ctx.candado:
+                        ctx.version_externa += 1   # lo cambió el nanoKONTROL2: la app se recarga
             except FileNotFoundError:
                 self._json({"error": "No existe ese proyecto"}, 404)
             except (ConfigError, ValueError, KeyError, IndexError, TypeError, OSError) as e:
@@ -343,6 +353,10 @@ def crear_servidor(ctx, puerto):
                         # La canción pasó a otra parte mientras tocabas: lo que mandó la app es
                         # de la parte anterior y la desharía. La app se recarga y lo vuelves a hacer.
                         raise ValueError("La canción pasó a otra parte: vuelve a hacer el cambio")
+                    vista = datos.get("version_externa")
+                    if vista is not None and int(vista) != ctx.version_externa:
+                        # Lo que mandó la app es de antes de que movieras el nanoKONTROL2: lo desharía.
+                        raise ValueError("Cambió desde el nanoKONTROL2: vuelve a hacer el cambio")
                     # Las escenas solo cambian con sus botones: una configuración vieja no las borra.
                     datos = dict(datos, escena=ctx.config["escena"])
             nueva = normalizar(datos)
@@ -391,6 +405,39 @@ def crear_servidor(ctx, puerto):
                 self._responder(aviso)
                 return
             raise ValueError("La configuración cambió mientras restauraba: vuelve a intentarlo")
+
+        def _ajuste(self, datos):
+            """Cambia unos pocos valores sueltos ({cambios: [[sección, fila o null, clave, valor]]}),
+            sin mandar toda la configuración: es lo que usa el nanoKONTROL2. Armar y normalizar
+            va fuera del candado; adentro solo se aplica. Faders y perillas (`juntar`) se
+            juntan en un solo paso de deshacer, como un deslizador de la app."""
+            cambios = datos["cambios"]
+            for _ in range(3):
+                with ctx.candado:
+                    actual = ctx.config
+                nueva = copia.config(actual)
+                for seccion, fila, clave, valor in cambios:
+                    if seccion not in historia.SECCIONES and seccion != "secuencia":
+                        raise ValueError(f"No se puede cambiar {seccion!r} así")
+                    destino = nueva[seccion][int(fila)] if seccion == "secuencia" else nueva[seccion]
+                    if clave not in destino:
+                        raise ValueError(f"{seccion} no tiene {clave!r}")
+                    destino[clave] = valor
+                nueva = normalizar(nueva)
+                with ctx.candado:
+                    if ctx.config is not actual:
+                        continue
+                    aviso = self._aplicar(nueva, "config" if datos.get("juntar") else "ajuste")
+                self._responder(aviso)
+                return
+            raise ValueError("La configuración cambió mientras ajustaba: vuelve a intentarlo")
+
+        def _cc(self, datos):
+            """Un CC directo al sinte de un motor (volumen, filtro), sin tocar la configuración."""
+            with ctx.candado:
+                ctx.puertos.enviar(str(datos["salida"]), "control_change", int(datos["canal"]) - 1,
+                                   max(0, min(127, int(datos["cc"]))), max(0, min(127, int(datos["valor"]))))
+            self._responder()
 
         def _deshacer(self, datos):
             """Deshace el último paso (un cambio de controles, un género o un «fábrica»).
