@@ -52,6 +52,7 @@ class Motor(FormaMotor):
         self.puente = None          # (tonalidad nueva, base de los pads, paso del cambio) durante un acorde puente
         self.version_base = 0       # sube cuando la canción cambia de parte (la app se recarga)
         self.programas = {}         # (salida, canal) -> último Program Change mandado
+        self.looper_enviado = None  # (salida, canal, clip o -parar) del último Program Change del looper
         # Efectos de subida de la parte de la canción que suena (ver _efectos_parte)
         self.roll_desde, self.roll_compases = None, 0
         self.hueco_desde = None
@@ -213,6 +214,7 @@ class Motor(FormaMotor):
             nuevas_texturas.continuar_de(self.texturas, self.enviar)
         self.config_aplicada = config
         self._programas(config)
+        self._looper(config)
         self.tonalidad = tonalidad
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
@@ -445,9 +447,41 @@ class Motor(FormaMotor):
                 self.enviar(salida, "program_change", canal, programa - 1, 0)
                 log.info("Program Change %d a %s canal %d", programa, salida, canal + 1)
 
+    def _looper(self, config=None):
+        """Looper de la MC-101: Program Change 0-15 = slot 1-16 en el canal de la pista.
+        Se manda solo cuando cambia. Con una escena o parte en camino, en el compás antes
+        de que llegue ya pide el loop de destino: la MC-101 lo cambia en su cuantización
+        (con Master Step Length en 16 pasos, justo en el uno en que entra la escena)."""
+        if not self.corriendo:
+            return  # detenido no pide nada: al Start pide el de la escena que suena
+        tr = self.conductor.transicion
+        lp = None
+        if tr is not None and self.tick >= 0 and self._compas_actual() >= tr.fin - 1:
+            config = tr.destino
+        elif self.tick >= 0:
+            lp = self._looper_parte_siguiente(self._compas_actual())
+        if lp is None:
+            lp = (config if config is not None else self.config or {}).get("looper") or {}
+        if not lp.get("activo") or not lp.get("salida"):
+            return
+        clip, parar = int(lp.get("clip", 0)), int(lp.get("parar", 0))
+        if clip > 0:
+            pedido, pc = clip, clip - 1
+        elif parar > 0:
+            pedido, pc = -parar, parar - 1   # callar = lanzar el slot vacío
+        else:
+            return
+        clave = (lp["salida"], int(lp.get("canal", 4)) - 1, pedido)
+        if clave == self.looper_enviado:
+            return
+        self.looper_enviado = clave
+        self.enviar(clave[0], "program_change", clave[1], pc, 0)
+        log.info("Looper: %s (canal %d)", f"loop {clip}" if clip else "callado", clave[1] + 1)
+
     def start(self):
         log.info("Start")
         self.programas = {}  # en cada Start se vuelven a mandar (por si cambiaste el parche a mano)
+        self.looper_enviado = None
         # Una transición a medias termina de una vez: arranca en la escena pedida.
         self.conductor.reiniciar()
         self.director.reiniciar()
@@ -464,6 +498,7 @@ class Motor(FormaMotor):
         self.bajo.reiniciar()
         self.subida, self.subida_pedida = None, None
         self.corriendo = True
+        self._looper(self.config)
         self.tick = -1
 
     def continuar(self):

@@ -639,6 +639,7 @@ function motores() {
   lista.push(["dialogo", "Diálogo", cfg.dialogo, "activo"]);
   lista.push(["fx", "FX", cfg.fx, "activo"]);
   if (cfg.texturas) lista.push(["texturas", "Texturas", cfg.texturas, "activo"]);
+  if (cfg.looper) lista.push(["looper", "Looper", cfg.looper, "activo"]);
   return lista;
 }
 
@@ -665,6 +666,7 @@ function renderMotores() {
   else if (motorSel === "dialogo") panel.append(...panelDialogo());
   else if (motorSel === "fx") panel.append(...panelFx());
   else if (motorSel === "texturas") panel.append(...panelTexturas());
+  else if (motorSel === "looper") panel.append(...panelLooper());
   else panel.append(...panelSecuencia(parseInt(motorSel.slice(3))));
 }
 // Nombres de antes: cualquier cambio vuelve a dibujar el motor que está a la vista.
@@ -692,6 +694,7 @@ const FABRICA = {
   dialogo: ["la llamada y respuesta", "Llamada y respuesta", "Vuelven las dos voces. Se mantienen sus salidas MIDI, canales, programas, la nota larga, la entrada que escucha, el género y la seed."],
   fx: ["el FX", "FX", "Se mantienen su salida MIDI, canal, programa, nota larga, género, seed y el CC del corte."],
   texturas: ["las texturas", "Texturas", "Se mantienen su salida MIDI, canal, programa, nota larga, seed y el CC que respira."],
+  looper: ["el looper", "Looper", "Queda sin loop elegido. Se mantienen su salida MIDI, canal y el slot vacío para callar."],
 };
 function botonFabricaMotor(motor) {
   const [quien, titulo, conserva] = FABRICA[motor];
@@ -1479,6 +1482,33 @@ function panelTexturas() {
       ]),
     ]),
   ];
+}
+
+function panelLooper() {
+  const x = cfg.looper;
+  const slots = [["0", "Callado"]];
+  for (let i = 1; i <= 16; i++) slots.push([String(i), String(i)]);
+  // Otro motor que manda al mismo sinte y canal: sus Program Change chocarían.
+  const choca = motores().filter(([k, , o]) => k !== "looper" && o.salida === x.salida && Number(o.canal) === Number(x.canal)).map((m) => m[1]);
+  if (cfg.dialogo && cfg.llamada && cfg.llamada.salida === x.salida && Number(cfg.llamada.canal) === Number(x.canal)) choca.push("Llamada");
+  if (cfg.dialogo && cfg.respuesta && cfg.respuesta.salida === x.salida && Number(cfg.respuesta.canal) === Number(x.canal)) choca.push("Respuesta");
+  return [
+    cabMotor("Looper", `${x.salida} · canal ${x.canal} · ${x.clip ? "loop " + x.clip : "callado"}`, x, "activo", null, botonFabricaMotor("looper")),
+    ayuda("Loops de samples de la pista Looper de la MC-101. Elige el loop que suena y guarda la escena: cada escena (y cada parte de la canción) lanza el suyo. El motor lo pide un compás antes de que llegue la escena, y la MC-101 lo cambia en su cuantización."),
+    choca.length ? el("p", {className: "ayuda", style: "color:var(--bad)", textContent: `Ojo: ${choca.join(", ")} también va a ${x.salida} canal ${x.canal}. Sus Program Change cambiarían el loop: usa otro canal para el looper o para ese motor.`}) : null,
+    el("div", {className: "card principales"}, [
+      campo("Loop que suena (slot de la MC-101)", segmentado(slots, String(x.clip), (v) => { x.clip = parseInt(v); guardar(); renderMotores(); }, 6)),
+      ayuda(x.clip ? `Suena el slot ${x.clip}. Guarda la escena para que lo recuerde.` :
+        x.parar ? `Callado: lanza el slot ${x.parar} (vacío) para callar la pista.` : "Callado: no pide nada. Para que calle el loop que suena, elige abajo un slot vacío."),
+    ]),
+    el("div", {className: "grupos"}, [
+      grupo("g-lp-midi", "Salida MIDI", `${salidaTexto(x)}${x.parar ? ` · calla con el slot ${x.parar}` : ""}`, [
+        el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI (el de la pista Looper)", 1, 16, renderMotores)]),
+        numeroDe(x, "parar", "Slot vacío para callar (0 = no calla)", 0, 16, renderMotores),
+        ayuda("En la MC-101: el canal de la pista Looper tiene que ser este (4 por defecto); el cambio de clip es Program Change 0-15 en el canal de la pista (tabla MIDI de Roland). El cambio de loop espera el Master Step Length ([TEMPO]): con 16 pasos cae justo en el uno en que entra la escena; más largo, entra después. Para callar, deja un slot sin loop y elígelo arriba."),
+      ]),
+    ]),
+ ].filter(Boolean);
 }
 
 // --- Clips (dentro de cada secuencia y del diálogo) ---

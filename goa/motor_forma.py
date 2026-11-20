@@ -42,6 +42,26 @@ class FormaMotor:
         destino["forma"]["escena"] = p["escena"]
         return destino
 
+    def _looper_parte_siguiente(self, compas):
+        """Modo canción: si la parte siguiente empieza en el próximo compás, el looper de su
+        escena (para pedir su loop un compás antes; una parte que entra de golpe se lanza
+        recién en su uno). None si no hay parte nueva justo después."""
+        ahora = self.conductor.parte(self.base, compas)
+        if ahora is None or ahora["dentro"] != ahora["largo"] - 1:
+            return None
+        siguiente = self.conductor.parte(self.base, compas + 1)
+        if siguiente is None:
+            return None
+        p = self.base["parte"][siguiente["i"]]
+        escenas = self.base.get("escena", [])
+        if not 0 <= p["escena"] < len(escenas):
+            return None
+        datos = escenas[p["escena"]]["datos"]
+        datos = forma.json.loads(datos) if isinstance(datos, str) else datos
+        if "looper" not in datos:
+            return None  # escena de antes del looper: sigue lo que suena
+        return dict(self.base.get("looper", {}), **{k: v for k, v in datos["looper"].items() if k not in forma.ENRUTAMIENTO})
+
     def _avanzar_cancion(self, compas):
         """Primer paso de cada compás, en modo canción: lanza cada parte para que llegue
         completa justo en su primer compás (junto con la escena de la Circuit)."""
@@ -100,6 +120,7 @@ class FormaMotor:
         self.conductor.lanzar(origen, destino, compas + 1, compases, indice)
         self.base = destino
         self.config_en_cola = destino
+        self._looper(self.config)   # si llega en el próximo compás, su loop se pide ya
         log.info("Escena %s: transición de %d compases", indice, compases)
 
     def _subida_estado(self):
@@ -352,6 +373,7 @@ class FormaMotor:
             self._aplicar(efectiva)  # los cambios entran justo en el compás
             log.info("Entran los cambios (compás %d)", compas + 1)
         self.pads.origen = self.origen_progresion
+        self._looper(self.config)   # con una escena en camino, pide su loop un compás antes
         self.config_en_cola = None
         self.conductor.terminar_si_corresponde(compas)
         f = self.base.get("forma", {})

@@ -203,6 +203,18 @@ ESQUEMA_SECCIONES["texturas"] = {
     "seed": (str, "TX-0001", None, None),
 }
 
+# Looper: loops de samples en una pista Looper de la MC-101. Cada escena elige qué slot
+# (1-16) suena; el motor manda el Program Change del slot (PC 0-15 = clip 1-16 en el
+# canal de la pista) un compás antes de que llegue la escena, y la MC-101 lo cambia en
+# su cuantización (Master Step Length; con 16 pasos cae justo en el uno).
+ESQUEMA_SECCIONES["looper"] = {
+    "activo": (bool, False, None, None),
+    "salida": (str, "MC-101", None, None),
+    "canal": (int, 4, 1, 16),
+    "clip": (int, 0, 0, 16),                 # 0 = ningún loop (callado)
+    "parar": (int, 0, 0, 16),                # slot vacío que se lanza para callar (0 = no calla)
+}
+
 # Modo canción: la canción es una lista de partes (intro, build, groove...), cada una
 # con sus compases, la escena que suena y su curva de energía. Ver forma.py.
 ESQUEMA_SECCIONES["cancion"] = {
@@ -495,7 +507,7 @@ def _suenan_en_cancion(cfg):
                 datos = json.loads(cfg["escena"][p["escena"]]["datos"])
             except ValueError:
                 continue
-            for motor in ("pads", "bajo", "dialogo", "fx", "texturas"):
+            for motor in ("pads", "bajo", "dialogo", "fx", "texturas", "looper"):
                 if (datos.get(motor) or {}).get("activo"):
                     suenan.add(motor)
     return suenan
@@ -515,6 +527,8 @@ def salidas(cfg):
         claves.append(cfg["fx"]["salida"])
     if cfg["texturas"]["activo"] or "texturas" in cancion:
         claves.append(cfg["texturas"]["salida"])
+    if cfg["looper"]["activo"] or "looper" in cancion:
+        claves.append(cfg["looper"]["salida"])
     if cfg["dialogo"]["activo"] or "dialogo" in cancion:
         if cfg["dialogo"]["modo"] == "motor":
             claves.append(cfg["llamada"]["salida"])
@@ -592,9 +606,9 @@ def fabrica_secuencia(secuencia):
 # a dónde y cómo suena (salida, canal, programa y los CC de su sinte), su nota larga o la
 # entrada que escucha, el género y la seed.
 CONSERVAR_EN_FABRICA_MOTOR = ("activo", "suenan", "salida", "canal", "programa", "disparo", "escucha", "genero", "seed",
-                              "filtro_cc", "cc_corte", "cc")
+                              "filtro_cc", "cc_corte", "cc", "parar")
 MOTORES_FABRICA = {"pads": ("pads",), "bajo": ("bajo",), "dialogo": ("dialogo", "llamada", "respuesta"),
-                   "fx": ("fx",), "texturas": ("texturas",)}
+                   "fx": ("fx",), "texturas": ("texturas",), "looper": ("looper",)}
 
 
 def _fabrica_seccion(seccion, datos):

@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.59.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.60.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -21,7 +21,7 @@ Canción, Ajustes).
 - `goa/plantillas.py` (templates de canción de la app)
 - `herramientas/circuit_cancion.py` (genera los .ncs de la Circuit; `todas carpeta/`)
 - Pruebas: `python3 -m pruebas.<nombre>` (cancion, director, dialogo, en_vivo,
-  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica).
+  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica, looper).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
@@ -168,3 +168,8 @@ Para que mover controles, deshacer o la energía no le quiten tiempo al reloj:
 - **Guardar en la tarjeta en un hilo aparte** (Contexto._guardador): `_guardar_activa` solo lo pide (no espera) y devuelve el último error; junta cambios seguidos (GUARDAR_JUNTA = 0,3 s) y escribe sin el candado. `guardar_ya()` guarda esperando (antes de actualizar y al apagar, en main.py). `esperar_guardado()` para las pruebas. Guardar un proyecto también escribe el archivo fuera del candado.
 - **goa/copia.py** reemplaza los copy.deepcopy de configuraciones enteras en motor, forma, motor_forma y generos: comparte la biblioteca (escenas, partes, clips: solo se leen) y copia cada sección con dict(). Era ~80 % de aplicar_config, también en el camino del reloj (energizar, transiciones, piloto).
 - Medido en x86 con 16 escenas: aplicar_config 0,92 → 0,22 ms (máx 2,1 → 0,7); toma más larga del candado al mover un control 1,56 → 0,33 ms (máx 2,1 → 0,5), energía 1,9 → 0,5 ms, deshacer 0,23 ms; pulso del reloj p99 0,63 → 0,31 ms. En la Pi 4 calcular ~3-4×. Salida MIDI idéntica a la 0.58 (mismo hash, modo libre con escena/energía/subida y modo canción).
+
+## Looper de la MC-101 (0.60)
+
+Sección [looper] (activo, salida MC-101, canal 4, clip 0-16, parar 0-16) y pestaña Motores › Looper (16 slots + Callado, aviso si otro motor va al mismo sinte y canal, fábrica). Según la tabla MIDI de la MC-101 (MC-101_MIDIImpleChart_eng03): Program Change 0-15 en el canal de la pista = clip 1-16 (en el canal de control, 0-127 = escenas). Motor._looper manda el PC solo al cambiar, solo andando, y otra vez en cada Start. Callar: no hay mensaje de parar clip en la tabla, así que se lanza un slot vacío (`parar`; 0 = no calla). Escenas: «looper» está en forma.SECCIONES (la escena guarda activo y clip; `parar` va en ENRUTAMIENTO, es de la máquina). Anticipo: con una escena en camino, en el compás antes de que llegue (tr.fin − 1) ya pide el loop de destino; en modo canción también para partes que entran de golpe (MotorForma._looper_parte_siguiente lee la escena de la parte siguiente). Con Master Step Length en 16 pasos la MC-101 lo cambia justo en el uno. Escenas guardadas antes de la 0.60 no traen looper: no lo tocan. Prueba: pruebas/looper.py.
+Por confirmar en el hardware: que la MC-101 reciba los PC del canal de la pista sin activar nada en System › MIDI, y que lanzar un slot vacío calle la pista Looper.

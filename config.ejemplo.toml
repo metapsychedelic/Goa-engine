@@ -177,6 +177,17 @@ reposo = 40               # dónde queda ese CC entre notas largas
 profundidad = 0.6         # cuánto se abre en cada nota larga
 seed = "TX-0001"
 
+[looper]
+# Loops de samples de la pista Looper de la MC-101 (16 slots). Cada escena guarda
+# qué loop suena; el motor manda Program Change 0-15 (= slot 1-16) en el canal de la
+# pista un compás antes de que llegue la escena. En la MC-101, Master Step Length en
+# 16 pasos para que el cambio caiga justo en el uno.
+activo = false
+salida = "MC-101"
+canal = 4                 # el canal de la pista Looper
+clip = 0                  # slot que suena (1-16); 0 = ninguno
+parar = 0                 # slot vacío que se lanza para callar (0 = no calla)
+
 [forma]
 # Escenas y energía (pestaña Tocar). Las escenas se guardan desde la app,
 # abajo de todo como [[escena]]: cada una es una foto de lo musical, sin destinos.
