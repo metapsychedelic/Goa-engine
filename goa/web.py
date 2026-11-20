@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, actualizar, forma, fuentes, generador, generos, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, fabrica_secuencia, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, fabrica_bajo, fabrica_secuencia, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -37,6 +37,7 @@ class Contexto:
         self.entrada = None  # nombre de la entrada conectada, o None
         self.entradas_disponibles = []  # puertos de entrada que ve la Pi
         self.version_base = 0  # la última parte de la canción que la app ya conoce
+        self.deshacer = None   # el último «Restaurar ajustes de fábrica», para poder deshacerlo
 
     def sincronizar(self):
         """Modo canción: si el motor pasó a otra parte, lo que muestra la app (y se guarda)
@@ -178,6 +179,8 @@ def crear_servidor(ctx, puerto):
                 "/api/config": self._config,
                 "/api/genero": self._genero,
                 "/api/secuencia/fabrica": self._secuencia_fabrica,
+                "/api/bajo/fabrica": self._bajo_fabrica,
+                "/api/fabrica/deshacer": self._fabrica_deshacer,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/lanzar": self._lanzar,
@@ -302,12 +305,66 @@ def crear_servidor(ctx, puerto):
         def _secuencia_fabrica(self, datos):
             with ctx.candado:
                 fila = int(datos["fila"])
+                if not 0 <= fila < len(ctx.config["secuencia"]):
+                    raise IndexError("No existe esa secuencia")
+                antes = copy.deepcopy(ctx.config["secuencia"][fila])
+                estado = ctx.motor.estado_secuencia(fila)
                 nueva = copy.deepcopy(ctx.config)
                 nueva["secuencia"][fila] = fabrica_secuencia(nueva["secuencia"][fila])
                 nueva = normalizar(nueva)
                 aviso = self._aplicar(nueva)
                 ctx.motor.reiniciar_secuencia(fila)   # también deshace lo que ya había mutado
-            self._responder(aviso)
+                self._recordar("secuencia", fila, antes, estado)
+            self._responder(aviso, deshacer=True)
+
+        def _bajo_fabrica(self, datos):
+            with ctx.candado:
+                antes = copy.deepcopy(ctx.config["bajo"])
+                estado = ctx.motor.estado_bajo()
+                nueva = copy.deepcopy(ctx.config)
+                nueva["bajo"] = fabrica_bajo(nueva["bajo"])
+                nueva = normalizar(nueva)
+                aviso = self._aplicar(nueva)
+                ctx.motor.reiniciar_bajo()   # también deshace lo que ya había mutado
+                self._recordar("bajo", None, antes, estado)
+            self._responder(aviso, deshacer=True)
+
+        def _seccion(self, tipo, fila):
+            return ctx.config["bajo"] if tipo == "bajo" else ctx.config["secuencia"][fila]
+
+        def _recordar(self, tipo, fila, antes, estado):
+            """Guarda lo de antes de restaurar. Solo se puede deshacer mientras esa secuencia
+            (o el bajo) siga tal como quedó: si la cambiaste después, deshacer pisaría ese cambio."""
+            ctx.deshacer = {"tipo": tipo, "fila": fila, "antes": antes, "estado": estado,
+                            "despues": copy.deepcopy(self._seccion(tipo, fila)),
+                            "secuencias": len(ctx.config["secuencia"])}
+
+        def _fabrica_deshacer(self, datos):
+            with ctx.candado:
+                d = ctx.deshacer
+                if d is None:
+                    raise ValueError("No hay nada que deshacer")
+                tipo, fila = d["tipo"], d["fila"]
+                if (len(ctx.config["secuencia"]) != d["secuencias"]
+                        or self._seccion(tipo, fila) != d["despues"]):
+                    ctx.deshacer = None
+                    que = "el bajo" if tipo == "bajo" else "la secuencia"
+                    raise ValueError(f"Ya cambiaste {que} después de restaurar: no se puede deshacer")
+                nueva = copy.deepcopy(ctx.config)
+                if tipo == "bajo":
+                    nueva["bajo"] = copy.deepcopy(d["antes"])
+                else:
+                    nueva["secuencia"][fila] = copy.deepcopy(d["antes"])
+                nueva = normalizar(nueva)
+                Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+                aviso = self._aplicar(nueva)
+                # Vuelve también lo que ya había mutado (el patrón que sonaba antes de restaurar).
+                if tipo == "bajo":
+                    ctx.motor.volver_estado_bajo(d["estado"])
+                else:
+                    ctx.motor.volver_estado_secuencia(fila, d["estado"])
+                ctx.deshacer = None
+            self._responder(aviso, tipo=tipo, fila=fila)
 
         def _clip_guardar(self, datos):
             with ctx.candado:

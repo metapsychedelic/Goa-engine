@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.54.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.57.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -21,7 +21,7 @@ Canción, Ajustes).
 - `goa/plantillas.py` (templates de canción de la app)
 - `herramientas/circuit_cancion.py` (genera los .ncs de la Circuit; `todas carpeta/`)
 - Pruebas: `python3 -m pruebas.<nombre>` (cancion, director, dialogo, en_vivo,
-  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta).
+  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
@@ -155,3 +155,8 @@ Ajustes › Actualización: «Buscar actualización» hace `git fetch` y muestra
 ## Restaurar ajustes de fábrica (0.56)
 
 Botón pequeño con ícono de espiral en la cabecera de cada secuencia (junto a «Activo»), con confirmación. POST /api/secuencia/fabrica {fila}: config.fabrica_secuencia pone los valores por defecto de ESQUEMA_SECUENCIA y conserva CONSERVAR_EN_FABRICA (nombre, nota larga, activa, salida, canal, programa, género, seed y los CC del sinte). Después Motor.reiniciar_secuencia(fila) regenera el patrón desde la seed: si lo único distinto era la mutación, la firma no cambia y el motor habría seguido con el patrón mutado. Prueba en pruebas/carpeta.py.
+
+## Fábrica en el bajo y Deshacer (0.57)
+
+El bajo también tiene el botón de espiral en su cabecera: POST /api/bajo/fabrica, config.fabrica_bajo (conserva CONSERVAR_EN_FABRICA_BAJO: activo, salida, canal, programa, nota larga, género, seed y filtro_cc) y Motor.reiniciar_bajo (vuelve a la base el bajo que suena o el que espera el próximo compás).
+Deshacer: después de restaurar (secuencia o bajo) aparece un aviso con «Deshacer» durante 12 s. La Pi guarda en ctx.deshacer los ajustes de antes y una foto del patrón vivo (Motor.estado_secuencia / estado_bajo: lo que ya había mutado, molde vivo, patrón del director) y POST /api/fabrica/deshacer devuelve las dos cosas (volver_estado_*; solo si la firma/base del patrón es la misma). Un solo nivel. Si tocaste esa secuencia o el bajo después de restaurar, no deshace (pisaría tu cambio); tocar otros motores no lo impide. Prueba: pruebas/fabrica.py (por HTTP, con la app de verdad).

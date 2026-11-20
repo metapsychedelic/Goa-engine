@@ -586,3 +586,15 @@ def fabrica_secuencia(secuencia):
     nueva = {clave: valor for clave, (_, valor, _, _) in ESQUEMA_SECUENCIA.items()}
     nueva.update({k: secuencia[k] for k in CONSERVAR_EN_FABRICA if k in secuencia})
     return nueva
+
+
+# Lo mismo para el bajo: se quedan a dónde y cómo suena (salida, canal, programa, CC del
+# filtro de su sinte), su nota larga, si está prendido, el género y su seed.
+CONSERVAR_EN_FABRICA_BAJO = ("activo", "salida", "canal", "programa", "disparo", "genero", "seed", "filtro_cc")
+
+
+def fabrica_bajo(bajo):
+    """El bajo con todos sus ajustes musicales en los valores de fábrica."""
+    nuevo = {clave: valor for clave, (_, valor, _, _) in ESQUEMA_SECCIONES["bajo"].items()}
+    nuevo.update({k: bajo[k] for k in CONSERVAR_EN_FABRICA_BAJO if k in bajo})
+    return nuevo

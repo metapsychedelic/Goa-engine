@@ -99,6 +99,48 @@ class Motor(FormaMotor):
             s.molde_vivo = s.molde
             s._director_patron = None
 
+    def reiniciar_bajo(self):
+        """El bajo vuelve a su patrón de base (deshace lo que mutó). Si hay un bajo nuevo
+        esperando el próximo compás, es ese el que vuelve a la base."""
+        bajo = self.cola_bajo or self.bajo
+        if bajo is not None:
+            bajo.reiniciar()
+
+    # --- Lo que ya mutó, para poder deshacer «Restaurar ajustes de fábrica» ---
+
+    def estado_secuencia(self, fila):
+        """Una foto del patrón vivo de la secuencia `fila` (con lo que ya mutó)."""
+        if not 0 <= fila < len(self.secuencias):
+            return None
+        s = self.secuencias[fila]
+        return copy.deepcopy({"firma": s.firma(), "patron": s.patron, "ritmo_base": s.ritmo_base,
+                              "molde_vivo": s.molde_vivo, "director": getattr(s, "_director_patron", None)})
+
+    def volver_estado_secuencia(self, fila, estado):
+        """Devuelve la foto de estado_secuencia, si el patrón de base es el mismo."""
+        if not estado or not 0 <= fila < len(self.secuencias):
+            return
+        s = self.secuencias[fila]
+        if s.firma() != estado["firma"]:
+            return
+        foto = copy.deepcopy(estado)
+        s.patron, s.ritmo_base, s._director_patron = foto["patron"], foto["ritmo_base"], foto["director"]
+        if len(foto["molde_vivo"]) == len(s.molde_vivo):
+            s.molde_vivo = foto["molde_vivo"]
+
+    def estado_bajo(self):
+        bajo = self.cola_bajo or self.bajo
+        if bajo is None:
+            return None
+        return {"base": dict(bajo.base), "seed": bajo.seed, "patron": dict(bajo.patron), "mutado_hasta": bajo.mutado_hasta}
+
+    def volver_estado_bajo(self, estado):
+        bajo = self.cola_bajo or self.bajo
+        if not estado or bajo is None or bajo.base != estado["base"] or bajo.seed != estado["seed"]:
+            return
+        bajo.patron = dict(estado["patron"])
+        bajo.mutado_hasta = estado["mutado_hasta"]
+
     def _aplicar(self, config):
         config = copy.deepcopy(config)  # una copia propia: si quien llama la modifica, no se confunde
         self.config = config
