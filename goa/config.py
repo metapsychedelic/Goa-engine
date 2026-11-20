@@ -71,6 +71,7 @@ ESQUEMA_SECCIONES = {
         "forma": (str, "entrelazado", None, dialogo.FORMAS),
         "rejilla": (str, "corcheas", None, tuple(dialogo.REJILLAS)),
         "espacio": (int, 1, 0, 3),
+        "densidad": (float, 1.0, 0.0, 1.0),      # cuántas notas de las frases suenan (el fader del nano)
         "compases_turno": (int, 2, 1, 8),
         "disparo": (int, 0, 0, 16),
         "escucha": (int, 4, 1, 16),

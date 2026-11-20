@@ -7,7 +7,7 @@ en el Kontrol Editor de Korg: LED Mode = External.
 Los ocho canales, de izquierda a derecha: Pads, Bajo, Secuencia A, Secuencia B, Diálogo,
 FX, Texturas y Looper.
 
-  Fader    cuánto pasa (densidad, voces, golpes, filtro)   Perilla  su carácter
+  Fader    cuánto pasa (densidad, voces, filtro)   Perilla  su carácter
            El volumen no se maneja desde acá: queda en cada sinte.
   S        solo (los demás se callan; otra vez y vuelven)
   M        prende o apaga el motor (como en la app: entra y sale sin cortar)
@@ -62,7 +62,7 @@ CANALES = [
     {"nombre": "Secuencia B", "motor": ("secuencia", 1), "activo": "activa",
      "fader": (("secuencia",), "densidad"), "perilla": (("secuencia",), "mutacion")},
     {"nombre": "Diálogo", "motor": ("dialogo", None), "activo": "activo",
-     "fader": (("llamada", "respuesta"), "golpes"), "perilla": (("llamada", "respuesta"), "oscuridad")},
+     "fader": (("dialogo",), "densidad"), "perilla": (("llamada", "respuesta"), "oscuridad")},
     {"nombre": "FX", "motor": ("fx", None), "activo": "activo",
      "fader": (("fx",), "filtro_reposo"), "perilla": (("fx",), "locura")},
     {"nombre": "Texturas", "motor": ("texturas", None), "activo": "activo",
@@ -72,7 +72,7 @@ CANALES = [
 ]
 
 NOMBRES = {"voces": "voces del acorde", "densidad": "densidad", "variacion": "variación",
-           "filtro_max": "filtro (apertura)", "mutacion": "mutación", "golpes": "golpes por frase",
+           "filtro_max": "filtro (apertura)", "mutacion": "mutación",
            "oscuridad": "oscuridad", "filtro_reposo": "filtro en reposo", "locura": "locura",
            "profundidad": "profundidad", 74: "filtro (CC 74)", 71: "resonancia (CC 71)"}
 

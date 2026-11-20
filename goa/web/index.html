@@ -1376,6 +1376,7 @@ function panelDialogo() {
     campo("Variante", variante(d, "dialogo")),
     el("div", {className: "card principales"}, [
       colorGeneral(),
+      deslizador(d, "densidad", "Densidad", 0, 1, 0.05, (x) => x >= 1 ? "todas las notas" : `${porcentaje(x)} de las notas (la primera de cada voz siempre)`),
       deslizador(d, "evolucion", "Mutación", 0, 1, 0.05, (x) => x === 0 ? "fija" : `${porcentaje(x)} cada ${d.mutar_cada} compases`),
       espacio,
       frasesDialogo(() => renderMotores()),
@@ -1724,7 +1725,7 @@ function renderAjustes() {
 const MAPA_CONTROL = [
   ["Pads", "voces del acorde", "variación"], ["Bajo", "densidad", "filtro (apertura)"],
   ["Secuencia A", "densidad", "mutación"], ["Secuencia B", "densidad", "mutación"],
-  ["Diálogo", "golpes por frase", "oscuridad"], ["FX", "filtro en reposo", "locura"],
+  ["Diálogo", "densidad", "oscuridad"], ["FX", "filtro en reposo", "locura"],
   ["Texturas", "densidad", "profundidad"], ["Looper", "filtro (CC 74)", "resonancia (CC 71)"],
 ];
 function renderControl() {

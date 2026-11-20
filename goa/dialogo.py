@@ -162,6 +162,7 @@ class Dialogo:
         self.forma = cfg.get("forma", "entrelazado")
         self.rejilla = cfg.get("rejilla", "corcheas")
         self.espacio = max(0, int(cfg.get("espacio", 1)))
+        self.densidad = max(0.0, min(1.0, float(cfg.get("densidad", 1.0))))
         self.compases_turno = max(1, int(cfg.get("compases_turno", 2)))
         self.escucha = int(cfg.get("escucha", 4)) - 1
         self.seguir_pads = bool(cfg.get("seguir_pads", True))
@@ -320,6 +321,7 @@ class Dialogo:
         grados_r = self.grados_respuesta(len(golpes_r))
         eventos = sorted([(i, self.llamada, grados_l[k]) for k, i in enumerate(golpes_l)]
                          + [(i, self.respuesta, grados_r[k]) for k, i in enumerate(golpes_r)], key=lambda e: e[0])
+        eventos = self._ralear(eventos)
         inicios, retrasos = self._desplazar(compas, eventos)
         # Cada nota dura según su largo, pero termina antes de que entre la siguiente
         # (de cualquier voz, también el uno del compás que viene): no se pisan.
@@ -333,6 +335,22 @@ class Dialogo:
             dur = max(1, min(dur, hasta * TICKS_POR_PASO - retraso - 1))
             vel = voz.velocidad + (8 if i == 0 else 0) + round(voz.vel_random * 20 * voz.rng_vel.uniform(-1, 1))
             self.plan.append((paso + inicio, voz, grado, dur, max(1, min(127, vel)), retraso))
+
+    def _ralear(self, eventos):
+        """Densidad: cada lugar de cada voz tiene su número fijo y suena si queda bajo la
+        densidad. Así bajarla saca notas sin cambiar la frase ni las notas que quedan, y
+        subirla las devuelve en el mismo lugar (como la densidad de las secuencias). La
+        primera nota de cada voz siempre suena: el diálogo no se pierde."""
+        if self.densidad >= 1.0:
+            return eventos
+        primera, quedan = set(), []
+        for i, voz, grado in eventos:
+            if voz.papel not in primera:
+                primera.add(voz.papel)
+                quedan.append((i, voz, grado))
+            elif random.Random(f"{self.seed}:{voz.papel}:densidad:{i}").random() < self.densidad:
+                quedan.append((i, voz, grado))
+        return quedan
 
     def desplazamiento_de(self, voz):
         return voz.desplazamiento if voz.desplazamiento >= 0 else self.desplazamiento

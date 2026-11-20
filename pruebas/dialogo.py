@@ -283,5 +283,21 @@ if __name__ == "__main__":
     filas = {"".join("L" if x == "L" else "." for x in grilla(salida, cfg, c)) for c in range(16)}
     todo &= ok(len(filas) == 1, "«Fijar» también congela el molde")
 
+    # Densidad (el fader del nanoKONTROL2): saca notas sin cambiar la frase.
+    def notas_on(salida):
+        # Lugar y voz (la última nota de cada voz en el compás cierra en el acorde, así
+        # que con menos notas esa puede cambiar de altura: es a propósito).
+        return {(tick, sal, canal) for tick, sal, tipo, canal, nota, vel in salida if tipo == "note_on"}
+    llena, _ = correr(normalizar(base(evolucion=0.0)), compases=8)
+    cfg_d = normalizar(base(evolucion=0.0, densidad=0.5))
+    media, _ = correr(cfg_d, compases=8)
+    cfg_c = normalizar(base(evolucion=0.0, densidad=0.0))
+    cero, _ = correr(cfg_c, compases=8)
+    n_llena, n_media, n_cero = notas_on(llena), notas_on(media), notas_on(cero)
+    todo &= ok(n_cero < n_media < n_llena, f"densidad 0 < 0,5 < 1: {len(n_cero)} < {len(n_media)} < {len(n_llena)} notas, y cada una está dentro de la siguiente")
+    todo &= ok(all(grilla(cero, cfg_c, c)[0] == "L" for c in range(8)) and "R" in "".join(grilla(cero, cfg_c, c) for c in range(8)),
+               "densidad 0: la primera nota de cada voz sigue sonando")
+    todo &= ok(colgadas(media) == 0 and max_simultaneas(media) == 1, "sin notas colgadas ni pisadas")
+
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

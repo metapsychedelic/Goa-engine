@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.61.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.62.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -177,5 +177,9 @@ Por confirmar en el hardware: que la MC-101 reciba los PC del canal de la pista 
 ## nanoKONTROL2 (0.61)
 
 goa/control.py (detalle en su docstring). Sección [control] (activo, puerto "nanoKONTROL2", canal 1, luces, subida 8) y tarjeta en Ajustes con el mapa. main.py abre su entrada aparte de la de la Circuit (revisar_control, cada 2 s, con reconexión); el callback solo encola. Un hilo junta lo último de cada fader/perilla y aplica cada 60 ms. Todo va por la API local (como otro teléfono) con la cabecera X-Goa-Control: mismas validaciones, deshacer y guardado; sube ctx.version_externa y la app se recarga (y rechaza un /api/config viejo: «Cambió desde el nanoKONTROL2»). Nuevos: POST /api/ajuste {cambios: [[sección, fila, clave, valor]], juntar} (unos pocos valores, armar y normalizar fuera del candado; `juntar` = un paso de deshacer como un deslizador) y POST /api/cc (CC directo al sinte de un motor).
-Canales: Pads, Bajo, Secuencia A, B, Diálogo, FX, Texturas, Looper. Fader/perilla: pads voces/variación, bajo densidad/filtro_max, secuencias densidad/mutación, diálogo golpes/oscuridad (las dos voces), FX filtro_reposo/locura, texturas densidad/profundidad, looper CC 74/CC 71 a la MC-101. **Sin volumen** (lo pidió así). Recogen el valor (RECOGER = 3 pasos o cruzarlo); si cambió por otro lado (escena, app) se sueltan y vuelven a recoger. S solo (otra vez restaura), M encendido, R seed nueva / loop siguiente. Transporte: TRACK elige escena (punteada en Tocar), PLAY lanza, STOP vuelve a la anterior, SET guarda escena, MARKER energía ±0,1, CYCLE piloto, REW deshacer, REC subida (otra vez cancela). FF libre. Luces (LED Mode External): M, S, CYCLE, REC, PLAY. Números CC de fábrica en modo CC (SET + CYCLE al prenderlo). Prueba: pruebas/control.py.
+Canales: Pads, Bajo, Secuencia A, B, Diálogo, FX, Texturas, Looper. Fader/perilla: pads voces/variación, bajo densidad/filtro_max, secuencias densidad/mutación, diálogo densidad (dialogo.densidad, desde 0.62)/oscuridad (las dos voces), FX filtro_reposo/locura, texturas densidad/profundidad, looper CC 74/CC 71 a la MC-101. **Sin volumen** (lo pidió así). Recogen el valor (RECOGER = 3 pasos o cruzarlo); si cambió por otro lado (escena, app) se sueltan y vuelven a recoger. S solo (otra vez restaura), M encendido, R seed nueva / loop siguiente. Transporte: TRACK elige escena (punteada en Tocar), PLAY lanza, STOP vuelve a la anterior, SET guarda escena, MARKER energía ±0,1, CYCLE piloto, REW deshacer, REC subida (otra vez cancela). FF libre. Luces (LED Mode External): M, S, CYCLE, REC, PLAY. Números CC de fábrica en modo CC (SET + CYCLE al prenderlo). Prueba: pruebas/control.py.
 Por confirmar en el hardware: números CC de fábrica y LEDs en modo External.
+
+## Densidad del diálogo (0.62)
+
+dialogo.densidad (0-1, por defecto 1): Dialogo._ralear saca notas del plan del compás después de asignar las alturas; cada lugar de cada voz tiene su número fijo (seed:papel:densidad:lugar), así bajarla saca notas sin cambiar la frase y subirla las devuelve en el mismo lugar. La primera nota de cada voz siempre suena. Con armonía guiada, la última nota de cada voz en el compás cierra en el acorde: con menos notas esa puede cambiar de altura (a propósito). Deslizador «Densidad» en Motores › Diálogo y es el fader 5 del nanoKONTROL2 (antes golpes, que cambiaba la frase).
