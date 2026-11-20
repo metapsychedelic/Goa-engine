@@ -14,7 +14,7 @@ from collections import deque
 from . import armonia, forma, fx, generador, raga
 from .azar import azar as azar_fijo
 from .bajo import Bajo
-from .dialogo import Dialogo
+from .dialogo import Dialogo, Voz
 from .director import Director
 from .disparo import Disparo
 from .escalas import Tonalidad, nombre_midi
@@ -98,6 +98,26 @@ class Motor(FormaMotor):
             s.reiniciar()
             s.molde_vivo = s.molde
             s._director_patron = None
+
+    def reiniciar_motor(self, motor, fila=0):
+        """Después de «Restaurar ajustes de fábrica»: el motor vuelve a su patrón de base
+        aunque su firma no haya cambiado (si no, seguiría con lo que ya había mutado)."""
+        if motor == "secuencia":
+            self.reiniciar_secuencia(fila)
+        elif motor == "bajo":
+            self.reiniciar_bajo()
+        elif motor == "dialogo":
+            self.reiniciar_dialogo()
+
+    def reiniciar_dialogo(self):
+        """Las frases de la llamada y la respuesta vuelven a las de su seed (sin lo mutado),
+        sin cortar la conversación."""
+        d = self.dialogo
+        if d is None:
+            return
+        for voz, cfg in zip((d.llamada, d.respuesta), d.cfg_voces):
+            limpia = Voz(cfg, voz.papel, d.seed)
+            voz.orden, voz.rng, voz.molde_vivo = limpia.orden, limpia.rng, voz.molde
 
     def reiniciar_bajo(self):
         """El bajo vuelve a su patrón de base (deshace lo que mutó). Si hay un bajo nuevo

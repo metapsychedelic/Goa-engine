@@ -11,8 +11,8 @@ import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, actualizar, forma, fuentes, generador, generos, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, fabrica_bajo, fabrica_secuencia, guardar, normalizar, salidas,
+from . import __version__, actualizar, forma, fuentes, generador, generos, historia, plantillas
+from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, fabrica_motor, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -37,7 +37,7 @@ class Contexto:
         self.entrada = None  # nombre de la entrada conectada, o None
         self.entradas_disponibles = []  # puertos de entrada que ve la Pi
         self.version_base = 0  # la última parte de la canción que la app ya conoce
-        self.deshacer = None   # el último «Restaurar ajustes de fábrica», para poder deshacerlo
+        self.historia = []     # pasos que se pueden deshacer (ver Historia)
 
     def sincronizar(self):
         """Modo canción: si el motor pasó a otra parte, lo que muestra la app (y se guarda)
@@ -136,6 +136,7 @@ def crear_servidor(ctx, puerto):
                     estado = ctx.motor.estado()
                     estado["version"] = __version__
                     estado["inicio"] = INICIO
+                    estado["deshacer"] = len(ctx.historia)
                     estado["entrada"] = ctx.entrada
                     estado["salidas"] = {clave: clave in ctx.puertos.abiertos for clave in ctx.puertos.salidas}
                     estado["disponibles"] = _nombres_cortos(ctx.puertos.disponibles)
@@ -178,9 +179,9 @@ def crear_servidor(ctx, puerto):
                 "/api/panico": self._panico,
                 "/api/config": self._config,
                 "/api/genero": self._genero,
-                "/api/secuencia/fabrica": self._secuencia_fabrica,
-                "/api/bajo/fabrica": self._bajo_fabrica,
-                "/api/fabrica/deshacer": self._fabrica_deshacer,
+                "/api/fabrica": self._fabrica,
+                "/api/secuencia/fabrica": lambda d: self._fabrica(dict(d, motor="secuencia")),
+                "/api/deshacer": self._deshacer,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/lanzar": self._lanzar,
@@ -259,10 +260,14 @@ def crear_servidor(ctx, puerto):
                 ctx.puertos.panico()
             self._json({"ok": True})
 
-        def _aplicar(self, nueva):
-            """Aplica y guarda una configuración ya normalizada. Llamar con el candado tomado."""
+        def _aplicar(self, nueva, origen=None, estado=None):
+            """Aplica y guarda una configuración ya normalizada. Llamar con el candado tomado.
+            Con `origen`, el cambio queda en la historia y se puede deshacer."""
+            previa = ctx.config
             ctx.motor.aplicar_config(nueva)
             ctx.config = nueva
+            if origen:
+                historia.anotar(ctx.historia, previa, nueva, origen, estado)
             ctx.puertos.cambiar_salidas(salidas(nueva))
             return self._guardar_activa()
 
@@ -290,7 +295,7 @@ def crear_servidor(ctx, puerto):
             nueva = normalizar(datos)
             Motor(nueva, lambda *a: None)  # valida antes de tocar nada
             with ctx.candado:
-                aviso = self._aplicar(nueva)
+                aviso = self._aplicar(nueva, "config")
             self._responder(aviso)
 
         def _genero(self, datos):
@@ -299,72 +304,79 @@ def crear_servidor(ctx, puerto):
             with ctx.candado:
                 nueva = normalizar(generos.aplicar(ctx.config, genero, datos.get("parte"), datos.get("indice")))
                 Motor(nueva, lambda *a: None)  # valida antes de tocar nada
-                aviso = self._aplicar(nueva)
+                aviso = self._aplicar(nueva, "genero")
             self._responder(aviso, genero=genero)
 
-        def _secuencia_fabrica(self, datos):
-            with ctx.candado:
-                fila = int(datos["fila"])
-                if not 0 <= fila < len(ctx.config["secuencia"]):
-                    raise IndexError("No existe esa secuencia")
-                antes = copy.deepcopy(ctx.config["secuencia"][fila])
-                estado = ctx.motor.estado_secuencia(fila)
-                nueva = copy.deepcopy(ctx.config)
-                nueva["secuencia"][fila] = fabrica_secuencia(nueva["secuencia"][fila])
-                nueva = normalizar(nueva)
-                aviso = self._aplicar(nueva)
-                ctx.motor.reiniciar_secuencia(fila)   # también deshace lo que ya había mutado
-                self._recordar("secuencia", fila, antes, estado)
-            self._responder(aviso, deshacer=True)
+        def _fabrica(self, datos):
+            """Restaurar ajustes de fábrica de un motor (pads, bajo, una secuencia, diálogo, FX
+            o texturas). Lo pesado (copiar, normalizar, validar) va fuera del candado."""
+            motor = str(datos.get("motor", ""))
+            fila = int(datos.get("fila", 0))
+            for _ in range(3):
+                with ctx.candado:
+                    actual = ctx.config
+                nueva = normalizar(fabrica_motor(actual, motor, fila))
+                if not historia.cambios(actual, nueva):
+                    # Ya estaba de fábrica: solo vuelve el patrón a su base, sin sumar un paso.
+                    with ctx.candado:
+                        ctx.motor.reiniciar_motor(motor, fila)
+                    self._responder(None, igual=True)
+                    return
+                Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+                with ctx.candado:
+                    if ctx.config is not actual:
+                        continue  # algo cambió mientras tanto: vuelvo a armarla
+                    # Una foto de lo que ya mutó, para que Deshacer lo devuelva tal cual sonaba.
+                    if motor == "secuencia":
+                        estado = {"secuencia": (fila, ctx.motor.estado_secuencia(fila))}
+                    elif motor == "bajo":
+                        estado = {"bajo": ctx.motor.estado_bajo()}
+                    else:
+                        estado = None
+                    aviso = self._aplicar(nueva, "fabrica", estado)
+                    ctx.motor.reiniciar_motor(motor, fila)   # también deshace lo que ya había mutado
+                self._responder(aviso)
+                return
+            raise ValueError("La configuración cambió mientras restauraba: vuelve a intentarlo")
 
-        def _bajo_fabrica(self, datos):
-            with ctx.candado:
-                antes = copy.deepcopy(ctx.config["bajo"])
-                estado = ctx.motor.estado_bajo()
-                nueva = copy.deepcopy(ctx.config)
-                nueva["bajo"] = fabrica_bajo(nueva["bajo"])
-                nueva = normalizar(nueva)
-                aviso = self._aplicar(nueva)
-                ctx.motor.reiniciar_bajo()   # también deshace lo que ya había mutado
-                self._recordar("bajo", None, antes, estado)
-            self._responder(aviso, deshacer=True)
-
-        def _seccion(self, tipo, fila):
-            return ctx.config["bajo"] if tipo == "bajo" else ctx.config["secuencia"][fila]
-
-        def _recordar(self, tipo, fila, antes, estado):
-            """Guarda lo de antes de restaurar. Solo se puede deshacer mientras esa secuencia
-            (o el bajo) siga tal como quedó: si la cambiaste después, deshacer pisaría ese cambio."""
-            ctx.deshacer = {"tipo": tipo, "fila": fila, "antes": antes, "estado": estado,
-                            "despues": copy.deepcopy(self._seccion(tipo, fila)),
-                            "secuencias": len(ctx.config["secuencia"])}
-
-        def _fabrica_deshacer(self, datos):
-            with ctx.candado:
-                d = ctx.deshacer
-                if d is None:
-                    raise ValueError("No hay nada que deshacer")
-                tipo, fila = d["tipo"], d["fila"]
-                if (len(ctx.config["secuencia"]) != d["secuencias"]
-                        or self._seccion(tipo, fila) != d["despues"]):
-                    ctx.deshacer = None
-                    que = "el bajo" if tipo == "bajo" else "la secuencia"
-                    raise ValueError(f"Ya cambiaste {que} después de restaurar: no se puede deshacer")
-                nueva = copy.deepcopy(ctx.config)
-                if tipo == "bajo":
-                    nueva["bajo"] = copy.deepcopy(d["antes"])
-                else:
-                    nueva["secuencia"][fila] = copy.deepcopy(d["antes"])
+        def _deshacer(self, datos):
+            """Deshace el último paso (un cambio de controles, un género o un «fábrica»).
+            Lo pesado va fuera del candado: adentro solo se toma el paso y se aplica."""
+            while True:
+                with ctx.candado:
+                    if ctx.sincronizar():
+                        self._guardar_activa()
+                    if not ctx.historia:
+                        raise ValueError("No hay nada que deshacer")
+                    paso = ctx.historia.pop()
+                    actual = ctx.config
+                if historia.cambios(paso["antes"], paso["despues"]):
+                    break  # un paso que no cambiaba nada (la app mandó lo mismo) se salta
+            try:
+                nueva, que = historia.deshacer(paso, actual)
                 nueva = normalizar(nueva)
                 Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+            except historia.Conflicto as e:
+                raise ValueError(str(e)) from None
+            with ctx.candado:
+                if ctx.config is not actual:
+                    ctx.historia.append(paso)  # cambió algo justo ahora: el paso sigue ahí
+                    raise ValueError("Cambió algo mientras deshacía: vuelve a tocar Deshacer")
                 aviso = self._aplicar(nueva)
-                # Vuelve también lo que ya había mutado (el patrón que sonaba antes de restaurar).
-                if tipo == "bajo":
-                    ctx.motor.volver_estado_bajo(d["estado"])
-                else:
-                    ctx.motor.volver_estado_secuencia(fila, d["estado"])
-                ctx.deshacer = None
-            self._responder(aviso, tipo=tipo, fila=fila)
+                estado = paso.get("estado") or {}
+                if "secuencia" in estado:
+                    ctx.motor.volver_estado_secuencia(*estado["secuencia"])
+                if "bajo" in estado:
+                    ctx.motor.volver_estado_bajo(estado["bajo"])
+                quedan = len(ctx.historia)
+            self._responder(aviso, deshecho=que, quedan=quedan)
+
+        def _cambiar_fila(self, fila, nueva):
+            """Cambia una secuencia sin tocar la configuración de antes (la historia la recuerda
+            tal como estaba: así sabe si un clip cambió la fila después de un paso)."""
+            filas = list(ctx.config["secuencia"])
+            filas[fila] = nueva
+            ctx.config = dict(ctx.config, secuencia=filas)
 
         def _clip_guardar(self, datos):
             with ctx.candado:
@@ -389,7 +401,7 @@ def crear_servidor(ctx, puerto):
                 fila_cfg = ctx.config["secuencia"][fila]
                 nueva = dict(fila_cfg, **{k: v for k, v in clip.items() if k != "nombre"}, activa=True)
                 ctx.motor.lanzar(fila, nueva, clip["nombre"])
-                ctx.config["secuencia"][fila] = nueva
+                self._cambiar_fila(fila, nueva)
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
@@ -397,7 +409,7 @@ def crear_servidor(ctx, puerto):
             with ctx.candado:
                 fila = int(datos["fila"])
                 ctx.motor.detener(fila)
-                ctx.config["secuencia"][fila]["activa"] = False
+                self._cambiar_fila(fila, dict(ctx.config["secuencia"][fila], activa=False))
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
@@ -420,7 +432,7 @@ def crear_servidor(ctx, puerto):
                 clip = ctx.config["clip_dialogo"][int(datos["clip"])]
                 dialogo, llamada, respuesta = secciones_de_clip(clip)
                 ctx.motor.lanzar_dialogo(dialogo, llamada, respuesta, clip["nombre"])
-                ctx.config.update(dialogo=dialogo, llamada=llamada, respuesta=respuesta)
+                ctx.config = dict(ctx.config, dialogo=dialogo, llamada=llamada, respuesta=respuesta)
                 ctx.puertos.cambiar_salidas(salidas(ctx.config))
                 aviso = self._guardar_activa()
             self._responder(aviso)
@@ -428,7 +440,7 @@ def crear_servidor(ctx, puerto):
         def _dialogo_detener(self, datos):
             with ctx.candado:
                 ctx.motor.detener_dialogo()
-                ctx.config["dialogo"]["activo"] = False
+                ctx.config = dict(ctx.config, dialogo=dict(ctx.config["dialogo"], activo=False))
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
@@ -628,6 +640,7 @@ def crear_servidor(ctx, puerto):
             Motor(nueva, lambda *a: None)
             with ctx.candado:
                 aviso = self._aplicar(nueva)
+                ctx.historia.clear()  # otro proyecto: lo de antes no se deshace sobre este
             self._responder(aviso, proyecto=nueva["app"]["proyecto"])
 
         def _proyecto_borrar(self, datos):

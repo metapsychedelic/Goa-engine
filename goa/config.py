@@ -588,13 +588,39 @@ def fabrica_secuencia(secuencia):
     return nueva
 
 
-# Lo mismo para el bajo: se quedan a dónde y cómo suena (salida, canal, programa, CC del
-# filtro de su sinte), su nota larga, si está prendido, el género y su seed.
-CONSERVAR_EN_FABRICA_BAJO = ("activo", "salida", "canal", "programa", "disparo", "genero", "seed", "filtro_cc")
+# Lo que «Restaurar ajustes de fábrica» no toca en los otros motores: si está prendido,
+# a dónde y cómo suena (salida, canal, programa y los CC de su sinte), su nota larga o la
+# entrada que escucha, el género y la seed.
+CONSERVAR_EN_FABRICA_MOTOR = ("activo", "suenan", "salida", "canal", "programa", "disparo", "escucha", "genero", "seed",
+                              "filtro_cc", "cc_corte", "cc")
+MOTORES_FABRICA = {"pads": ("pads",), "bajo": ("bajo",), "dialogo": ("dialogo", "llamada", "respuesta"),
+                   "fx": ("fx",), "texturas": ("texturas",)}
+
+
+def _fabrica_seccion(seccion, datos):
+    nueva = {clave: valor for clave, (_, valor, _, _) in ESQUEMA_SECCIONES[seccion].items()}
+    nueva.update({k: datos[k] for k in CONSERVAR_EN_FABRICA_MOTOR if k in datos and k in nueva})
+    return nueva
 
 
 def fabrica_bajo(bajo):
     """El bajo con todos sus ajustes musicales en los valores de fábrica."""
-    nuevo = {clave: valor for clave, (_, valor, _, _) in ESQUEMA_SECCIONES["bajo"].items()}
-    nuevo.update({k: bajo[k] for k in CONSERVAR_EN_FABRICA_BAJO if k in bajo})
-    return nuevo
+    return _fabrica_seccion("bajo", bajo)
+
+
+def fabrica_motor(cfg, motor, fila=0):
+    """Copia de `cfg` con un motor en sus ajustes de fábrica: "secuencia" (con su fila),
+    "pads", "bajo", "dialogo" (con sus voces de llamada y respuesta), "fx" o "texturas"."""
+    nueva = dict(cfg)
+    if motor == "secuencia":
+        filas = list(cfg["secuencia"])
+        if not 0 <= fila < len(filas):
+            raise IndexError("No existe esa secuencia")
+        filas[fila] = fabrica_secuencia(filas[fila])
+        nueva["secuencia"] = filas
+    elif motor in MOTORES_FABRICA:
+        for seccion in MOTORES_FABRICA[motor]:
+            nueva[seccion] = _fabrica_seccion(seccion, cfg.get(seccion) or {})
+    else:
+        raise ValueError(f"Motor desconocido: {motor!r}")
+    return nueva

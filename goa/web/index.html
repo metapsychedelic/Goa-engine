@@ -68,6 +68,8 @@ button{min-height:44px;border-radius:10px;border:1px solid var(--line2);backgrou
 button:disabled{opacity:.4;cursor:default}
 button.prim{background:var(--acc);border-color:var(--acc);color:var(--sobre)}
 button.icono-mini{width:34px;height:34px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center;border-radius:10px;color:var(--txt2);flex:none}
+button.deshacer{width:44px;padding:0;display:flex;align-items:center;justify-content:center;color:var(--acc)}
+button.deshacer:disabled{color:var(--line2);opacity:.6}
 button.panico{width:44px;padding:0;display:flex;align-items:center;justify-content:center;border-color:var(--badline);background:var(--badbg);color:var(--bad)}
 .seed{display:flex;gap:6px}
 .seed input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.06em;text-align:center;padding:0 6px}
@@ -163,9 +165,6 @@ details.grupo.parte-actual{border-color:var(--acc)}
 .mute.piloto{border-style:dotted}
 .guardado{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:6;max-width:calc(100vw - 32px)}
 .guardado.ver{opacity:1}
-.deshacer{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:6px 6px 6px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:7;max-width:calc(100vw - 32px);white-space:nowrap}
-.deshacer.ver{opacity:1;pointer-events:auto}
-.deshacer button{min-height:0;padding:6px 14px;border-radius:14px;color:var(--acc);font-size:13px}
 .guardado.error{color:var(--bad);border-color:#8C3B42}
 
 html{background:var(--bg)}
@@ -224,6 +223,9 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
   </div>
   <div class="der">
     <span class="pill" id="pill">…</span>
+    <button class="deshacer" id="deshacer" disabled aria-label="Deshacer el último cambio" title="Deshacer el último cambio">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+    </button>
     <button class="panico" id="panico" aria-label="Pánico: apagar todas las notas" title="Pánico: apagar todas las notas">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
     </button>
@@ -311,7 +313,6 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
   <button type="button" role="tab" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(0.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(45.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(90.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(135.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(180.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(225.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(270.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(315.0)"/><circle class="bindu" cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>Ajustes</button>
 </div></nav>
 <div class="guardado" id="aviso" role="status" aria-live="polite"></div>
-<div class="deshacer" id="deshacer" role="status" aria-live="polite"><span></span><button type="button" onclick="deshacerFabrica()">Deshacer</button></div>
 
 <script>
 const TONICAS = [["C","C · Do"],["C#","C# · Do#"],["D","D · Re"],["D#","D# · Re#"],["E","E · Mi"],["F","F · Fa"],["F#","F# · Fa#"],["G","G · Sol"],["G#","G# · Sol#"],["A","A · La"],["A#","A# · La#"],["B","B · Si"]];
@@ -422,14 +423,20 @@ function aviso(texto, error = false) {
 
 function guardar() {
   clearTimeout(temporizador);
-  temporizador = setTimeout(async () => {
-    try {
-      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(cfg)});
-      const d = await r.json();
-      if (!r.ok) { aviso(d.error || "No se pudo aplicar", true); if (r.status === 400 && /otra parte/.test(d.error || "")) recargar(); }
-      else aviso(d.aviso || "Aplicado", !!d.aviso);
-    } catch (e) { aviso("Sin conexión con la Pi", true); }
-  }, 350);
+  temporizador = setTimeout(enviarConfig, 350);
+}
+async function enviarConfig() {
+  temporizador = null;
+  try {
+    const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(cfg)});
+    const d = await r.json();
+    if (!r.ok) { aviso(d.error || "No se pudo aplicar", true); if (r.status === 400 && /otra parte/.test(d.error || "")) recargar(); }
+    else { aviso(d.aviso || "Aplicado", !!d.aviso); $("deshacer").disabled = false; }
+  } catch (e) { aviso("Sin conexión con la Pi", true); }
+}
+// Si hay un cambio esperando los 350 ms de guardar(), lo manda ya.
+async function enviarPendiente() {
+  if (temporizador) { clearTimeout(temporizador); await enviarConfig(); }
 }
 
 function segmentado(opciones, valor, alCambiar, columnas) {
@@ -676,40 +683,44 @@ function cabMotor(titulo, sub, obj, k, extra, accion) {
 // Botón pequeño (espiral que vuelve al centro) en la cabecera de cada secuencia.
 const ICONO_FABRICA = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-1.5 0a1.5 1.5 0 1 1 3 0a3.5 3.5 0 1 1 -7 0a5.5 5.5 0 1 1 11 0a7.5 7.5 0 1 1 -15 0"/><polyline points="1.6 9.5 1.5 12.2 4 11"/></svg>';
 function botonFabrica(i, s) {
-  return botonRestaurar(`la secuencia ${s.nombre}`, `Secuencia ${s.nombre}`, "/api/secuencia/fabrica", {fila: i},
+  return botonRestaurar(`la secuencia ${s.nombre}`, `Secuencia ${s.nombre}`, {motor: "secuencia", fila: i},
     "Se mantienen su salida MIDI, canal, nombre y seed, y las otras secuencias no cambian.");
 }
-function botonFabricaBajo() {
-  return botonRestaurar("el bajo", "Bajo", "/api/bajo/fabrica", {},
-    "Se mantienen su salida MIDI, canal, nota larga, seed, género y el CC del filtro de su sinte.");
+const FABRICA = {
+  pads: ["los pads", "Pads", "Se mantienen su salida MIDI, canal, programa, nota larga, género, seed y si suenan."],
+  bajo: ["el bajo", "Bajo", "Se mantienen su salida MIDI, canal, programa, nota larga, género, seed y el CC del filtro de su sinte."],
+  dialogo: ["la llamada y respuesta", "Llamada y respuesta", "Vuelven las dos voces. Se mantienen sus salidas MIDI, canales, programas, la nota larga, la entrada que escucha, el género y la seed."],
+  fx: ["el FX", "FX", "Se mantienen su salida MIDI, canal, programa, nota larga, género, seed y el CC del corte."],
+  texturas: ["las texturas", "Texturas", "Se mantienen su salida MIDI, canal, programa, nota larga, seed y el CC que respira."],
+};
+function botonFabricaMotor(motor) {
+  const [quien, titulo, conserva] = FABRICA[motor];
+  return botonRestaurar(quien, titulo, {motor}, conserva);
 }
-function botonRestaurar(quien, titulo, ruta, datos, conserva) {
+function botonRestaurar(quien, titulo, datos, conserva) {
   const b = el("button", {type: "button", className: "icono-mini", title: "Restaurar ajustes de fábrica",
     "aria-label": `Restaurar ajustes de fábrica de ${quien}`,
     onclick: async () => {
-      if (!confirm(`¿Volver ${quien} a los ajustes de fábrica?\n\nTodos sus controles vuelven a los valores de fábrica y se deshacen sus mutaciones. ${conserva}\n\nJusto después puedes tocar «Deshacer» para volver a como estaba.`)) return;
-      try { await api(ruta, datos); await recargar(); avisoDeshacer(`${titulo} en ajustes de fábrica`); }
+      if (!confirm(`¿Volver ${quien} a los ajustes de fábrica?\n\nTodos sus controles vuelven a los valores de fábrica y se deshacen sus mutaciones. ${conserva}`)) return;
+      try { await enviarPendiente(); const d = await api("/api/fabrica", datos); await recargar(); aviso(d.igual ? `${titulo} ya estaba en ajustes de fábrica` : `${titulo} en ajustes de fábrica`); estado(); }
       catch (e) { aviso(e.message, true); }
     }});
   b.innerHTML = ICONO_FABRICA;
   return b;
 }
 
-// Aviso con botón «Deshacer» (después de restaurar ajustes de fábrica). Dura 12 s; mientras
-// no toques esa secuencia (o el bajo), la Pi recuerda cómo estaba, con lo que ya había mutado.
-function avisoDeshacer(texto) {
-  const a = $("deshacer");
-  a.querySelector("span").textContent = texto;
-  a.classList.add("ver");
-  clearTimeout(a._t);
-  a._t = setTimeout(() => a.classList.remove("ver"), 12000);
-}
-async function deshacerFabrica() {
-  const a = $("deshacer");
-  clearTimeout(a._t);
-  a.classList.remove("ver");
-  try { await api("/api/fabrica/deshacer", {}); await recargar(); aviso("Deshecho: volvió como estaba"); }
-  catch (e) { aviso(e.message, true); }
+// Deshacer (cabecera): un paso atrás por toque. Antes manda lo que quedó esperando (el
+// último deslizador movido) para que eso también se pueda deshacer.
+async function deshacer() {
+  const b = $("deshacer");
+  b.disabled = true;
+  try {
+    await enviarPendiente();
+    const d = await api("/api/deshacer", {});
+    await recargar();
+    aviso("Deshecho: " + d.deshecho);
+    b.disabled = !d.quedan;
+  } catch (e) { aviso(e.message, true); estado(); }
 }
 
 function salidaTexto(obj) {
@@ -734,7 +745,7 @@ function panelPads() {
     : p.ritmo === "stabs" ? `stabs · ritmo ${((v - 1) % 4) + 1}` : `${v} golpe${v > 1 ? "s" : ""} por compás`);
   pulso.querySelector("input").addEventListener("change", () => renderMotores());
   return [
-    cabMotor("Pads y drones", `${p.salida} · canal ${p.canal} · ${p.suenan ? "guían la armonía" : "callados, solo guían"}`, p, "activo"),
+    cabMotor("Pads y drones", `${p.salida} · canal ${p.canal} · ${p.suenan ? "guían la armonía" : "callados, solo guían"}`, p, "activo", null, botonFabricaMotor("pads")),
     campo("Género", segmentado(GENEROS, p.genero, (v) => cambiarGenero(v, {parte: "pads"}), 3)),
     campo("Textura", segmentado([["acordes","Acordes"],["nota","Nota sola"],["raiz_acorde","Raíz + acorde"]], p.textura || "acordes",
       (v) => { p.textura = v; renderMotores(); guardar(); }, 3)),
@@ -799,7 +810,7 @@ function panelBajo() {
   const b = cfg.bajo;
   const estilos = [...new Set([...ESTILOS_BAJO_POR_GENERO[b.genero], b.estilo])].map((v) => ESTILOS_BAJO.find((x) => x[0] === v));
   return [
-    cabMotor("Bajo", `${b.salida} · canal ${b.canal} · ${armoniaTexto(b)}`, b, "activo", null, botonFabricaBajo()),
+    cabMotor("Bajo", `${b.salida} · canal ${b.canal} · ${armoniaTexto(b)}`, b, "activo", null, botonFabricaMotor("bajo")),
     campo("Género", segmentado(GENEROS, b.genero, (v) => cambiarGenero(v, {parte: "bajo"}), 3)),
     campo("Estilo · solo cambia el ritmo, tus ajustes se quedan", segmentado(estilos, b.estilo, (v) => {
       b.estilo = v; renderMotores(); guardar();
@@ -1343,7 +1354,7 @@ function panelDialogo() {
   if (espacio) espacio.querySelector("input").addEventListener("change", () => renderMotores());
   const sub = vivo ? "Llamas tú · responde en tus huecos" : `${d.forma === "entrelazado" ? "Entrelazado" : "Por turnos"} · ${d.rejilla} · ${armoniaTexto(d)}`;
   return [
-    cabMotor("Llamada y respuesta", sub, d, "activo", fase),
+    cabMotor("Llamada y respuesta", sub, d, "activo", fase, botonFabricaMotor("dialogo")),
     campo("Género", segmentado(GENEROS, d.genero, (v) => cambiarGenero(v, {parte: "dialogo"}), 3)),
     campo("Quién llama", segmentado([["motor","El motor"],["en_vivo","Yo, en vivo"]], d.modo, (x) => { d.modo = x; rehacer(); }, 2)),
     vivo ? ayuda("El motor escucha dónde tocas en cada compás y en el siguiente responde en tus huecos.")
@@ -1400,7 +1411,7 @@ function panelFx() {
   const gestos = GESTOS_FX.filter(([k]) => x[k]).map(([, n]) => n.toLowerCase());
   return [
     cabMotor("FX", `${x.salida} · canal ${x.canal} · ${gestos.join(", ") || "sin gestos"}`, x, "activo",
-      el("span", {className: "pill", id: "fx_gesto", textContent: "En silencio"})),
+      el("span", {className: "pill", id: "fx_gesto", textContent: "En silencio"}), botonFabricaMotor("fx")),
     campo("Género", segmentado(GENEROS, x.genero, (v) => cambiarGenero(v, {parte: "fx"}), 3)),
     ayuda({goa: "Goa: zaps, ácido y glitches, todos a la mano.", psytrance: "Psytrance: zaps y glitches, algo de ácido.", psy_chill: "Psy chill: sobre todo burbujas, pocos zaps.",
       chillgressive: "Chillgressive: de todo, un poco menos seguido.", chillout: "Chillout: burbujas y algún zap, espaciados.",
@@ -1439,7 +1450,7 @@ function panelTexturas() {
   const x = cfg.texturas;
   const cc = {74: "corte", 71: "resonancia"}[x.cc] || `CC ${x.cc}`;
   return [
-    cabMotor("Texturas", `${x.salida} · canal ${x.canal} · respira el ${cc}`, x, "activo"),
+    cabMotor("Texturas", `${x.salida} · canal ${x.canal} · respira el ${cc}`, x, "activo", null, botonFabricaMotor("texturas")),
     ayuda("Notas largas que respiran (el filtro sube despacio y vuelve en cada una) mezcladas con notas cortas, en un canal propio de la MC-101. Salen del acorde que suena. Usa un sonido polifónico con release, tipo pad o pluck largo."),
     campo("Variante", variante(x, "texturas")),
     el("div", {className: "card principales"}, [
@@ -2213,6 +2224,7 @@ async function estado() {
       d.cambios_en_cola ? "cambios al próximo compás" : null].filter(Boolean);
     $("sub").textContent = partes.join(" · ") || "Esperando la Circuit";
     $("ver").textContent = "Yantra v" + d.version;
+    $("deshacer").disabled = !d.deshacer;
     $("acorde").textContent = d.acorde ? "Acorde: " + d.acorde : "Sin acorde";
     const azar = document.getElementById("prog_azar");
     if (azar) azar.textContent = d.progresion || "";
@@ -2244,6 +2256,7 @@ async function estado() {
   }
 }
 
+$("deshacer").onclick = deshacer;
 $("panico").onclick = async () => {
   try { await fetch("/api/panico", {method: "POST"}); aviso("Notas apagadas"); } catch (e) { aviso("Sin conexión con la Pi", true); }
 };
