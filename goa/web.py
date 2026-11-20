@@ -25,6 +25,9 @@ INICIO = time.time()   # cuándo arrancó este proceso: la app nota así que el 
 _CAMBIANDO = threading.Lock()   # una sola actualización a la vez
 
 
+GUARDAR_JUNTA = 0.3  # segundos que espera el guardado para juntar cambios seguidos
+
+
 class Contexto:
     """Lo que la app necesita del proceso principal."""
 
@@ -37,7 +40,63 @@ class Contexto:
         self.entrada = None  # nombre de la entrada conectada, o None
         self.entradas_disponibles = []  # puertos de entrada que ve la Pi
         self.version_base = 0  # la última parte de la canción que la app ya conoce
-        self.historia = []     # pasos que se pueden deshacer (ver Historia)
+        self.historia = []     # pasos que se pueden deshacer (ver goa/historia.py)
+        # Guardar en la tarjeta va en un hilo aparte, fuera del candado: escribir el
+        # archivo tardaba más que aplicar el cambio y el reloj tenía que esperarlo.
+        self.error_guardado = None
+        self._pedido = threading.Event()
+        self._guardado = threading.Condition()
+        self._escritos = 0     # cuántas veces terminó de escribir (para esperar_guardado)
+        self._pedidos = 0
+        threading.Thread(target=self._guardador, name="guardar-config", daemon=True).start()
+
+    def pedir_guardado(self):
+        """Pide guardar la configuración activa. No espera: devuelve el último error (o None)."""
+        with self._guardado:
+            self._pedidos += 1
+        self._pedido.set()
+        return self.error_guardado
+
+    def _guardador(self):
+        while True:
+            self._pedido.wait()
+            time.sleep(GUARDAR_JUNTA)  # cambios seguidos (un deslizador) se guardan una vez
+            self._pedido.clear()
+            with self._guardado:
+                hasta = self._pedidos
+            self._escribir()
+            with self._guardado:
+                self._escritos = max(self._escritos, hasta)
+                self._guardado.notify_all()
+
+    def _escribir(self):
+        for _ in range(3):
+            try:
+                # Sin el candado: ctx.config se reemplaza en cada cambio (no se modifica
+                # adentro), y lo poco que se toca en el lugar (energía, piloto, listas de la
+                # biblioteca) pide otro guardado después, así que el archivo queda al día.
+                guardar(self.ruta_config, self.config)
+                if self.error_guardado:
+                    log.info("Configuración guardada otra vez")
+                self.error_guardado = None
+                return
+            except RuntimeError:
+                continue  # cambió justo mientras la leía: otra vuelta
+            except OSError as e:
+                log.warning("No pude guardar la configuración: %s", e)
+                self.error_guardado = "Aplicado, pero no se pudo guardar en la tarjeta"
+                return
+
+    def esperar_guardado(self, espera=5.0):
+        """Espera a que lo pedido hasta ahora quede en la tarjeta. True si alcanzó."""
+        with self._guardado:
+            meta = self._pedidos
+            return self._guardado.wait_for(lambda: self._escritos >= meta, espera)
+
+    def guardar_ya(self):
+        """Guarda ahora mismo, esperando (antes de actualizar o de apagar el motor)."""
+        self._escribir()
+        return self.error_guardado
 
     def sincronizar(self):
         """Modo canción: si el motor pasó a otra parte, lo que muestra la app (y se guarda)
@@ -235,8 +294,7 @@ def crear_servidor(ctx, puerto):
             if not _CAMBIANDO.acquire(blocking=False):
                 raise ValueError("Ya se está actualizando")
             try:
-                with ctx.candado:
-                    aviso = self._guardar_activa()   # que la config quede en la tarjeta antes
+                aviso = ctx.guardar_ya()   # que la config quede en la tarjeta antes
                 if aviso:
                     raise ValueError("No se pudo guardar la configuración: no actualizo")
                 res = cambio()
@@ -272,12 +330,7 @@ def crear_servidor(ctx, puerto):
             return self._guardar_activa()
 
         def _guardar_activa(self):
-            try:
-                guardar(ctx.ruta_config, ctx.config)
-                return None
-            except OSError as e:
-                log.warning("No pude guardar la configuración: %s", e)
-                return "Aplicado, pero no se pudo guardar en la tarjeta"
+            return ctx.pedir_guardado()   # se escribe en otro hilo, sin el candado
 
         def _responder(self, aviso=None, **extra):
             self._json(dict({"ok": True, "aviso": aviso} if aviso else {"ok": True}, **extra))
@@ -628,9 +681,10 @@ def crear_servidor(ctx, puerto):
         def _proyecto_guardar(self, datos):
             nombre = str(datos.get("nombre", "")).strip()[:40]
             with ctx.candado:
-                ctx.config["app"]["proyecto"] = nombre
-                guardar(ruta_proyecto(ctx, nombre), ctx.config)
+                ctx.config = dict(ctx.config, app=dict(ctx.config["app"], proyecto=nombre))
+                activa = ctx.config
                 aviso = self._guardar_activa()
+            guardar(ruta_proyecto(ctx, nombre), activa)   # escribir el archivo, sin el candado
             self._responder(aviso, proyecto=nombre)
 
         def _proyecto_abrir(self, datos):

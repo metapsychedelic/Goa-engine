@@ -9,8 +9,7 @@ La escala es común a todos (en Música), para que nada choque. El género de
 Música es un atajo: pone la escala y el mismo género en todos los motores.
 """
 
-import copy
-
+from . import copia
 from .generador import ESTILOS_POR_GENERO
 
 GENEROS = {
@@ -126,7 +125,7 @@ def aplicar(cfg, genero, parte=None, indice=None):
     if parte is not None and parte not in PARTES:
         raise ValueError(f"Motor desconocido: {parte!r}. Opciones: {', '.join(PARTES)}")
     perfil = GENEROS[genero]
-    nueva = copy.deepcopy(cfg)
+    nueva = copia.config(cfg)
     if parte in (None, "pads"):
         nueva["pads"].update(perfil["pads"], genero=genero)
     if parte in (None, "dialogo"):

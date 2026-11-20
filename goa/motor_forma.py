@@ -3,10 +3,9 @@ los efectos de cada parte. Es una parte de la clase Motor (se mezcla en ella), s
 de motor.py para que cada archivo se pueda leer de una vez.
 """
 
-import copy
 import logging
 
-from . import armonia, forma, fx, generador
+from . import armonia, copia, forma, fx, generador
 from .azar import azar as azar_fijo
 from .escalas import Tonalidad
 from .pads import _cerca, progresion_aleatoria, raiz_tension
@@ -90,7 +89,7 @@ class FormaMotor:
 
     def lanzar_escena(self, destino, compases, indice=None):
         """Pasa a la configuración `destino` (una escena) en `compases` compases, desde el próximo."""
-        destino = copy.deepcopy(destino)
+        destino = copia.config(destino)
         if not (self.corriendo and self.tick >= 0):
             self.conductor.reiniciar()
             self.aplicar_config(destino)

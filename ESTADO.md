@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.58.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.59.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -161,3 +161,10 @@ Botón pequeño con ícono de espiral en la cabecera de cada secuencia (junto a 
 **Restaurar ajustes de fábrica** (botón de espiral en la cabecera, con confirmación) en todos los motores: secuencias, pads, bajo, llamada y respuesta (las dos voces), FX y texturas. POST /api/fabrica {motor, fila}; /api/secuencia/fabrica sigue andando. config.fabrica_motor: las secuencias conservan CONSERVAR_EN_FABRICA; los demás CONSERVAR_EN_FABRICA_MOTOR (activo, suenan, salida, canal, programa, nota larga, escucha, género, seed y los CC de su sinte: filtro_cc, cc_corte, cc). Motor.reiniciar_motor deshace lo mutado aunque la firma no cambie (secuencia, bajo, frases del diálogo). Si ya estaba de fábrica no suma un paso.
 
 **Deshacer general** (botón ↶ en la cabecera, junto a «Sonando»; gris si no hay nada): un paso atrás por toque, hasta 50 (goa/historia.py). Son pasos los cambios de controles (/api/config; mover un deslizador seguido, < 1,5 s, es un solo paso), el género por motor o de Música y la fábrica (deshacer la fábrica devuelve también el patrón mutado que sonaba: Motor.estado_* / volver_estado_*). No son pasos y no se pierden al deshacer: energía, piloto, escena que suena, subidas, clips lanzados, escenas, partes, canción, clips guardados y proyecto. **Fuera del candado:** cada paso guarda las referencias a la config de antes y la de después (sin copiar; anotar es O(1)); comparar, armar la config deshecha, normalizar y validar se hace sin el candado, y adentro solo se toma el paso y se aplica (si la config cambió entretanto, el paso vuelve a la historia y pide tocar de nuevo). Para que la foto siga fiel, lanzar/detener clips y diálogo reemplazan el objeto en vez de modificarlo (web._cambiar_fila). Deshacer devuelve solo lo que el paso cambió (sección o secuencia) y solo si sigue como ese paso la dejó; si después la cambió un clip, una escena o la canción, avisa y no la pisa. Abrir un proyecto vacía la historia. La app manda el cambio pendiente (los 350 ms de guardar) antes de deshacer o restaurar. /api/estado trae `deshacer` (pasos disponibles). Prueba: pruebas/fabrica.py (por HTTP con la app de verdad).
+
+## Menos tiempo con el candado tomado (0.59)
+
+Para que mover controles, deshacer o la energía no le quiten tiempo al reloj:
+- **Guardar en la tarjeta en un hilo aparte** (Contexto._guardador): `_guardar_activa` solo lo pide (no espera) y devuelve el último error; junta cambios seguidos (GUARDAR_JUNTA = 0,3 s) y escribe sin el candado. `guardar_ya()` guarda esperando (antes de actualizar y al apagar, en main.py). `esperar_guardado()` para las pruebas. Guardar un proyecto también escribe el archivo fuera del candado.
+- **goa/copia.py** reemplaza los copy.deepcopy de configuraciones enteras en motor, forma, motor_forma y generos: comparte la biblioteca (escenas, partes, clips: solo se leen) y copia cada sección con dict(). Era ~80 % de aplicar_config, también en el camino del reloj (energizar, transiciones, piloto).
+- Medido en x86 con 16 escenas: aplicar_config 0,92 → 0,22 ms (máx 2,1 → 0,7); toma más larga del candado al mover un control 1,56 → 0,33 ms (máx 2,1 → 0,5), energía 1,9 → 0,5 ms, deshacer 0,23 ms; pulso del reloj p99 0,63 → 0,31 ms. En la Pi 4 calcular ~3-4×. Salida MIDI idéntica a la 0.58 (mismo hash, modo libre con escena/energía/subida y modo canción).

@@ -20,8 +20,9 @@ diálogo y tensión. Al moverla, el motor llega de a poco: como mucho un 10 % po
 compás.
 """
 
-import copy
 import json
+
+from . import copia
 
 SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas")
 ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_filtro", "filtro_reposo"))
@@ -56,7 +57,7 @@ def escena_de(cfg, nombre):
 def mezclar(cfg, escena):
     """La configuración actual con el carácter de la escena (los destinos quedan)."""
     datos = json.loads(escena["datos"]) if isinstance(escena["datos"], str) else escena["datos"]
-    nueva = copy.deepcopy(cfg)
+    nueva = copia.config(cfg)
     for s in SECCIONES:
         nueva[s].update({k: v for k, v in (datos.get(s) or {}).items() if k not in ENRUTAMIENTO})
     secuencias = datos.get("secuencia") or []
@@ -110,7 +111,7 @@ def energizar(cfg, energia):
     f = _limitar(energia) - 0.5
     if abs(f) < 1e-9:
         return cfg
-    c = copy.deepcopy(cfg)
+    c = copia.config(cfg)
     alto = max(f, 0.0)
     m = c["musica"]
     m["tension"] = round(_limitar(m["tension"] + 0.4 * f), 3)
@@ -200,8 +201,8 @@ class Transicion:
     (inicio + compases - 1) ya es el destino completo."""
 
     def __init__(self, origen, destino, inicio, compases, escena=None, escalonar=True):
-        self.origen = copy.deepcopy(origen)
-        self.destino = copy.deepcopy(destino)
+        self.origen = copia.config(origen)
+        self.destino = copia.config(destino)
         self.inicio = inicio
         self.compases = max(1, int(compases))
         self.escena = escena
@@ -242,11 +243,11 @@ class Transicion:
     def config(self, compas):
         t = self.avance(compas)
         if t >= 1:
-            return copy.deepcopy(self.destino)
+            return copia.config(self.destino)
         if compas < self.inicio:
-            return copy.deepcopy(self.origen)
+            return copia.config(self.origen)
         a, b = self.origen, self.destino
-        c = copy.deepcopy(b)
+        c = copia.config(b)
         for s in SECCIONES:
             c[s] = {k: _mezcla(s, k, a[s].get(k, v), v, t) for k, v in b[s].items()}
         largo = max(len(a["secuencia"]), len(b["secuencia"]))
@@ -290,7 +291,7 @@ def largo_seccion(clave, duracion):
 def con_piloto(cfg, clave, avance):
     """La configuración con las capas de la sección del piloto (calla motores, prepara el break)."""
     s = SECCIONES_PILOTO[clave]
-    c = copy.deepcopy(cfg)
+    c = copia.config(cfg)
     callan = set(s.get("callan", ()))
     if avance < 0.5:
         callan |= set(s.get("callan_mitad", ()))
@@ -321,7 +322,7 @@ def con_subida_pads(cfg, avance):
     pulso acelera (2, 4, 6 y 8 golpes por compás), los golpes se acortan, suben de
     fuerza y en la segunda mitad suman una voz. En la parte siguiente vuelven a
     como estaban en su escena."""
-    c = copy.deepcopy(cfg)
+    c = copia.config(cfg)
     p = c["pads"]
     p["activo"] = True
     p["suenan"] = True
@@ -499,6 +500,6 @@ class Conductor:
             if p.get("pads_suben"):
                 cfg = con_subida_pads(cfg, parte["avance"])
             if p.get("corte_bajo") and parte["dentro"] >= parte["largo"] - compases_corte(parte["largo"]):
-                cfg = copy.deepcopy(cfg)
+                cfg = copia.config(cfg)
                 cfg["bajo"]["activo"] = False  # el bajo se calla para que la parte siguiente pegue más
         return cfg

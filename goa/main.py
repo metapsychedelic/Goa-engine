@@ -207,6 +207,7 @@ def main():
     finally:
         with candado:
             motor.apagar_todo()
+        ctx.guardar_ya()  # lo último que cambiaste queda en la tarjeta
         if servidor is not None:
             servidor.shutdown()
         if entrada is not None:

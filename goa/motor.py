@@ -11,7 +11,7 @@ import random
 import time
 from collections import deque
 
-from . import armonia, forma, fx, generador, raga
+from . import armonia, copia, forma, fx, generador, raga
 from .azar import azar as azar_fijo
 from .bajo import Bajo
 from .dialogo import Dialogo, Voz
@@ -72,13 +72,13 @@ class Motor(FormaMotor):
         nuevo se escucha de inmediato). Todo lo demás (pads, bajo, diálogo, tónica,
         escala, armonía…) entra en el primer paso del próximo compás, y en ese cambio
         las notas que suenan terminan solas y los pads pasan en ligado."""
-        config = copy.deepcopy(config)
+        config = copia.config(config)
         config.setdefault("forma", {"energia": 0.5})
         self.base = config
         tr = self.conductor.transicion
         if tr is not None:
             # Lo que cambias durante una transición va al destino; la transición sigue.
-            tr.destino = copy.deepcopy(config)
+            tr.destino = copia.config(config)
             tr.umbrales = tr._umbrales()
         if self.corriendo and self.tick >= 0 and self.config is not None:
             efectiva = self.conductor.efectiva(config, self._compas_actual())
@@ -162,7 +162,7 @@ class Motor(FormaMotor):
         bajo.mutado_hasta = estado["mutado_hasta"]
 
     def _aplicar(self, config):
-        config = copy.deepcopy(config)  # una copia propia: si quien llama la modifica, no se confunde
+        config = copia.config(config)  # una copia propia: si quien llama la modifica, no se confunde
         self.config = config
         musica = config.get("musica", {})
         entrada = config.get("entrada", {})

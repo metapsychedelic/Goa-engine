@@ -113,7 +113,7 @@ def main():
     codigo, r = post("/api/deshacer")
     todo &= ok(codigo == 200 and ctx.config["secuencia"][0] == antes_cfg, f"deshacer devuelve sus ajustes ({r.get('deshecho')})")
     todo &= ok(json.loads(json.dumps(motor.secuencias[0].patron)) == antes_patron, "y el patrón mutado que sonaba")
-    todo &= ok(cargar(ruta)["secuencia"][0]["mutacion"] == 1.0, "queda guardado en la tarjeta")
+    todo &= ok(ctx.esperar_guardado() and cargar(ruta)["secuencia"][0]["mutacion"] == 1.0, "queda guardado en la tarjeta (en otro hilo)")
     codigo, _ = post("/api/secuencia/fabrica", {"fila": 0})
     todo &= ok(codigo == 200 and ctx.config["secuencia"][0]["mutacion"] == 0.0, "la ruta vieja /api/secuencia/fabrica sigue andando")
     post("/api/deshacer")
