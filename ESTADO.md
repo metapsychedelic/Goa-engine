@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.70.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.71.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -256,3 +256,10 @@ Síntoma: al mover algo en la app, el loop del Looper de la MC-101 se desincroni
 - Puertos.cambiar_salidas (en cada cambio de la app, con el candado) pedía la lista de puertos al sistema: ahora no hace nada si las salidas son las mismas y usa la última lista; la revisión cada 2 s pide la lista fuera del candado.
 - Lanzar escena arma y valida fuera del candado (como /api/ajuste).
 - Los hilos de la app y del guardado dejan la prioridad de tiempo real (web.hilo_secundario). La configuración se convierte a TOML una vez para el archivo y el proyecto.
+
+## Looper: entra siempre cuadrado (0.71)
+
+El usuario: a veces el loop de la MC-101 entraba descuadrado y otras no.
+- El Program Change del loop se pedía justo en el uno del compás anterior: con un pelo de atraso, la MC-101 a veces lo tomaba en ese mismo uno (un compás antes). Ahora queda pendiente (Motor.looper_pendiente) y se manda en el pulso 48 (MITAD_COMPAS) del compás antes de donde debe entrar (Motor._looper_pulso, desde reloj).
+- looper.cada (1/2/4/8): en modo libre entra en el próximo múltiplo de `cada` compases desde el Start (loops de 4 compases siempre con la frase). Con escena/parte, entra con ella. Ir y volver al loop que suena antes de que entre no manda nada.
+- looper.transporte: main reenvía clock/start/stop/continue/songpos a la salida del looper (sin candado, como el thru; no duplica si el thru ya va a esa salida). Para que la MC-101 arranque con la Circuit y su compás no quede corrido.

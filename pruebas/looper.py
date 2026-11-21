@@ -78,19 +78,43 @@ def main():
     todo &= ok(r.pcs == [], "apagado no manda nada")
     todo &= ok("MC-101" in salidas(base(clip=1)), "abre el puerto de la MC-101")
 
+    print("\nEntra con la frase")
+    m, r = arrancar(base(clip=3, cada=4))
+    compases(m, 5)
+    cfg = json.loads(json.dumps(m.base))
+    cfg["looper"]["clip"] = 8
+    m.aplicar_config(normalizar(cfg))   # en el compás 6 (índice 5)
+    compases(m, 4)
+    todo &= ok(r.pcs[-1] == (7, 48, 7), f"cada 4: pedido en el compás 6, entra en el 9 (se pide en la mitad del 8) {r.pcs}")
+    m, r = arrancar(base(clip=3, cada=1))
+    compases(m, 2)
+    for _ in range(10):
+        m.reloj()   # pulso 10 del compás 3
+    cfg = json.loads(json.dumps(m.base)); cfg["looper"]["clip"] = 5
+    m.aplicar_config(normalizar(cfg))   # (los cambios de la app entran en el compás siguiente)
+    compases(m, 2)
+    todo &= ok(r.pcs[-1] == (3, 48, 4), f"cada compás: en la mitad del compás, no justo en el uno {r.pcs}")
+    cfg["looper"]["clip"] = 3
+    m.aplicar_config(normalizar(cfg))
+    cfg["looper"]["clip"] = 5
+    m.aplicar_config(normalizar(cfg))
+    compases(m, 2)
+    todo &= ok(r.pcs[-1] == (3, 48, 4) and len([p for p in r.pcs if p[2] == 4]) == 1, "ir y volver al mismo loop antes de que entre no manda nada")
+
     print("\nEscenas")
     cfg = base(clip=1, parar=16)
     escena_b = forma.escena_de(dict(cfg, looper=dict(cfg["looper"], clip=9, parar=3)), "B")
     escena_c = forma.escena_de(dict(cfg, looper=dict(cfg["looper"], clip=0)), "C")
-    todo &= ok(json.loads(escena_b["datos"])["looper"] == {"activo": True, "clip": 9},
-               "la escena guarda si suena y qué loop (no la salida, el canal ni el slot vacío)")
+    todo &= ok(json.loads(escena_b["datos"])["looper"] == {"activo": True, "clip": 9, "cada": 1},
+               "la escena guarda si suena, qué loop y cada cuánto entra (no la salida, el canal, el slot vacío ni el transporte)")
     m, r = arrancar(cfg)
     compases(m, 3)
     m.lanzar_escena(normalizar(forma.mezclar(m.base, escena_b)), 4)   # llega en el compás 3+4 = 7 (índice 6)
     compases(m, 6)
     llegada = m.conductor.transicion.fin if m.conductor.transicion else 6
     pcs_b = [p for p in r.pcs if p[2] == 8]
-    todo &= ok(len(pcs_b) == 1 and pcs_b[0][0] == 6 - 1, f"pide el loop 9 un compás antes de que llegue la escena {pcs_b}")
+    todo &= ok(len(pcs_b) == 1 and pcs_b[0][:2] == (6 - 1, 48),
+               f"pide el loop 9 en la mitad del compás antes de que llegue la escena (nunca justo en el uno) {pcs_b}")
     todo &= ok(m.base["looper"]["parar"] == 16, "el slot vacío es de la máquina: la escena no lo cambia")
     m.lanzar_escena(normalizar(forma.mezclar(m.base, escena_c)), 1)   # en el próximo compás
     pide = len(r.pcs)

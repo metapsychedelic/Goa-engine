@@ -239,6 +239,8 @@ ESQUEMA_SECCIONES["looper"] = {
     "canal": (int, 4, 1, 16),
     "clip": (int, 0, 0, 16),                 # 0 = ningún loop (callado)
     "parar": (int, 0, 0, 16),                # slot vacío que se lanza para callar (0 = no calla)
+    "cada": (int, 1, 1, 16),                 # compases: el loop entra en múltiplos de esto desde el Start
+    "transporte": (bool, False, None, None), # la Pi le pasa el reloj y Start/Stop a la MC-101
 }
 
 # Controlador (Korg nanoKONTROL2 en modo CC): cada canal maneja un motor y el transporte

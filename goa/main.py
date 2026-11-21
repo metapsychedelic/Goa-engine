@@ -44,6 +44,9 @@ def buscar_puerto(nombres, parte):
     return hallados[cual - 1] if 0 < cual <= len(hallados) else None
 
 
+TRANSPORTE = ("clock", "start", "stop", "continue", "songpos")
+
+
 class Puertos:
     """Salidas MIDI buscadas por parte del nombre, con reconexión."""
 
@@ -226,6 +229,12 @@ def main():
             # el candado del motor: si la app está aplicando un cambio, el reloj de las
             # máquinas de la cadena (la MC-101 y su looper) no espera.
             puertos.reenviar(thru["salida"], msg)
+        looper = ctx.config["looper"]
+        if t in TRANSPORTE and looper["activo"] and looper["transporte"] and looper["salida"] \
+                and not (thru["activo"] and thru["salida"] == looper["salida"]):
+            # El reloj y el Start/Stop de la Circuit también a la MC-101: arranca junto con
+            # todo, así su compás (y el de su looper) cae siempre en el de la Circuit.
+            puertos.reenviar(looper["salida"], msg)
         with candado:
             if t == "clock":
                 motor.reloj()

@@ -25,6 +25,8 @@ from .secuencia import PASOS_POR_COMPAS, TICKS_POR_PASO, Secuencia, celda_molde
 from .texturas import Texturas
 from .tocado import Tocado
 
+MITAD_COMPAS = 48   # pulso en que se pide el loop de la MC-101 (ver Motor._looper)
+
 log = logging.getLogger("goa")
 
 
@@ -54,6 +56,7 @@ class Motor(FormaMotor):
         self.version_base = 0       # sube cuando la canción cambia de parte (la app se recarga)
         self.programas = {}         # (salida, canal) -> último Program Change mandado
         self.looper_enviado = None  # (salida, canal, clip o -parar) del último Program Change del looper
+        self.looper_pendiente = None  # (clave, programa, compás en que debe entrar)
         # Efectos de subida de la parte de la canción que suena (ver _efectos_parte)
         self.roll_desde, self.roll_compases = None, 0
         self.hueco_desde = None
@@ -459,22 +462,30 @@ class Motor(FormaMotor):
                 self.enviar(salida, "program_change", canal, programa - 1, 0)
                 log.info("Program Change %d a %s canal %d", programa, salida, canal + 1)
 
-    def _looper(self, config=None):
+    def _looper(self, config=None, ya=False):
         """Looper de la MC-101: Program Change 0-15 = slot 1-16 en el canal de la pista.
-        Se manda solo cuando cambia. Con una escena o parte en camino, en el compás antes
-        de que llegue ya pide el loop de destino: la MC-101 lo cambia en su cuantización
-        (con Master Step Length en 16 pasos, justo en el uno en que entra la escena)."""
+        Se manda solo cuando cambia, y en la mitad del compás antes de donde debe entrar:
+        la MC-101 lo cambia en el uno siguiente (con Master Step Length en 16 pasos). En
+        la mitad, y no justo en el uno, porque un pelo de atraso hacía que a veces lo
+        tomara un compás antes y el loop entraba descuadrado.
+        Dónde entra: con una escena o parte en camino, en el compás en que llega; si no,
+        en el próximo múltiplo de `cada` compases desde el Start (loops de 2, 4 u 8
+        compases entran siempre con la frase)."""
         if not self.corriendo:
             return  # detenido no pide nada: al Start pide el de la escena que suena
         tr = self.conductor.transicion
-        lp = None
-        if tr is not None and self.tick >= 0 and self._compas_actual() >= tr.fin - 1:
-            config = tr.destino
+        lp, objetivo = None, None
+        compas = self._compas_actual()
+        if tr is not None and self.tick >= 0 and compas >= tr.fin - 1:
+            config, objetivo = tr.destino, tr.fin
         elif self.tick >= 0:
-            lp = self._looper_parte_siguiente(self._compas_actual())
+            lp = self._looper_parte_siguiente(compas)
+            if lp is not None:
+                objetivo = compas + 1
         if lp is None:
             lp = (config if config is not None else self.config or {}).get("looper") or {}
         if not lp.get("activo") or not lp.get("salida"):
+            self.looper_pendiente = None
             return
         clip, parar = int(lp.get("clip", 0)), int(lp.get("parar", 0))
         if clip > 0:
@@ -482,13 +493,35 @@ class Motor(FormaMotor):
         elif parar > 0:
             pedido, pc = -parar, parar - 1   # callar = lanzar el slot vacío
         else:
+            self.looper_pendiente = None
             return
         clave = (lp["salida"], int(lp.get("canal", 4)) - 1, pedido)
         if clave == self.looper_enviado:
+            self.looper_pendiente = None   # (volviste al que ya suena)
             return
+        if objetivo is None:
+            cada = max(1, int(lp.get("cada", 1)))
+            objetivo = (compas // cada + 1) * cada
+        pendiente = self.looper_pendiente
+        if pendiente is not None and pendiente[0] == clave and pendiente[2] <= objetivo:
+            return   # ya pedido para antes
+        self.looper_pendiente = (clave, pc, objetivo)
+        if ya or self.tick < 0:
+            self._looper_pulso(forzar=True)
+        else:
+            self._looper_pulso()
+
+    def _looper_pulso(self, forzar=False):
+        """Manda el loop pedido cuando toca (llamado en cada pulso si hay uno pendiente)."""
+        clave, pc, objetivo = self.looper_pendiente
+        if not forzar:
+            compas, dentro = divmod(max(self.tick, 0), TICKS_POR_PASO * PASOS_POR_COMPAS)
+            if not (compas >= objetivo or (compas == objetivo - 1 and dentro >= MITAD_COMPAS)):
+                return
+        self.looper_pendiente = None
         self.looper_enviado = clave
         self.enviar(clave[0], "program_change", clave[1], pc, 0)
-        log.info("Looper: %s (canal %d)", f"loop {clip}" if clip else "callado", clave[1] + 1)
+        log.info("Looper: %s (canal %d)", f"loop {pc + 1}" if clave[2] > 0 else "callado", clave[1] + 1)
 
     def start(self):
         log.info("Start")
@@ -510,7 +543,8 @@ class Motor(FormaMotor):
         self.bajo.reiniciar()
         self.subida, self.subida_pedida = None, None
         self.corriendo = True
-        self._looper(self.config)
+        self.looper_pendiente = None
+        self._looper(self.config, ya=True)   # antes del primer pulso: la MC-101 arranca con él
         self.tick = -1
         self.tocado.reiniciar(0)
 
@@ -532,6 +566,8 @@ class Motor(FormaMotor):
         if not self.corriendo:
             return
         self.tick += 1
+        if self.looper_pendiente is not None:
+            self._looper_pulso()
         self._apagar_vencidas()
         self.dialogo.tick(self.tick, self.enviar)
         if self.tick % 3 == 0:
