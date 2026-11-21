@@ -66,6 +66,14 @@ def main():
     tipos = [(a[0], a[1], a[2]) for a in salida]
     todo &= ok(tipos == [("FM-1", "note_on", 3), ("FM-1", "note_off", 3)], "con el Tocado prendido, la tecla suena en la FM-1 (y se apaga)")
 
+    # Freno contra realimentación: miles de mensajes por segundo no cuelgan nada.
+    t3 = Teclado(ctx2)
+    salida.clear()
+    for i in range(5000):
+        t3.recibir(msg("control_change", 9, control=20, value=i % 128))
+    todo &= ok(len(puertos.enviados) < n + 500 and "demasiados" in (t3.ultimo or ""),
+               "un bucle de miles de mensajes se corta solo (deja de escuchar 5 s)")
+
     print("\nTodo bien" if todo else "\nHAY FALLAS")
     raise SystemExit(0 if todo else 1)
 

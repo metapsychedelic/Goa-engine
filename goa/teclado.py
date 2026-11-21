@@ -14,8 +14,11 @@ un mensaje, y la MicroFreak tiene que responder al instante.
 """
 
 import logging
+import time
 
 log = logging.getLogger("goa.teclado")
+
+MAX_POR_SEGUNDO = 400
 
 
 class Teclado:
@@ -25,9 +28,26 @@ class Teclado:
         self.ultimo = None
         self.notas = set()   # teclas apretadas ahora (para la app y para tocar después)
         self.recibidos = 0       # mensajes que llegaron (para ver en la app si llega algo)
+        self.ventana = (0.0, 0)  # (segundo, mensajes en ese segundo): freno contra realimentación
+        self.pausa_hasta = 0.0
         self.otro_canal = None   # canal por el que llegan teclas que no es el elegido (para avisar)
 
     def recibir(self, msg):
+        if msg.type in ("clock", "active_sensing"):
+            return
+        ahora = time.monotonic()
+        if ahora < self.pausa_hasta:
+            return
+        segundo, n = self.ventana
+        n = n + 1 if int(ahora) == segundo else 1
+        self.ventana = (int(ahora), n)
+        if n > MAX_POR_SEGUNDO:
+            # Nadie toca tantas notas ni mueve tantas perillas: es un bucle (el motor
+            # escuchándose a sí mismo). Se deja de escuchar un rato en vez de colgar la Pi.
+            self.pausa_hasta = ahora + 5
+            self.ultimo = "demasiados mensajes: ¿el puerto elegido es la MicroFreak?"
+            log.warning("Teclado: más de %d mensajes por segundo, dejo de escuchar 5 s", MAX_POR_SEGUNDO)
+            return
         cfg = self.ctx.config["teclado"]
         canal = getattr(msg, "channel", None)
         self.recibidos += 1

@@ -18,13 +18,28 @@ from .web import Contexto, crear_servidor
 log = logging.getLogger("goa")
 
 
+def es_propio(nombre):
+    """Puertos que crea el propio motor (cada salida abierta con rtmidi aparece como
+    «RtMidiOut Client») o el sistema (Midi Through). Escuchar uno de esos es escucharse
+    a sí mismo: lo que el motor manda vuelve a entrar y se realimenta sin fin (así se
+    colgó la Pi en la 0.65 con el teclado apuntando a «RtMidiOut Client #1»)."""
+    n = nombre.lower()
+    return "rtmidi" in n or "midi through" in n
+
+
+def sin_propios(nombres):
+    return [n for n in nombres if not es_propio(n)]
+
+
 def buscar_puerto(nombres, parte):
     """El puerto cuyo nombre contiene `parte`. Con dos aparatos iguales (dos dongles
     CH345, por ejemplo) «CH345 #2» elige el segundo, en el orden en que los ve el sistema."""
     m = re.fullmatch(r"(.*?)\s*#(\d+)", parte.strip())
     cual = int(m.group(2)) if m else 1
     parte = (m.group(1) if m else parte).lower()
-    hallados = [n for n in nombres if parte in n.lower()]
+    if es_propio(parte):
+        return None
+    hallados = [n for n in sin_propios(nombres) if parte in n.lower()]
     return hallados[cual - 1] if 0 < cual <= len(hallados) else None
 
 
@@ -46,7 +61,7 @@ class Puertos:
         self.revisar()
 
     def revisar(self):
-        self.disponibles = mido.get_output_names()
+        self.disponibles = sin_propios(mido.get_output_names())
         for clave in self.salidas:
             puerto = self.abiertos.get(clave)
             if puerto is not None and puerto.name not in self.disponibles:
@@ -240,7 +255,7 @@ def main():
                 puertos.revisar()
                 nombre_entrada = ctx.config["entrada"]["puerto"]
                 ctx.sincronizar_tocado()   # lo grabado en el Tocado queda guardado aunque la app esté cerrada
-            disponibles = mido.get_input_names()
+            disponibles = sin_propios(mido.get_input_names())
             with candado:
                 ctx.entradas_disponibles = disponibles
             if entrada is not None and (entrada.name not in disponibles

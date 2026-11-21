@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.65.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.65.2** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -200,3 +200,7 @@ goa/tocado.py (detalle en su docstring) y pestaña Motores › Tocado. Sección 
 ## Arranque seguro (0.65.1)
 
 El usuario reportó cuelgues y que la Pi dejó de arrancar (sin acceso remoto para ver la causa; sospecha principal: la MicroFreak alimentada por el USB de la Pi, o la SD dañada por cortes). config.guardar hace fsync del archivo y de la carpeta y deja la versión anterior como `config.toml.respaldo`. main.cargar_seguro: si la config está vacía o dañada arranca con el respaldo y si no con config.ejemplo.toml (la dañada queda como `.dañada`), en vez de salir y reiniciarse cada 2 s. Prueba de humo de main con un mido falso: arranca, abre Circuit, nano y MicroFreak, CPU en reposo ~0 %.
+
+## Causa del cuelgue: el motor escuchándose a sí mismo (0.65.2)
+
+Con el log de la Pi: «Teclado conectado: RtMidiOut Client:RtMidi output 128:0». La config tenía teclado.puerto = "RtMidiOut Client #1": cada salida que abre el motor con rtmidi aparece en ALSA como un puerto «RtMidiOut Client» que también se puede escuchar, así que el teclado recibía todo lo que mandaba el motor (y lo devolvía): realimentación a toda velocidad en un proceso de tiempo real → Pi colgada. Arreglo: main.es_propio / sin_propios (RtMidi y Midi Through) quedan fuera de las entradas y salidas disponibles y buscar_puerto nunca los elige; la app no los lista. Teclado: freno de más de 400 mensajes por segundo (deja de escuchar 5 s y avisa). Pendiente en la Pi: corregir teclado.puerto en su config.toml.

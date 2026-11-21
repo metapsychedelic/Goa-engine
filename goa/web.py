@@ -166,7 +166,7 @@ def _nombre_corto(nombre):
 def _nombres_cortos(nombres):
     """Nombres cortos para la app. Con dos aparatos iguales (dos dongles CH345) quedan
     «CH345 #1» y «CH345 #2», que es como el motor elige cada uno."""
-    cortos = [_nombre_corto(n) for n in nombres if "through" not in n.lower()]
+    cortos = [_nombre_corto(n) for n in nombres if "through" not in n.lower() and "rtmidi" not in n.lower()]
     vistos, salida = {}, []
     for c in cortos:
         vistos[c] = vistos.get(c, 0) + 1
