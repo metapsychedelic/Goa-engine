@@ -23,7 +23,7 @@ def base(**looper):
     cfg = normalizar(cargar(RAIZ / "config.ejemplo.toml"))
     cfg["entrada"].update(canal_disparo=2, nota_maxima=0)
     cfg["secuencia"] = [dict(s, disparo=0) for s in cfg["secuencia"]]
-    cfg["looper"].update(dict(activo=True, salida="MC-101", canal=4), **looper)
+    cfg["looper"].update(dict(dict(activo=True, salida="MC-101", canal=4), **looper))
     return normalizar(cfg)
 
 
@@ -100,6 +100,41 @@ def main():
     m.aplicar_config(normalizar(cfg))
     compases(m, 2)
     todo &= ok(r.pcs[-1] == (3, 48, 4) and len([p for p in r.pcs if p[2] == 4]) == 1, "ir y volver al mismo loop antes de que entre no manda nada")
+
+    print("\nApagar el looper lo calla")
+    class Todo(Registro):
+        def __init__(self):
+            super().__init__(); self.cc = []
+        def __call__(self, salida, tipo, canal, a, b):
+            super().__call__(salida, tipo, canal, a, b)
+            if tipo == "control_change" and salida == "MC-101" and canal == 3 and a == 7:
+                t = max(self.motor.tick, 0)
+                self.cc.append((t // PULSOS, t % PULSOS, b))
+    def con(cfg):
+        r = Todo(); m = Motor(cfg, r); r.motor = m; m.start(); m.nota_on(1, 45); return m, r
+    m, r = con(base(clip=3, nivel=110))
+    compases(m, 2)
+    cfg = json.loads(json.dumps(m.base)); cfg["looper"]["activo"] = False
+    m.aplicar_config(normalizar(cfg))
+    compases(m, 3)
+    todo &= ok(r.cc and r.cc[0][1] == 0 and r.cc[0][2] == 0 and len(r.pcs) == 1, f"apagado sin slot vacío: volumen de la pista a 0, justo en el uno {r.cc}")
+    cfg["looper"]["activo"] = True
+    m.aplicar_config(normalizar(cfg))
+    compases(m, 3)
+    todo &= ok(r.cc[-1][1:] == (0, 110) and len(r.pcs) == 1, f"prendido otra vez: vuelve al volumen elegido en el uno, sin volver a pedir el loop {r.cc}")
+    cfg["looper"].update(activo=False); m.aplicar_config(normalizar(cfg)); compases(m, 2)
+    cfg["looper"].update(activo=True, clip=6); m.aplicar_config(normalizar(cfg)); compases(m, 3)
+    todo &= ok(r.pcs[-1][1:] == (48, 5) and r.cc[-1][1:] == (0, 110) and r.cc[-1][0] == r.pcs[-1][0] + 1,
+               "con otro loop: lo pide en la mitad del compás y sube el volumen en el uno en que entra")
+    m, r = con(base(clip=3, parar=16))
+    compases(m, 2)
+    cfg = json.loads(json.dumps(m.base)); cfg["looper"]["activo"] = False
+    m.aplicar_config(normalizar(cfg)); compases(m, 3)
+    todo &= ok(r.pcs[-1][2] == 15 and not r.cc, "apagado con slot vacío: lanza el slot vacío (sin tocar el volumen)")
+    m, r = con(base(clip=3, activo=False))
+    compases(m, 3)
+    todo &= ok(not r.cc and not r.pcs, "si el motor no lo hizo sonar, no toca la pista")
+    todo &= ok("MC-101" in salidas(base(clip=3, activo=False)), "apagado, el puerto queda abierto para poder callarlo")
 
     print("\nEscenas")
     cfg = base(clip=1, parar=16)

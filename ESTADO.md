@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.71.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.72.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -263,3 +263,10 @@ El usuario: a veces el loop de la MC-101 entraba descuadrado y otras no.
 - El Program Change del loop se pedía justo en el uno del compás anterior: con un pelo de atraso, la MC-101 a veces lo tomaba en ese mismo uno (un compás antes). Ahora queda pendiente (Motor.looper_pendiente) y se manda en el pulso 48 (MITAD_COMPAS) del compás antes de donde debe entrar (Motor._looper_pulso, desde reloj).
 - looper.cada (1/2/4/8): en modo libre entra en el próximo múltiplo de `cada` compases desde el Start (loops de 4 compases siempre con la frase). Con escena/parte, entra con ella. Ir y volver al loop que suena antes de que entre no manda nada.
 - looper.transporte: main reenvía clock/start/stop/continue/songpos a la salida del looper (sin candado, como el thru; no duplica si el thru ya va a esa salida). Para que la MC-101 arranque con la Circuit y su compás no quede corrido.
+
+## Looper: apagarlo lo calla (0.72)
+
+El usuario no quería depender de un slot vacío. La tabla MIDI de la MC-101 no tiene CC para parar un clip ni mutear una pista, pero sí CC 7 (volumen) por canal de pista.
+- Interruptor apagado o «Callado» sin slot vacío: CC 7 = 0 en el canal del looper justo en el uno (en el próximo múltiplo de `cada`, o cuando entra la escena); al volver a sonar, CC 7 = looper.nivel (100) en el uno en que entra (el Program Change, si cambia el loop, sigue yendo en la mitad del compás anterior). Con slot vacío elegido, igual que antes.
+- Solo calla lo que el motor hizo sonar (Motor.looper_enviado); Motor.looper_mudo recuerda que bajó el volumen. looper_pendiente = (clave, pc|None, nivel|None, compás).
+- config.salidas deja abierta la salida del looper apagado si tiene un loop elegido (para poder callarlo). `nivel` es de la máquina: las escenas no lo guardan.

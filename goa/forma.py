@@ -26,7 +26,7 @@ from . import copia
 
 SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas", "looper", "tocado")
 # «parar» es el slot vacío del looper: es de la máquina, no de la escena.
-ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_resonancia", "cc_filtro", "filtro_reposo", "parar", "transporte"))
+ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_resonancia", "cc_filtro", "filtro_reposo", "parar", "transporte", "nivel"))
 # Floats que no se pueden mover de a poco: rehacen el patrón entero.
 DISCRETOS = frozenset((("secuencia", "pedal"), ("bajo", "movimiento")))
 # Enteros que sí se mueven de a poco.

@@ -241,6 +241,7 @@ ESQUEMA_SECCIONES["looper"] = {
     "parar": (int, 0, 0, 16),                # slot vacío que se lanza para callar (0 = no calla)
     "cada": (int, 1, 1, 16),                 # compases: el loop entra en múltiplos de esto desde el Start
     "transporte": (bool, False, None, None), # la Pi le pasa el reloj y Start/Stop a la MC-101
+    "nivel": (int, 100, 1, 127),             # volumen de la pista al volver a sonar (callado sin slot vacío = CC 7 a 0)
 }
 
 # Controlador (Korg nanoKONTROL2 en modo CC): cada canal maneja un motor y el transporte
@@ -620,7 +621,7 @@ def salidas(cfg):
         claves.append(cfg["fx"]["salida"])
     if cfg["texturas"]["activo"] or "texturas" in cancion:
         claves.append(cfg["texturas"]["salida"])
-    if cfg["looper"]["activo"] or "looper" in cancion:
+    if cfg["looper"]["activo"] or cfg["looper"]["clip"] or "looper" in cancion:   # apagado, sigue abierta para callarlo
         claves.append(cfg["looper"]["salida"])
     if cfg["tocado"]["activo"]:
         claves.append(cfg["tocado"]["salida"])

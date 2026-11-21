@@ -1734,7 +1734,8 @@ function panelLooper() {
     el("div", {className: "card principales"}, [
       campo("Loop que suena (slot de la MC-101)", segmentado(slots, String(x.clip), (v) => { x.clip = parseInt(v); guardar(); renderMotores(); }, 6)),
       ayuda(x.clip ? `Suena el slot ${x.clip}. Guarda la escena para que lo recuerde.` :
-        x.parar ? `Callado: lanza el slot ${x.parar} (vacío) para callar la pista.` : "Callado: no pide nada. Para que calle el loop que suena, elige abajo un slot vacío."),
+        x.parar ? `Callado: lanza el slot ${x.parar} (vacío) para callar la pista.` : "Callado: baja el volumen de la pista a 0 en el uno (y lo devuelve cuando vuelve a sonar)."),
+      ayuda("Apagar el interruptor de arriba también lo calla, en el uno siguiente (o cuando entra la escena)."),
     ]),
     el("div", {className: "grupos"}, [
       grupo("g-lp-sync", "En sincronía", `entra cada ${x.cada} compás${x.cada > 1 ? "es" : ""}${x.transporte ? " · la Pi le pasa el reloj" : ""}`, [
@@ -1745,8 +1746,10 @@ function panelLooper() {
       ]),
       grupo("g-lp-midi", "Salida MIDI", `${salidaTexto(x)}${x.parar ? ` · calla con el slot ${x.parar}` : ""}`, [
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI (el de la pista Looper)", 1, 16, renderMotores)]),
-        numeroDe(x, "parar", "Slot vacío para callar (0 = no calla)", 0, 16, renderMotores),
-        ayuda("En la MC-101: el canal de la pista Looper tiene que ser este (4 por defecto); el cambio de clip es Program Change 0-15 en el canal de la pista (tabla MIDI de Roland). El cambio de loop espera el Master Step Length ([TEMPO]): con 16 pasos cae justo en el uno en que entra la escena; más largo, entra después. Para callar, deja un slot sin loop y elígelo arriba."),
+        numeroDe(x, "parar", "Slot vacío para callar (0 = calla con el volumen)", 0, 16, renderMotores),
+        numeroDe(x, "nivel", "Volumen de la pista al volver a sonar", 1, 127),
+        ayuda("Sin slot vacío, para callar el motor baja el volumen de la pista (CC 7) a 0 y al volver lo sube a este valor: ponlo donde tienes el nivel de la pista en la MC-101. Solo calla lo que el motor hizo sonar."),
+        ayuda("En la MC-101: el canal de la pista Looper tiene que ser este (4 por defecto); el cambio de clip es Program Change 0-15 en el canal de la pista (tabla MIDI de Roland). El cambio de loop espera el Master Step Length ([TEMPO]): con 16 pasos cae justo en el uno en que entra la escena; más largo, entra después. Para callar no hace falta un slot vacío: basta apagarlo o elegir «Callado»."),
       ]),
     ]),
  ].filter(Boolean);

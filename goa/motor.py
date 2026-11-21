@@ -56,7 +56,8 @@ class Motor(FormaMotor):
         self.version_base = 0       # sube cuando la canción cambia de parte (la app se recarga)
         self.programas = {}         # (salida, canal) -> último Program Change mandado
         self.looper_enviado = None  # (salida, canal, clip o -parar) del último Program Change del looper
-        self.looper_pendiente = None  # (clave, programa, compás en que debe entrar)
+        self.looper_pendiente = None  # (clave, programa o None, volumen o None, compás en que entra)
+        self.looper_mudo = None       # (salida, canal) si el motor bajó el volumen de la pista
         # Efectos de subida de la parte de la canción que suena (ver _efectos_parte)
         self.roll_desde, self.roll_compases = None, 0
         self.hueco_desde = None
@@ -468,6 +469,9 @@ class Motor(FormaMotor):
         la MC-101 lo cambia en el uno siguiente (con Master Step Length en 16 pasos). En
         la mitad, y no justo en el uno, porque un pelo de atraso hacía que a veces lo
         tomara un compás antes y el loop entraba descuadrado.
+        Callar (el interruptor apagado, o «Callado»): con un slot vacío elegido, lo lanza;
+        si no, baja el volumen de la pista (CC 7) justo en el uno, y lo devuelve a `nivel`
+        en el uno en que vuelve a sonar. Solo calla lo que el motor hizo sonar.
         Dónde entra: con una escena o parte en camino, en el compás en que llega; si no,
         en el próximo múltiplo de `cada` compases desde el Start (loops de 2, 4 u 8
         compases entran siempre con la frase)."""
@@ -484,44 +488,59 @@ class Motor(FormaMotor):
                 objetivo = compas + 1
         if lp is None:
             lp = (config if config is not None else self.config or {}).get("looper") or {}
-        if not lp.get("activo") or not lp.get("salida"):
+        if not lp.get("salida"):
             self.looper_pendiente = None
             return
+        canal = int(lp.get("canal", 4)) - 1
         clip, parar = int(lp.get("clip", 0)), int(lp.get("parar", 0))
-        if clip > 0:
-            pedido, pc = clip, clip - 1
-        elif parar > 0:
-            pedido, pc = -parar, parar - 1   # callar = lanzar el slot vacío
+        pc = nivel = None
+        if lp.get("activo") and clip > 0:
+            clave = (lp["salida"], canal, clip)
+            if clave != self.looper_enviado:
+                pc = clip - 1
+            if self.looper_mudo == (lp["salida"], canal):
+                nivel = int(lp.get("nivel", 100))   # vuelve a sonar
         else:
-            self.looper_pendiente = None
-            return
-        clave = (lp["salida"], int(lp.get("canal", 4)) - 1, pedido)
-        if clave == self.looper_enviado:
-            self.looper_pendiente = None   # (volviste al que ya suena)
+            sono = self.looper_enviado is not None and self.looper_enviado[2] > 0
+            if not sono and not (lp.get("activo") and parar > 0 and self.looper_enviado is None):
+                self.looper_pendiente = None   # nada que callar (o ya callado)
+                return
+            if parar > 0:
+                clave = (lp["salida"], canal, -parar)
+                pc = parar - 1   # callar = lanzar el slot vacío
+            elif self.looper_mudo != (lp["salida"], canal):
+                clave, nivel = self.looper_enviado, 0   # callar = volumen de la pista a 0
+            else:
+                clave = self.looper_enviado
+        if pc is None and nivel is None:
+            self.looper_pendiente = None   # (volviste a lo que ya suena)
             return
         if objetivo is None:
             cada = max(1, int(lp.get("cada", 1)))
             objetivo = (compas // cada + 1) * cada
+        nuevo = (clave, pc, nivel, objetivo)
         pendiente = self.looper_pendiente
-        if pendiente is not None and pendiente[0] == clave and pendiente[2] <= objetivo:
+        if pendiente is not None and pendiente[:3] == nuevo[:3] and pendiente[3] <= objetivo:
             return   # ya pedido para antes
-        self.looper_pendiente = (clave, pc, objetivo)
-        if ya or self.tick < 0:
-            self._looper_pulso(forzar=True)
-        else:
-            self._looper_pulso()
+        self.looper_pendiente = nuevo
+        self._looper_pulso(forzar=ya or self.tick < 0)
 
     def _looper_pulso(self, forzar=False):
-        """Manda el loop pedido cuando toca (llamado en cada pulso si hay uno pendiente)."""
-        clave, pc, objetivo = self.looper_pendiente
-        if not forzar:
-            compas, dentro = divmod(max(self.tick, 0), TICKS_POR_PASO * PASOS_POR_COMPAS)
-            if not (compas >= objetivo or (compas == objetivo - 1 and dentro >= MITAD_COMPAS)):
-                return
-        self.looper_pendiente = None
-        self.looper_enviado = clave
-        self.enviar(clave[0], "program_change", clave[1], pc, 0)
-        log.info("Looper: %s (canal %d)", f"loop {pc + 1}" if clave[2] > 0 else "callado", clave[1] + 1)
+        """Manda lo pedido cuando toca (llamado en cada pulso si hay algo pendiente): el
+        Program Change en la mitad del compás anterior, el volumen justo en el uno."""
+        clave, pc, nivel, objetivo = self.looper_pendiente
+        compas, dentro = divmod(max(self.tick, 0), TICKS_POR_PASO * PASOS_POR_COMPAS)
+        if pc is not None and (forzar or compas >= objetivo or (compas == objetivo - 1 and dentro >= MITAD_COMPAS)):
+            self.looper_enviado = clave
+            self.enviar(clave[0], "program_change", clave[1], pc, 0)
+            log.info("Looper: %s (canal %d)", f"loop {pc + 1}" if clave[2] > 0 else "callado", clave[1] + 1)
+            pc = None
+        if nivel is not None and (forzar or compas >= objetivo):
+            self.enviar(clave[0], "control_change", clave[1], 7, nivel)
+            self.looper_mudo = (clave[0], clave[1]) if nivel == 0 else None
+            log.info("Looper: %s (canal %d)", "callado (volumen 0)" if nivel == 0 else f"vuelve (volumen {nivel})", clave[1] + 1)
+            nivel = None
+        self.looper_pendiente = None if pc is None and nivel is None else (clave, pc, nivel, objetivo)
 
     def start(self):
         log.info("Start")
