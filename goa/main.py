@@ -1,6 +1,7 @@
 """Punto de entrada: abre los puertos MIDI, conecta la Circuit con el motor y sirve la app."""
 
 import argparse
+import os
 import re
 import logging
 import signal
@@ -105,6 +106,34 @@ class Puertos:
             p.close()
 
 
+def cargar_seguro(ruta):
+    """La configuración del usuario; si está dañada (un corte de luz, una tarjeta con
+    problemas), la última buena (`.respaldo`), y si tampoco, la de ejemplo. Así el
+    motor arranca igual y no queda reiniciándose cada 2 segundos."""
+    try:
+        if os.path.getsize(ruta) == 0:
+            raise ValueError("el archivo quedó vacío")
+        return cargar(ruta)
+    except (ConfigError, OSError, ValueError) as e:
+        log.error("No pude leer %s: %s", ruta, e)
+    for otra in (ruta + ".respaldo", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.ejemplo.toml")):
+        try:
+            if os.path.exists(otra) and os.path.getsize(otra) == 0:
+                raise ValueError("el archivo está vacío")
+            config = cargar(otra)
+        except (ConfigError, OSError, ValueError) as e:
+            log.error("Tampoco pude leer %s: %s", otra, e)
+            continue
+        log.warning("Arranco con %s. Tu configuración dañada queda como %s.dañada", otra, ruta)
+        try:
+            if os.path.exists(ruta):
+                os.replace(ruta, ruta + ".dañada")
+        except OSError:
+            pass
+        return config
+    raise SystemExit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Motor generativo Goa")
     parser.add_argument("--config", required=True, help="ruta al archivo config.toml")
@@ -114,11 +143,7 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
 
-    try:
-        config = cargar(args.config)
-    except (ConfigError, OSError, ValueError) as e:
-        log.error("No pude leer %s: %s", args.config, e)
-        raise SystemExit(1)
+    config = cargar_seguro(args.config)
 
     puertos = Puertos(salidas(config))
     candado = threading.RLock()

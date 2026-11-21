@@ -624,12 +624,29 @@ def a_toml(cfg):
 
 
 def guardar(ruta, cfg):
-    """Escritura atómica: nunca deja el archivo a medias."""
+    """Escritura atómica: nunca deja el archivo a medias, ni vacío si se corta la luz
+    justo después (fsync antes de reemplazarlo). La versión anterior queda como
+    `.respaldo`: si el archivo se daña, el motor arranca con ella (ver main.cargar_seguro)."""
     carpeta = os.path.dirname(os.path.abspath(ruta))
     fd, temporal = tempfile.mkstemp(dir=carpeta, prefix=".config-", suffix=".toml")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(a_toml(cfg))
+        f.flush()
+        os.fsync(f.fileno())
+    if os.path.exists(ruta):
+        try:
+            os.replace(ruta, ruta + ".respaldo")
+        except OSError:
+            pass
     os.replace(temporal, ruta)
+    try:
+        d = os.open(carpeta, os.O_RDONLY)
+        try:
+            os.fsync(d)
+        finally:
+            os.close(d)
+    except OSError:
+        pass
 
 
 # Lo que «Restaurar ajustes de fábrica» no toca: a dónde y cómo suena (salida, canal,
