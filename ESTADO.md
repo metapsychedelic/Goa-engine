@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.68.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.68.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -227,3 +227,6 @@ Tras probarlo el usuario pidió: cuantización más estricta, los sub-parámetro
 - config.TOCADO_EXTRA: armonía (general/guiada/libre), techo, voz doble, slide, mutación (mutar_cada, bloqueada), recorrido, variación de fuerza, gate/gate_random con `largo_nota` (tuyo | estilo), densidad, repetición, FX y filtro en la subida, LFO 1 y 2. No van los que deciden el ritmo (posición, corrimiento, molde, mutación de ritmo, swing, complementar/separar, deslices).
 - Densidad/repetición/slide/gate solo en el loop; techo, doble, recorrido, fuerza y armonía también en vivo. La mutación cambia el patrón del estilo en el compás (Tocado._mutar). LFO en motor._lfo_secuencias; filtro de subida/FX con un SimpleNamespace (tocado.filtro) que motor_forma._con_filtro suma a las secuencias.
 - Largo del loop después de grabar: accion("largo", pasos) — no destructivo. `grabado` = largo de la grabación; si el loop es más largo, la repite (tramos); el JSON guarda "grabado" si difiere.
+
+### 0.68.1 — Program Change solo de lo que suena
+Un motor apagado (secuencia no activa, pads/bajo/tocado apagados) ya no manda su parche a su sinte (antes lo mandaba si ningún motor activo pedía ese sinte y canal). Al prenderse lo manda; motor._programas olvida los canales que nadie pide, así lo vuelve a mandar al prenderse otra vez.

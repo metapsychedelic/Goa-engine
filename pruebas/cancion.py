@@ -210,6 +210,10 @@ if __name__ == "__main__":
     m, v, pcs = correr(normalizar(dos), 2)
     todo &= ok(pcs == [(0, "FM-1", 7)], f"si dos motores van al mismo sinte y canal, manda el que suena ({pcs})")
 
+    dos["secuencia"][1].update(activa=False)
+    m, v, pcs = correr(normalizar(dos), 2)
+    todo &= ok(not [p for p in pcs if p[1] == "FM-1" and p[2] in (3, 7)], f"un motor apagado no manda su parche ({pcs})")
+
     print("\nPuertos y archivo")
     cfg = armar()
     cfg["bajo"].update(activo=True, salida="SoloBajo")

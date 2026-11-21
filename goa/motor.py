@@ -433,7 +433,9 @@ class Motor(FormaMotor):
     def _programas(self, config):
         """Program Change: cada motor puede pedir un parche (1-128) a su sinte. Se manda
         solo cuando cambia (una escena o una parte nueva lo cambian en su uno) y otra vez
-        en cada Start. Si dos motores van al mismo sinte y canal, manda el que suena."""
+        en cada Start. Solo los motores que suenan: uno apagado no le cambia el parche a
+        su sinte (puede estar tocándolo otro, o tú a mano). Si dos van al mismo sinte y
+        canal, manda el que suena; al prenderse un motor, manda el suyo."""
         fuentes = [(s, s.get("activa")) for s in config.get("secuencia", [])]
         fuentes += [(config.get("pads", {}), config.get("pads", {}).get("activo")),
                     (config.get("bajo", {}), config.get("bajo", {}).get("activo")),
@@ -443,10 +445,14 @@ class Motor(FormaMotor):
         fuentes += [(config.get("llamada", {}), hay_dialogo and config["dialogo"].get("modo") == "motor"),
                     (config.get("respuesta", {}), hay_dialogo)]
         pedidos = {}
-        for seccion, suena in sorted(fuentes, key=lambda f: not f[1]):  # primero los que suenan
+        for seccion, suena in fuentes:
+            if not suena:
+                continue
             programa = int(seccion.get("programa", 0) or 0)
             if programa > 0 and seccion.get("salida"):
                 pedidos.setdefault((seccion["salida"], int(seccion.get("canal", 1)) - 1), programa)
+        for clave in [c for c in self.programas if c not in pedidos]:
+            del self.programas[clave]   # nadie lo pide: al prenderse otra vez, lo vuelve a mandar
         for (salida, canal), programa in pedidos.items():
             if self.programas.get((salida, canal)) != programa:
                 self.programas[(salida, canal)] = programa
