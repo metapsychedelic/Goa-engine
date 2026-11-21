@@ -12,6 +12,7 @@ import copy
 
 from goa import forma
 from goa.config import a_toml, normalizar, salidas
+from goa import fx
 from goa.fx import BEND_MAX, curva_filtro
 from goa.motor import Motor
 
@@ -55,15 +56,23 @@ if __name__ == "__main__":
     todo &= ok(all(abs(b - a) <= 8 for a, b in zip(v, v[1:])), "filtro: nunca salta de golpe")
 
     # --- Gestos fuera de la subida ---
-    cfg = armar(locura=1.0)
+    cfg = armar(locura=1.0, donde="compas")
     salida, m = correr(cfg, 32)
     ons = de(salida, "MC-101", "note_on")
     todo &= ok(len(ons) > 20, f"con locura al máximo hay gestos ({len(ons)} notas en 32 compases)")
     todo &= ok(all(x[3] == 1 for x in de(salida, "MC-101")), "todo el FX sale por su canal (2)")
-    bends = de(salida, "MC-101", "pitchwheel")
-    todo &= ok(bends and all(-8192 <= x[4] <= 8191 for x in bends), f"zaps y glitches con pitch bend ({len(bends)} mensajes)")
+    notas = [x for x in de(salida, "MC-101") if x[2] in ("note_on", "note_off")]
+    todo &= ok(all(x[0] % 3 == 0 for x in ons),
+               "cuantizado: todas las notas empiezan en la rejilla de fusas")
+    inicios = sorted({(x[0] - 0) // 24 * 24 for x in ons})
+    todo &= ok(all(any(abs(x[0] - i) < 24 for i in inicios) for x in ons), "cada gesto parte en un tiempo")
     m.stop()
     todo &= ok(not m.fx.sonando and m.fx.bend == 0, "stop: no queda ninguna nota ni pitch colgado")
+    zaps, _ = correr(armar(locura=1.0, donde="compas", **{g: g == "zap" for g in ("zap", "burbujas", "acido", "glitch", "barrido", "gate", "eco", "escalera")}), 16)
+    bends = de(zaps, "MC-101", "pitchwheel")
+    todo &= ok(bends and bends[-1][4] == 0 and all(-8192 <= x[4] <= 8191 for x in bends), f"zaps con pitch bend, y vuelve al centro ({len(bends)} mensajes)")
+    gl, _ = correr(armar(locura=1.0, donde="compas", zap=False), 32)
+    todo &= ok(not de(gl, "MC-101", "pitchwheel"), "los demás gestos no usan pitch bend: nunca desafinan")
     cfg0 = armar(locura=0.0)
     salida0, _ = correr(cfg0, 32)
     todo &= ok(not de(salida0, "MC-101", "note_on"), "con locura 0 no hay gestos")
@@ -74,13 +83,46 @@ if __name__ == "__main__":
     cfg2["fx"]["seed"] = "OTRA"
     c, _ = correr(cfg2, 16)
     todo &= ok(a != c, "otra variante, otros gestos")
-    sin = armar(locura=1.0, zap=False, burbujas=False, acido=False, glitch=False)
+    def vuelta(s, desde, hasta):
+        return [(x[0] - desde, x[4]) for x in de(s, "MC-101", "note_on") if desde <= x[0] < hasta]
+    r, _ = correr(armar(locura=1.0, donde="compas", repetir=4, caos=0.0), 16)
+    todo &= ok(bool(vuelta(r, 4 * TC, 8 * TC)) and vuelta(r, 4 * TC, 8 * TC) == vuelta(r, 8 * TC, 12 * TC), "repetir 4: los gestos vuelven igual cada 4 compases")
+    r, _ = correr(armar(locura=1.0, donde="compas", repetir=4, caos=1.0), 24)
+    todo &= ok(len({tuple(vuelta(r, k * 4 * TC, (k + 1) * 4 * TC)) for k in range(1, 6)}) > 1, "con caos van cambiando")
+    f, _ = correr(armar(locura=1.0, donde="frase"), 16)
+    todo &= ok(f and all(x[0] % (4 * TC) >= 3 * TC for x in de(f, "MC-101", "note_on")), "frase: los gestos van al final de cada frase")
+    sin = armar(locura=1.0, **{g: False for g in ("zap", "burbujas", "acido", "glitch", "barrido", "gate", "eco", "escalera")})
     s2, _ = correr(sin, 16)
     todo &= ok(not de(s2, "MC-101", "note_on"), "sin gestos elegidos no toca nada")
-    amb = armar(locura=1.0, genero="ambient")
+    amb = armar(locura=1.0, genero="ambient", donde="compas", repetir=32)
     s3, _ = correr(amb, 32)
-    todo &= ok(0 < len(de(s3, "MC-101", "note_on")) < len(ons), "ambient: pocos gestos y suaves (solo burbujas)")
-    todo &= ok(not de(s3, "MC-101", "pitchwheel"), "ambient: sin zaps ni glitches")
+    todo &= ok(0 < len(de(s3, "MC-101", "note_on")) < len(ons), "ambient: pocos gestos y suaves")
+    todo &= ok(not de(s3, "MC-101", "pitchwheel"), "ambient: sin zaps")
+
+    # --- Fondo: notas largas y el filtro en ritmo ---
+    fondo = armar(locura=0.0, fondo=True, fondo_largo=2, filtro_modo="pluck", filtro_golpes=5, resonancia=True)
+    sf, mf = correr(fondo, 8)
+    on_f = de(sf, "MC-101", "note_on")
+    todo &= ok(on_f and on_f[0][0] == 24 and all(x[0] % (2 * TC) == 0 for x in on_f[1:]), f"fondo: entra en el primer tiempo y se vuelve a atacar cada 2 compases ({len(on_f)} veces)")
+    largo = [x for x in de(sf, "MC-101", "note_off")]
+    todo &= ok(len(largo) == len(on_f) - 1, "fondo: suena seguida, sin cortes entre ataques")
+    cc = [x for x in de(sf, "MC-101", "control_change") if x[4] == 74]
+    picos = [x[0] % TC // 6 for x in cc if x[5] >= 110]
+    todo &= ok(cc and sorted(set(picos)) == [i for i, g in enumerate(fx.euclides(5)) if g], f"pluck: el filtro se abre en los golpes euclidianos {sorted(set(picos))}")
+    todo &= ok(all(25 <= x[5] <= 115 for x in cc), "el filtro se queda en su rango")
+    reso = [x[5] for x in de(sf, "MC-101", "control_change") if x[4] == 71]
+    todo &= ok(reso and min(reso) <= 22 and max(reso) >= 88, "la resonancia va y viene")
+    mf.stop()
+    todo &= ok(not mf.fx.sonando and not mf.fx.largas, "stop: la nota larga se apaga")
+    for modo in ("pasos", "sh", "wobble", "rampa"):
+        sm, _ = correr(armar(locura=0.0, fondo=True, filtro_modo=modo, filtro_division="8"), 4)
+        v = [x[5] for x in de(sm, "MC-101", "control_change") if x[4] == 74]
+        todo &= ok(len(set(v)) > 4, f"filtro {modo}: se mueve ({len(set(v))} valores)")
+    sq, _ = correr(armar(locura=0.0, fondo=True, filtro_modo="quieto"), 4)
+    todo &= ok(not de(sq, "MC-101", "control_change"), "quieto: no toca el filtro")
+    sg, _ = correr(armar(locura=1.0, donde="compas", fondo=True, filtro_modo="wobble"), 16)
+    largas = {x[4] for x in de(sg, "MC-101", "note_on") if x[0] % (2 * TC) == 0}
+    todo &= ok(len(de(sg, "MC-101", "note_on")) > len(largas), "fondo y gestos juntos")
 
     # Afinación: todas las notas del FX están en la escala (F frigio)
     escala = {(5 + i) % 12 for i in (0, 1, 3, 5, 7, 8, 10)}

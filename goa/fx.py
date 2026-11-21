@@ -1,49 +1,72 @@
-"""Motor de FX: zaps, burbujas, ácido, glitch, risers y caídas.
+"""Motor de FX: gestos cuantizados, notas largas con el filtro loco y el riser.
 
-Un sinte propio (por defecto un canal de la MC-101) toca gestos cortos hechos de
-notas, pitch bend y el CC del filtro. Las notas salen de la armonía (el acorde
-que suena o la escala), así que las locuras nunca desafinan.
+Un sinte propio (por defecto un canal de la MC-101; salida y canal se eligen) que
+acompaña de fondo. Todo sale de la armonía (el acorde que suena o la escala), así
+que nunca desafina, y todo cae en la rejilla:
 
-- Fuera de las subidas, los gestos aparecen de vez en cuando, más al final de
-  cada frase de 4 compases. La "locura" (que la energía sube y baja) decide
-  cuántos.
-- En una subida, la voz de FX hace el riser: golpes que se van densificando
-  (negras, corcheas, semicorcheas, fusas), el pitch subiendo hasta el drop y el
-  filtro que primero baja y después se abre de a poco.
-- En el drop: la caída (una nota que se desploma con el pitch y el filtro).
+- Gestos (zap, burbujas, ácido, glitch, barrido, gate, eco, escalera): cada uno
+  dura tiempos enteros y empieza en un tiempo. «Dónde» decide su lugar: al final
+  de cada frase de 4 compases, al final de cada compás o en cualquier tiempo. Qué
+  gesto va en cada lugar se repite cada `repetir` compases (así se vuelve parte
+  del tema en vez de sonar al azar); el «caos» va cambiando algunos en cada vuelta.
+  La «locura» (que la energía sube y baja) decide cuántos lugares tienen gesto.
+- Fondo: notas largas (la raíz, notas del acorde, quinta u octavas) que se
+  renuevan cada tantos compases y cuando cambia el acorde, con el filtro moviéndose
+  en ritmo: pluck (golpes euclidianos), pasos (una fila de 16 valores), sample &
+  hold, wobble o rampa, en la división que elijas, más la resonancia en un ciclo
+  desfasado (polirritmo). El caos mete locuras por tiempo: el doble de rápido,
+  saltos de fusas, congelar.
+- En una subida: el riser (golpes que se densifican, pitch que sube, filtro que
+  baja y se abre). En el drop: la caída.
 
 Las secuencias marcadas con FX también se intervienen (eso lo hace el motor,
-ver motor._filtro_secuencias y motor._glitch): en la subida su filtro baja y
-se abre igual que el del riser, y suman redobles cada vez más seguidos; fuera
-de las subidas, a veces el último tiempo de la frase se traba (stutter).
+ver motor._filtro_secuencias y motor._glitch).
 
-Todo es determinista: misma variante, mismos gestos en los mismos lugares.
+Todo es determinista: misma variante, mismos gestos y el mismo filtro.
 """
 
+import math
 import random
 
 from . import armonia
 
 TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
+TICKS_POR_TIEMPO = 24
 BEND_MAX = 8191
 BEND_MIN = -8192
 
-GESTOS = ("zap", "burbujas", "acido", "glitch")
+GESTOS = ("zap", "burbujas", "acido", "glitch", "barrido", "gate", "eco", "escalera")
+# Cuántos tiempos dura cada gesto (todo lo que toca cabe ahí, y termina en un tiempo).
+TIEMPOS = {"zap": 2, "burbujas": 1, "acido": 2, "glitch": 2, "barrido": 4, "gate": 2, "eco": 4, "escalera": 1}
+# Los que mueven el filtro (mientras suenan, el fondo no lo toca).
+CON_FILTRO = ("acido", "barrido", "gate", "eco", "escalera")
 
 # Cuánto aparece cada gesto en cada género (0 = nunca).
 PALETAS = {
-    "goa": {"zap": 3, "burbujas": 2, "acido": 3, "glitch": 2},
-    "psytrance": {"zap": 3, "burbujas": 1, "acido": 2, "glitch": 3},
-    "psy_chill": {"zap": 1, "burbujas": 3, "acido": 1, "glitch": 1},
-    "chillgressive": {"zap": 2, "burbujas": 2, "acido": 2, "glitch": 2},
-    "chillout": {"zap": 1, "burbujas": 3, "acido": 0, "glitch": 0},
-    "ambient": {"zap": 0, "burbujas": 1, "acido": 0, "glitch": 0},
+    "goa": {"zap": 3, "burbujas": 2, "acido": 3, "glitch": 2, "barrido": 2, "gate": 2, "eco": 2, "escalera": 2},
+    "psytrance": {"zap": 3, "burbujas": 1, "acido": 2, "glitch": 3, "barrido": 2, "gate": 3, "eco": 1, "escalera": 2},
+    "psy_chill": {"zap": 1, "burbujas": 3, "acido": 1, "glitch": 1, "barrido": 2, "gate": 1, "eco": 3, "escalera": 1},
+    "chillgressive": {"zap": 2, "burbujas": 2, "acido": 2, "glitch": 2, "barrido": 2, "gate": 2, "eco": 2, "escalera": 2},
+    "chillout": {"zap": 1, "burbujas": 3, "acido": 0, "glitch": 0, "barrido": 2, "gate": 0, "eco": 3, "escalera": 1},
+    "ambient": {"zap": 0, "burbujas": 1, "acido": 0, "glitch": 0, "barrido": 2, "gate": 0, "eco": 2, "escalera": 0},
 }
 # Cuánto aparecen los gestos en cada género (multiplica la locura).
 DENSIDAD_GENERO = {"goa": 1.0, "psytrance": 0.9, "psy_chill": 0.7, "chillgressive": 0.8, "chillout": 0.5, "ambient": 0.35}
 
-_ORDEN = {"off": 0, "bend": 1, "cc": 1, "on": 2}
+DONDE = ("frase", "compas", "tiempo")
+FONDO_NOTAS = ("raiz", "acorde", "quinta", "octavas")
+FILTRO_MODOS = ("pluck", "pasos", "sh", "wobble", "rampa", "quieto")
+# Divisiones del filtro, en pulsos (24 por negra).
+DIVISIONES = {"32": 3, "16": 6, "8t": 8, "8": 12, "4": 24, "2": 48, "1c": 96, "2c": 192}
+
+_ORDEN = {"off": 0, "bend": 1, "cc": 1, "cc2": 1, "on": 2}
+
+
+def euclides(golpes, pasos=16, rotar=0):
+    """Ritmo euclidiano: `golpes` repartidos lo más parejo posible en `pasos`."""
+    golpes = max(0, min(pasos, golpes))
+    return [((i + rotar) * golpes) % pasos < golpes for i in range(pasos)]
 
 
 def curva_filtro(t, reposo, tope=127):
@@ -78,6 +101,9 @@ class Fx:
         if self.genero not in PALETAS:
             raise ValueError(f"Género de FX desconocido: {self.genero!r}")
         self.locura = _f(cfg.get("locura", 0.4))
+        self.caos = _f(cfg.get("caos", 0.2))
+        self.donde = cfg.get("donde", "frase") if cfg.get("donde", "frase") in DONDE else "frase"
+        self.repetir = max(1, int(cfg.get("repetir", 8)))
         self.seed = str(cfg.get("seed", "FX-0001"))
         self.octava = int(cfg.get("octava", 1))
         self.velocidad = int(cfg.get("velocidad", 100))
@@ -86,13 +112,36 @@ class Fx:
         self.caida = bool(cfg.get("caida", True))
         self.cc_corte = int(cfg.get("cc_corte", 74))
         self.reposo = int(cfg.get("filtro_reposo", 100))
+        # Fondo: notas largas y el filtro en ritmo.
+        self.fondo = bool(cfg.get("fondo", False))
+        self.fondo_notas = cfg.get("fondo_notas", "raiz")
+        self.fondo_largo = max(1, int(cfg.get("fondo_largo", 2)))
+        self.fondo_octava = int(cfg.get("fondo_octava", 0))
+        self.fondo_fuerza = int(cfg.get("fondo_fuerza", 90))
+        self.filtro_modo = cfg.get("filtro_modo", "pluck")
+        self.division = DIVISIONES.get(str(cfg.get("filtro_division", "16")), 6)
+        self.golpes = int(cfg.get("filtro_golpes", 5))
+        self.rotar = int(cfg.get("filtro_rotar", 0))
+        self.caida_pluck = max(1, int(cfg.get("filtro_caida", 9)))
+        self.filtro_min = int(cfg.get("filtro_min", 25))
+        self.filtro_max = int(cfg.get("filtro_max", 115))
+        self.movimiento = _f(cfg.get("movimiento", 1.0))
+        self.resonancia = bool(cfg.get("resonancia", False))
+        self.cc_resonancia = int(cfg.get("cc_resonancia", 71))
+        self.reso_min = int(cfg.get("reso_min", 20))
+        self.reso_max = int(cfg.get("reso_max", 90))
+        self.reso_ciclo = max(1, int(cfg.get("reso_ciclo", 6)))
+        self.ritmo = euclides(self.golpes, 16, self.rotar)
         self.tonalidad = tonalidad
         self.disparo = None
-        self.eventos = []          # (tick, tipo, a, b): on (nota, vel), off (nota), bend (valor), cc (valor)
+        self.eventos = []          # (tick, tipo, a, b): on (nota, vel), off (nota), bend (valor), cc / cc2 (valor)
         self.sonando = set()
         self.ocupado_hasta = -1    # tick hasta el que suena un gesto
+        self.filtro_hasta = -1     # tick hasta el que un gesto (o la caída) maneja el filtro
+        self.largas = ()           # notas largas del fondo que suenan
         self.bend = 0
         self.corte = None          # último valor del filtro mandado (None = no lo tocamos)
+        self.reso = None
         self.ultimo = None         # último gesto (para la app)
 
     # --- Estado ---
@@ -104,9 +153,15 @@ class Fx:
         if (viejo.salida, viejo.canal) == (self.salida, self.canal):
             self.eventos, self.sonando = viejo.eventos, viejo.sonando
             self.ocupado_hasta, self.bend, self.corte = viejo.ocupado_hasta, viejo.bend, viejo.corte
+            self.filtro_hasta, self.largas, self.reso = viejo.filtro_hasta, viejo.largas, viejo.reso
             self.ultimo = viejo.ultimo
             if not self.activo:
                 self.apagar(enviar)
+            elif not self.fondo:
+                self._soltar_largas(enviar)
+            if viejo.resonancia and not self.resonancia and self.reso is not None:
+                enviar(self.salida, "control_change", self.canal, viejo.cc_resonancia, viejo.reso_min)
+                self.reso = None
         else:
             viejo.apagar(enviar)
 
@@ -114,18 +169,29 @@ class Fx:
         for nota in sorted(self.sonando):
             enviar(self.salida, "note_off", self.canal, nota, 0)
         self.sonando = set()
+        self.largas = ()
         self.eventos = []
-        self.ocupado_hasta = -1
+        self.ocupado_hasta = self.filtro_hasta = -1
         self._reposar(enviar)
 
+    def _soltar_largas(self, enviar):
+        for nota in self.largas:
+            if nota in self.sonando:
+                enviar(self.salida, "note_off", self.canal, nota, 0)
+                self.sonando.discard(nota)
+        self.largas = ()
+
     def _reposar(self, enviar):
-        """Deja el pitch al centro y el filtro donde lo tenías."""
+        """Deja el pitch al centro y el filtro (y la resonancia) donde los tenías."""
         if self.bend != 0:
             self.bend = 0
             enviar(self.salida, "pitchwheel", self.canal, 0, 0)
         if self.corte is not None and self.corte != self.reposo:
             enviar(self.salida, "control_change", self.canal, self.cc_corte, self.reposo)
         self.corte = None
+        if self.reso is not None and self.reso != self.reso_min:
+            enviar(self.salida, "control_change", self.canal, self.cc_resonancia, self.reso_min)
+        self.reso = None
 
     # --- Reloj ---
 
@@ -146,7 +212,7 @@ class Fx:
             enviar(self.salida, "note_on", self.canal, a, max(1, min(127, int(b))))
             self.sonando.add(a)
         elif tipo == "off":
-            if a in self.sonando:
+            if a in self.sonando and not (b == "gesto" and a in self.largas):
                 enviar(self.salida, "note_off", self.canal, a, 0)
                 self.sonando.discard(a)
         elif tipo == "bend":
@@ -159,11 +225,19 @@ class Fx:
             if a != self.corte:
                 self.corte = a
                 enviar(self.salida, "control_change", self.canal, self.cc_corte, a)
+        elif tipo == "cc2":
+            a = max(0, min(127, int(a)))
+            if a != self.reso:
+                self.reso = a
+                enviar(self.salida, "control_change", self.canal, self.cc_resonancia, a)
 
-    def _programar(self, t0, eventos):
-        self.eventos += [(t0 + dt, tipo, a, b) for dt, tipo, a, b in eventos]
+    def _programar(self, t0, eventos, filtro=False):
+        # Los "off" de un gesto no apagan una nota larga del fondo que justo es la misma.
+        self.eventos += [(t0 + dt, tipo, a, "gesto" if tipo == "off" else b) for dt, tipo, a, b in eventos]
         fin = t0 + max(dt for dt, *_ in eventos)
         self.ocupado_hasta = max(self.ocupado_hasta, fin)
+        if filtro or any(tipo == "cc" for _, tipo, *_ in eventos):
+            self.filtro_hasta = max(self.filtro_hasta, fin)
 
     # --- Notas ---
 
@@ -186,24 +260,37 @@ class Fx:
 
     def paso(self, paso, tick, raiz, momento, subida, enviar):
         """Llamado en cada paso con la nota larga (`raiz`), el acorde y la subida en curso."""
-        if not self.activo or raiz is None:
+        if not self.activo:
             return
+        if raiz is None:
+            self._soltar_largas(enviar)
+            return
+        if self.fondo:
+            self._fondo(paso, tick, raiz, momento, subida, enviar)
         if subida is not None and self.riser:
             self._riser(paso, tick, raiz, momento, subida)
             return
-        if tick < self.ocupado_hasta or paso % 2 or not self.gestos:
+        if paso % 4 == 0:
+            self._gesto(paso, tick, raiz, momento)
+
+    def _gesto(self, paso, tick, raiz, momento):
+        """Los gestos empiezan en un tiempo y terminan justo antes de otro. Qué gesto va en
+        cada lugar se repite cada `repetir` compases; el caos cambia algunos por vuelta."""
+        if tick < self.ocupado_hasta or not self.gestos:
             return
-        compas, lugar = divmod(paso, PASOS_POR_COMPAS)
-        azar = self._azar(paso)
-        prob = self.locura * 0.08 * DENSIDAD_GENERO.get(self.genero, 1.0)
-        if compas % 4 == 3:
-            prob *= 3  # al final de la frase, más locuras
-        if lugar == 0 and compas % 4 == 0:
-            prob = 0  # el uno de la frase queda limpio
+        tiempo = paso // 4
+        largo_lugar = {"frase": 16, "compas": 4, "tiempo": 1}[self.donde]
+        lugar, dentro = divmod(tiempo, largo_lugar)
+        ciclo = max(largo_lugar, self.repetir * 4) // largo_lugar   # lugares por vuelta
+        vuelta, cual = divmod(lugar, ciclo)
+        cambia = self._azar("caos", vuelta, cual).random() < self.caos
+        azar = self._azar("lugar", cual, vuelta if cambia else 0)
+        prob = self.locura * DENSIDAD_GENERO.get(self.genero, 1.0) * {"frase": 1.6, "compas": 0.9, "tiempo": 0.3}[self.donde]
         if azar.random() >= prob:
             return
         paleta = PALETAS[self.genero]
-        opciones = [(g, paleta[g]) for g in self.gestos if paleta.get(g)]
+        opciones = [(g, paleta[g]) for g in self.gestos if paleta.get(g)
+                    and (self.donde != "tiempo" or TIEMPOS[g] <= 2)]
         if not opciones:
             return
         total = sum(p for _, p in opciones)
@@ -212,33 +299,111 @@ class Fx:
             x -= peso
             if x < 0:
                 break
+        # Al final de la frase o del compás: termina justo en el uno siguiente.
+        empieza = largo_lugar - min(TIEMPOS[gesto], largo_lugar) if largo_lugar > 1 else 0
+        if dentro != empieza:
+            return
         eventos = getattr(self, "_" + gesto)(raiz, momento, azar)
         self.ultimo = gesto
-        self._programar(tick, eventos)
+        self._programar(tick, eventos, gesto in CON_FILTRO)
 
-    # --- Gestos (eventos con ticks relativos) ---
+    # --- Fondo: notas largas y el filtro en ritmo ---
+
+    def _notas_largas(self, raiz, momento, compas):
+        base = raiz + 12 * (self.fondo_octava + 1)
+        nota = _cerca(momento.raiz % 12, base) if momento is not None else self._acorde(base, None)
+        vuelta = compas // self.fondo_largo
+        if self.fondo_notas == "acorde" and momento is not None:
+            tonos = sorted({_cerca(c, nota + 6) for c in momento.clases})
+            return (tonos[vuelta % len(tonos)],)
+        if self.fondo_notas == "quinta":
+            return (nota, self.tonalidad.nota(nota, 4, "escala"))
+        if self.fondo_notas == "octavas":
+            return (nota + 12 * (vuelta % 2),)
+        return (nota,)
+
+    def _fondo(self, paso, tick, raiz, momento, subida, enviar):
+        compas = paso // PASOS_POR_COMPAS
+        if paso % 4 == 0:   # las notas largas solo cambian en un tiempo
+            quiere = tuple(max(0, min(127, n)) for n in self._notas_largas(raiz, momento, compas))
+            renovar = paso % (PASOS_POR_COMPAS * self.fondo_largo) == 0
+            perdida = any(n not in self.sonando for n in self.largas)
+            if renovar or perdida or set(quiere) != set(self.largas):
+                for n in self.largas:
+                    if n in self.sonando:
+                        enviar(self.salida, "note_off", self.canal, n, 0)
+                        self.sonando.discard(n)
+                for n in quiere:
+                    self._mandar("on", n, self.fondo_fuerza, enviar)
+                self.largas = quiere
+        if self.filtro_modo == "quieto" or tick < self.filtro_hasta or (subida is not None and self.riser):
+            return
+        for dt in range(TICKS_POR_PASO):
+            t = tick + dt
+            pos = self._filtro(t)
+            if pos is not None:
+                centro = (self.filtro_min + self.filtro_max) / 2
+                medio = (self.filtro_max - self.filtro_min) / 2 * self.movimiento
+                self.eventos.append((t, "cc", round(centro - medio + 2 * medio * pos), 0))
+            if self.resonancia:
+                fase = (t / (TICKS_POR_PASO * self.reso_ciclo)) % 1.0
+                tri = 1 - abs(2 * fase - 1)
+                self.eventos.append((t, "cc2", round(self.reso_min + (self.reso_max - self.reso_min) * tri), 0))
+
+    def _filtro(self, t):
+        """Dónde va el filtro (0 = abajo, 1 = arriba) en el pulso `t`."""
+        modo, d = self.filtro_modo, self.division
+        tiempo = t // TICKS_POR_TIEMPO
+        vuelta = tiempo // max(4, self.repetir * 4)
+        if self.caos > 0:
+            loco = self._azar("filtro", vuelta, tiempo % max(4, self.repetir * 4))
+            if loco.random() < self.caos * 0.3:
+                locura = loco.choice(("doble", "saltos", "congelar"))
+                if locura == "doble":
+                    d = max(3, d // 2)
+                elif locura == "saltos":
+                    return self._azar("saltos", t // 3).random()
+                else:
+                    t = tiempo * TICKS_POR_TIEMPO   # congelado en lo que valía al empezar el tiempo
+        if modo == "pluck":
+            paso = t // TICKS_POR_PASO
+            for atras in range(16):
+                if self.ritmo[(paso - atras) % 16]:
+                    pasado = t - (paso - atras) * TICKS_POR_PASO
+                    return max(0.0, 1 - pasado / self.caida_pluck) ** 2
+            return 0.0
+        if modo == "pasos":
+            k = t // d
+            ciclo = max(4, self.repetir * 4) * TICKS_POR_TIEMPO
+            gen = t // ciclo if self._azar("pasos", t // ciclo).random() < self.caos else 0
+            return self._azar("valor", k % 16, gen).random()
+        if modo == "sh":
+            return self._azar("sh", t // d).random()
+        if modo == "wobble":
+            return 0.5 - 0.5 * math.cos(2 * math.pi * (t % d) / d)
+        if modo == "rampa":
+            return (t % d) / d
+        return None
+
+    # --- Gestos (eventos con pulsos relativos, siempre en la rejilla de fusas) ---
 
     def _zap(self, raiz, momento, azar):
-        """Láser: una nota aguda con el pitch que cae en picada (a veces sube), y a veces su eco."""
+        """Láser: una nota aguda con el pitch que cae en picada (a veces sube) en un tiempo, y su eco en el siguiente."""
         nota = self._acorde(self._registro(raiz) + 12, momento)
         baja = azar.random() < 0.75
         desde, hasta = (BEND_MAX, BEND_MIN) if baja else (BEND_MIN, BEND_MAX)
-        ev = [(0, "bend", desde, 0), (0, "on", nota, self._vel())]
-        pasos = 12
-        for k in range(1, pasos + 1):
-            ev.append((2 * k, "bend", round(desde + (hasta - desde) * (k / pasos) ** 0.6), 0))
-        ev += [(22, "off", nota, 0), (24, "bend", 0, 0)]
-        if azar.random() < 0.4:  # eco una octava abajo, más suave
-            eco = max(0, nota - 12)
-            ev.append((36, "bend", desde, 0))
-            ev.append((36, "on", eco, self._vel(0.6)))
-            for k in range(1, pasos + 1):
-                ev.append((36 + 2 * k, "bend", round(desde + (hasta - desde) * (k / pasos) ** 0.6), 0))
-            ev += [(58, "off", eco, 0), (60, "bend", 0, 0)]
+        ev = []
+        for inicio, n, v in ((0, nota, self._vel()), (24, max(0, nota - 12), self._vel(0.6))):
+            if inicio and azar.random() >= 0.5:
+                continue
+            ev += [(inicio, "bend", desde, 0), (inicio, "on", n, v)]
+            for k in range(1, 11):
+                ev.append((inicio + 2 * k, "bend", round(desde + (hasta - desde) * (k / 10) ** 0.6), 0))
+            ev += [(inicio + 21, "off", n, 0), (inicio + 23, "bend", 0, 0)]
         return ev
 
     def _burbujas(self, raiz, momento, azar):
-        """3 notas cortas y rápidas (o 3 cortas y una larga) que caminan por la escala."""
+        """En un tiempo: 3 fusas que caminan por la escala, o 3 fusas y una semicorchea más larga."""
         nota = self._acorde(self._registro(raiz) + 12, momento)
         cuantas = 3 if azar.random() < 0.5 else 4
         ev = []
@@ -246,13 +411,13 @@ class Fx:
             larga = cuantas == 4 and k == 3
             if larga:
                 nota = self._acorde(nota, momento)
-            ev += [(4 * k, "on", nota, self._vel(0.75 if k else 0.9)),
-                   (4 * k + (14 if larga else 2), "off", nota, 0)]
+            t = 3 * k if k < 3 else 12
+            ev += [(t, "on", nota, self._vel(0.75 if k else 0.9)), (t + (10 if larga else 2), "off", nota, 0)]
             nota = self.tonalidad.nota(nota, azar.choice((1, 2, 1, -1, 3)), "escala")
         return ev
 
     def _acido(self, raiz, momento, azar):
-        """Un pedacito de 303: semicorcheas con slides, ♭2 y octava, y el filtro chillando en cada nota."""
+        """Dos tiempos de 303: semicorcheas con slides, ♭2 y octava, y el filtro chillando en cada nota."""
         base = self._acorde(self._registro(raiz) - 12, momento)
         grados = (0, 0, 7, 1, 0, 4, 7, 0)
         ev = [(0, "cc", 30, 0)]
@@ -275,21 +440,21 @@ class Fx:
                 ev.append((t + 3, "off", nota, 0))
                 anterior = None
         if anterior is not None:
-            ev.append((48, "off", anterior, 0))
-        ev.append((48, "cc", self.reposo, 0))
+            ev.append((47, "off", anterior, 0))
+        ev.append((47, "cc", self.reposo, 0))
         return ev
 
     def _glitch(self, raiz, momento, azar):
-        """Dos tiempos trabados: ráfagas de fusas con saltos de pitch, siempre en la rejilla."""
+        """Dos tiempos trabados: semicorcheas y redobles de fusas que saltan entre notas del
+        acorde (octava, quinta), sin pitch bend: siempre afinado y en la rejilla."""
         nota = self._acorde(self._registro(raiz), momento)
-        saltos = (0, 0, 2048, -2048, 4096, -4096, BEND_MAX)
+        saltos = [nota, nota, min(127, nota + 12), self._acorde(nota + 7, momento), max(0, nota - 12)]
         ev = []
         for k in range(8):
             if azar.random() >= 0.65:
                 continue
             t = k * TICKS_POR_PASO
-            n = min(127, nota + 12) if azar.random() < 0.3 else nota
-            ev.append((t, "bend", azar.choice(saltos), 0))
+            n = azar.choice(saltos)
             if azar.random() < 0.5:
                 ev += [(t, "on", n, self._vel(0.9)), (t + 2, "off", n, 0),
                        (t + 3, "on", n, self._vel(0.75)), (t + 5, "off", n, 0)]
@@ -297,7 +462,54 @@ class Fx:
                 ev += [(t, "on", n, self._vel(0.9)), (t + 4, "off", n, 0)]
         if not ev:
             ev = [(0, "on", nota, self._vel(0.9)), (4, "off", nota, 0)]
-        ev.append((48, "bend", 0, 0))
+        return ev
+
+    def _barrido(self, raiz, momento, azar):
+        """Un compás: una nota larga con el filtro que se abre de cerrado a todo (o se cierra)."""
+        nota = self._acorde(self._registro(raiz), momento)
+        abre = azar.random() < 0.7
+        ev = [(0, "on", nota, self._vel(0.85))]
+        for k in range(33):
+            x = k / 32
+            x = x ** 1.7 if abre else 1 - x ** 0.6
+            ev.append((3 * k if k < 32 else 95, "cc", round(12 + 115 * x), 0))
+        ev.append((94, "off", nota, 0))
+        return ev
+
+    def _gate(self, raiz, momento, azar):
+        """Dos tiempos: una nota que el filtro corta en semicorcheas (o fusas) con un ritmo euclidiano."""
+        nota = self._acorde(self._registro(raiz), momento)
+        rejilla = 3 if azar.random() < 0.35 else 6
+        golpes = euclides(azar.choice((3, 5, 5, 7)), 8, azar.randrange(8))
+        ev = [(0, "on", nota, self._vel(0.85))]
+        for k in range(48 // rejilla):
+            abierto = golpes[k % 8]
+            ev.append((k * rejilla, "cc", 118 if abierto else 18, 0))
+        ev += [(46, "off", nota, 0), (47, "cc", self.reposo, 0)]
+        return ev
+
+    def _eco(self, raiz, momento, azar):
+        """Un compás: una nota y sus ecos cada corchea con puntillo, cada vez más suaves y más oscuros."""
+        nota = self._acorde(self._registro(raiz) + 12 * azar.choice((0, 1)), momento)
+        ev = []
+        for k in range(5):
+            t = 18 * k
+            ev += [(t, "cc", round(120 - 18 * k), 0), (t, "on", nota, self._vel(0.95 * 0.72 ** k)), (t + 4, "off", nota, 0)]
+        ev.append((95, "cc", self.reposo, 0))
+        return ev
+
+    def _escalera(self, raiz, momento, azar):
+        """Un tiempo de fusas que suben por el acorde mientras el filtro se abre."""
+        nota = self._acorde(self._registro(raiz), momento)
+        clases = momento.clases if momento is not None else None
+        ev = []
+        for k in range(8):
+            ev += [(3 * k, "cc", 40 + 11 * k, 0), (3 * k, "on", nota, self._vel(0.6 + 0.05 * k)), (3 * k + 2, "off", nota, 0)]
+            siguiente = nota + 1
+            while clases is not None and siguiente % 12 not in clases and siguiente < nota + 12:
+                siguiente += 1
+            nota = min(127, siguiente if clases is not None else self.tonalidad.nota(nota, 2, "escala"))
+        ev.append((23, "cc", self.reposo, 0))
         return ev
 
     # --- Subida y drop ---
@@ -327,8 +539,9 @@ class Fx:
         for nota in sorted(self.sonando):
             enviar(self.salida, "note_off", self.canal, nota, 0)
         self.sonando = set()
+        self.largas = ()   # las notas largas del fondo vuelven en el próximo tiempo
         self.eventos = []
-        self.ocupado_hasta = -1
+        self.ocupado_hasta = self.filtro_hasta = -1
         if not (self.activo and self.caida and caida and raiz is not None):
             self._reposar(enviar)
             return

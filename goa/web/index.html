@@ -1428,9 +1428,18 @@ function panelDialogo() {
 
 // --- FX ---
 
-const GESTOS_FX = [["zap", "Zaps", "láser que cae en picada"], ["burbujas", "Burbujas", "3 notas rápidas en la escala"],
-  ["acido", "Ácido", "un pedazo de 303 con el filtro chillando"], ["glitch", "Glitch", "ráfagas de fusas con saltos de pitch"]];
-const GESTO_TEXTO = {zap: "zap", burbujas: "burbujas", acido: "ácido", glitch: "glitch", riser: "riser", caida: "caída"};
+const GESTOS_FX = [["zap", "Zaps", "2 tiempos · láser que cae en picada y su eco"], ["burbujas", "Burbujas", "1 tiempo · fusas que caminan por la escala"],
+  ["acido", "Ácido", "2 tiempos · un pedazo de 303 con el filtro chillando"], ["glitch", "Glitch", "2 tiempos · redobles que saltan de octava y quinta"],
+  ["barrido", "Barrido", "1 compás · nota larga con el filtro abriéndose (o cerrándose)"], ["gate", "Gate", "2 tiempos · el filtro corta la nota en ritmo euclidiano"],
+  ["eco", "Eco", "1 compás · ecos en corchea con puntillo, cada vez más oscuros"], ["escalera", "Escalera", "1 tiempo · fusas que suben por el acorde, el filtro abriéndose"]];
+const GESTO_TEXTO = {zap: "zap", burbujas: "burbujas", acido: "ácido", glitch: "glitch", barrido: "barrido", gate: "gate", eco: "eco", escalera: "escalera", riser: "riser", caida: "caída"};
+const FILTRO_MODOS = [["pluck", "Pluck", "golpes"], ["pasos", "Pasos", "16 valores"], ["sh", "S&H", "al azar"], ["wobble", "Wobble", "va y viene"], ["rampa", "Rampa", "sube y cae"], ["quieto", "Quieto", "no lo toca"]];
+const DIVISIONES_FX = [["32", "1/32"], ["16", "1/16"], ["8t", "1/8 T"], ["8", "1/8"], ["4", "1/4"], ["2", "1/2"], ["1c", "1 comp."], ["2c", "2 comp."]];
+function euclidesTexto(golpes, rotar) {
+  let s = "";
+  for (let i = 0; i < 16; i++) { s += ((i + rotar) * golpes) % 16 < golpes ? "●" : "·"; if (i % 4 === 3 && i < 15) s += " "; }
+  return s;
+}
 
 function panelFx() {
   const x = cfg.fx;
@@ -1444,14 +1453,56 @@ function panelFx() {
       ambient: "Ambient: solo burbujas, muy de vez en cuando."}[x.genero]),
     campo("Variante", variante(x, "fx")),
     el("div", {className: "card principales"}, [
-      deslizador(x, "locura", "Locura", 0, 1, 0.05, (v) => v === 0 ? "solo subidas" : v < 0.3 ? `poca (${porcentaje(v)})` : v < 0.7 ? `media (${porcentaje(v)})` : `mucha (${porcentaje(v)})`),
-      ayuda("Cuántos gestos aparecen (más al final de cada frase de 4 compases). La energía la sube y la baja. También decide cuánto se traban las secuencias con FX."),
+      deslizador(x, "locura", "Locura", 0, 1, 0.05, (v) => v === 0 ? "solo subidas y fondo" : v < 0.3 ? `poca (${porcentaje(v)})` : v < 0.7 ? `media (${porcentaje(v)})` : `mucha (${porcentaje(v)})`),
+      ayuda("Cuántos lugares tienen gesto. La energía la sube y la baja. También decide cuánto se traban las secuencias con FX."),
+      deslizador(x, "caos", "Caos", 0, 1, 0.05, (v) => v === 0 ? "se repite igual" : v < 0.4 ? `poco (${porcentaje(v)})` : `mucho (${porcentaje(v)})`),
+      ayuda("Cuánto cambia en cada vuelta: algunos gestos cambian y el filtro del fondo hace locuras (el doble de rápido, saltos, se congela)."),
     ]),
     el("div", {className: "grupos"}, [
-      grupo("g-fx-gestos", "Gestos", gestos.join(", ") || "ninguno", [
+      grupo("g-fx-gestos", "Gestos", `${gestos.join(", ") || "ninguno"} · ${{frase: "al final de la frase", compas: "al final del compás", tiempo: "en cualquier tiempo"}[x.donde]} · se repiten cada ${x.repetir}`, [
+        campo("Dónde caen", segmentado([["frase", "Fin de frase", "cada 4 compases"], ["compas", "Fin de compás", "cada compás"], ["tiempo", "Cualquier tiempo", "más suelto"]], x.donde, (v) => { x.donde = v; guardar(); renderMotores(); }, 3)),
+        campo("Se repiten cada", segmentado([["2","2 comp."],["4","4 comp."],["8","8 comp."],["16","16 comp."]], String(x.repetir), (v) => { x.repetir = parseInt(v); guardar(); renderMotores(); }, 4)),
+        ayuda("Cada gesto empieza en un tiempo, dura tiempos enteros y termina justo en el uno siguiente. El mismo gesto vuelve en el mismo lugar cada vuelta (con caos, algunos cambian)."),
         ...GESTOS_FX.map(([k, n, d]) => casilla(x, k, n, d, () => renderMotores())),
-        ayuda("Las notas salen del acorde que suena (o de la escala): las locuras nunca desafinan."),
+        ayuda("Las notas salen del acorde que suena (o de la escala). Solo el zap usa pitch bend; los demás saltan entre notas, así que nunca desafinan."),
       ]),
+      grupo("g-fx-fondo", "Fondo: notas largas", x.fondo ? `${{raiz: "la raíz", acorde: "notas del acorde", quinta: "raíz y quinta", octavas: "octavas"}[x.fondo_notas]} · cada ${x.fondo_largo} compás${x.fondo_largo > 1 ? "es" : ""}` : "apagado", [
+        el("label", {className: "fila", style: "min-height:44px"}, [
+          el("span", {}, ["Notas largas de fondo", el("br"), el("span", {className: "mut", textContent: "Suenan siempre, y el filtro les da el ritmo"})]),
+          el("input", {type: "checkbox", className: "switch", checked: !!x.fondo, "aria-label": "Notas largas de fondo",
+            onchange: (e) => { x.fondo = e.target.checked; guardar(); renderMotores(); }})]),
+        ...(x.fondo ? [
+          campo("Qué notas", segmentado([["raiz", "Raíz"], ["acorde", "Del acorde", "va cambiando"], ["quinta", "Raíz + quinta"], ["octavas", "Octavas", "alterna"]], x.fondo_notas, (v) => { x.fondo_notas = v; guardar(); renderMotores(); }, 2)),
+          campo("Se vuelven a atacar cada", segmentado([["1","1 comp."],["2","2 comp."],["4","4 comp."],["8","8 comp."]], String(x.fondo_largo), (v) => { x.fondo_largo = parseInt(v); guardar(); renderMotores(); }, 4)),
+          el("div", {className: "dos"}, [numeroDe(x, "fondo_octava", "Octava", -2, 2), numeroDe(x, "fondo_fuerza", "Fuerza", 1, 127)]),
+          ayuda("Si cambia el acorde, la nota cambia en el tiempo siguiente. En la MC-101 usa un sonido polifónico con sustain (pad, drone, bajo largo): los gestos suenan encima."),
+        ] : []),
+      ]),
+      x.fondo ? grupo("g-fx-filtro", "Filtro en ritmo", `${FILTRO_MODOS.find((m) => m[0] === x.filtro_modo)[1]}${x.filtro_modo === "pluck" ? ` ${x.filtro_golpes}/16` : x.filtro_modo === "quieto" ? "" : " " + DIVISIONES_FX.find((d) => d[0] === x.filtro_division)[1]} · ${x.filtro_min}–${x.filtro_max}${x.resonancia ? " · resonancia" : ""}`, [
+        campo("Cómo se mueve", segmentado(FILTRO_MODOS, x.filtro_modo, (v) => { x.filtro_modo = v; guardar(); renderMotores(); }, 3)),
+        ...(x.filtro_modo === "pluck" ? [
+          deslizador(x, "filtro_golpes", "Golpes en el compás", 1, 16, 1, (v) => `${v} de 16`, () => renderMotores()),
+          deslizador(x, "filtro_rotar", "Correr el ritmo", 0, 15, 1, (v) => v === 0 ? "sin correr" : `${v} semicorchea${v > 1 ? "s" : ""}`, () => renderMotores()),
+          el("div", {className: "mut", style: "font-family:monospace;font-size:16px;letter-spacing:1px", textContent: euclidesTexto(x.filtro_golpes, x.filtro_rotar)}),
+          deslizador(x, "filtro_caida", "Cierre", 1, 48, 1, (v) => v <= 4 ? "seco" : v <= 12 ? `${v} pulsos` : `largo (${v} pulsos)`),
+          ayuda("En cada golpe el filtro se abre de una y se va cerrando: ritmo euclidiano (los golpes repartidos lo más parejo posible)."),
+        ] : x.filtro_modo === "quieto" ? [] : [
+          campo("División", segmentado(DIVISIONES_FX, x.filtro_division, (v) => { x.filtro_division = v; guardar(); renderMotores(); }, 4)),
+          ayuda({pasos: "Una fila de 16 valores que se repite (cambia la variante para otra; con caos va mutando).", sh: "Un valor al azar en cada división (sample & hold).",
+            wobble: "Sube y baja suave en cada división.", rampa: "Sube en cada división y cae de golpe."}[x.filtro_modo]),
+        ]),
+        ...(x.filtro_modo === "quieto" ? [] : [
+          el("div", {className: "dos"}, [numeroDe(x, "filtro_min", "Más cerrado", 0, 127), numeroDe(x, "filtro_max", "Más abierto", 0, 127)]),
+          deslizador(x, "movimiento", "Movimiento", 0, 1, 0.05, (v) => v === 0 ? "quieto al medio" : porcentaje(v)),
+        ]),
+        casilla(x, "resonancia", "Mover la resonancia", "Va y viene en un ciclo propio, desfasado del compás", () => renderMotores()),
+        ...(x.resonancia ? [
+          deslizador(x, "reso_ciclo", "Ciclo de la resonancia", 1, 64, 1, (v) => `${v} semicorchea${v > 1 ? "s" : ""}${16 % v ? " (desfasada)" : ""}`),
+          el("div", {className: "dos"}, [numeroDe(x, "reso_min", "Resonancia mín.", 0, 127), numeroDe(x, "reso_max", "Resonancia máx.", 0, 127)]),
+          numeroDe(x, "cc_resonancia", "CC de la resonancia", 0, 127),
+        ] : []),
+        ayuda("Mientras un gesto mueve el filtro (ácido, barrido, gate, eco, escalera) o en el riser, el fondo lo suelta. En la MC-101, corte = CC 74 y resonancia = CC 71."),
+      ]) : null,
       grupo("g-fx-subida", "Subida y drop", `${x.riser ? "riser" : "sin riser"} · ${x.caida ? "caída en el drop" : "sin caída"}`, [
         casilla(x, "riser", "Riser en las subidas", "Golpes que se van densificando (negras, corcheas, semicorcheas, fusas), el pitch subiendo hasta el drop y el filtro que baja y se va abriendo."),
         casilla(x, "caida", "Caída en el drop", "Una nota que se desploma con el pitch y el filtro en los dos compases después del drop."),
@@ -1464,11 +1515,11 @@ function panelFx() {
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
         ayuda("Un canal libre de la MC-101 (una pista con un sonido para efectos)."),
         el("div", {className: "dos"}, [numeroDe(x, "cc_corte", "CC del filtro", 0, 127), numeroDe(x, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]),
-        ayuda("El ácido, el riser y la caída mueven el filtro por ese CC y después lo dejan en el reposo."),
+        ayuda("Los gestos con filtro, el fondo, el riser y la caída lo mueven por ese CC. Sin fondo, después lo dejan en el reposo."),
         numeroDe(x, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
         programaDe(x),
       ]),
-    ]),
+    ].filter(Boolean)),
   ];
 }
 

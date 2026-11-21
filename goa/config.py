@@ -184,6 +184,29 @@ ESQUEMA_SECCIONES["fx"] = {
     "cc_corte": (int, 74, 0, 127),           # CC del filtro del sinte de FX
     "filtro_reposo": (int, 100, 0, 127),     # dónde queda el filtro cuando no hay gestos
     "seed": (str, "FX-0001", None, None),
+    # Dónde caen los gestos y cuánto se repiten (ver fx._gesto).
+    "donde": (str, "frase", None, fx.DONDE),
+    "repetir": (int, 8, 1, 32),              # compases: qué gesto va en cada lugar se repite
+    "caos": (float, 0.2, 0.0, 1.0),          # cuánto cambia en cada vuelta (gestos y filtro)
+    # Fondo: notas largas con el filtro en ritmo (ver fx._fondo).
+    "fondo": (bool, False, None, None),
+    "fondo_notas": (str, "raiz", None, fx.FONDO_NOTAS),
+    "fondo_largo": (int, 2, 1, 8),           # compases: cada cuánto se vuelven a atacar
+    "fondo_octava": (int, 0, -2, 2),
+    "fondo_fuerza": (int, 90, 1, 127),
+    "filtro_modo": (str, "pluck", None, fx.FILTRO_MODOS),
+    "filtro_division": (str, "16", None, tuple(fx.DIVISIONES)),
+    "filtro_golpes": (int, 5, 1, 16),        # pluck: golpes euclidianos en 16 semicorcheas
+    "filtro_rotar": (int, 0, 0, 15),
+    "filtro_caida": (int, 9, 1, 48),         # pluck: pulsos que tarda en cerrarse (6 = una semicorchea)
+    "filtro_min": (int, 25, 0, 127),
+    "filtro_max": (int, 115, 0, 127),
+    "movimiento": (float, 1.0, 0.0, 1.0),    # cuánto del rango usa (macro para el nanoKONTROL2)
+    "resonancia": (bool, False, None, None),
+    "cc_resonancia": (int, 71, 0, 127),
+    "reso_min": (int, 20, 0, 127),
+    "reso_max": (int, 90, 0, 127),
+    "reso_ciclo": (int, 6, 1, 64),           # semicorcheas de una vuelta (6 = desfasada contra el compás)
 }
 
 # Texturas: notas largas que respiran (un CC que sube y vuelve en cada una) mezcladas
