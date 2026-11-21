@@ -3,20 +3,23 @@
 Tú pones el ritmo (cortas, largas, fuertes, suaves) y el motor pone las alturas, siempre
 dentro de la escala y del acorde que suena: nunca queda desafinado.
 
-  Una tecla  da lo mismo qué tecla: el estilo elige cada nota.
+  Una tecla  da lo mismo qué tecla: las notas salen de una secuencia del estilo elegido
+             (los mismos estilos de las secuencias: rolling, galope, arpegio, ácido,
+             clásico, psytrance…), con la seed. Cada nota que tocas toma la altura del paso
+             de esa secuencia en que cae (o la del último paso que suena antes).
   Contorno   la tecla cuenta: tocas más agudo y la nota sube, pero cae siempre en la
              escala, y en los tiempos fuertes en una nota del acorde.
 
-Estilos: goa (anclas en el tiempo y la línea corre entre ellas), ácido (raíz, octava
-en los acentos, terceras y séptimas), mantra (un motivo de tres notas que se repite y
-sigue la armonía), raga (líneas por grados con apoyatura desde arriba en los tiempos
-fuertes) y bajo (raíz en el tiempo, octava y quinta en el contratiempo).
-
 Lo que tocas suena al instante (sin cuantizar: cuantizar sería esperar). Grabar arma la
-grabación: empieza en el próximo compás, dura los compases elegidos (8 a 32) y después
-queda en loop, cuantizado a semicorcheas. El loop guarda el ritmo y la tecla, no la
-altura: cada vuelta vuelve a elegir las notas con la armonía de ese momento, así sigue
-a los pads, y «Otra variación» (seed nueva) le cambia las notas sin tocar tu ritmo.
+grabación: empieza en el próximo compás, dura los pasos elegidos (1 a 32 semicorcheas) y
+después queda en loop. La cuantización se aplica a lo grabado:
+  estricta  inicio y largo a la semicorchea
+  suave     a mitad de camino hacia la semicorchea: ordena sin perder tu toque
+  swing     a la semicorchea, con las del contratiempo un poco tarde (groove)
+  libre     tal cual lo tocaste
+El loop guarda el ritmo y la tecla, no la altura: cada vuelta vuelve a elegir las notas con
+la armonía de ese momento, así sigue a los pads, y «Otra variante» (seed nueva) le cambia
+las notas sin tocar tu ritmo.
 
 Una nota larga que queda chocando con un acorde nuevo se vuelve a atacar, suave, en la
 nota del acorde más cercana.
@@ -27,12 +30,15 @@ import logging
 import random
 
 from . import armonia
+from .generador import ESTILOS
 
 log = logging.getLogger("goa.tocado")
 
 PULSOS_POR_COMPAS = 96
 PULSOS_POR_PASO = 6
-ESTILOS = ("goa", "acido", "mantra", "raga", "bajo")
+CUANTIZAR = ("estricta", "suave", "swing", "libre")
+SWING = 2    # pulsos de atraso de las semicorcheas del contratiempo en «swing» (un tercio de paso)
+ANTES = 4    # pulsos: una nota tocada justo antes de que empiece la grabación cuenta desde el uno
 
 
 class Tocado:
@@ -42,6 +48,8 @@ class Tocado:
         self.salida, self.canal = None, 0
         self.tonalidad = None
         self.vivas = {}          # tecla -> nota que suena por esa tecla
+        self.fuerzas = {}        # tecla -> velocidad con que se apretó
+        self.anticipadas = {}    # tecla -> fuerza, tocadas apenas antes de empezar a grabar
         self.sonando = {}        # nota que suena -> (tecla o ("loop", i), velocidad)
         self.estado = "libre"    # libre | armado | grabando | loop | pausa
         self.grabadas = []       # (pulso desde el inicio, largo en pulsos, velocidad, tecla)
@@ -53,6 +61,7 @@ class Tocado:
         self.indice = 0          # notas tocadas en la frase (para el mantra y el azar)
         self.ultima = None       # (tick, nota) de la última nota tocada
         self.clases = None       # acorde con el que se eligieron las notas que suenan
+        self.patron = []         # la secuencia del estilo (de ahí salen las alturas en «una tecla»)
         self.texto = ""          # lo grabado tal como está en la configuración (tocado.loop)
         self.cambio_loop = False # grabó o borró: la app tiene que guardarlo (Contexto.sincronizar_tocado)
 
@@ -69,6 +78,10 @@ class Tocado:
         self.activo = bool(cfg.get("activo"))
         self.salida, self.canal = destino
         self.tonalidad = tonalidad
+        clave = (cfg.get("estilo"), cfg.get("seed"), cfg.get("genero"))
+        if clave != getattr(self, "_clave_patron", None):
+            self._clave_patron = clave
+            self.patron = _patron(cfg)
         if not self.activo:
             self.estado, self.abiertas = ("pausa" if self.grabadas else "libre"), {}
 
@@ -79,19 +92,22 @@ class Tocado:
     def serializar(self):
         if not self.grabadas:
             return ""
-        return json.dumps([self.largo // PULSOS_POR_COMPAS, [list(g) for g in self.grabadas]], separators=(",", ":"))
+        return json.dumps({"pulsos": self.largo, "notas": [list(g) for g in self.grabadas]}, separators=(",", ":"))
 
     def _cargar(self, texto, tick):
         self.texto = texto
         try:
-            compases, notas = json.loads(texto) if texto else (0, [])
+            datos = json.loads(texto) if texto else {"pulsos": 0, "notas": []}
+            if isinstance(datos, list):   # formato de la 0.64-0.65: [compases, notas]
+                datos = {"pulsos": int(datos[0]) * PULSOS_POR_COMPAS, "notas": datos[1]}
+            largo, notas = int(datos["pulsos"]), datos["notas"]
             grabadas = sorted((int(a), int(b), int(c), int(d)) for a, b, c, d in notas)
         except (ValueError, TypeError):
             log.warning("Tocado: no entiendo el loop guardado")
             return
         if self.estado in ("grabando", "armado"):
             return  # estás grabando: lo nuevo manda
-        self.grabadas, self.largo = grabadas, int(compases) * PULSOS_POR_COMPAS
+        self.grabadas, self.largo = grabadas, largo
         if grabadas and self.largo:
             self.estado = "loop" if self.estado != "pausa" else "pausa"
             self.inicio = max(tick, 0) - max(tick, 0) % PULSOS_POR_COMPAS   # desde el uno de este compás
@@ -102,10 +118,10 @@ class Tocado:
         return random.Random(f"{self.cfg.get('seed', 'TC')}:{self.cfg.get('estilo')}:" + ":".join(map(str, clave)))
 
     def _registro(self):
-        base = 36 if self.cfg.get("estilo") == "bajo" else 60
+        base = 60
         return base + 12 * int(self.cfg.get("octava", 0))
 
-    def elegir(self, tecla, velocidad, pulso_en_compas, momento, indice, previa):
+    def elegir(self, tecla, velocidad, pulso_en_compas, momento, indice, previa, paso_absoluto=None):
         """La nota para una tecla. pulso_en_compas: 0-95. previa: la nota anterior (o None)."""
         t = self.tonalidad
         fuerte = pulso_en_compas % 24 < 3   # en el tiempo (o apenas después)
@@ -118,43 +134,24 @@ class Tocado:
             if fuerte:
                 nota = armonia.nota_del_acorde(nota, clases)
             return _limitar(nota)
-        r = self._rng(indice, pulso_en_compas // PULSOS_POR_PASO)
-        estilo = self.cfg.get("estilo", "goa")
-        if estilo == "goa":
-            if fuerte or previa is None:
-                nota = ancla if r.random() < 0.6 else t.nota(ancla, 4, "escala")
-            else:
-                paso = r.choice((1, 1, 2, -1, -1, -2))
-                nota = t.nota(previa, paso, "escala")
-                if not ancla - 3 <= nota <= ancla + 14:
-                    nota = t.nota(previa, -paso, "escala")
-        elif estilo == "acido":
-            if velocidad >= 100:
-                nota = ancla + 12
-            else:
-                nota = t.nota(ancla, r.choice((0, 0, 0, 2, 6, -1, 4)), "escala")
-        elif estilo == "mantra":
-            motivo = self._rng("motivo").choice(((0, 2, 1), (0, -1, 2), (0, 4, 2), (0, 1, -1), (4, 2, 0)))
-            nota = t.nota(ancla, motivo[indice % 3], "escala")
-        elif estilo == "raga":
-            if previa is None or fuerte:
-                nota = t.nota(ancla, r.choice((0, 0, 4, 2)), "escala")
-            else:
-                nota = t.nota(previa, r.choice((1, -1, -1, 2, -2)), "escala")
-                if not ancla - 5 <= nota <= ancla + 12:
-                    nota = t.nota(ancla, 2, "escala")
-        else:  # bajo
-            if fuerte or previa is None:
-                nota = ancla
-            else:
-                nota = r.choice((ancla, ancla + 12, ancla + 12, t.nota(ancla, 4, "escala")))
+        nota = ancla
+        if self.patron:
+            # La altura del paso de la secuencia del estilo en que cae la nota (o la del
+            # último paso que suena antes): tu ritmo, la melodía del estilo.
+            n = len(self.patron)
+            i = (paso_absoluto if paso_absoluto is not None else pulso_en_compas // PULSOS_POR_PASO) % n
+            for k in range(n):
+                p = self.patron[(i - k) % n]
+                if p and p.get("suena", True):
+                    nota = t.nota(ancla, p["grado"], "escala") + 12 * p.get("octava", 0)
+                    break
         if fuerte:
             nota = armonia.nota_del_acorde(nota, clases)
         return _limitar(_en_escala(t, nota))
 
     def _apoyatura(self, nota, pulso_en_compas):
         """Raga: en el tiempo, la nota llega desde la de arriba (un pulso antes)."""
-        return self.cfg.get("estilo") == "raga" and self.cfg.get("modo") != "contorno" and pulso_en_compas % 24 < 3
+        return False  # (la raga queda para los estilos de secuencia con ornamentos)
 
     # --- Tocar en vivo ---
 
@@ -167,14 +164,17 @@ class Tocado:
         previa = self.ultima[1] if self.ultima is not None else None
         if self.ultima is not None and tick - self.ultima[0] > 2 * 24:
             self.indice, previa = 0, None   # después de una pausa larga empieza otra frase
-        nota = self.elegir(tecla, velocidad, en_compas, momento, self.indice, previa)
+        nota = self.elegir(tecla, velocidad, en_compas, momento, self.indice, previa, max(tick, 0) // PULSOS_POR_PASO)
         self.indice += 1
         self.ultima = (tick, nota)
         self.clases = momento.clases if momento is not None else None
         self._sonar(nota, velocidad, tecla, tick, en_compas if corriendo else 1, enviar)
         self.vivas[tecla] = nota
+        self.fuerzas[tecla] = velocidad
         if self.estado == "grabando":
             self.abiertas[tecla] = (tick - self.inicio, velocidad)
+        elif self.estado == "armado" and PULSOS_POR_COMPAS - en_compas <= ANTES:
+            self.anticipadas[tecla] = velocidad   # justo antes del uno: cuenta desde el uno
 
     def tecla_off(self, tecla, tick, enviar):
         nota = self.vivas.pop(tecla, None)
@@ -182,6 +182,7 @@ class Tocado:
             del self.sonando[nota]
             enviar(self.salida, "note_off", self.canal, nota, 0)
         self.pendientes = [p for p in self.pendientes if p[3] != tecla]
+        self.fuerzas.pop(tecla, None)
         abierta = self.abiertas.pop(tecla, None)
         if abierta is not None and self.estado == "grabando":
             inicio, vel = abierta
@@ -202,10 +203,11 @@ class Tocado:
     # --- Grabar y loop ---
 
     def accion(self, que, tick):
-        compases = max(8, min(32, int(self.cfg.get("compases", 8))))
+        pasos = max(1, min(32, int(self.cfg.get("pasos", 16))))
         if que == "grabar":
             self.grabadas, self.abiertas, self.estado = [], {}, "armado"
-            self.largo = compases * PULSOS_POR_COMPAS
+            self.anticipadas = {}
+            self.largo = pasos * PULSOS_POR_PASO
         elif que == "parar":
             if self.estado in ("loop", "grabando", "armado"):
                 self.estado = "pausa" if self.grabadas else "libre"
@@ -235,8 +237,10 @@ class Tocado:
             _, nota, vel, duenio = p
             if nota in self.sonando and self.sonando[nota][0] == duenio:
                 enviar(self.salida, "note_on", self.canal, nota, vel)
-        if tick % PULSOS_POR_COMPAS == 0:
-            self._compas(tick, enviar)
+        if tick % PULSOS_POR_COMPAS == 0 and self.estado == "armado":
+            self._empezar(tick)
+        elif self.estado == "grabando" and tick - self.inicio >= self.largo:
+            self._terminar(tick)
         if tick % PULSOS_POR_PASO == 0:
             self._cambio_de_acorde(tick, momento_de(tick // PULSOS_POR_PASO), enviar)
         if self.estado == "loop" and self.activo and self.largo:
@@ -245,38 +249,53 @@ class Tocado:
                 if inicio == dentro:
                     momento = momento_de(tick // PULSOS_POR_PASO)
                     previa = self.ultima[1] if self.ultima is not None else None
-                    nota = self.elegir(tecla, vel, tick % PULSOS_POR_COMPAS, momento, i, previa)
+                    nota = self.elegir(tecla, vel, tick % PULSOS_POR_COMPAS, momento, i, previa, tick // PULSOS_POR_PASO)
                     self.ultima = (tick, nota)
                     self.clases = momento.clases if momento is not None else None
                     self._sonar(nota, vel, ("loop", i), tick, tick % PULSOS_POR_COMPAS, enviar)
                     self.vencen.append((tick + largo, nota, ("loop", i)))
 
-    def _compas(self, tick, enviar):
-        if self.estado == "armado":
-            self.estado, self.inicio = "grabando", tick
-            # Lo que ya estabas apretando al empezar cuenta desde el uno.
-            self.abiertas = {tecla: (0, 100) for tecla in self.vivas}
-        elif self.estado == "grabando" and tick - self.inicio >= self.largo:
-            for tecla, (inicio, vel) in self.abiertas.items():
-                self.grabadas.append((inicio, max(1, self.largo - inicio), vel, tecla))
-            self.abiertas = {}
-            self._cuantizar()
-            self.estado = "loop" if self.grabadas else "libre"
-            self.inicio = tick
-            self.cambio_loop = True
-            log.info("Tocado: loop de %d compases con %d notas", self.largo // PULSOS_POR_COMPAS, len(self.grabadas))
+    def _empezar(self, tick):
+        self.estado, self.inicio = "grabando", tick
+        # Lo que ya estabas apretando (o tocaste apenas antes) cuenta desde el uno.
+        self.abiertas = {tecla: (0, self.fuerzas.get(tecla, 100)) for tecla in self.vivas}
+        for tecla, vel in self.anticipadas.items():
+            if tecla not in self.vivas:   # una corta tocada apenas antes y ya soltada
+                self.grabadas.append((0, PULSOS_POR_PASO, vel, tecla))
+        self.anticipadas = {}
+
+    def _terminar(self, tick):
+        for tecla, (inicio, vel) in self.abiertas.items():
+            self.grabadas.append((inicio, max(1, self.largo - inicio), vel, tecla))
+        self.abiertas = {}
+        self._cuantizar()
+        self.estado = "loop" if self.grabadas else "libre"
+        self.inicio = tick
+        self.cambio_loop = True
+        log.info("Tocado: loop de %d pasos con %d notas (%s)", self.largo // PULSOS_POR_PASO, len(self.grabadas),
+                 self.cfg.get("cuantizar", "estricta"))
 
     def _cuantizar(self):
-        """A semicorcheas: el inicio al paso más cercano; el largo, al menos un paso."""
-        vistas, notas = set(), []
-        for inicio, largo, vel, tecla in sorted(self.grabadas):
-            q = round(inicio / PULSOS_POR_PASO) * PULSOS_POR_PASO % self.largo
-            d = max(PULSOS_POR_PASO, round(largo / PULSOS_POR_PASO) * PULSOS_POR_PASO)
-            if q in vistas:
-                continue  # dos notas en el mismo paso: queda la primera
-            vistas.add(q)
-            notas.append((q, d, vel, tecla))
-        self.grabadas = sorted(notas)
+        """Según `cuantizar`: estricta, suave (a mitad de camino), swing o libre. Dos
+        notas que caen en el mismo lugar: queda la más fuerte."""
+        modo = self.cfg.get("cuantizar", "estricta")
+        notas = {}
+        for inicio, largo, vel, tecla in self.grabadas:
+            q, d = inicio, largo
+            if modo != "libre":
+                paso = round(inicio / PULSOS_POR_PASO)
+                destino = paso * PULSOS_POR_PASO + (SWING if modo == "swing" and paso % 2 == 1 else 0)
+                fin = max(destino + PULSOS_POR_PASO, round((inicio + largo) / PULSOS_POR_PASO) * PULSOS_POR_PASO)
+                if modo == "suave":
+                    q = round((inicio + destino) / 2)
+                    d = max(2, round((largo + (fin - destino)) / 2))
+                else:
+                    q, d = destino, fin - destino
+            q %= self.largo
+            d = max(1, min(d, self.largo))
+            if q not in notas or vel > notas[q][2]:
+                notas[q] = (q, d, vel, tecla)
+        self.grabadas = sorted(notas.values())
 
     def _cambio_de_acorde(self, tick, momento, enviar):
         """Una nota que queda chocando con el acorde nuevo se vuelve a atacar, suave,
@@ -312,11 +331,11 @@ class Tocado:
         self.sonando, self.vivas, self.vencen, self.pendientes = {}, {}, [], []
 
     def estado_app(self, tick):
-        e = {"estado": self.estado, "notas": len(self.grabadas), "compases": self.largo // PULSOS_POR_COMPAS}
+        e = {"estado": self.estado, "notas": len(self.grabadas), "pasos": self.largo // PULSOS_POR_PASO}
         if self.estado == "grabando" and self.inicio is not None:
-            e["compas"] = (tick - self.inicio) // PULSOS_POR_COMPAS + 1
+            e["paso"] = min(self.largo, tick - self.inicio) // PULSOS_POR_PASO + 1
         if self.estado == "loop" and self.inicio is not None and self.largo:
-            e["compas"] = (tick - self.inicio) % self.largo // PULSOS_POR_COMPAS + 1
+            e["paso"] = (tick - self.inicio) % self.largo // PULSOS_POR_PASO + 1
         return e
 
 
@@ -335,3 +354,19 @@ def _en_escala(tonalidad, nota):
 
 def _limitar(nota):
     return max(0, min(127, nota))
+
+
+def _patron(cfg):
+    """La secuencia del estilo elegido (la misma que generaría una secuencia normal con
+    esa seed). En «una tecla» cada nota toma de ahí su altura."""
+    from .config import ESQUEMA_SECUENCIA
+    from .secuencia import Secuencia
+    estilo = cfg.get("estilo") if cfg.get("estilo") in ESTILOS else "rolling"
+    base = {k: v[1] for k, v in ESQUEMA_SECUENCIA.items()}
+    base.update(estilo=estilo, seed=cfg.get("seed", "TC-0001"), genero=cfg.get("genero", base.get("genero")),
+                nombre="Tocado", activa=False, molde="", filtro=False)
+    try:
+        return list(Secuencia(base).patron)
+    except Exception:  # noqa: BLE001  sin patrón, toca la raíz del acorde
+        log.exception("Tocado: no pude generar el patrón de %s", estilo)
+        return []

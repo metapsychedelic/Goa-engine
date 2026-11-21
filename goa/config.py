@@ -233,9 +233,11 @@ ESQUEMA_SECCIONES["tocado"] = {
     "canal": (int, 4, 1, 16),
     "programa": (int, 0, 0, 128),
     "modo": (str, "una_tecla", None, ("una_tecla", "contorno")),
-    "estilo": (str, "goa", None, ("goa", "acido", "mantra", "raga", "bajo")),
+    "estilo": (str, "rolling", None, ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano",
+                                      "largas", "ambient", "clasico", "psytrance")),   # los de las secuencias
     "octava": (int, 0, -2, 2),
-    "compases": (int, 8, 8, 32),             # largo de la grabación que queda en loop
+    "pasos": (int, 16, 1, 32),               # largo de la grabación que queda en loop (semicorcheas)
+    "cuantizar": (str, "estricta", None, ("estricta", "suave", "swing", "libre")),
     "seed": (str, "TC-0001", None, None),
     "loop": (str, "", None, 60000),          # lo grabado (JSON, lo escribe el motor): va en escenas y proyecto
 }
@@ -404,6 +406,9 @@ def _valor(clave, valor, esquema):
     return valor
 
 
+TOCADO_ESTILOS_0_64 = {"goa": "rolling", "mantra": "arpegio3", "raga": "clasico", "bajo": "galope"}
+
+
 def normalizar(cfg):
     """Devuelve una configuración limpia y completa, o lanza ConfigError."""
     if not isinstance(cfg, dict):
@@ -415,6 +420,9 @@ def normalizar(cfg):
     if isinstance(cfg.get("bajo"), dict) and cfg["bajo"].get("estilo") in bajo.ALIAS:
         cfg = dict(cfg, bajo=dict(cfg["bajo"], estilo=bajo.ALIAS[cfg["bajo"]["estilo"]]))
     cfg = _migrar_moldes(cfg)
+    if isinstance(cfg.get("tocado"), dict) and cfg["tocado"].get("estilo") in TOCADO_ESTILOS_0_64:
+        # Los estilos propios del Tocado (0.64-0.65) pasan a los de las secuencias.
+        cfg = dict(cfg, tocado=dict(cfg["tocado"], estilo=TOCADO_ESTILOS_0_64[cfg["tocado"]["estilo"]]))
     if isinstance(cfg.get("bajo"), dict) and cfg["bajo"].get("estilo") in ESTILOS_BAJO_RETIRADOS:
         # Un estilo de bajo que se sacó (deepnotic, 0.45): sigue con el más parecido.
         cfg["bajo"] = dict(cfg["bajo"], estilo=ESTILOS_BAJO_RETIRADOS[cfg["bajo"]["estilo"]])

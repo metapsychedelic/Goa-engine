@@ -87,17 +87,18 @@ def en_escala(m, nota):
 def main():
     todo = True
     print("Una tecla: cada estilo, siempre en la escala y en el acorde en el tiempo")
-    for estilo in ("goa", "acido", "mantra", "raga", "bajo"):
+    from goa.generador import ESTILOS
+    for estilo in ESTILOS:
         s = Sesion(base(estilo=estilo, modo="una_tecla"))
         s.pulsos(COMPAS)  # un compás para que suenen los pads
         desde = s.m.tick
-        s.pulsos(4 * COMPAS, ritmo(4))
+        s.pulsos(4 * COMPAS, {k * 12: [(60, 90 + (k % 3) * 15, 8)] for k in range(32)})   # corcheas
         notas = s.notas(desde)
         fuera = [n for _, n, _ in notas if not en_escala(s.m, n)]
         distintas = len({n for _, n, _ in notas})
         todo &= ok(notas and not fuera and distintas > 1 and s.colgadas() == 0,
                    f"{estilo}: {len(notas)} notas, {distintas} alturas distintas, ninguna fuera de la escala, sin colgadas")
-    s = Sesion(base(estilo="goa"))
+    s = Sesion(base(estilo="rolling"))
     s.pulsos(COMPAS + 5)
     antes = len(s.notas())
     s.m.tocado_on(60, 100)
@@ -105,7 +106,7 @@ def main():
     s.m.tocado_off(60)
 
     print("\nContorno")
-    s = Sesion(base(modo="contorno", estilo="goa"))
+    s = Sesion(base(modo="contorno", estilo="rolling"))
     s.pulsos(COMPAS)
     desde = s.m.tick
     toques = {i * 12 + 6: [(tecla, 90, 6)] for i, tecla in enumerate(range(55, 79, 3))}
@@ -114,20 +115,19 @@ def main():
     todo &= ok(alturas == sorted(alturas) and len(set(alturas)) >= 5 and all(en_escala(s.m, n) for n in alturas),
                f"teclas que suben: las notas suben y caen en la escala {alturas}")
 
-    print("\nGrabar y loop")
-    s = Sesion(base(estilo="goa", compases=8))
+    print("\nGrabar y loop (en pasos)")
+    s = Sesion(base(estilo="arpegio3", pasos=32))
     s.pulsos(COMPAS // 2)  # a mitad del compás 1 (pulso 47)
     s.m.tocado.accion("grabar", s.m.tick)
     s.pulsos(COMPAS // 2)  # hasta el último pulso del compás
     todo &= ok(s.m.tocado.estado == "armado", "Grabar espera el próximo compás")
-    s.pulsos(8 * COMPAS, ritmo(8))  # desde el uno del compás 2
-    todo &= ok(s.m.tocado.grabadas == [] or s.m.tocado.estado == "grabando", "y graba desde el uno")
+    s.pulsos(2 * COMPAS, ritmo(2))  # 32 pasos = 2 compases, desde el uno
     s.pulsos(1)
-    todo &= ok(s.m.tocado.estado == "loop" and len(s.m.tocado.grabadas) == 32, f"después de 8 compases queda en loop ({len(s.m.tocado.grabadas)} notas)")
+    todo &= ok(s.m.tocado.estado == "loop" and len(s.m.tocado.grabadas) == 8, f"después de 32 pasos queda en loop ({len(s.m.tocado.grabadas)} notas)")
     desde = s.m.tick
     s.pulsos(8 * COMPAS)
     lugares = sorted({(t - desde) % COMPAS for t, _, _ in s.notas(desde)})
-    todo &= ok(lugares == [0, 12, 36, 72], f"el loop repite tu ritmo, cuantizado: pulsos {lugares}")
+    todo &= ok(lugares == [0, 12, 36, 72], f"el loop repite tu ritmo: pulsos {lugares}")
     todo &= ok(s.colgadas() == len(s.m.tocado.sonando), "sin notas colgadas (solo las que están sonando)")
     primera = [n for _, n, _ in s.notas(desde)]
     cfg = json.loads(json.dumps(s.m.base))
@@ -148,13 +148,45 @@ def main():
     s.m.stop()
     todo &= ok(s.colgadas() == 0, "al parar el reloj no queda nada colgado")
 
+    # Un loop de 3 pasos: se repite cada 3 semicorcheas (polirritmo contra el compás).
+    s3 = Sesion(base(pasos=3))
+    s3.pulsos(COMPAS - 1)
+    s3.m.tocado.accion("grabar", s3.m.tick)
+    s3.pulsos(1)
+    s3.pulsos(18, {0: [(60, 100, 4)]})
+    desde = s3.m.tick
+    s3.pulsos(COMPAS)
+    todo &= ok(s3.m.tocado.largo == 18 and sorted({(t - desde) % 18 for t, _, _ in s3.notas(desde)}) == [(18 - (desde % 18)) % 18 if False else ((s3.m.tocado.inicio - desde) % 18)],
+               "un loop de 3 pasos se repite cada 3 semicorcheas")
+
+    print("\nCuantización")
+    def grabar_fuera(modo):
+        s = Sesion(base(pasos=16, cuantizar=modo))
+        s.pulsos(COMPAS - 1)
+        s.m.tocado.accion("grabar", s.m.tick)
+        # Notas corridas: 2 pulsos tarde en el paso 0, 2 antes del paso 3, 1 tarde en el paso 8.
+        s.pulsos(COMPAS + 2, {1 + 2: [(60, 100, 5)], 1 + 16: [(60, 90, 7)], 1 + 49: [(60, 80, 4)]})
+        return [g[:2] for g in s.m.tocado.grabadas]
+    todo &= ok(grabar_fuera("estricta") == [(0, 6), (18, 6), (48, 6)], f"estricta: a la semicorchea {grabar_fuera('estricta')}")
+    todo &= ok(grabar_fuera("libre") == [(2, 5), (16, 7), (49, 4)], f"libre: tal cual {grabar_fuera('libre')}")
+    suave = grabar_fuera("suave")
+    todo &= ok([q for q, _ in suave] == [1, 17, 48], f"suave: a mitad de camino {suave}")
+    swing = grabar_fuera("swing")
+    todo &= ok([q for q, _ in swing] == [0, 20, 48], f"swing: las del contratiempo un poco tarde {swing}")
+    sa = Sesion(base(pasos=16))
+    sa.pulsos(COMPAS - 5)
+    sa.m.tocado.accion("grabar", sa.m.tick)
+    sa.pulsos(5, {2: [(60, 100, 2)]})   # tocada 2 pulsos antes del uno y soltada antes
+    sa.pulsos(COMPAS + 1)
+    todo &= ok(sa.m.tocado.grabadas and sa.m.tocado.grabadas[0][0] == 0, f"una nota tocada justo antes del uno cuenta desde el uno {sa.m.tocado.grabadas}")
+
     print("\nLo grabado se guarda")
     texto = s.m.tocado.serializar()
     todo &= ok(texto and s.m.tocado.cambio_loop, "al terminar de grabar pide guardarlo")
     cfg = json.loads(json.dumps(s.m.base))
     cfg["tocado"]["loop"] = texto
     nueva = Sesion(normalizar(cfg))
-    todo &= ok(nueva.m.tocado.estado == "loop" and len(nueva.m.tocado.grabadas) == 32, "al prender con la configuración guardada, el loop vuelve")
+    todo &= ok(nueva.m.tocado.estado == "loop" and len(nueva.m.tocado.grabadas) == 8, "al prender con la configuración guardada, el loop vuelve")
     nueva.pulsos(COMPAS + 1)
     todo &= ok(sorted({t % COMPAS for t, _, _ in nueva.notas()}) == lugares, "y suena con tu ritmo desde el uno")
     from goa import forma

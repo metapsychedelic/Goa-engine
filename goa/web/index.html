@@ -1509,36 +1509,39 @@ function panelTexturas() {
 const ESTADOS_TOCADO = {libre: "En vivo", armado: "Armado", grabando: "Grabando", loop: "Loop", pausa: "Pausa"};
 function panelTocado() {
   const x = cfg.tocado;
-  const estilos = [["goa", "Goa"], ["acido", "Ácido"], ["mantra", "Mantra"], ["raga", "Raga"], ["bajo", "Bajo"]];
-  const nombreEstilo = Object.fromEntries(estilos)[x.estilo];
+  const nombreEstilo = Object.fromEntries(ESTILOS)[x.estilo] || x.estilo;
   const accion = (a) => async () => { try { const d = await api("/api/tocado", {accion: a}); pintarTocado({tocado: d.tocado}); } catch (e) { aviso(e.message, true); } };
+  const pasosTexto = (n) => n % 16 === 0 ? `${n} pasos (${n / 16} compás${n > 16 ? "es" : ""})` : n % 4 === 0 ? `${n} pasos (${n / 4} tiempos)` : `${n} pasos`;
   return [
     cabMotor("Tocado", `${x.salida} · canal ${x.canal} · ${x.modo === "contorno" ? "contorno" : "una tecla"} · ${nombreEstilo}`, x, "activo",
-      el("span", {className: "pill", id: "tocado_pill", textContent: "…"}), botonFabricaMotor("tocado")),
+      null, botonFabricaMotor("tocado")),
     ayuda("Tocas en el teclado de la MicroFreak: tú pones el ritmo (cortas, largas, fuertes, suaves) y el motor pone las notas, siempre en la escala y el acorde que suena. Nunca desafina."),
     cfg.teclado && cfg.teclado.activo ? null : el("p", {className: "ayuda", style: "color:var(--bad)", textContent: "Activa el teclado de la MicroFreak en Ajustes para tocar."}),
     campo("Cómo tocas", segmentado([["una_tecla", "Una tecla"], ["contorno", "Contorno"]], x.modo, (v) => { x.modo = v; guardar(); renderMotores(); }, 2)),
     ayuda(x.modo === "contorno" ? "La tecla cuenta: más agudo, la nota sube. Cae siempre en la escala, y en los tiempos fuertes en una nota del acorde."
-      : "Da lo mismo qué tecla aprietes: el estilo elige cada nota."),
-    campo("Estilo", segmentado(estilos, x.estilo, (v) => { x.estilo = v; guardar(); renderMotores(); }, 5)),
-    ayuda({goa: "Anclas en el tiempo (raíz o quinta) y la línea corre por la escala entre ellas.",
-      acido: "Raíz con terceras y séptimas; las fuertes saltan a la octava.",
-      mantra: "Un motivo de tres notas que se repite y sigue la armonía.",
-      raga: "Líneas por grados; en el tiempo, la nota llega desde la de arriba.",
-      bajo: "Raíz en el tiempo, octava y quinta en el contratiempo (registro grave)."}[x.estilo]),
+      : "Da lo mismo qué tecla aprietes: cada nota toma la altura del paso de una secuencia del estilo en que cae (la de la variante)."),
+    x.modo === "contorno" ? null : campo("Estilo (los de las secuencias)", segmentado(ESTILOS, x.estilo, (v) => { x.estilo = v; guardar(); renderMotores(); }, 3)),
     el("div", {className: "card principales"}, [
       campo("Octava", segmentado([["-2", "−2"], ["-1", "−1"], ["0", "0"], ["1", "+1"], ["2", "+2"]], String(x.octava), (v) => { x.octava = parseInt(v); guardar(); renderMotores(); }, 5)),
-      campo("Variante de notas", variante(x, "tocado")),
-      ayuda("La variante cambia qué notas elige el estilo, sin tocar tu ritmo (también el del loop)."),
-    ]),
+      x.modo === "contorno" ? null : campo("Variante de notas", variante(x, "tocado")),
+      x.modo === "contorno" ? null : ayuda("La variante cambia qué notas elige el estilo, sin tocar tu ritmo (también el del loop)."),
+    ].filter(Boolean)),
     el("div", {className: "card principales"}, [
-      campo("Compases de la grabación", segmentado([["8", "8"], ["16", "16"], ["24", "24"], ["32", "32"]], String(x.compases), (v) => { x.compases = parseInt(v); guardar(); }, 4)),
-      el("div", {className: "dos"}, [
-        el("button", {type: "button", className: "prim", id: "tocado_grabar", textContent: "Grabar", onclick: accion("grabar")}),
-        el("button", {type: "button", id: "tocado_parar", textContent: "Parar loop", onclick: () => accion(cfg.tocado && document.getElementById("tocado_parar").dataset.seguir ? "seguir" : "parar")()}),
+      deslizador(x, "pasos", "Largo de la grabación", 1, 32, 1, pasosTexto),
+      campo("Cuantización", segmentado([["estricta", "Estricta"], ["suave", "Suave"], ["swing", "Swing"], ["libre", "Libre"]], x.cuantizar, (v) => { x.cuantizar = v; guardar(); renderMotores(); }, 4)),
+      ayuda({estricta: "Inicio y largo de cada nota a la semicorchea: el loop queda justo.",
+        suave: "Cada nota se mueve a mitad de camino hacia la semicorchea: ordena sin perder tu toque.",
+        swing: "A la semicorchea, con las del contratiempo un poco tarde: groove.",
+        libre: "Tal cual lo tocaste."}[x.cuantizar]),
+      el("div", {className: "fila", style: "gap:10px;align-items:center"}, [
+        el("button", {type: "button", className: "prim", id: "tocado_grabar", textContent: "Grabar", style: "flex:1", onclick: accion("grabar")}),
+        el("span", {className: "pill", id: "tocado_pill", textContent: "…", style: "white-space:nowrap"}),
       ]),
-      el("button", {type: "button", id: "tocado_borrar", textContent: "Borrar el loop", onclick: () => { if (confirm("¿Borrar lo grabado?")) accion("borrar")(); }}),
-      ayuda("Grabar empieza en el próximo compás y dura los compases elegidos; después queda en loop, cuantizado a semicorcheas. Puedes seguir tocando encima. El loop guarda tu ritmo: las notas las vuelve a elegir con la armonía de cada vuelta."),
+      el("div", {className: "dos"}, [
+        el("button", {type: "button", id: "tocado_parar", textContent: "Parar loop", onclick: () => accion(document.getElementById("tocado_parar").dataset.seguir ? "seguir" : "parar")()}),
+        el("button", {type: "button", id: "tocado_borrar", textContent: "Borrar", onclick: () => { if (confirm("¿Borrar lo grabado?")) accion("borrar")(); }}),
+      ]),
+      ayuda("Grabar empieza en el próximo compás y dura los pasos elegidos; después queda en loop con la cuantización elegida. Puedes seguir tocando encima. El loop guarda tu ritmo: las notas las vuelve a elegir con la armonía de cada vuelta."),
     ]),
     el("div", {className: "grupos"}, [
       grupo("g-tc-midi", "Salida MIDI", salidaTexto(x), [
@@ -1553,7 +1556,7 @@ function pintarTocado(d) {
   const pill = $("tocado_pill");
   if (pill) {
     let texto = ESTADOS_TOCADO[t.estado] || t.estado;
-    if (t.estado === "grabando" || t.estado === "loop") texto += ` · ${t.compas || 1}/${t.compases}`;
+    if (t.estado === "grabando" || t.estado === "loop") texto += ` · ${t.paso || 1}/${t.pasos}`;
     pill.textContent = texto;
     pill.className = "pill" + (t.estado === "grabando" ? " bad" : t.estado === "loop" ? " ok" : "");
   }
