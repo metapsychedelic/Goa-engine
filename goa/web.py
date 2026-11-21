@@ -42,6 +42,7 @@ class Contexto:
         self.version_base = 0  # la última parte de la canción que la app ya conoce
         self.historia = []     # pasos que se pueden deshacer (ver goa/historia.py)
         self.control = None    # el nanoKONTROL2 (goa/control.py), si está prendido
+        self.teclado = None    # el teclado de la MicroFreak (goa/teclado.py)
         self.version_externa = 0  # sube cuando el control cambia algo: la app se recarga
         # Guardar en la tarjeta va en un hilo aparte, fuera del candado: escribir el
         # archivo tardaba más que aplicar el cambio y el reloj tenía que esperarlo.
@@ -201,6 +202,8 @@ def crear_servidor(ctx, puerto):
                     estado["version_externa"] = ctx.version_externa
                     if ctx.control is not None:
                         estado["control"] = ctx.control.estado()
+                    if ctx.teclado is not None:
+                        estado["teclado"] = ctx.teclado.estado()
                     estado["entrada"] = ctx.entrada
                     estado["salidas"] = {clave: clave in ctx.puertos.abiertos for clave in ctx.puertos.salidas}
                     estado["disponibles"] = _nombres_cortos(ctx.puertos.disponibles)

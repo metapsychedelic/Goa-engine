@@ -10,6 +10,7 @@ import mido
 
 from .config import ConfigError, cargar, salidas
 from .control import Control
+from .teclado import Teclado
 from .motor import Motor
 from .web import Contexto, crear_servidor
 
@@ -140,6 +141,8 @@ def main():
     errores = set()
     control = Control(ctx, config["app"]["puerto"])
     ctx.control = control
+    teclado = Teclado(ctx)
+    ctx.teclado = teclado
 
     def al_recibir(msg):
         try:
@@ -173,33 +176,35 @@ def main():
             elif t == "continue":
                 motor.continuar()
 
-    def revisar_control(abierta, disponibles, nombre_entrada):
-        """El nanoKONTROL2 (u otro controlador): su propia entrada, aparte de la Circuit."""
+    def revisar_entrada(abierta, disponibles, nombre_entrada, seccion, receptor, que):
+        """Una entrada aparte de la de la Circuit (el nanoKONTROL2, el teclado de la
+        MicroFreak), abierta mientras su sección esté activa, con reconexión."""
         with candado:
-            c = ctx.config["control"]
+            c = ctx.config[seccion]
             quiero = c["puerto"] if c["activo"] else None
         if quiero and nombre_entrada.lower() in quiero.lower():
             quiero = None  # el mismo puerto que la Circuit: no se abre dos veces
         if abierta is not None and (quiero is None or abierta.name not in disponibles
                                     or quiero.lower() not in abierta.name.lower()):
-            log.info("Controlador desconectado: %s", abierta.name)
+            log.info("%s desconectado: %s", que, abierta.name)
             abierta.close()
             abierta = None
-            control.conectado = None
+            receptor.conectado = None
         if abierta is None and quiero:
             nombre = buscar_puerto(disponibles, quiero)
             if nombre:
                 try:
-                    abierta = mido.open_input(nombre, callback=control.recibir)
+                    abierta = mido.open_input(nombre, callback=receptor.recibir)
                 except OSError as e:
                     log.warning("No pude abrir %s: %s", nombre, e)
                 else:
-                    control.conectado = nombre
-                    log.info("Controlador conectado: %s", nombre)
+                    receptor.conectado = nombre
+                    log.info("%s conectado: %s", que, nombre)
         return abierta
 
     entrada = None
     entrada_control = None
+    entrada_teclado = None
     terminar = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: terminar.set())
     signal.signal(signal.SIGINT, lambda *_: terminar.set())
@@ -232,7 +237,8 @@ def main():
                         with candado:
                             ctx.entrada = nombre
                         log.info("Entrada conectada: %s", nombre)
-            entrada_control = revisar_control(entrada_control, disponibles, nombre_entrada)
+            entrada_control = revisar_entrada(entrada_control, disponibles, nombre_entrada, "control", control, "Controlador")
+            entrada_teclado = revisar_entrada(entrada_teclado, disponibles, nombre_entrada, "teclado", teclado, "Teclado")
             terminar.wait(2.0)
     finally:
         with candado:
@@ -242,8 +248,9 @@ def main():
             servidor.shutdown()
         if entrada is not None:
             entrada.close()
-        if entrada_control is not None:
-            entrada_control.close()
+        for abierta in (entrada_control, entrada_teclado):
+            if abierta is not None:
+                abierta.close()
         puertos.cerrar()
         log.info("Motor detenido")
 

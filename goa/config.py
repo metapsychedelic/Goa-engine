@@ -226,6 +226,17 @@ ESQUEMA_SECCIONES["control"] = {
     "subida": (int, 8, 1, 32),               # compases de la subida del botón REC
 }
 
+# Teclado de la MicroFreak por USB, para tocar en vivo a través del motor (goa/teclado.py).
+# Con Local Off en la MicroFreak sus perillas no le cambian el sonido: el motor recibe
+# sus CC (Knob send CCs = On) y se los devuelve por USB en el canal en que suena.
+ESQUEMA_SECCIONES["teclado"] = {
+    "activo": (bool, False, None, None),
+    "puerto": (str, "MicroFreak", None, None),
+    "canal": (int, 10, 1, 16),               # Output chan de la MicroFreak
+    "perillas": (bool, True, None, None),    # devolverle sus perillas (con Local Off)
+    "canal_sinte": (int, 3, 1, 16),          # canal en que suena la MicroFreak (el del pad)
+}
+
 # Modo canción: la canción es una lista de partes (intro, build, groove...), cada una
 # con sus compases, la escena que suena y su curva de energía. Ver forma.py.
 ESQUEMA_SECCIONES["cancion"] = {
@@ -540,6 +551,8 @@ def salidas(cfg):
         claves.append(cfg["texturas"]["salida"])
     if cfg["looper"]["activo"] or "looper" in cancion:
         claves.append(cfg["looper"]["salida"])
+    if cfg["teclado"]["activo"] and cfg["teclado"]["perillas"]:
+        claves.append(cfg["teclado"]["puerto"])  # para devolverle sus perillas
     if cfg["control"]["activo"] and cfg["control"]["luces"]:
         claves.append(cfg["control"]["puerto"])  # para prender sus botones
     if cfg["dialogo"]["activo"] or "dialogo" in cancion:

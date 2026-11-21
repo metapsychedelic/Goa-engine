@@ -284,6 +284,12 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
       <div class="campo">Salida del reenvío
         <div id="thru_salida"></div></div>
     </div>
+    <div class="card" id="teclado_card">
+      <h2>Teclado de la MicroFreak</h2>
+      <label class="fila" style="min-height:44px"><span>Conectada por USB a la Pi<br><span class="mut" id="teclado_estado">Apagado</span></span>
+        <input type="checkbox" id="teclado_activo"></label>
+      <div id="teclado_resto"></div>
+    </div>
     <div class="card" id="control_card">
       <h2>nanoKONTROL2</h2>
       <label class="fila" style="min-height:44px"><span>Usar el nanoKONTROL2<br><span class="mut" id="control_estado">Apagado</span></span>
@@ -1719,6 +1725,33 @@ function renderAjustes() {
   $("thru_salida").replaceChildren(puertoSelect("salida", cfg.thru.salida, (v) => { cfg.thru.salida = v; guardar(); }));
   $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
   renderControl();
+  renderTeclado();
+}
+
+// --- Teclado de la MicroFreak (goa/teclado.py) ---
+function renderTeclado() {
+  const t = cfg.teclado;
+  const ta = $("teclado_activo"); ta.checked = t.activo;
+  ta.onchange = () => { t.activo = ta.checked; guardar(); renderTeclado(); };
+  const resto = $("teclado_resto");
+  if (!t.activo) { resto.replaceChildren(ayuda("Para tocar en vivo a través del motor con Local Off: el pad que le manda la Circuit no cambia, y el motor le devuelve sus perillas.")); return; }
+  resto.replaceChildren(...[
+    el("div", {className: "campo"}, ["Puerto", puertoSelect("entrada", t.puerto, (v) => { t.puerto = v; guardar(); })]),
+    el("div", {className: "dos"}, [numeroDe(t, "canal", "Canal en que manda (Output chan)", 1, 16), numeroDe(t, "canal_sinte", "Canal en que suena (el del pad)", 1, 16)]),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Devolverle sus perillas", el("br"), el("span", {className: "mut", textContent: "Con Local Off sus perillas no le cambian el sonido: el motor se las devuelve por USB"})]),
+      el("input", {type: "checkbox", checked: t.perillas, onchange: (e) => { t.perillas = e.target.checked; guardar(); }})]),
+    t.canal === t.canal_sinte ? el("p", {className: "ayuda", style: "color:var(--bad)", textContent: "Los dos canales tienen que ser distintos: si no, lo que el motor le devuelve vuelve a entrar como perillas."}) : null,
+    ayuda(`En la MicroFreak (Utility › MIDI): Local Off · Output: USB · Output chan: ${t.canal} · Knob send CCs: On. El eco de MIDI (para la FM-1) queda como está.`),
+
+  ].filter(Boolean));
+}
+function pintarTeclado(d) {
+  const e = $("teclado_estado"); if (!e) return;
+  const t = d.teclado;
+  if (!cfg || !cfg.teclado.activo) { e.textContent = "Apagado"; e.style.color = ""; return; }
+  if (!t || !t.conectado) { e.textContent = "No la encuentro: revisa el cable USB"; e.style.color = "var(--bad)"; return; }
+  e.style.color = "";
+  e.textContent = "Conectada" + (t.ultimo ? " · último: " + t.ultimo : "");
 }
 
 // --- nanoKONTROL2 (goa/control.py) ---
@@ -2326,6 +2359,7 @@ async function estado() {
     // Algo cambió desde el nanoKONTROL2: la app muestra cómo quedó (salvo un cambio tuyo esperando).
     else if (cfg && d.version_externa !== undefined && d.version_externa !== cfg.version_externa && !escribiendo && !temporizador) { await recargar(); }
     pintarControl(d);
+    pintarTeclado(d);
     document.querySelectorAll("button.escena[data-escena]").forEach((b) => b.classList.toggle("elegida", !!d.control && d.control.escena === Number(b.dataset.escena)));
     const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
     $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";
