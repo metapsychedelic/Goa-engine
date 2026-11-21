@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.63.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.64.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -21,7 +21,7 @@ Canción, Ajustes).
 - `goa/plantillas.py` (templates de canción de la app)
 - `herramientas/circuit_cancion.py` (genera los .ncs de la Circuit; `todas carpeta/`)
 - Pruebas: `python3 -m pruebas.<nombre>` (cancion, director, dialogo, en_vivo,
-  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica, looper, control, teclado).
+  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica, looper, control, teclado, tocado).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
@@ -187,3 +187,7 @@ dialogo.densidad (0-1, por defecto 1): Dialogo._ralear saca notas del plan del c
 ## Teclado de la MicroFreak, primera parte (0.63)
 
 Para tocar en vivo a través del motor. La MicroFreak va por USB a la Pi con Local Off (confirmado por el usuario: con Local Off sus perillas quedan bloqueadas). Sección [teclado] (activo, puerto "MicroFreak", canal 10 = su Output chan, perillas, canal_sinte 3 = el del pad) y tarjeta en Ajustes. goa/teclado.py: en el callback de mido, los CC y el pitch bend que llegan por el canal del teclado se devuelven por USB al canal en que suena (los canales distintos evitan el bucle); las notas quedan registradas para el motor (todavía no suenan: falta elegir sinte de salida y modo «una tecla» / «contorno»). main.revisar_entrada generaliza la entrada aparte (nano y teclado). Prueba: pruebas/teclado.py.
+
+## Tocado: tocar con estilo desde la MicroFreak (0.64)
+
+goa/tocado.py (detalle en su docstring) y pestaña Motores › Tocado. Sección [tocado]: activo, salida/canal/programa (elegible; por defecto FM-1 canal 4), modo una_tecla | contorno, estilo goa | acido | mantra | raga | bajo, octava, compases 8-32 (largo de la grabación), seed. Teclado.recibir → Motor.tocado_on/off con el candado, al instante (sin cuantizar). La altura sale de Tocado.elegir con el acorde de Motor._momento_tocado (pads o nota larga): siempre en la escala (_en_escala) y en el tiempo en una nota del acorde. Raga: apoyatura desde arriba (2 pulsos) en el tiempo, solo con el reloj andando. Una nota sostenida que choca con un acorde nuevo se vuelve a atacar suave en la nota del acorde (_cambio_de_acorde). Grabar: armado → graba desde el próximo uno los compases elegidos → loop cuantizado a semicorcheas; el loop guarda ritmo, largo, fuerza y tecla, no la altura (cada vuelta elige con la armonía del momento; seed nueva = otras notas, mismo ritmo). POST /api/tocado {accion: grabar|parar|seguir|borrar}; /api/estado trae `tocado`. Fábrica no borra lo grabado. Lo grabado no se guarda en escenas ni en la tarjeta todavía. Prueba: pruebas/tocado.py.

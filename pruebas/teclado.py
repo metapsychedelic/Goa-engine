@@ -55,6 +55,17 @@ def main():
     ctx.config["teclado"]["perillas"] = False
     t.recibir(msg("control_change", 9, control=23, value=10))
     todo &= ok(len(puertos.enviados) == n, "con «Devolverle sus perillas» apagado no devuelve nada")
+    # Con el Tocado prendido, las teclas suenan a través del motor en su sinte.
+    cfg2 = normalizar(dict(cfg, tocado=dict(cfg["tocado"], activo=True, salida="FM-1", canal=4)))
+    salida = []
+    motor = Motor(cfg2, lambda *a: salida.append(a))
+    ctx2 = Contexto(motor, puertos, threading.RLock(), "/tmp/no-se-usa.toml", cfg2)
+    t2 = Teclado(ctx2)
+    t2.recibir(msg("note_on", 9, note=64, velocity=90))
+    t2.recibir(msg("note_off", 9, note=64, velocity=0))
+    tipos = [(a[0], a[1], a[2]) for a in salida]
+    todo &= ok(tipos == [("FM-1", "note_on", 3), ("FM-1", "note_off", 3)], "con el Tocado prendido, la tecla suena en la FM-1 (y se apaga)")
+
     print("\nTodo bien" if todo else "\nHAY FALLAS")
     raise SystemExit(0 if todo else 1)
 

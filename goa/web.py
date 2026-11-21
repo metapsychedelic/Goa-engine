@@ -204,6 +204,7 @@ def crear_servidor(ctx, puerto):
                         estado["control"] = ctx.control.estado()
                     if ctx.teclado is not None:
                         estado["teclado"] = ctx.teclado.estado()
+                    estado["tocado"] = ctx.motor.tocado.estado_app(max(ctx.motor.tick, 0))
                     estado["entrada"] = ctx.entrada
                     estado["salidas"] = {clave: clave in ctx.puertos.abiertos for clave in ctx.puertos.salidas}
                     estado["disponibles"] = _nombres_cortos(ctx.puertos.disponibles)
@@ -250,6 +251,7 @@ def crear_servidor(ctx, puerto):
                 "/api/secuencia/fabrica": lambda d: self._fabrica(dict(d, motor="secuencia")),
                 "/api/deshacer": self._deshacer,
                 "/api/ajuste": self._ajuste,
+                "/api/tocado": self._tocado,
                 "/api/cc": self._cc,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
@@ -434,6 +436,13 @@ def crear_servidor(ctx, puerto):
                 self._responder(aviso)
                 return
             raise ValueError("La configuración cambió mientras ajustaba: vuelve a intentarlo")
+
+        def _tocado(self, datos):
+            """Grabar, parar, seguir o borrar el loop de lo que tocas en la MicroFreak."""
+            with ctx.candado:
+                ctx.motor.tocado.accion(str(datos.get("accion")), max(ctx.motor.tick, 0))
+                estado = ctx.motor.tocado.estado_app(max(ctx.motor.tick, 0))
+            self._responder(tocado=estado)
 
         def _cc(self, datos):
             """Un CC directo al sinte de un motor (volumen, filtro), sin tocar la configuración."""

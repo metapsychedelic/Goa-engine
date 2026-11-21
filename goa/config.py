@@ -226,6 +226,19 @@ ESQUEMA_SECCIONES["control"] = {
     "subida": (int, 8, 1, 32),               # compases de la subida del botón REC
 }
 
+# Tocado: el secuenciador que se toca con el teclado de la MicroFreak (goa/tocado.py).
+ESQUEMA_SECCIONES["tocado"] = {
+    "activo": (bool, False, None, None),
+    "salida": (str, "FM-1", None, None),
+    "canal": (int, 4, 1, 16),
+    "programa": (int, 0, 0, 128),
+    "modo": (str, "una_tecla", None, ("una_tecla", "contorno")),
+    "estilo": (str, "goa", None, ("goa", "acido", "mantra", "raga", "bajo")),
+    "octava": (int, 0, -2, 2),
+    "compases": (int, 8, 8, 32),             # largo de la grabación que queda en loop
+    "seed": (str, "TC-0001", None, None),
+}
+
 # Teclado de la MicroFreak por USB, para tocar en vivo a través del motor (goa/teclado.py).
 # Con Local Off en la MicroFreak sus perillas no le cambian el sonido: el motor recibe
 # sus CC (Knob send CCs = On) y se los devuelve por USB en el canal en que suena.
@@ -551,6 +564,8 @@ def salidas(cfg):
         claves.append(cfg["texturas"]["salida"])
     if cfg["looper"]["activo"] or "looper" in cancion:
         claves.append(cfg["looper"]["salida"])
+    if cfg["tocado"]["activo"]:
+        claves.append(cfg["tocado"]["salida"])
     if cfg["teclado"]["activo"] and cfg["teclado"]["perillas"]:
         claves.append(cfg["teclado"]["puerto"])  # para devolverle sus perillas
     if cfg["control"]["activo"] and cfg["control"]["luces"]:
@@ -634,7 +649,7 @@ def fabrica_secuencia(secuencia):
 CONSERVAR_EN_FABRICA_MOTOR = ("activo", "suenan", "salida", "canal", "programa", "disparo", "escucha", "genero", "seed",
                               "filtro_cc", "cc_corte", "cc", "parar")
 MOTORES_FABRICA = {"pads": ("pads",), "bajo": ("bajo",), "dialogo": ("dialogo", "llamada", "respuesta"),
-                   "fx": ("fx",), "texturas": ("texturas",), "looper": ("looper",)}
+                   "fx": ("fx",), "texturas": ("texturas",), "looper": ("looper",), "tocado": ("tocado",)}
 
 
 def _fabrica_seccion(seccion, datos):

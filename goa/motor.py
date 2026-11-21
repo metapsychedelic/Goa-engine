@@ -23,6 +23,7 @@ from .motor_forma import FormaMotor
 from .pads import Pads, _cerca
 from .secuencia import PASOS_POR_COMPAS, TICKS_POR_PASO, Secuencia, celda_molde
 from .texturas import Texturas
+from .tocado import Tocado
 
 log = logging.getLogger("goa")
 
@@ -60,6 +61,7 @@ class Motor(FormaMotor):
         self.saltar_parte_a = None  # parte pedida desde la app (entra en el próximo compás)
         self.fx = None
         self.texturas = None
+        self.tocado = Tocado()      # lo que tocas con el teclado de la MicroFreak (goa/tocado.py)
         # Subida de FX: {"desde": paso, "hasta": paso del drop, "origen": manual, cancion o piloto}
         self.subida = None
         self.subida_pedida = None   # compases de la subida pedida desde la app (0 = cancelar)
@@ -216,6 +218,7 @@ class Motor(FormaMotor):
         self._programas(config)
         self._looper(config)
         self.tonalidad = tonalidad
+        self.tocado.configurar(config.get("tocado", {}), tonalidad, self.enviar)
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
@@ -432,7 +435,8 @@ class Motor(FormaMotor):
         fuentes = [(s, s.get("activa")) for s in config.get("secuencia", [])]
         fuentes += [(config.get("pads", {}), config.get("pads", {}).get("activo")),
                     (config.get("bajo", {}), config.get("bajo", {}).get("activo")),
-                    (config.get("fx", {}), config.get("fx", {}).get("activo"))]
+                    (config.get("fx", {}), config.get("fx", {}).get("activo")),
+                    (config.get("tocado", {}), config.get("tocado", {}).get("activo"))]
         hay_dialogo = config.get("dialogo", {}).get("activo")
         fuentes += [(config.get("llamada", {}), hay_dialogo and config["dialogo"].get("modo") == "motor"),
                     (config.get("respuesta", {}), hay_dialogo)]
@@ -500,6 +504,7 @@ class Motor(FormaMotor):
         self.corriendo = True
         self._looper(self.config)
         self.tick = -1
+        self.tocado.reiniciar(0)
 
     def continuar(self):
         log.info("Continue")
@@ -542,6 +547,24 @@ class Motor(FormaMotor):
             self._momentos = {}
             if not self._en_hueco(paso):
                 self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
+        self.tocado.pulso(self.tick, self._momento_tocado, self.enviar)
+
+    # --- Tocado: el teclado de la MicroFreak ---
+
+    def _momento_tocado(self, paso):
+        """El acorde que suena para lo que tocas: el de los pads, o el de la nota larga."""
+        raiz = self.disparos[self.pads.disparo].raiz if self.pads is not None else None
+        if raiz is None and self.canal_disparo in self.disparos:
+            raiz = self.disparos[self.canal_disparo].raiz
+        return self._momento(paso, raiz)
+
+    def tocado_on(self, tecla, velocidad):
+        tick = max(self.tick, 0)
+        self.tocado.tecla_on(tecla, velocidad, tick, self._momento_tocado(tick // TICKS_POR_PASO), self.enviar,
+                             self.corriendo)
+
+    def tocado_off(self, tecla):
+        self.tocado.tecla_off(tecla, max(self.tick, 0), self.enviar)
 
     def _lfo_secuencias(self):
         """Los LFO de filtro de cada secuencia (hasta dos): un CC cada media semicorchea,
@@ -1014,6 +1037,8 @@ class Motor(FormaMotor):
             self.fx.apagar(self.enviar)
         if self.texturas is not None:
             self.texturas.apagar(self.enviar)
+        if self.tocado is not None:
+            self.tocado.apagar(self.enviar)
 
 
 VOZ_DOBLE = {"tercera": 2, "cuarta": 3, "quinta": 4, "sexta": 5, "octava": 7}

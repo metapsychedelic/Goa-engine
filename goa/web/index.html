@@ -52,6 +52,7 @@ h3{margin:0;font-size:13px;font-weight:650;color:var(--txt2)}
 .molde-presets button.activo{background:var(--acc);color:var(--sobre);border-color:var(--acc)}
 .pill{font-size:12px;font-weight:650;padding:4px 10px;border-radius:999px;background:var(--line);color:var(--mut);white-space:nowrap}
 .pill.ok{background:var(--acc);color:var(--sobre)}
+.pill.bad{background:var(--bad);color:var(--sobre)}
 .pill.mal{background:var(--badbg);color:var(--bad)}
 label.campo,div.campo{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--txt2)}
 select,input[type=text],input[type=number]{min-height:44px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--txt);padding:0 12px;font:inherit;width:100%}
@@ -656,6 +657,7 @@ function motores() {
   lista.push(["fx", "FX", cfg.fx, "activo"]);
   if (cfg.texturas) lista.push(["texturas", "Texturas", cfg.texturas, "activo"]);
   if (cfg.looper) lista.push(["looper", "Looper", cfg.looper, "activo"]);
+  if (cfg.tocado) lista.push(["tocado", "Tocado", cfg.tocado, "activo"]);
   return lista;
 }
 
@@ -683,6 +685,7 @@ function renderMotores() {
   else if (motorSel === "fx") panel.append(...panelFx());
   else if (motorSel === "texturas") panel.append(...panelTexturas());
   else if (motorSel === "looper") panel.append(...panelLooper());
+  else if (motorSel === "tocado") panel.append(...panelTocado());
   else panel.append(...panelSecuencia(parseInt(motorSel.slice(3))));
 }
 // Nombres de antes: cualquier cambio vuelve a dibujar el motor que está a la vista.
@@ -710,6 +713,7 @@ const FABRICA = {
   dialogo: ["la llamada y respuesta", "Llamada y respuesta", "Vuelven las dos voces. Se mantienen sus salidas MIDI, canales, programas, la nota larga, la entrada que escucha, el género y la seed."],
   fx: ["el FX", "FX", "Se mantienen su salida MIDI, canal, programa, nota larga, género, seed y el CC del corte."],
   texturas: ["las texturas", "Texturas", "Se mantienen su salida MIDI, canal, programa, nota larga, seed y el CC que respira."],
+  tocado: ["el tocado", "Tocado", "No borra lo grabado. Se mantienen su salida MIDI, canal, programa y seed."],
   looper: ["el looper", "Looper", "Queda sin loop elegido. Se mantienen su salida MIDI, canal y el slot vacío para callar."],
 };
 function botonFabricaMotor(motor) {
@@ -1499,6 +1503,69 @@ function panelTexturas() {
       ]),
     ]),
   ];
+}
+
+// --- Tocado: lo que tocas en la MicroFreak, con estilo (goa/tocado.py) ---
+const ESTADOS_TOCADO = {libre: "En vivo", armado: "Armado", grabando: "Grabando", loop: "Loop", pausa: "Pausa"};
+function panelTocado() {
+  const x = cfg.tocado;
+  const estilos = [["goa", "Goa"], ["acido", "Ácido"], ["mantra", "Mantra"], ["raga", "Raga"], ["bajo", "Bajo"]];
+  const nombreEstilo = Object.fromEntries(estilos)[x.estilo];
+  const accion = (a) => async () => { try { const d = await api("/api/tocado", {accion: a}); pintarTocado({tocado: d.tocado}); } catch (e) { aviso(e.message, true); } };
+  return [
+    cabMotor("Tocado", `${x.salida} · canal ${x.canal} · ${x.modo === "contorno" ? "contorno" : "una tecla"} · ${nombreEstilo}`, x, "activo",
+      el("span", {className: "pill", id: "tocado_pill", textContent: "…"}), botonFabricaMotor("tocado")),
+    ayuda("Tocas en el teclado de la MicroFreak: tú pones el ritmo (cortas, largas, fuertes, suaves) y el motor pone las notas, siempre en la escala y el acorde que suena. Nunca desafina."),
+    cfg.teclado && cfg.teclado.activo ? null : el("p", {className: "ayuda", style: "color:var(--bad)", textContent: "Activa el teclado de la MicroFreak en Ajustes para tocar."}),
+    campo("Cómo tocas", segmentado([["una_tecla", "Una tecla"], ["contorno", "Contorno"]], x.modo, (v) => { x.modo = v; guardar(); renderMotores(); }, 2)),
+    ayuda(x.modo === "contorno" ? "La tecla cuenta: más agudo, la nota sube. Cae siempre en la escala, y en los tiempos fuertes en una nota del acorde."
+      : "Da lo mismo qué tecla aprietes: el estilo elige cada nota."),
+    campo("Estilo", segmentado(estilos, x.estilo, (v) => { x.estilo = v; guardar(); renderMotores(); }, 5)),
+    ayuda({goa: "Anclas en el tiempo (raíz o quinta) y la línea corre por la escala entre ellas.",
+      acido: "Raíz con terceras y séptimas; las fuertes saltan a la octava.",
+      mantra: "Un motivo de tres notas que se repite y sigue la armonía.",
+      raga: "Líneas por grados; en el tiempo, la nota llega desde la de arriba.",
+      bajo: "Raíz en el tiempo, octava y quinta en el contratiempo (registro grave)."}[x.estilo]),
+    el("div", {className: "card principales"}, [
+      campo("Octava", segmentado([["-2", "−2"], ["-1", "−1"], ["0", "0"], ["1", "+1"], ["2", "+2"]], String(x.octava), (v) => { x.octava = parseInt(v); guardar(); renderMotores(); }, 5)),
+      campo("Variante de notas", variante(x, "tocado")),
+      ayuda("La variante cambia qué notas elige el estilo, sin tocar tu ritmo (también el del loop)."),
+    ]),
+    el("div", {className: "card principales"}, [
+      campo("Compases de la grabación", segmentado([["8", "8"], ["16", "16"], ["24", "24"], ["32", "32"]], String(x.compases), (v) => { x.compases = parseInt(v); guardar(); }, 4)),
+      el("div", {className: "dos"}, [
+        el("button", {type: "button", className: "prim", id: "tocado_grabar", textContent: "Grabar", onclick: accion("grabar")}),
+        el("button", {type: "button", id: "tocado_parar", textContent: "Parar loop", onclick: () => accion(cfg.tocado && document.getElementById("tocado_parar").dataset.seguir ? "seguir" : "parar")()}),
+      ]),
+      el("button", {type: "button", id: "tocado_borrar", textContent: "Borrar el loop", onclick: () => { if (confirm("¿Borrar lo grabado?")) accion("borrar")(); }}),
+      ayuda("Grabar empieza en el próximo compás y dura los compases elegidos; después queda en loop, cuantizado a semicorcheas. Puedes seguir tocando encima. El loop guarda tu ritmo: las notas las vuelve a elegir con la armonía de cada vuelta."),
+    ]),
+    el("div", {className: "grupos"}, [
+      grupo("g-tc-midi", "Salida MIDI", salidaTexto(x), [
+        el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
+        programaDe(x),
+      ]),
+    ]),
+  ].filter(Boolean);
+}
+function pintarTocado(d) {
+  const t = d.tocado; if (!t) return;
+  const pill = $("tocado_pill");
+  if (pill) {
+    let texto = ESTADOS_TOCADO[t.estado] || t.estado;
+    if (t.estado === "grabando" || t.estado === "loop") texto += ` · ${t.compas || 1}/${t.compases}`;
+    pill.textContent = texto;
+    pill.className = "pill" + (t.estado === "grabando" ? " bad" : t.estado === "loop" ? " ok" : "");
+  }
+  const parar = $("tocado_parar");
+  if (parar) {
+    const seguir = t.estado === "pausa";
+    parar.textContent = seguir ? "Seguir el loop" : "Parar loop";
+    parar.disabled = !(t.notas || t.estado === "grabando" || t.estado === "armado");
+    if (seguir) parar.dataset.seguir = "1"; else delete parar.dataset.seguir;
+  }
+  const borrar = $("tocado_borrar"); if (borrar) borrar.disabled = !t.notas;
+  const grabar = $("tocado_grabar"); if (grabar) grabar.textContent = t.estado === "grabando" || t.estado === "armado" ? "Grabar de nuevo" : "Grabar";
 }
 
 function panelLooper() {
@@ -2360,6 +2427,7 @@ async function estado() {
     else if (cfg && d.version_externa !== undefined && d.version_externa !== cfg.version_externa && !escribiendo && !temporizador) { await recargar(); }
     pintarControl(d);
     pintarTeclado(d);
+    pintarTocado(d);
     document.querySelectorAll("button.escena[data-escena]").forEach((b) => b.classList.toggle("elegida", !!d.control && d.control.escena === Number(b.dataset.escena)));
     const faltan = Object.entries(d.salidas).filter(([, ok]) => !ok).map(([k]) => k);
     $("puertos").textContent = faltan.length ? "Sin conexión: " + faltan.join(", ") : "Todas las salidas conectadas";

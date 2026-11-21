@@ -2,7 +2,7 @@
 
 Con Local Off la MicroFreak no se toca a sí misma: ni sus teclas ni sus perillas le
 cambian el sonido (el pad que le manda la Circuit sigue igual). Las teclas quedan para
-el motor, y las perillas vuelven a funcionar porque el motor le devuelve sus CC (y la
+el motor (goa/tocado.py), y las perillas vuelven a funcionar porque el motor le devuelve sus CC (y la
 cinta de pitch bend) por USB, en el canal en que suena.
 
 En la MicroFreak (Utility › MIDI): Local Off, Output = USB, Output chan = el `canal`
@@ -36,8 +36,12 @@ class Teclado:
         if msg.type == "note_on" and msg.velocity > 0:
             self.notas.add(msg.note)
             self.ultimo = f"nota {msg.note} ({msg.velocity})"
+            with self.ctx.candado:
+                self.ctx.motor.tocado_on(msg.note, msg.velocity)   # al instante, sin esperar el reloj
         elif msg.type in ("note_on", "note_off"):
             self.notas.discard(msg.note)
+            with self.ctx.candado:
+                self.ctx.motor.tocado_off(msg.note)
 
     def _devolver(self, cfg, msg):
         canal = cfg["canal_sinte"] - 1
