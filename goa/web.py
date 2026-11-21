@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, actualizar, copia, forma, fuentes, generador, generos, historia, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, cargar, clip_de, clip_de_dialogo, fabrica_motor, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, a_toml, cargar, clip_de, clip_de_dialogo, fabrica_motor, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -51,6 +51,8 @@ class Contexto:
         self._guardado = threading.Condition()
         self._escritos = 0     # cuántas veces terminó de escribir (para esperar_guardado)
         self._pedidos = 0
+        # ¿El archivo del proyecto abierto tiene lo mismo que suena? (la app avisa si no)
+        self.proyecto_al_dia = _proyecto_igual(self, config)
         threading.Thread(target=self._guardador, name="guardar-config", daemon=True).start()
 
     def sincronizar_tocado(self):
@@ -74,6 +76,7 @@ class Contexto:
         """Pide guardar la configuración activa. No espera: devuelve el último error (o None)."""
         with self._guardado:
             self._pedidos += 1
+        self.proyecto_al_dia = False   # (lo vuelve a poner el autoguardado o «Guardar»)
         self._pedido.set()
         return self.error_guardado
 
@@ -95,7 +98,9 @@ class Contexto:
                 # Sin el candado: ctx.config se reemplaza en cada cambio (no se modifica
                 # adentro), y lo poco que se toca en el lugar (energía, piloto, listas de la
                 # biblioteca) pide otro guardado después, así que el archivo queda al día.
-                guardar(self.ruta_config, self.config)
+                cfg = self.config
+                guardar(self.ruta_config, cfg)
+                self._autoguardar(cfg)
                 if self.error_guardado:
                     log.info("Configuración guardada otra vez")
                 self.error_guardado = None
@@ -106,6 +111,20 @@ class Contexto:
                 log.warning("No pude guardar la configuración: %s", e)
                 self.error_guardado = "Aplicado, pero no se pudo guardar en la tarjeta"
                 return
+
+    def _autoguardar(self, cfg):
+        """Con un proyecto abierto y el autoguardado prendido, el cambio queda también en
+        el archivo del proyecto (escritura atómica, la versión anterior como .respaldo)."""
+        app = cfg.get("app", {})
+        if not (app.get("proyecto") and app.get("autoguardar", True)):
+            return
+        try:
+            ruta = ruta_proyecto(self, app["proyecto"])
+        except ValueError:
+            return
+        guardar(ruta, cfg)
+        if cfg is self.config:   # (si cambió mientras escribía, ya hay otro guardado pedido)
+            self.proyecto_al_dia = True
 
     def esperar_guardado(self, espera=5.0):
         """Espera a que lo pedido hasta ahora quede en la tarjeta. True si alcanzó."""
@@ -147,9 +166,21 @@ def ruta_proyecto(ctx, nombre):
     return _carpeta_proyectos(ctx) / f"{limpio}.toml"
 
 
+def _proyecto_igual(ctx, config):
+    """Al arrancar: ¿lo que quedó en la tarjeta es igual al archivo del proyecto?"""
+    nombre = config.get("app", {}).get("proyecto")
+    if not nombre:
+        return True
+    try:
+        return a_toml(cargar(ruta_proyecto(ctx, nombre))) == a_toml(config)
+    except (ConfigError, OSError, ValueError):
+        return False
+
+
 def listar_proyectos(ctx):
     proyectos = []
-    for ruta in sorted(_carpeta_proyectos(ctx).glob("*.toml"), key=lambda r: r.stat().st_mtime, reverse=True):
+    archivos = [r for r in _carpeta_proyectos(ctx).glob("*.toml") if not r.name.startswith(".")]   # sin temporales
+    for ruta in sorted(archivos, key=lambda r: r.stat().st_mtime, reverse=True):
         try:
             nombre = cargar(ruta)["app"]["proyecto"] or ruta.stem
         except (ConfigError, OSError, ValueError):
@@ -217,6 +248,7 @@ def crear_servidor(ctx, puerto):
                     estado["version"] = __version__
                     estado["inicio"] = INICIO
                     estado["deshacer"] = len(ctx.historia)
+                    estado["proyecto_al_dia"] = ctx.proyecto_al_dia
                     estado["version_externa"] = ctx.version_externa
                     if ctx.control is not None:
                         estado["control"] = ctx.control.estado()
@@ -758,21 +790,38 @@ def crear_servidor(ctx, puerto):
 
         def _proyecto_guardar(self, datos):
             nombre = str(datos.get("nombre", "")).strip()[:40]
+            ruta = ruta_proyecto(ctx, nombre)   # valida el nombre antes de tocar nada
+            if datos.get("nuevo") and ruta.exists() and not datos.get("sobrescribir"):
+                self._json({"error": "Ya hay un proyecto con ese nombre", "existe": True}, 409)
+                return
+            if nombre != ctx.config["app"].get("proyecto"):
+                ctx.guardar_ya()   # «Guardar como»: el proyecto de antes se queda con su último cambio
             with ctx.candado:
+                ctx.sincronizar_tocado()   # lo último grabado en el Tocado también
                 ctx.config = dict(ctx.config, app=dict(ctx.config["app"], proyecto=nombre))
                 activa = ctx.config
                 aviso = self._guardar_activa()
-            guardar(ruta_proyecto(ctx, nombre), activa)   # escribir el archivo, sin el candado
+            guardar(ruta, activa)   # escribir el archivo, sin el candado
+            with ctx.candado:
+                if ctx.config is activa:
+                    ctx.proyecto_al_dia = True
+            # Comprobar que quedó bien: si no se puede leer, que la app lo diga.
+            if cargar(ruta)["app"]["proyecto"] != nombre:
+                raise OSError("El proyecto no quedó bien guardado, prueba otra vez")
             self._responder(aviso, proyecto=nombre)
 
         def _proyecto_abrir(self, datos):
             nombre = str(datos.get("nombre", "")).strip()
             nueva = cargar(ruta_proyecto(ctx, nombre))
+            with ctx.candado:
+                ctx.sincronizar_tocado()
+            ctx.guardar_ya()   # el último cambio (y lo grabado) queda en el proyecto que cierras
             nueva["app"]["puerto"] = ctx.config["app"]["puerto"]  # el puerto de la app no cambia
             Motor(nueva, lambda *a: None)
             with ctx.candado:
                 aviso = self._aplicar(nueva)
                 ctx.historia.clear()  # otro proyecto: lo de antes no se deshace sobre este
+                ctx.proyecto_al_dia = True
             self._responder(aviso, proyecto=nueva["app"]["proyecto"])
 
         def _proyecto_borrar(self, datos):

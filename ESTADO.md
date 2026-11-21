@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.68.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.69.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -230,3 +230,14 @@ Tras probarlo el usuario pidió: cuantización más estricta, los sub-parámetro
 
 ### 0.68.1 — Program Change solo de lo que suena
 Un motor apagado (secuencia no activa, pads/bajo/tocado apagados) ya no manda su parche a su sinte (antes lo mandaba si ningún motor activo pedía ese sinte y canal). Al prenderse lo manda; motor._programas olvida los canales que nadie pide, así lo vuelve a mandar al prenderse otra vez.
+
+## Proyectos: guardar robusto y autoguardado (0.69)
+
+- Bug: desde 0.65.1 config.guardar hacía `ruta + ".respaldo"`; con la Path de un proyecto fallaba al sobrescribir uno existente («Guardar» solo funcionaba con un nombre nuevo). Ahora `os.fspath(ruta)`. Después de guardar, se relee el archivo para confirmar.
+- app.autoguardar (por defecto sí): con un proyecto abierto, el hilo de guardado escribe también el archivo del proyecto (Contexto._autoguardar).
+- ctx.proyecto_al_dia → /api/estado; la app muestra «guardado» / «cambios sin guardar» y solo pregunta al abrir otro si hay cambios sin guardar. Al arrancar se compara la config con el archivo del proyecto.
+- Abrir otro proyecto o «Guardar como» primero escriben lo pendiente (guardar_ya), así el último cambio queda en el proyecto que se cierra (antes el guardado que juntaba cambios 0,3 s podía perderlo).
+- «Guardar como» con un nombre que ya existe pregunta antes de reemplazar (409 + sobrescribir).
+- api() en la app manda antes el cambio que esperaba sus 350 ms (antes Guardar justo después de mover algo lo perdía al recargar).
+- La lista de proyectos ignora temporales `.config-*.toml`.
+- Prueba nueva: pruebas/proyectos.py.

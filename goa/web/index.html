@@ -270,9 +270,11 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
   <section class="vista" id="v-ajustes" aria-label="Ajustes" hidden>
     <div class="card">
       <h2>Proyecto</h2>
-      <span class="mut" id="proyecto_nombre">Sin proyecto</span>
+      <div class="fila"><span class="mut" id="proyecto_nombre">Sin proyecto</span><span class="pill" id="proyecto_estado"></span></div>
       <div class="dos"><button id="proyecto_guardar" class="prim">Guardar</button><button id="proyecto_guardar_como">Guardar como…</button></div>
       <button id="proyecto_abrir">Abrir otro proyecto</button>
+      <label class="fila" style="min-height:44px"><span>Guardar solo<br><span class="mut">Con un proyecto abierto, cada cambio queda en su archivo al momento</span></span>
+        <input type="checkbox" class="switch" id="proyecto_auto" aria-label="Guardar solo"></label>
       <div id="proyecto_lista" style="display:none;flex-direction:column;gap:6px"></div>
     </div>
     <div class="card">
@@ -1889,6 +1891,7 @@ function renderAjustes() {
   ta.onchange = () => { cfg.thru.activo = ta.checked; guardar(); };
   $("thru_salida").replaceChildren(puertoSelect("salida", cfg.thru.salida, (v) => { cfg.thru.salida = v; guardar(); }));
   $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
+  $("proyecto_auto").checked = cfg.app.autoguardar !== false;
   renderControl();
   renderTeclado();
 }
@@ -2401,6 +2404,7 @@ function pintarTocar(d) {
 }
 
 async function api(ruta, datos) {
+  await enviarPendiente();   // un cambio que todavía esperaba sus 350 ms va primero (si no, se perdía)
   const r = await fetch(ruta, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(datos || {})});
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || "No se pudo");
@@ -2479,15 +2483,34 @@ async function recargar() {
   render();
 }
 
+async function guardarProyecto(nombre, nuevo) {
+  try {
+    let r;
+    try { r = await api("/api/proyecto/guardar", {nombre, nuevo}); }
+    catch (e) {
+      if (!/Ya hay un proyecto/.test(e.message)) throw e;
+      if (!confirm(`Ya hay un proyecto «${nombre}». ¿Reemplazarlo con lo que suena ahora?`)) return;
+      r = await api("/api/proyecto/guardar", {nombre, nuevo, sobrescribir: true});
+    }
+    await recargar(); pintarProyecto(true); aviso(r.aviso || "Proyecto guardado", !!r.aviso);
+  } catch (e) { aviso("No se guardó: " + e.message, true); }
+}
+function pintarProyecto(alDia) {
+  const p = $("proyecto_estado");
+  if (!cfg || !cfg.app.proyecto) { p.textContent = "sin guardar"; p.className = "pill mal"; return; }
+  p.textContent = alDia ? "guardado" : (cfg.app.autoguardar ? "guardando…" : "cambios sin guardar");
+  p.className = alDia ? "pill ok" : "pill mal";
+}
 $("proyecto_guardar").onclick = async () => {
-  let nombre = cfg.app.proyecto;
-  if (!nombre) { nombre = prompt("Nombre del proyecto"); if (!nombre) return; }
-  try { await api("/api/proyecto/guardar", {nombre}); await recargar(); aviso("Proyecto guardado"); } catch (e) { aviso(e.message, true); }
+  let nombre = cfg.app.proyecto, nuevo = false;
+  if (!nombre) { nombre = prompt("Nombre del proyecto"); if (!nombre) return; nuevo = true; }
+  await guardarProyecto(nombre, nuevo);
 };
 $("proyecto_guardar_como").onclick = async () => {
-  const nombre = prompt("Nombre del proyecto", cfg.app.proyecto || ""); if (!nombre) return;
-  try { await api("/api/proyecto/guardar", {nombre}); await recargar(); aviso("Proyecto guardado"); } catch (e) { aviso(e.message, true); }
+  const nombre = prompt("Nombre del proyecto nuevo", cfg.app.proyecto || ""); if (!nombre) return;
+  await guardarProyecto(nombre, nombre.trim() !== (cfg.app.proyecto || ""));
 };
+$("proyecto_auto").onchange = (e) => { cfg.app.autoguardar = e.target.checked; guardar(); };
 $("proyecto_abrir").onclick = async () => {
   const lista = $("proyecto_lista");
   if (lista.style.display === "flex") { lista.style.display = "none"; return; }
@@ -2497,7 +2520,8 @@ $("proyecto_abrir").onclick = async () => {
   for (const p of d.proyectos) {
     lista.append(el("div", {className: "fila"}, [
       el("button", {textContent: p.nombre, style: "flex:1;text-align:left", onclick: async () => {
-        if (!confirm(`¿Abrir ${p.nombre}? Los cambios sin guardar del proyecto actual se pierden.`)) return;
+        if (!(ultimoEstado && ultimoEstado.proyecto_al_dia) && !confirm(`El proyecto actual tiene cambios sin guardar. ¿Abrir ${p.nombre} igual? (Guárdalo antes para no perderlos.)`)) return;
+        await enviarPendiente();
         try { await api("/api/proyecto/abrir", {nombre: p.archivo}); lista.style.display = "none"; await recargar(); aviso("Proyecto abierto"); }
         catch (e) { aviso(e.message, true); } }}),
       el("button", {textContent: "Borrar", "aria-label": `Borrar ${p.nombre}`, style: "color:var(--bad)", onclick: async () => {
@@ -2523,6 +2547,7 @@ async function estado() {
     $("sub").textContent = partes.join(" · ") || "Esperando la Circuit";
     $("ver").textContent = "Yantra v" + d.version;
     $("deshacer").disabled = !d.deshacer;
+    pintarProyecto(d.proyecto_al_dia);
     $("acorde").textContent = d.acorde ? "Acorde: " + d.acorde : "Sin acorde";
     const azar = document.getElementById("prog_azar");
     if (azar) azar.textContent = d.progresion || "";

@@ -14,7 +14,9 @@ MAX_CLIPS = 64
 
 # clave: (tipo, valor por defecto, mínimo, máximo u opciones)
 ESQUEMA_SECCIONES = {
-    "app": {"puerto": (int, 8080, 1024, 65535), "proyecto": (str, "", None, None)},
+    "app": {"puerto": (int, 8080, 1024, 65535), "proyecto": (str, "", None, None),
+            # Con un proyecto abierto, cada cambio queda también en su archivo.
+            "autoguardar": (bool, True, None, None)},
     "entrada": {
         "puerto": (str, "Circuit", None, None),
         "canal_disparo": (int, 4, 1, 16),
@@ -655,6 +657,7 @@ def guardar(ruta, cfg):
     """Escritura atómica: nunca deja el archivo a medias, ni vacío si se corta la luz
     justo después (fsync antes de reemplazarlo). La versión anterior queda como
     `.respaldo`: si el archivo se daña, el motor arranca con ella (ver main.cargar_seguro)."""
+    ruta = os.fspath(ruta)   # también una Path (los proyectos): antes, al sobrescribir, fallaba
     carpeta = os.path.dirname(os.path.abspath(ruta))
     fd, temporal = tempfile.mkstemp(dir=carpeta, prefix=".config-", suffix=".toml")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
