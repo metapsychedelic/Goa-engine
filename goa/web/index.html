@@ -1807,6 +1807,8 @@ function renderTeclado() {
     el("div", {className: "dos"}, [numeroDe(t, "canal", "Canal en que manda (Output chan)", 1, 16), numeroDe(t, "canal_sinte", "Canal en que suena (el del pad)", 1, 16)]),
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Devolverle sus perillas", el("br"), el("span", {className: "mut", textContent: "Con Local Off sus perillas no le cambian el sonido: el motor se las devuelve por USB"})]),
       el("input", {type: "checkbox", checked: t.perillas, onchange: (e) => { t.perillas = e.target.checked; guardar(); }})]),
+    el("div", {id: "teclado_diag"}),
+    cfg.tocado && cfg.tocado.activo ? null : el("p", {className: "ayuda", style: "color:var(--bad)", textContent: "Las teclas suenan con el Tocado: actívalo en Motores › Tocado."}),
     t.canal === t.canal_sinte ? el("p", {className: "ayuda", style: "color:var(--bad)", textContent: "Los dos canales tienen que ser distintos: si no, lo que el motor le devuelve vuelve a entrar como perillas."}) : null,
     ayuda(`En la MicroFreak (Utility › MIDI): Local Off · Output: USB · Output chan: ${t.canal} · Knob send CCs: On. El eco de MIDI (para la FM-1) queda como está.`),
 
@@ -1815,10 +1817,26 @@ function renderTeclado() {
 function pintarTeclado(d) {
   const e = $("teclado_estado"); if (!e) return;
   const t = d.teclado;
+  const diag = $("teclado_diag");
   if (!cfg || !cfg.teclado.activo) { e.textContent = "Apagado"; e.style.color = ""; return; }
-  if (!t || !t.conectado) { e.textContent = "No la encuentro: revisa el cable USB"; e.style.color = "var(--bad)"; return; }
+  if (!t || !t.conectado) {
+    e.textContent = "No la encuentro: revisa el cable USB"; e.style.color = "var(--bad)";
+    if (diag) diag.replaceChildren(ayuda(`Busco un puerto que diga «${cfg.teclado.puerto}». Entradas que ve la Pi: ${(d.entradas || []).join(", ") || "ninguna"}.`));
+    return;
+  }
   e.style.color = "";
-  e.textContent = "Conectada" + (t.ultimo ? " · último: " + t.ultimo : "");
+  e.textContent = `Conectada (${t.conectado})` + (t.ultimo ? " · último: " + t.ultimo : "");
+  if (!diag) return;
+  if (t.otro_canal) {
+    diag.replaceChildren(el("p", {className: "ayuda", style: "color:var(--bad)"}, [
+      `La MicroFreak manda por el canal ${t.otro_canal}, no por el ${cfg.teclado.canal}. `,
+      el("button", {type: "button", className: "prim", textContent: `Usar el canal ${t.otro_canal}`, onclick: () => {
+        cfg.teclado.canal = t.otro_canal; guardar(); renderTeclado(); }})]));
+  } else if (!t.recibidos) {
+    diag.replaceChildren(ayuda("Todavía no llega nada de la MicroFreak: toca una tecla. Si sigue igual, revisa en su Utility › MIDI que Output sea USB (o Both)."));
+  } else {
+    diag.replaceChildren();
+  }
 }
 
 // --- nanoKONTROL2 (goa/control.py) ---

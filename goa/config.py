@@ -237,6 +237,7 @@ ESQUEMA_SECCIONES["tocado"] = {
     "octava": (int, 0, -2, 2),
     "compases": (int, 8, 8, 32),             # largo de la grabación que queda en loop
     "seed": (str, "TC-0001", None, None),
+    "loop": (str, "", None, 60000),          # lo grabado (JSON, lo escribe el motor): va en escenas y proyecto
 }
 
 # Teclado de la MicroFreak por USB, para tocar en vivo a través del motor (goa/teclado.py).
@@ -392,7 +393,9 @@ def _valor(clave, valor, esquema):
     except (TypeError, ValueError):
         raise ConfigError(f"Valor inválido para {clave}: {valor!r}")
     if tipo is str:
-        valor = valor.strip()[:40]
+        # Los textos se cortan a 40 caracteres; un número como máximo pide otro largo
+        # (el loop del Tocado guarda sus notas en JSON).
+        valor = valor.strip()[:extra if isinstance(extra, int) and not isinstance(extra, bool) else 40]
         if isinstance(extra, tuple) and valor not in extra:
             raise ConfigError(f"{clave} debe ser una de: {', '.join(extra)}")
         return valor
@@ -647,7 +650,7 @@ def fabrica_secuencia(secuencia):
 # a dónde y cómo suena (salida, canal, programa y los CC de su sinte), su nota larga o la
 # entrada que escucha, el género y la seed.
 CONSERVAR_EN_FABRICA_MOTOR = ("activo", "suenan", "salida", "canal", "programa", "disparo", "escucha", "genero", "seed",
-                              "filtro_cc", "cc_corte", "cc", "parar")
+                              "filtro_cc", "cc_corte", "cc", "parar", "loop")
 MOTORES_FABRICA = {"pads": ("pads",), "bajo": ("bajo",), "dialogo": ("dialogo", "llamada", "respuesta"),
                    "fx": ("fx",), "texturas": ("texturas",), "looper": ("looper",), "tocado": ("tocado",)}
 

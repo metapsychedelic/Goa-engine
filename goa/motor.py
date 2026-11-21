@@ -218,7 +218,7 @@ class Motor(FormaMotor):
         self._programas(config)
         self._looper(config)
         self.tonalidad = tonalidad
-        self.tocado.configurar(config.get("tocado", {}), tonalidad, self.enviar)
+        self.tocado.configurar(config.get("tocado", {}), tonalidad, self.enviar, self.tick)
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1

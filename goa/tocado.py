@@ -22,6 +22,7 @@ Una nota larga que queda chocando con un acorde nuevo se vuelve a atacar, suave,
 nota del acorde más cercana.
 """
 
+import json
 import logging
 import random
 
@@ -52,11 +53,16 @@ class Tocado:
         self.indice = 0          # notas tocadas en la frase (para el mantra y el azar)
         self.ultima = None       # (tick, nota) de la última nota tocada
         self.clases = None       # acorde con el que se eligieron las notas que suenan
+        self.texto = ""          # lo grabado tal como está en la configuración (tocado.loop)
+        self.cambio_loop = False # grabó o borró: la app tiene que guardarlo (Contexto.sincronizar_tocado)
 
     # --- Configuración ---
 
-    def configurar(self, cfg, tonalidad, enviar):
+    def configurar(self, cfg, tonalidad, enviar, tick=0):
         destino = (cfg.get("salida"), int(cfg.get("canal", 4)) - 1)
+        texto = cfg.get("loop", "") or ""
+        if texto != self.texto and not self.cambio_loop:
+            self._cargar(texto, tick)   # otra escena, otro proyecto o al prender
         if (self.salida, self.canal) != destino or not cfg.get("activo"):
             self.apagar(enviar)
         self.cfg = dict(cfg)
@@ -67,6 +73,30 @@ class Tocado:
             self.estado, self.abiertas = ("pausa" if self.grabadas else "libre"), {}
 
     # --- Elegir la nota ---
+
+    # --- Guardar lo grabado (en la configuración: escenas, proyecto, tarjeta) ---
+
+    def serializar(self):
+        if not self.grabadas:
+            return ""
+        return json.dumps([self.largo // PULSOS_POR_COMPAS, [list(g) for g in self.grabadas]], separators=(",", ":"))
+
+    def _cargar(self, texto, tick):
+        self.texto = texto
+        try:
+            compases, notas = json.loads(texto) if texto else (0, [])
+            grabadas = sorted((int(a), int(b), int(c), int(d)) for a, b, c, d in notas)
+        except (ValueError, TypeError):
+            log.warning("Tocado: no entiendo el loop guardado")
+            return
+        if self.estado in ("grabando", "armado"):
+            return  # estás grabando: lo nuevo manda
+        self.grabadas, self.largo = grabadas, int(compases) * PULSOS_POR_COMPAS
+        if grabadas and self.largo:
+            self.estado = "loop" if self.estado != "pausa" else "pausa"
+            self.inicio = max(tick, 0) - max(tick, 0) % PULSOS_POR_COMPAS   # desde el uno de este compás
+        else:
+            self.estado = "libre"
 
     def _rng(self, *clave):
         return random.Random(f"{self.cfg.get('seed', 'TC')}:{self.cfg.get('estilo')}:" + ":".join(map(str, clave)))
@@ -184,6 +214,7 @@ class Tocado:
                 self.estado = "loop"
         elif que == "borrar":
             self.grabadas, self.abiertas, self.estado = [], {}, "libre"
+            self.cambio_loop = True
         else:
             raise ValueError(f"Acción desconocida: {que!r}")
 
@@ -232,6 +263,7 @@ class Tocado:
             self._cuantizar()
             self.estado = "loop" if self.grabadas else "libre"
             self.inicio = tick
+            self.cambio_loop = True
             log.info("Tocado: loop de %d compases con %d notas", self.largo // PULSOS_POR_COMPAS, len(self.grabadas))
 
     def _cuantizar(self):

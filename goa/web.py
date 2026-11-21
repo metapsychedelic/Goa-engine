@@ -53,6 +53,23 @@ class Contexto:
         self._pedidos = 0
         threading.Thread(target=self._guardador, name="guardar-config", daemon=True).start()
 
+    def sincronizar_tocado(self):
+        """Lo que grabaste en el Tocado pasa a la configuración (tocado.loop): así queda en
+        la tarjeta, en el proyecto y en las escenas que guardes. Llamar con el candado."""
+        t = self.motor.tocado
+        if not t.cambio_loop:
+            return False
+        t.cambio_loop = False
+        texto = t.serializar()
+        t.texto = texto
+        if self.config["tocado"].get("loop", "") == texto:
+            return False
+        self.config = dict(self.config, tocado=dict(self.config["tocado"], loop=texto))
+        self.motor.base["tocado"] = dict(self.motor.base["tocado"], loop=texto)
+        self.version_externa += 1
+        self.pedir_guardado()
+        return True
+
     def pedir_guardado(self):
         """Pide guardar la configuración activa. No espera: devuelve el último error (o None)."""
         with self._guardado:
@@ -195,6 +212,7 @@ def crear_servidor(ctx, puerto):
                 with ctx.candado:
                     if ctx.sincronizar():
                         self._guardar_activa()
+                    ctx.sincronizar_tocado()
                     estado = ctx.motor.estado()
                     estado["version"] = __version__
                     estado["inicio"] = INICIO
@@ -441,6 +459,7 @@ def crear_servidor(ctx, puerto):
             """Grabar, parar, seguir o borrar el loop de lo que tocas en la MicroFreak."""
             with ctx.candado:
                 ctx.motor.tocado.accion(str(datos.get("accion")), max(ctx.motor.tick, 0))
+                ctx.sincronizar_tocado()
                 estado = ctx.motor.tocado.estado_app(max(ctx.motor.tick, 0))
             self._responder(tocado=estado)
 

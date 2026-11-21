@@ -24,11 +24,24 @@ class Teclado:
         self.conectado = None
         self.ultimo = None
         self.notas = set()   # teclas apretadas ahora (para la app y para tocar después)
+        self.recibidos = 0       # mensajes que llegaron (para ver en la app si llega algo)
+        self.otro_canal = None   # canal por el que llegan teclas que no es el elegido (para avisar)
 
     def recibir(self, msg):
         cfg = self.ctx.config["teclado"]
-        if getattr(msg, "channel", None) != cfg["canal"] - 1:
+        canal = getattr(msg, "channel", None)
+        self.recibidos += 1
+        if canal != cfg["canal"] - 1:
+            if msg.type in ("note_on", "control_change") and canal is not None and canal != cfg["canal_sinte"] - 1:
+                # Llegan teclas o perillas por otro canal: casi siempre el Output chan de la
+                # MicroFreak quedó en otro número. La app lo avisa y ofrece usar ese canal.
+                self.otro_canal = canal + 1
+                que = f"nota {msg.note}" if msg.type == "note_on" else f"perilla CC {msg.control}"
+                self.ultimo = f"{que} por el canal {canal + 1} (espero el {cfg['canal']})"
             return
+        self.otro_canal = None
+        if msg.type == "control_change":
+            self.ultimo = f"perilla CC {msg.control} = {msg.value}"
         if msg.type in ("control_change", "pitchwheel"):
             if cfg["perillas"]:
                 self._devolver(cfg, msg)
@@ -52,4 +65,5 @@ class Teclado:
                 self.ctx.puertos.enviar(cfg["puerto"], "pitchwheel", canal, msg.pitch, 0)
 
     def estado(self):
-        return {"conectado": self.conectado, "ultimo": self.ultimo, "apretadas": len(self.notas)}
+        return {"conectado": self.conectado, "ultimo": self.ultimo, "apretadas": len(self.notas),
+                "otro_canal": self.otro_canal, "recibidos": self.recibidos}

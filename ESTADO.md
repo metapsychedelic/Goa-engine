@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.64.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.65.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -191,3 +191,8 @@ Para tocar en vivo a través del motor. La MicroFreak va por USB a la Pi con Loc
 ## Tocado: tocar con estilo desde la MicroFreak (0.64)
 
 goa/tocado.py (detalle en su docstring) y pestaña Motores › Tocado. Sección [tocado]: activo, salida/canal/programa (elegible; por defecto FM-1 canal 4), modo una_tecla | contorno, estilo goa | acido | mantra | raga | bajo, octava, compases 8-32 (largo de la grabación), seed. Teclado.recibir → Motor.tocado_on/off con el candado, al instante (sin cuantizar). La altura sale de Tocado.elegir con el acorde de Motor._momento_tocado (pads o nota larga): siempre en la escala (_en_escala) y en el tiempo en una nota del acorde. Raga: apoyatura desde arriba (2 pulsos) en el tiempo, solo con el reloj andando. Una nota sostenida que choca con un acorde nuevo se vuelve a atacar suave en la nota del acorde (_cambio_de_acorde). Grabar: armado → graba desde el próximo uno los compases elegidos → loop cuantizado a semicorcheas; el loop guarda ritmo, largo, fuerza y tecla, no la altura (cada vuelta elige con la armonía del momento; seed nueva = otras notas, mismo ritmo). POST /api/tocado {accion: grabar|parar|seguir|borrar}; /api/estado trae `tocado`. Fábrica no borra lo grabado. Lo grabado no se guarda en escenas ni en la tarjeta todavía. Prueba: pruebas/tocado.py.
+
+## Tocado guardado y diagnóstico del teclado (0.65)
+
+- tocado.loop (texto JSON [compases, [[inicio, largo, fuerza, tecla]…]], hasta 60000 caracteres: un número como 4.º elemento del esquema de un str es su largo máximo, el resto se corta a 40). Al terminar de grabar o borrar, Tocado.cambio_loop; Contexto.sincronizar_tocado (desde /api/estado, /api/tocado y el bucle de main cada 2 s) lo pasa a ctx.config y motor.base y pide guardar. «tocado» está en forma.SECCIONES: las escenas guardan el loop (y si está prendido); lanzar una escena con loop lo carga desde el uno del compás, una sin loop lo saca, una de antes no lo toca. Fábrica conserva el loop.
+- El usuario probó la 0.64 y el teclado (teclas y perillas) no hacía nada: sin acceso a la Pi, se agregó diagnóstico. Teclado cuenta lo recibido, avisa si las teclas o perillas llegan por otro canal (otro_canal) y la tarjeta de Ajustes ofrece «Usar el canal N», dice qué entradas ve la Pi si no encuentra la MicroFreak, y avisa si el Tocado está apagado. Pendiente: lo que muestre en la Pi.

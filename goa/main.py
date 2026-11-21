@@ -214,6 +214,7 @@ def main():
             with candado:
                 puertos.revisar()
                 nombre_entrada = ctx.config["entrada"]["puerto"]
+                ctx.sincronizar_tocado()   # lo grabado en el Tocado queda guardado aunque la app esté cerrada
             disponibles = mido.get_input_names()
             with candado:
                 ctx.entradas_disponibles = disponibles

@@ -148,6 +148,27 @@ def main():
     s.m.stop()
     todo &= ok(s.colgadas() == 0, "al parar el reloj no queda nada colgado")
 
+    print("\nLo grabado se guarda")
+    texto = s.m.tocado.serializar()
+    todo &= ok(texto and s.m.tocado.cambio_loop, "al terminar de grabar pide guardarlo")
+    cfg = json.loads(json.dumps(s.m.base))
+    cfg["tocado"]["loop"] = texto
+    nueva = Sesion(normalizar(cfg))
+    todo &= ok(nueva.m.tocado.estado == "loop" and len(nueva.m.tocado.grabadas) == 32, "al prender con la configuración guardada, el loop vuelve")
+    nueva.pulsos(COMPAS + 1)
+    todo &= ok(sorted({t % COMPAS for t, _, _ in nueva.notas()}) == lugares, "y suena con tu ritmo desde el uno")
+    from goa import forma
+    escena = forma.escena_de(normalizar(cfg), "con loop")
+    todo &= ok(json.loads(escena["datos"])["tocado"]["loop"] == texto, "las escenas guardan el loop")
+    cfg_vacia = json.loads(json.dumps(cfg))
+    cfg_vacia["tocado"]["loop"] = ""
+    nueva.m.aplicar_config(normalizar(cfg_vacia))
+    nueva.pulsos(COMPAS)
+    todo &= ok(nueva.m.tocado.estado == "libre" and not nueva.m.tocado.grabadas, "una escena sin loop lo saca")
+    nueva.m.aplicar_config(normalizar(cfg))
+    nueva.pulsos(COMPAS)
+    todo &= ok(nueva.m.tocado.estado == "loop" and nueva.m.tocado.inicio % COMPAS == 0, "y una con loop lo trae, desde el uno del compás")
+
     print("\nCambio de acorde con una nota larga")
     s = Sesion(base(estilo="bajo"))
     s.pulsos(COMPAS)
