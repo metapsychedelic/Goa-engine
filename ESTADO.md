@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.66.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.67.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -212,3 +212,11 @@ Ya funciona en la Pi (la MicroFreak no mandaba teclas por USB: era su ajuste Out
 - Largo de la grabación en pasos (1-32, deslizador; tocado.pasos reemplaza compases). Empieza en el próximo uno; termina a los N pasos (no tiene que ser un compás: un loop de 3 pasos es polirritmo). Loop guardado como {"pulsos", "notas"} (lee el formato viejo).
 - Cuantización tocado.cuantizar: estricta (inicio y largo a la semicorchea), suave (a mitad de camino), swing (contratiempo +2 pulsos), libre. Misma posición: queda la más fuerte. Una nota tocada hasta 4 pulsos antes del uno cuenta desde el uno (aunque ya se haya soltado).
 - El indicador de grabación (Grabando 3/16, Loop 5/16) quedó al lado del botón Grabar.
+
+## Tocado: ajustes del estilo, melodía por orden de notas y cuantización estricta (0.67)
+
+Tras probarlo el usuario pidió: cuantización más estricta, los sub-parámetros de los estilos y que cambiar el estilo después de grabar se note, y grabaciones más largas.
+- config.TOCADO_PATRON: el Tocado lleva los ajustes de patrón de una secuencia (género, figura, frase, remate, variar, ciclo, registro, huecos, pedal, saltos, raga, ornamentos, escala_color, semitono, relación, acentos, acento, largo). tocado._secuencia arma una Secuencia con ellos (y su escala de raga o color). La UI reusa panelClasico/panelPsy y un grupo «Notas del estilo».
+- Alturas por orden de notas: la nota N que tocas toma la nota N que suena en esa secuencia (antes: el paso en que caía, que con pocas notas casi siempre era la raíz). En el loop la cuenta sigue entre vueltas (vuelta × notas + i), así la melodía avanza y un cambio de estilo se oye en la vuelta siguiente. Acentos del estilo: fuerza mínima `acento`. Saltos de octava y ♭2 como en las secuencias.
+- Cuantización: rejilla de semicorcheas o corcheas (tocado.grilla); descuenta LATENCIA = 1 pulso y redondea hacia adelante en la mitad; en estricta ninguna nota se monta sobre la siguiente. Las notas del loop ya no se vuelven a atacar en un cambio de acorde (eso agregaba golpes fuera del ritmo grabado).
+- Grabación de 1 a 128 pasos (8 compases).

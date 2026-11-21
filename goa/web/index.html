@@ -1519,17 +1519,27 @@ function panelTocado() {
     cfg.teclado && cfg.teclado.activo ? null : el("p", {className: "ayuda", style: "color:var(--bad)", textContent: "Activa el teclado de la MicroFreak en Ajustes para tocar."}),
     campo("Cómo tocas", segmentado([["una_tecla", "Una tecla"], ["contorno", "Contorno"]], x.modo, (v) => { x.modo = v; guardar(); renderMotores(); }, 2)),
     ayuda(x.modo === "contorno" ? "La tecla cuenta: más agudo, la nota sube. Cae siempre en la escala, y en los tiempos fuertes en una nota del acorde."
-      : "Da lo mismo qué tecla aprietes: cada nota toma la altura del paso de una secuencia del estilo en que cae (la de la variante)."),
-    x.modo === "contorno" ? null : campo("Estilo (los de las secuencias)", segmentado(ESTILOS, x.estilo, (v) => { x.estilo = v; guardar(); renderMotores(); }, 3)),
+      : "Da lo mismo qué tecla aprietes: cada nota que tocas toma la nota siguiente de una secuencia del estilo (la de la variante). Tú pones el ritmo; el estilo, la melodía."),
+    ...(x.modo === "contorno" ? [] : [
+      campo("Género", segmentado(GENEROS, x.genero, (v) => {
+        x.genero = v;
+        if (!ESTILOS_POR_GENERO[v].includes(x.estilo)) x.estilo = ESTILOS_POR_GENERO[v][0];
+        guardar(); renderMotores(); }, 3)),
+      campo("Estilo · el mismo de las secuencias, con sus ajustes", segmentado(
+        [...new Set([...ESTILOS_POR_GENERO[x.genero], x.estilo])].map((v) => ESTILOS.find((e) => e[0] === v)),
+        x.estilo, (v) => { x.estilo = v; guardar(); renderMotores(); }, 2)),
+      ...(x.estilo === "clasico" ? panelClasico(x) : x.estilo === "psytrance" ? panelPsy(x) : []),
+    ]),
     el("div", {className: "card principales"}, [
       campo("Octava", segmentado([["-2", "−2"], ["-1", "−1"], ["0", "0"], ["1", "+1"], ["2", "+2"]], String(x.octava), (v) => { x.octava = parseInt(v); guardar(); renderMotores(); }, 5)),
       x.modo === "contorno" ? null : campo("Variante de notas", variante(x, "tocado")),
       x.modo === "contorno" ? null : ayuda("La variante cambia qué notas elige el estilo, sin tocar tu ritmo (también el del loop)."),
     ].filter(Boolean)),
     el("div", {className: "card principales"}, [
-      deslizador(x, "pasos", "Largo de la grabación", 1, 32, 1, pasosTexto),
+      deslizador(x, "pasos", "Largo de la grabación", 1, 128, 1, pasosTexto),
       campo("Cuantización", segmentado([["estricta", "Estricta"], ["suave", "Suave"], ["swing", "Swing"], ["libre", "Libre"]], x.cuantizar, (v) => { x.cuantizar = v; guardar(); renderMotores(); }, 4)),
-      ayuda({estricta: "Inicio y largo de cada nota a la semicorchea: el loop queda justo.",
+      x.cuantizar === "libre" ? null : campo("Rejilla", segmentado([["16", "Semicorcheas"], ["8", "Corcheas"]], String(x.grilla), (v) => { x.grilla = parseInt(v); guardar(); }, 2)),
+      ayuda({estricta: "Inicio y largo de cada nota a la rejilla, sin notas montadas: el loop queda justo. Descuenta un pelo de retraso (lo que tarda la tecla).",
         suave: "Cada nota se mueve a mitad de camino hacia la semicorchea: ordena sin perder tu toque.",
         swing: "A la semicorchea, con las del contratiempo un poco tarde: groove.",
         libre: "Tal cual lo tocaste."}[x.cuantizar]),
@@ -1541,14 +1551,31 @@ function panelTocado() {
         el("button", {type: "button", id: "tocado_parar", textContent: "Parar loop", onclick: () => accion(document.getElementById("tocado_parar").dataset.seguir ? "seguir" : "parar")()}),
         el("button", {type: "button", id: "tocado_borrar", textContent: "Borrar", onclick: () => { if (confirm("¿Borrar lo grabado?")) accion("borrar")(); }}),
       ]),
-      ayuda("Grabar empieza en el próximo compás y dura los pasos elegidos; después queda en loop con la cuantización elegida. Puedes seguir tocando encima. El loop guarda tu ritmo: las notas las vuelve a elegir con la armonía de cada vuelta."),
-    ]),
+      ayuda("Grabar empieza en el próximo compás y dura los pasos elegidos (hasta 128 = 8 compases); después queda en loop con la cuantización elegida. Puedes seguir tocando encima. El loop guarda tu ritmo: las notas las vuelve a elegir en cada vuelta, con el estilo y la armonía de ese momento."),
+    ].filter(Boolean)),
     el("div", {className: "grupos"}, [
+      x.modo === "contorno" ? null : grupo("g-tc-notas", "Notas del estilo", `desde ${RELACIONES.find((r) => r[0] === x.relacion)[1].toLowerCase()}${x.raga ? " · raga " + x.raga : ""} · acentos ${porcentaje(x.acentos)}`, [
+        ayuda("Los mismos ajustes de nota que una secuencia: cambian qué notas elige el estilo para lo que tocas (y para el loop, en la vuelta siguiente)."),
+        campo("Parte desde", segmentado(RELACIONES, x.relacion, (v) => { x.relacion = v; guardar(); renderMotores(); }, 2)),
+        ...(FRASEADOS.includes(x.estilo) ? [] : [
+          campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(x.largo), (v) => { x.largo = parseInt(v); guardar(); }, 4)),
+        ]),
+        deslizador(x, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
+        deslizador(x, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
+        deslizador(x, "semitono", "♭2 (medio tono sobre la raíz)", 0, 1, 0.05, (v) => v === 0 ? "como sale" : porcentaje(v)),
+        campo("Raga", segmentado(RAGAS, x.raga || "", (v) => { x.raga = v; renderMotores(); guardar(); }, 3)),
+        ayuda(RAGA_TEXTO[x.raga || ""]),
+        campo("Escala de color", segmentado(ESCALAS_COLOR, x.escala_color || "", (v) => { x.escala_color = v; renderMotores(); guardar(); }, 2)),
+        ayuda(COLOR_TEXTO[x.escala_color || ""]),
+        deslizador(x, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
+        numeroDe(x, "acento", "Fuerza del acento", 1, 127),
+        ayuda("Donde el estilo pone un acento, la nota sale al menos con esa fuerza aunque la toques suave."),
+      ]),
       grupo("g-tc-midi", "Salida MIDI", salidaTexto(x), [
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
         programaDe(x),
       ]),
-    ]),
+    ].filter(Boolean)),
   ].filter(Boolean);
 }
 function pintarTocado(d) {

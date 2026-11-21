@@ -105,6 +105,31 @@ def main():
     todo &= ok(len(s.notas()) == antes + 1, "suena al instante, en el mismo pulso (sin cuantizar ni esperar)")
     s.m.tocado_off(60)
 
+    print("\nLos ajustes del estilo se notan")
+    def melodia(**k):
+        s = Sesion(base(**dict({"estilo": "arpegio3"}, **k)))
+        s.pulsos(COMPAS)
+        desde = s.m.tick
+        s.pulsos(2 * COMPAS, {k * 24 + 6: [(60, 90, 8)] for k in range(8)})   # una nota por tiempo, en el contratiempo
+        return [n for _, n, _ in s.notas(desde)]
+    arp = melodia()
+    todo &= ok(len(set(arp[:3])) == 3, f"arpegio 3 con notas sueltas: sigue el arpegio nota a nota {arp[:6]}")
+    todo &= ok(melodia(relacion="quinta") != arp, "cambiar «Parte desde» cambia las notas")
+    todo &= ok(melodia(estilo="psytrance", figura="octavas") != melodia(estilo="psytrance", figura="riff"), "cambiar la figura cambia las notas")
+    todo &= ok(melodia(raga="hijaz") != arp, "la raga cambia la escala")
+    def con_loop(estilo):
+        s = Sesion(base(estilo="rolling", pasos=16))
+        s.pulsos(COMPAS - 1)
+        s.m.tocado.accion("grabar", s.m.tick)
+        s.pulsos(COMPAS + 1, {1 + k * 24: [(60, 90, 8)] for k in range(4)})
+        cfg = json.loads(json.dumps(s.m.base)); cfg["tocado"]["estilo"] = estilo
+        s.m.aplicar_config(normalizar(cfg))
+        s.pulsos(COMPAS)
+        desde = s.m.tick
+        s.pulsos(2 * COMPAS)
+        return [n for _, n, _ in s.notas(desde)]
+    todo &= ok(con_loop("arpegio3") != con_loop("acido"), "cambiar el estilo después de grabar cambia lo que suena el loop")
+
     print("\nContorno")
     s = Sesion(base(modo="contorno", estilo="rolling"))
     s.pulsos(COMPAS)
@@ -171,6 +196,12 @@ def main():
     todo &= ok(grabar_fuera("libre") == [(2, 5), (16, 7), (49, 4)], f"libre: tal cual {grabar_fuera('libre')}")
     suave = grabar_fuera("suave")
     todo &= ok([q for q, _ in suave] == [1, 17, 48], f"suave: a mitad de camino {suave}")
+    s8 = Sesion(base(pasos=16, cuantizar="estricta", grilla=8))
+    s8.pulsos(COMPAS - 1)
+    s8.m.tocado.accion("grabar", s8.m.tick)
+    s8.pulsos(COMPAS + 2, {1 + 4: [(60, 100, 30)], 1 + 16: [(60, 90, 7)], 1 + 49: [(60, 80, 4)]})
+    g8 = [g[:2] for g in s8.m.tocado.grabadas]
+    todo &= ok(g8 == [(0, 12), (12, 12), (48, 12)], f"estricta a corcheas: todo cae en corcheas y nada se monta sobre la siguiente {g8}")
     swing = grabar_fuera("swing")
     todo &= ok([q for q, _ in swing] == [0, 20, 48], f"swing: las del contratiempo un poco tarde {swing}")
     sa = Sesion(base(pasos=16))

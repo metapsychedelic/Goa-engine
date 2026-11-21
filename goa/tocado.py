@@ -4,14 +4,15 @@ Tú pones el ritmo (cortas, largas, fuertes, suaves) y el motor pone las alturas
 dentro de la escala y del acorde que suena: nunca queda desafinado.
 
   Una tecla  da lo mismo qué tecla: las notas salen de una secuencia del estilo elegido
-             (los mismos estilos de las secuencias: rolling, galope, arpegio, ácido,
-             clásico, psytrance…), con la seed. Cada nota que tocas toma la altura del paso
-             de esa secuencia en que cae (o la del último paso que suena antes).
+             (los mismos estilos de las secuencias, con sus ajustes: figura, frase,
+             relación, saltos, raga, escala de color, ♭2, acentos), con la seed. La nota N
+             que tocas toma la nota N que suena en esa secuencia: tu ritmo, su melodía. En
+             el loop la cuenta sigue de una vuelta a la otra, así la melodía avanza.
   Contorno   la tecla cuenta: tocas más agudo y la nota sube, pero cae siempre en la
              escala, y en los tiempos fuertes en una nota del acorde.
 
 Lo que tocas suena al instante (sin cuantizar: cuantizar sería esperar). Grabar arma la
-grabación: empieza en el próximo compás, dura los pasos elegidos (1 a 32 semicorcheas) y
+grabación: empieza en el próximo compás, dura los pasos elegidos (1 a 128 semicorcheas) y
 después queda en loop. La cuantización se aplica a lo grabado:
   estricta  inicio y largo a la semicorchea
   suave     a mitad de camino hacia la semicorchea: ordena sin perder tu toque
@@ -27,9 +28,12 @@ nota del acorde más cercana.
 
 import json
 import logging
+import math
 import random
 
 from . import armonia
+from .azar import azar as azar_fijo
+from .config import TOCADO_PATRON
 from .generador import ESTILOS
 
 log = logging.getLogger("goa.tocado")
@@ -37,6 +41,7 @@ log = logging.getLogger("goa.tocado")
 PULSOS_POR_COMPAS = 96
 PULSOS_POR_PASO = 6
 CUANTIZAR = ("estricta", "suave", "swing", "libre")
+LATENCIA = 1 # pulsos que se descuentan antes de cuantizar (la tecla llega y uno toca un pelo tarde)
 SWING = 2    # pulsos de atraso de las semicorcheas del contratiempo en «swing» (un tercio de paso)
 ANTES = 4    # pulsos: una nota tocada justo antes de que empiece la grabación cuenta desde el uno
 
@@ -62,6 +67,8 @@ class Tocado:
         self.ultima = None       # (tick, nota) de la última nota tocada
         self.clases = None       # acorde con el que se eligieron las notas que suenan
         self.patron = []         # la secuencia del estilo (de ahí salen las alturas en «una tecla»)
+        self.acento = False      # la última nota elegida cae en un acento del estilo
+        self.sec = None          # esa secuencia (con sus ajustes: relación, saltos, raga, acentos…)
         self.texto = ""          # lo grabado tal como está en la configuración (tocado.loop)
         self.cambio_loop = False # grabó o borró: la app tiene que guardarlo (Contexto.sincronizar_tocado)
 
@@ -78,10 +85,11 @@ class Tocado:
         self.activo = bool(cfg.get("activo"))
         self.salida, self.canal = destino
         self.tonalidad = tonalidad
-        clave = (cfg.get("estilo"), cfg.get("seed"), cfg.get("genero"))
-        if clave != getattr(self, "_clave_patron", None):
-            self._clave_patron = clave
-            self.patron = _patron(cfg)
+        clave = json.dumps({k: cfg.get(k) for k in ("estilo", "seed") + TOCADO_PATRON}, sort_keys=True)
+        if clave != getattr(self, "_clave_patron", None) or tonalidad is not getattr(self, "_tonalidad_patron", None):
+            self._clave_patron, self._tonalidad_patron = clave, tonalidad
+            self.sec = _secuencia(cfg, tonalidad)
+            self.patron = list(self.sec.patron) if self.sec is not None else []
         if not self.activo:
             self.estado, self.abiertas = ("pausa" if self.grabadas else "libre"), {}
 
@@ -121,7 +129,7 @@ class Tocado:
         base = 60
         return base + 12 * int(self.cfg.get("octava", 0))
 
-    def elegir(self, tecla, velocidad, pulso_en_compas, momento, indice, previa, paso_absoluto=None):
+    def elegir(self, tecla, velocidad, pulso_en_compas, momento, indice, previa=None, paso_absoluto=None):
         """La nota para una tecla. pulso_en_compas: 0-95. previa: la nota anterior (o None)."""
         t = self.tonalidad
         fuerte = pulso_en_compas % 24 < 3   # en el tiempo (o apenas después)
@@ -129,22 +137,32 @@ class Tocado:
         raiz = momento.raiz % 12 if momento is not None else t.tonica
         centro = self._registro()
         ancla = _cerca(raiz, centro)
+        self.acento = False
         if self.cfg.get("modo") == "contorno":
             nota = _en_escala(t, tecla + (centro - 60))
             if fuerte:
                 nota = armonia.nota_del_acorde(nota, clases)
             return _limitar(nota)
-        nota = ancla
-        if self.patron:
-            # La altura del paso de la secuencia del estilo en que cae la nota (o la del
-            # último paso que suena antes): tu ritmo, la melodía del estilo.
-            n = len(self.patron)
-            i = (paso_absoluto if paso_absoluto is not None else pulso_en_compas // PULSOS_POR_PASO) % n
-            for k in range(n):
-                p = self.patron[(i - k) % n]
-                if p and p.get("suena", True):
-                    nota = t.nota(ancla, p["grado"], "escala") + 12 * p.get("octava", 0)
-                    break
+        nota, self.acento = ancla, False
+        sec = self.sec
+        suenan = [i for i, p in enumerate(self.patron) if p and p.get("suena", True)]
+        if suenan:
+            # La nota N que tocas toma la nota N que suena en la secuencia del estilo:
+            # tu ritmo con la melodía del estilo (su contorno, sus saltos, su raga).
+            i = suenan[indice % len(suenan)]
+            p = self.patron[i]
+            x = sec.extra[p.get("fuente", i)] if sec is not None and sec.extra else {}
+            octava = p.get("octava", 0) + (x.get("direccion", 0) if x.get("salto", 1) < (sec.saltos if sec else 0) else 0)
+            escala = (sec.tonalidad if sec is not None and sec.tonalidad is not None else t)
+            nota = escala.nota(ancla, p["grado"] + (sec.relacion if sec else 0), "escala") + 12 * octava
+            if sec is not None and sec.semitono and not fuerte and x.get("semitono", azar_fijo(f"{sec.seed}:semitono:{i}")) < sec.semitono:
+                nota = _cerca((raiz + 1) % 12, nota)   # el ♭2 en los pasos débiles
+            if "pref_acento" in p:
+                self.acento = x.get("acento", 1) < (sec.acentos if sec else 0) * p["pref_acento"]
+            else:
+                self.acento = bool(p.get("acento")) or x.get("acento", 1) < (sec.acentos if sec else 0)
+            if escala is not t:
+                return _limitar(armonia.nota_del_acorde(nota, clases) if fuerte else nota)   # raga / color: su escala
         if fuerte:
             nota = armonia.nota_del_acorde(nota, clases)
         return _limitar(_en_escala(t, nota))
@@ -165,6 +183,8 @@ class Tocado:
         if self.ultima is not None and tick - self.ultima[0] > 2 * 24:
             self.indice, previa = 0, None   # después de una pausa larga empieza otra frase
         nota = self.elegir(tecla, velocidad, en_compas, momento, self.indice, previa, max(tick, 0) // PULSOS_POR_PASO)
+        if self.acento and self.sec is not None:
+            velocidad = max(velocidad, self.sec.acento)   # acento del estilo
         self.indice += 1
         self.ultima = (tick, nota)
         self.clases = momento.clases if momento is not None else None
@@ -249,7 +269,11 @@ class Tocado:
                 if inicio == dentro:
                     momento = momento_de(tick // PULSOS_POR_PASO)
                     previa = self.ultima[1] if self.ultima is not None else None
-                    nota = self.elegir(tecla, vel, tick % PULSOS_POR_COMPAS, momento, i, previa, tick // PULSOS_POR_PASO)
+                    vuelta = (tick - self.inicio) // self.largo
+                    nota = self.elegir(tecla, vel, tick % PULSOS_POR_COMPAS, momento, vuelta * len(self.grabadas) + i,
+                                       previa, tick // PULSOS_POR_PASO)
+                    if self.acento and self.sec is not None:
+                        vel = max(vel, self.sec.acento)
                     self.ultima = (tick, nota)
                     self.clases = momento.clases if momento is not None else None
                     self._sonar(nota, vel, ("loop", i), tick, tick % PULSOS_POR_COMPAS, enviar)
@@ -276,16 +300,20 @@ class Tocado:
                  self.cfg.get("cuantizar", "estricta"))
 
     def _cuantizar(self):
-        """Según `cuantizar`: estricta, suave (a mitad de camino), swing o libre. Dos
-        notas que caen en el mismo lugar: queda la más fuerte."""
+        """Según `cuantizar`: estricta, suave (a mitad de camino), swing o libre, a la
+        rejilla de `grilla` (semicorcheas o corcheas). Antes de redondear descuenta
+        LATENCIA (lo que tarda la tecla en llegar y lo que uno toca un pelo tarde), así
+        una nota apenas tarde no salta al paso siguiente. En estricta además ninguna nota
+        se monta sobre la siguiente. Dos notas en el mismo lugar: queda la más fuerte."""
         modo = self.cfg.get("cuantizar", "estricta")
+        rejilla = PULSOS_POR_PASO * (2 if int(self.cfg.get("grilla", 16)) == 8 else 1)
         notas = {}
         for inicio, largo, vel, tecla in self.grabadas:
             q, d = inicio, largo
             if modo != "libre":
-                paso = round(inicio / PULSOS_POR_PASO)
-                destino = paso * PULSOS_POR_PASO + (SWING if modo == "swing" and paso % 2 == 1 else 0)
-                fin = max(destino + PULSOS_POR_PASO, round((inicio + largo) / PULSOS_POR_PASO) * PULSOS_POR_PASO)
+                paso = math.floor(max(0, inicio - LATENCIA) / rejilla + 0.5)   # a la mitad, hacia adelante
+                destino = paso * rejilla + (SWING * rejilla // PULSOS_POR_PASO if modo == "swing" and paso % 2 == 1 else 0)
+                fin = max(destino + rejilla, math.floor((inicio - LATENCIA + largo) / rejilla + 0.5) * rejilla)
                 if modo == "suave":
                     q = round((inicio + destino) / 2)
                     d = max(2, round((largo + (fin - destino)) / 2))
@@ -295,7 +323,16 @@ class Tocado:
             d = max(1, min(d, self.largo))
             if q not in notas or vel > notas[q][2]:
                 notas[q] = (q, d, vel, tecla)
-        self.grabadas = sorted(notas.values())
+        ordenadas = sorted(notas.values())
+        if modo == "estricta" and len(ordenadas) > 1:
+            # Cada nota termina, a más tardar, donde empieza la siguiente (también la
+            # última contra la primera de la vuelta siguiente).
+            cortadas = []
+            for k, (q, d, vel, tecla) in enumerate(ordenadas):
+                siguiente = ordenadas[(k + 1) % len(ordenadas)][0] + (self.largo if k + 1 == len(ordenadas) else 0)
+                cortadas.append((q, max(1, min(d, siguiente - q)), vel, tecla))
+            ordenadas = cortadas
+        self.grabadas = ordenadas
 
     def _cambio_de_acorde(self, tick, momento, enviar):
         """Una nota que queda chocando con el acorde nuevo se vuelve a atacar, suave,
@@ -304,8 +341,8 @@ class Tocado:
             return
         self.clases = momento.clases
         for nota, (duenio, vel) in list(self.sonando.items()):
-            if nota % 12 in momento.clases:
-                continue
+            if nota % 12 in momento.clases or isinstance(duenio, tuple):
+                continue  # las del loop no se vuelven a atacar: el ritmo grabado queda exacto
             nueva = armonia.nota_del_acorde(nota, momento.clases)
             enviar(self.salida, "note_off", self.canal, nota, 0)
             del self.sonando[nota]
@@ -356,17 +393,24 @@ def _limitar(nota):
     return max(0, min(127, nota))
 
 
-def _patron(cfg):
-    """La secuencia del estilo elegido (la misma que generaría una secuencia normal con
-    esa seed). En «una tecla» cada nota toma de ahí su altura."""
+def _secuencia(cfg, tonalidad):
+    """La secuencia del estilo elegido, con los ajustes de patrón del Tocado (los mismos
+    que una secuencia normal). En «una tecla» cada nota toma de ahí su altura."""
     from .config import ESQUEMA_SECUENCIA
+    from .escalas import Tonalidad
     from .secuencia import Secuencia
     estilo = cfg.get("estilo") if cfg.get("estilo") in ESTILOS else "rolling"
     base = {k: v[1] for k, v in ESQUEMA_SECUENCIA.items()}
-    base.update(estilo=estilo, seed=cfg.get("seed", "TC-0001"), genero=cfg.get("genero", base.get("genero")),
-                nombre="Tocado", activa=False, molde="", filtro=False)
+    base.update({k: cfg[k] for k in TOCADO_PATRON if k in cfg})
+    base.update(estilo=estilo, seed=cfg.get("seed", "TC-0001"), nombre="Tocado", activa=False, molde="", filtro=False,
+                salida=cfg.get("salida", "FM-1"))
     try:
-        return list(Secuencia(base).patron)
+        sec = Secuencia(base)
+        color = f"raga:{sec.raga}" if sec.raga else base.get("escala_color", "")
+        if color and tonalidad is not None:
+            nombres = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+            sec.tonalidad = Tonalidad(nombres[tonalidad.tonica % 12], color)
+        return sec
     except Exception:  # noqa: BLE001  sin patrón, toca la raíz del acorde
         log.exception("Tocado: no pude generar el patrón de %s", estilo)
-        return []
+        return None

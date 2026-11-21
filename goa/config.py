@@ -236,8 +236,9 @@ ESQUEMA_SECCIONES["tocado"] = {
     "estilo": (str, "rolling", None, ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano",
                                       "largas", "ambient", "clasico", "psytrance")),   # los de las secuencias
     "octava": (int, 0, -2, 2),
-    "pasos": (int, 16, 1, 32),               # largo de la grabación que queda en loop (semicorcheas)
+    "pasos": (int, 16, 1, 128),              # largo de la grabación que queda en loop (semicorcheas, hasta 8 compases)
     "cuantizar": (str, "estricta", None, ("estricta", "suave", "swing", "libre")),
+    "grilla": (int, 16, 8, 16),              # cuantizar a semicorcheas (16) o a corcheas (8)
     "seed": (str, "TC-0001", None, None),
     "loop": (str, "", None, 60000),          # lo grabado (JSON, lo escribe el motor): va en escenas y proyecto
 }
@@ -370,6 +371,13 @@ ESQUEMA_SECUENCIA = {
     "lfo2_max": (int, 80, 0, 127),
     "filtro_reposo": (int, 110, 0, 127),     # dónde vuelve el filtro después de la subida
 }
+
+# El Tocado arma su melodía con una secuencia del estilo elegido: lleva los mismos
+# ajustes de patrón que una secuencia (figura, frase, respuesta, raga…).
+TOCADO_PATRON = ("genero", "figura", "frase", "remate", "variar", "ciclo", "registro", "huecos", "pedal",
+                 "saltos", "raga", "ornamentos", "escala_color", "semitono", "relacion", "acentos", "acento", "largo")
+for _clave in TOCADO_PATRON:
+    ESQUEMA_SECCIONES["tocado"][_clave] = ESQUEMA_SECUENCIA[_clave]
 
 
 # Un clip guarda el carácter musical de una secuencia; el destino lo pone la fila
