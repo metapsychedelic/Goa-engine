@@ -3,6 +3,7 @@
 import copy
 import json
 import logging
+import os
 import random
 import re
 import threading
@@ -26,6 +27,16 @@ _CAMBIANDO = threading.Lock()   # una sola actualización a la vez
 
 
 GUARDAR_JUNTA = 0.3  # segundos que espera el guardado para juntar cambios seguidos
+
+
+def hilo_secundario():
+    """El hilo que llama esto (la app, el guardado) deja la prioridad de tiempo real del
+    servicio y baja un poco: así nunca le quita la CPU al hilo del reloj MIDI."""
+    try:
+        os.sched_setscheduler(0, os.SCHED_OTHER, os.sched_param(0))   # 0 = este hilo (Linux)
+        os.setpriority(os.PRIO_PROCESS, 0, 5)
+    except (AttributeError, OSError, PermissionError):
+        pass
 
 
 class Contexto:
@@ -81,6 +92,7 @@ class Contexto:
         return self.error_guardado
 
     def _guardador(self):
+        hilo_secundario()
         while True:
             self._pedido.wait()
             time.sleep(GUARDAR_JUNTA)  # cambios seguidos (un deslizador) se guardan una vez
@@ -99,8 +111,9 @@ class Contexto:
                 # adentro), y lo poco que se toca en el lugar (energía, piloto, listas de la
                 # biblioteca) pide otro guardado después, así que el archivo queda al día.
                 cfg = self.config
-                guardar(self.ruta_config, cfg)
-                self._autoguardar(cfg)
+                texto = a_toml(cfg)   # una vez: va a la configuración y al proyecto
+                guardar(self.ruta_config, cfg, texto)
+                self._autoguardar(cfg, texto)
                 if self.error_guardado:
                     log.info("Configuración guardada otra vez")
                 self.error_guardado = None
@@ -112,7 +125,7 @@ class Contexto:
                 self.error_guardado = "Aplicado, pero no se pudo guardar en la tarjeta"
                 return
 
-    def _autoguardar(self, cfg):
+    def _autoguardar(self, cfg, texto=None):
         """Con un proyecto abierto y el autoguardado prendido, el cambio queda también en
         el archivo del proyecto (escritura atómica, la versión anterior como .respaldo)."""
         app = cfg.get("app", {})
@@ -122,7 +135,7 @@ class Contexto:
             ruta = ruta_proyecto(self, app["proyecto"])
         except ValueError:
             return
-        guardar(ruta, cfg)
+        guardar(ruta, cfg, texto)
         if cfg is self.config:   # (si cambió mientras escribía, ya hay otro guardado pedido)
             self.proyecto_al_dia = True
 
@@ -220,6 +233,7 @@ def crear_servidor(ctx, puerto):
             self.wfile.write(cuerpo)
 
         def do_GET(self):
+            hilo_secundario()
             if self.path in ("/", "/index.html"):
                 cuerpo = PAGINA.read_bytes()
                 self.send_response(200)
@@ -284,6 +298,7 @@ def crear_servidor(ctx, puerto):
                 self._json({"error": "no existe"}, 404)
 
         def do_POST(self):
+            hilo_secundario()
             largo = int(self.headers.get("Content-Length") or 0)
             if largo > MAX_CUERPO:
                 self._json({"error": "demasiado grande"}, 413)
@@ -630,18 +645,25 @@ def crear_servidor(ctx, puerto):
 
         def _escena_lanzar(self, datos):
             """Pasa a una escena en los compases de transición (desde el próximo compás)."""
-            with ctx.candado:
-                indice = int(datos["indice"])
-                escena = ctx.config["escena"][indice]
-                nueva = normalizar(forma.mezclar(ctx.config, escena))
+            # Armar y validar va fuera del candado (el reloj no espera); adentro solo se lanza.
+            indice = int(datos["indice"])
+            for _ in range(3):
+                with ctx.candado:
+                    actual = ctx.config
+                nueva = normalizar(forma.mezclar(actual, actual["escena"][indice]))
                 nueva["forma"]["escena"] = indice
                 compases = int(datos.get("compases") or nueva["forma"]["transicion"])
                 Motor(nueva, lambda *a: None)  # valida antes de tocar nada
-                ctx.motor.lanzar_escena(nueva, compases, indice)
-                ctx.config = nueva
-                ctx.puertos.cambiar_salidas(salidas(nueva))
-                aviso = self._guardar_activa()
-            self._responder(aviso)
+                with ctx.candado:
+                    if ctx.config is not actual:
+                        continue
+                    ctx.motor.lanzar_escena(nueva, compases, indice)
+                    ctx.config = nueva
+                    ctx.puertos.cambiar_salidas(salidas(nueva))
+                    aviso = self._guardar_activa()
+                self._responder(aviso)
+                return
+            raise ValueError("La configuración cambió mientras lanzaba la escena: vuelve a intentarlo")
 
         def _escena_borrar(self, datos):
             with ctx.candado:

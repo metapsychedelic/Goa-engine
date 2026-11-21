@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.70.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.70.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -248,3 +248,11 @@ El usuario: los gestos sonaban muy al azar y fuera de cuantización; quiere nota
 - Gestos: empiezan en un tiempo, duran tiempos enteros (fx.TIEMPOS) y todo cae en la rejilla de fusas (antes las burbujas iban cada 4 pulsos y el zap/eco cruzaban tiempos). `donde` (frase | compas | tiempo): al final de la frase/compás terminan justo en el uno. Qué gesto va en cada lugar se repite cada `repetir` compases; `caos` cambia algunos por vuelta. El glitch ya no usa pitch bend (los saltos de bend con un rango de 2 semitonos desafinaban): salta entre notas del acorde. Solo el zap usa bend.
 - Gestos nuevos: barrido (1 compás, filtro abre/cierra), gate (2 tiempos, filtro euclidiano), eco (1 compás, corchea con puntillo), escalera (1 tiempo de fusas por el acorde).
 - Fondo (fx.fondo): notas largas (raíz, del acorde, raíz+quinta, octavas) que se atacan cada `fondo_largo` compases y cambian en el tiempo siguiente si cambia el acorde. Filtro en ritmo (filtro_modo pluck|pasos|sh|wobble|rampa|quieto, filtro_division, golpes/rotar euclidianos, caída, min/max, movimiento) y resonancia (cc2) en un ciclo propio de `reso_ciclo` semicorcheas. El caos mete por tiempo: doble velocidad, saltos de fusas o congelar. Mientras un gesto con filtro (fx.CON_FILTRO), el riser o la caída manejan el filtro, el fondo lo suelta (filtro_hasta). Los "off" de un gesto no apagan una nota larga que sea la misma.
+
+### 0.70.1 — El reloj no espera a la app
+Síntoma: al mover algo en la app, el loop del Looper de la MC-101 se desincronizaba un rato. Causas que tironeaban el reloj reenviado (y los pulsos del motor):
+- Python cambia de hilo cada 5 ms: mientras la app armaba/validaba/guardaba (y desde 0.69, además el proyecto), el pulso del reloj podía esperar. main: `sys.setswitchinterval(0.0005)`.
+- El thru (reloj incluido) se reenvía antes y sin el candado del motor; Puertos.envio (candado chico) cubre cada send porque ahora se manda desde dos hilos.
+- Puertos.cambiar_salidas (en cada cambio de la app, con el candado) pedía la lista de puertos al sistema: ahora no hace nada si las salidas son las mismas y usa la última lista; la revisión cada 2 s pide la lista fuera del candado.
+- Lanzar escena arma y valida fuera del candado (como /api/ajuste).
+- Los hilos de la app y del guardado dejan la prioridad de tiempo real (web.hilo_secundario). La configuración se convierte a TOML una vez para el archivo y el proyecto.

@@ -676,7 +676,7 @@ def a_toml(cfg):
     return "\n".join(lineas)
 
 
-def guardar(ruta, cfg):
+def guardar(ruta, cfg, texto=None):
     """Escritura atómica: nunca deja el archivo a medias, ni vacío si se corta la luz
     justo después (fsync antes de reemplazarlo). La versión anterior queda como
     `.respaldo`: si el archivo se daña, el motor arranca con ella (ver main.cargar_seguro)."""
@@ -684,7 +684,7 @@ def guardar(ruta, cfg):
     carpeta = os.path.dirname(os.path.abspath(ruta))
     fd, temporal = tempfile.mkstemp(dir=carpeta, prefix=".config-", suffix=".toml")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(a_toml(cfg))
+        f.write(a_toml(cfg) if texto is None else texto)   # `texto`: ya convertido (no dos veces)
         f.flush()
         os.fsync(f.fileno())
     if os.path.exists(ruta):

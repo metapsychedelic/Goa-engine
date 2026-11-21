@@ -5,6 +5,7 @@ import os
 import re
 import logging
 import signal
+import sys
 import threading
 
 import mido
@@ -49,25 +50,38 @@ class Puertos:
     def __init__(self, salidas):
         self.salidas = sorted(set(salidas))
         self.abiertos = {}
+        # Mandar a un puerto puede pasar desde dos hilos (el reloj reenviado va sin el
+        # candado del motor): este candado chico solo cubre cada envío, que es corto.
+        self.envio = threading.Lock()
         self.avisados = set()
         self.disponibles = []
 
     def cambiar_salidas(self, salidas):
+        """Con cada cambio de la app. Si las salidas son las mismas no hace nada; si no,
+        usa la última lista de puertos (pedirle la lista al sistema tarda y esto va con el
+        candado del motor: el reloj esperaba). Una salida nueva que no estaba se abre en
+        la próxima revisión, a los 2 segundos."""
         nuevas = sorted(set(salidas))
+        if nuevas == self.salidas:
+            return
         for clave in list(self.abiertos):
             if clave not in nuevas:
-                self.abiertos.pop(clave).close()
+                with self.envio:
+                    self.abiertos.pop(clave).close()
         self.salidas = nuevas
-        self.revisar()
+        self.revisar(self.disponibles)
 
-    def revisar(self):
-        self.disponibles = sin_propios(mido.get_output_names())
+    def revisar(self, disponibles=None):
+        """Abre las salidas que faltan y cierra las desconectadas. `disponibles`: la lista
+        de puertos ya pedida al sistema (fuera del candado); sin ella la pide."""
+        self.disponibles = sin_propios(mido.get_output_names()) if disponibles is None else disponibles
         for clave in self.salidas:
             puerto = self.abiertos.get(clave)
             if puerto is not None and puerto.name not in self.disponibles:
                 log.warning("Se desconectó la salida %r", clave)
-                puerto.close()
-                del self.abiertos[clave]
+                with self.envio:
+                    puerto.close()
+                    del self.abiertos[clave]
             if clave not in self.abiertos:
                 nombre = buscar_puerto(self.disponibles, clave)
                 if nombre:
@@ -88,13 +102,15 @@ class Puertos:
             return
         try:
             if tipo == "program_change":
-                puerto.send(mido.Message("program_change", channel=canal, program=nota))
+                msg = mido.Message("program_change", channel=canal, program=nota)
             elif tipo == "control_change":
-                puerto.send(mido.Message("control_change", channel=canal, control=nota, value=velocidad))
+                msg = mido.Message("control_change", channel=canal, control=nota, value=velocidad)
             elif tipo == "pitchwheel":
-                puerto.send(mido.Message("pitchwheel", channel=canal, pitch=nota))
+                msg = mido.Message("pitchwheel", channel=canal, pitch=nota)
             else:
-                puerto.send(mido.Message(tipo, channel=canal, note=nota, velocity=velocidad))
+                msg = mido.Message(tipo, channel=canal, note=nota, velocity=velocidad)
+            with self.envio:
+                puerto.send(msg)
         except (OSError, ValueError) as e:
             log.warning("Error enviando a %r: %s", clave, e)
 
@@ -103,16 +119,18 @@ class Puertos:
         if puerto is None:
             return
         try:
-            puerto.send(msg)
+            with self.envio:
+                puerto.send(msg)
         except (OSError, ValueError) as e:
             log.warning("Error reenviando a %r: %s", clave, e)
 
     def panico(self):
         """All Notes Off en los 16 canales de cada salida abierta."""
-        for puerto in self.abiertos.values():
+        for puerto in list(self.abiertos.values()):
             for canal in range(16):
                 try:
-                    puerto.send(mido.Message("control_change", channel=canal, control=123, value=0))
+                    with self.envio:
+                        puerto.send(mido.Message("control_change", channel=canal, control=123, value=0))
                 except (OSError, ValueError):
                     pass
 
@@ -159,6 +177,10 @@ def main():
                         format="%(asctime)s %(levelname)s %(message)s")
 
     config = cargar_seguro(args.config)
+    # Python reparte su intérprete entre hilos cada 5 ms: mientras la app arma o guarda
+    # una configuración, el pulso del reloj podía esperar eso. Con 0,5 ms el hilo del
+    # MIDI entra casi de inmediato (la MC-101 seguía el tempo con ese tironeo).
+    sys.setswitchinterval(0.0005)
 
     puertos = Puertos(salidas(config))
     candado = threading.RLock()
@@ -196,13 +218,15 @@ def main():
                 log.exception("Error procesando %s (el motor sigue)", msg.type)
 
     def procesar(msg):
+        t = msg.type
+        thru = ctx.config["thru"]
+        if thru["activo"] and t != "sysex" and getattr(msg, "channel", None) not in motor.canales_disparo:
+            # Pasa todo lo de la Circuit (reloj, notas, CC) a la cadena MIDI, menos los
+            # canales de las notas largas: esas notas son solo para la Pi. Va antes y sin
+            # el candado del motor: si la app está aplicando un cambio, el reloj de las
+            # máquinas de la cadena (la MC-101 y su looper) no espera.
+            puertos.reenviar(thru["salida"], msg)
         with candado:
-            t = msg.type
-            thru = ctx.config["thru"]
-            if thru["activo"] and t != "sysex" and getattr(msg, "channel", None) not in motor.canales_disparo:
-                # Pasa todo lo de la Circuit (reloj, notas, CC) a la cadena MIDI,
-                # menos los canales de las notas largas: esas notas son solo para la Pi.
-                puertos.reenviar(thru["salida"], msg)
             if t == "clock":
                 motor.reloj()
             elif t == "note_on" and msg.velocity > 0:
@@ -251,8 +275,9 @@ def main():
 
     try:
         while not terminar.is_set():
+            salidas_vistas = sin_propios(mido.get_output_names())   # tarda: fuera del candado
             with candado:
-                puertos.revisar()
+                puertos.revisar(salidas_vistas)
                 nombre_entrada = ctx.config["entrada"]["puerto"]
                 ctx.sincronizar_tocado()   # lo grabado en el Tocado queda guardado aunque la app esté cerrada
             disponibles = sin_propios(mido.get_input_names())
