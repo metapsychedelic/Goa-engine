@@ -249,6 +249,68 @@ def main():
     todo &= ok(reataques == 16, "una larga sostenida siempre queda en el acorde que suena (se vuelve a atacar si choca)")
     todo &= ok(s.colgadas() == 0, "y al soltarla no queda colgada")
 
+    print("\nLos ajustes de las secuencias (sin tocar tu ritmo)")
+    def loop(compases_de_escucha=2, cambiar=None, **k):
+        """Graba 1 compás (1, 1-y, 2-y larga, 4) y devuelve la sesión y lo que sonó después."""
+        s = Sesion(base(**dict({"estilo": "rolling", "pasos": 16}, **k)))
+        s.pulsos(COMPAS - 1)
+        s.m.tocado.accion("grabar", s.m.tick)
+        s.pulsos(COMPAS + 2, ritmo(1))
+        if cambiar:
+            cambiar(s)
+        s.pulsos(COMPAS)
+        desde = s.m.tick
+        s.pulsos(compases_de_escucha * COMPAS)
+        return s, desde
+    def lugares(s, desde, largo=COMPAS):
+        return sorted({(t - s.m.tocado.inicio) % largo for t, _, _ in s.notas(desde)})
+    s, d = loop()
+    normal = [n for _, n, _ in s.notas(d)]
+    todo &= ok(lugares(s, d) == [0, 12, 36, 72], "base: tu ritmo")
+
+    s, d = loop(cambiar=lambda s: s.m.tocado.accion("largo", s.m.tick, 4))
+    todo &= ok(lugares(s, d, 24) == [0, 12] and len(lugares(s, d)) == 8, f"acortar a 4 pasos: queda el primer tiempo, en loop {lugares(s, d, 24)}")
+    todo &= ok(json.loads(s.m.tocado.serializar())["grabado"] == 96 and s.colgadas() == len(s.m.tocado.sonando),
+               "acortar no borra lo grabado (y no cuelga notas)")
+    s.m.tocado.accion("largo", s.m.tick, 16)
+    s.pulsos(2 * COMPAS); d2 = s.m.tick; s.pulsos(COMPAS)
+    todo &= ok(lugares(s, d2) == [0, 12, 36, 72], "volver a 16 pasos lo deja como estaba")
+    s, d = loop(4, cambiar=lambda s: s.m.tocado.accion("largo", s.m.tick, 128))
+    todo &= ok(lugares(s, d) == [0, 12, 36, 72] and s.m.tocado.largo == 128 * 6, "alargar a 128 pasos repite la grabación")
+
+    s, d = loop(doble="quinta")
+    on = s.notas(d)
+    todo &= ok(len(on) == 2 * len(normal) and s.colgadas() == len(s.m.tocado.sonando), "voz doble: dos notas por golpe, sin colgadas")
+    s, d = loop(techo=60)
+    todo &= ok(all(n <= 60 for _, n, _ in s.notas(d)), "techo: ninguna pasa de la nota más alta")
+    s, d = loop(densidad=0.0)
+    todo &= ok(not s.notas(d), "densidad 0: el loop calla")
+    s, d = loop(densidad=0.5)
+    todo &= ok(set(lugares(s, d)) < {0, 12, 36, 72} and all(x in (0, 12, 36, 72) for x in lugares(s, d)),
+               f"densidad 50 %: calla algunas, las otras en su lugar {lugares(s, d)}")
+    s, d = loop(recorrido="atras", estilo="arpegio3")
+    s2, d2 = loop(estilo="arpegio3")
+    todo &= ok([n for _, n, _ in s.notas(d)] != [n for _, n, _ in s2.notas(d2)], "recorrido atrás cambia el orden de las notas")
+    s, d = loop(vel_random=1.0)
+    todo &= ok(len({v for _, _, v in s.notas(d)}) > 4 and lugares(s, d) == [0, 12, 36, 72], "fuerza al azar: cambia la fuerza, no el ritmo")
+    s, d = loop(repeticion=1.0)
+    todo &= ok(len(s.notas(d)) > len(normal) and s.colgadas() == len(s.m.tocado.sonando), "repetición: redobles sobre tus notas")
+    s, d = loop(largo_nota="estilo", gate=0.3)
+    offs = [t for t, sal, tipo, c, a, b in s.salida if sal == "FM-1" and c == 3 and tipo == "note_off" and t >= d]
+    ons = [t for t, _, _ in s.notas(d) if t < s.m.tick - 3]
+    todo &= ok(all(any(0 < o - t <= 3 for o in offs) for t in ons), "largo del estilo: notas cortas (gate)")
+    s, d = loop(4, mutacion=1.0, mutar_cada=1)
+    s2, d2 = loop(4)
+    todo &= ok([n for _, n, _ in s.notas(d)] != [n for _, n, _ in s2.notas(d2)] and lugares(s, d) == [0, 12, 36, 72],
+               "mutación: cambia notas, no el ritmo")
+    s, d = loop(4, mutacion=1.0, mutar_cada=1, bloqueada=True)
+    todo &= ok([n for _, n, _ in s.notas(d)] == [n for _, n, _ in s2.notas(d2)], "bloqueada: no muta")
+    s, d = loop(lfo=True, lfo_cc=74)
+    ccs = [b for t, sal, tipo, c, a, b in s.salida if sal == "FM-1" and c == 3 and tipo == "control_change" and a == 74]
+    todo &= ok(len(set(ccs)) > 10, "LFO de filtro: mueve el CC del sinte")
+    s, d = loop(armonia="libre")
+    todo &= ok(all(en_escala(s.m, n) for _, n, _ in s.notas(d)), "armonía libre: igual en la escala")
+
     print("\nSalida")
     todo &= ok("FM-1" in salidas(base()), "abre la salida elegida")
     print("\nTodo bien" if todo else "\nHAY FALLAS")

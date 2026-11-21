@@ -458,7 +458,7 @@ def crear_servidor(ctx, puerto):
         def _tocado(self, datos):
             """Grabar, parar, seguir o borrar el loop de lo que tocas en la MicroFreak."""
             with ctx.candado:
-                ctx.motor.tocado.accion(str(datos.get("accion")), max(ctx.motor.tick, 0))
+                ctx.motor.tocado.accion(str(datos.get("accion")), max(ctx.motor.tick, 0), datos.get("pasos"))
                 ctx.sincronizar_tocado()
                 estado = ctx.motor.tocado.estado_app(max(ctx.motor.tick, 0))
             self._responder(tocado=estado)

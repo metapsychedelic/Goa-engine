@@ -236,7 +236,7 @@ class FormaMotor:
         """Los filtros intervenidos vuelven a su reposo. Con `secuencias`, solo los que ya no se intervienen."""
         siguen = set()
         if secuencias is not None and self.subida is not None:
-            siguen = {(s.salida, s.canal, s.cc_filtro) for s in secuencias if s.fx or s.subida_filtro}
+            siguen = {(s.salida, s.canal, s.cc_filtro) for s in self._con_filtro(secuencias) if s.fx or s.subida_filtro}
         for clave, (valor, reposo) in list(self.cc_secuencias.items()):
             if clave in siguen:
                 continue
@@ -259,6 +259,11 @@ class FormaMotor:
         momento = self._momento(paso, raiz) if raiz is not None else None
         self.texturas.paso(paso, self.tick, raiz, momento, self.subida, self.enviar)
 
+    def _con_filtro(self, secuencias):
+        """Las secuencias y el Tocado (su filtro en la subida y el FX funcionan igual)."""
+        filtro = self.tocado.filtro if self.tocado is not None else None
+        return list(secuencias) + ([filtro] if filtro is not None and filtro.activa else [])
+
     def _filtro_secuencias(self, paso):
         """En la subida, el filtro se va abriendo hasta el drop: en las secuencias con
         «filtro en la subida», de su «desde» a su «hasta»; en las que interviene el FX,
@@ -266,8 +271,9 @@ class FormaMotor:
         if self.subida is None:
             return
         t = fx.avance(self.subida, paso)
-        for s in self.secuencias:
-            if not ((s.fx or s.subida_filtro) and s.activa) or self.disparos[s.disparo].raiz is None:
+        for s in self._con_filtro(self.secuencias):
+            disparo = getattr(s, "disparo", None)   # el Tocado no tiene disparo: lo tocas tú
+            if not ((s.fx or s.subida_filtro) and s.activa) or (disparo is not None and self.disparos[disparo].raiz is None):
                 continue
             if s.subida_filtro:
                 # El último paso de la subida ya está en «hasta» (el drop cae justo después).

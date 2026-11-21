@@ -1507,11 +1507,28 @@ function panelTexturas() {
 
 // --- Tocado: lo que tocas en la MicroFreak, con estilo (goa/tocado.py) ---
 const ESTADOS_TOCADO = {libre: "En vivo", armado: "Armado", grabando: "Grabando", loop: "Loop", pausa: "Pausa"};
+function pasosTexto(n) {
+  return n % 16 === 0 ? `${n} pasos (${n / 16} compás${n > 16 ? "es" : ""})` : n % 4 === 0 ? `${n} pasos (${n / 4} tiempos)` : `${n} pasos`;
+}
+
 function panelTocado() {
   const x = cfg.tocado;
   const nombreEstilo = Object.fromEntries(ESTILOS)[x.estilo] || x.estilo;
   const accion = (a) => async () => { try { const d = await api("/api/tocado", {accion: a}); pintarTocado({tocado: d.tocado}); } catch (e) { aviso(e.message, true); } };
-  const pasosTexto = (n) => n % 16 === 0 ? `${n} pasos (${n / 16} compás${n > 16 ? "es" : ""})` : n % 4 === 0 ? `${n} pasos (${n / 4} tiempos)` : `${n} pasos`;
+  const largoLoop = () => {
+    // Acortar o alargar el loop ya grabado (no borra nada: volver al largo original lo deja igual).
+    const valor = el("span", {id: "tocado_largo_txt", textContent: "sin loop", style: "color:var(--mut)"});
+    const r = el("input", {type: "range", id: "tocado_largo", min: 1, max: 128, step: 1, value: 16, disabled: true, "aria-label": "Largo del loop",
+      oninput: () => { valor.textContent = pasosTexto(parseInt(r.value)); },
+      onchange: async () => { try { const d = await api("/api/tocado", {accion: "largo", pasos: parseInt(r.value)}); pintarTocado({tocado: d.tocado}); } catch (e) { aviso(e.message, true); } }});
+    const original = el("button", {type: "button", id: "tocado_original", textContent: "Largo original", disabled: true,
+      onclick: async () => { try { const d = await api("/api/tocado", {accion: "largo", pasos: parseInt(original.dataset.pasos)}); pintarTocado({tocado: d.tocado}); } catch (e) { aviso(e.message, true); } }});
+    return el("div", {}, [
+      el("label", {className: "campo"}, [el("span", {className: "fila", style: "gap:8px"}, [el("b", {textContent: "Largo del loop", style: "font-weight:600"}), valor]), r]),
+      original,
+      ayuda("Después de grabar: acórtalo (por ejemplo a 4 pasos) o alárgalo hasta 128 (repite lo grabado). No borra nada: «Largo original» lo deja como lo grabaste."),
+    ]);
+  };
   return [
     cabMotor("Tocado", `${x.salida} · canal ${x.canal} · ${x.modo === "contorno" ? "contorno" : "una tecla"} · ${nombreEstilo}`, x, "activo",
       null, botonFabricaMotor("tocado")),
@@ -1551,6 +1568,7 @@ function panelTocado() {
         el("button", {type: "button", id: "tocado_parar", textContent: "Parar loop", onclick: () => accion(document.getElementById("tocado_parar").dataset.seguir ? "seguir" : "parar")()}),
         el("button", {type: "button", id: "tocado_borrar", textContent: "Borrar", onclick: () => { if (confirm("¿Borrar lo grabado?")) accion("borrar")(); }}),
       ]),
+      largoLoop(),
       ayuda("Grabar empieza en el próximo compás y dura los pasos elegidos (hasta 128 = 8 compases); después queda en loop con la cuantización elegida. Puedes seguir tocando encima. El loop guarda tu ritmo: las notas las vuelve a elegir en cada vuelta, con el estilo y la armonía de ese momento."),
     ].filter(Boolean)),
     el("div", {className: "grupos"}, [
@@ -1570,6 +1588,48 @@ function panelTocado() {
         deslizador(x, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
         numeroDe(x, "acento", "Fuerza del acento", 1, 127),
         ayuda("Donde el estilo pone un acento, la nota sale al menos con esa fuerza aunque la toques suave."),
+        campo("Orden de las notas", segmentado([["adelante","Adelante"],["atras","Atrás"],["pendulo","Péndulo"],["azar","Al azar"]], x.recorrido || "adelante", (v) => { x.recorrido = v; guardar(); }, 4)),
+        ayuda("En qué orden recorre la melodía del estilo: tu primera nota toma la primera, la segunda la siguiente…"),
+        campo("Voz doble", segmentado([["","No"],["tercera","3.ª"],["cuarta","4.ª"],["quinta","5.ª"],["sexta","6.ª"],["octava","8.ª"]], x.doble || "", (v) => { x.doble = v; guardar(); }, 6)),
+        ayuda("Una segunda voz paralela por grados de la escala, un poco más suave. Necesita un sinte polifónico."),
+        deslizador(x, "techo", "Techo (nota más alta)", 60, 127, 1, (v) => v >= 127 ? "sin techo" : `${nombreMidi(v)} · lo de arriba baja una octava`),
+        deslizador(x, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
+      ]),
+      x.modo === "contorno" ? null : grupo("g-tc-var", "Variación", `${x.bloqueada ? "congelada" : x.mutacion === 0 ? "sin mutación" : `${porcentaje(x.mutacion)} cada ${x.mutar_cada}`} · ${armoniaTexto(x)}`, [
+        deslizador(x, "mutacion", "Mutación de notas", 0, 1, 0.05, (v) => x.bloqueada ? "congelada" : v === 0 ? "fija" : `${porcentaje(v)} cada ${x.mutar_cada}`, () => renderMotores()),
+        numeroDe(x, "mutar_cada", "Mutar cada (compases)", 1, 64, () => renderMotores()),
+        casilla(x, "bloqueada", "Congelar", "La mutación no cambia las notas", () => renderMotores()),
+        ayuda("Cambia de a poco las notas que el estilo elige. Tu ritmo no se toca."),
+        armoniaPropia(x, () => renderMotores()),
+        ayuda("Guiada: en los tiempos fuertes, nota del acorde que suena. Libre: solo la escala (nunca desafina, pero puede chocar con el acorde)."),
+      ]),
+      grupo("g-tc-loop", "Sonido del loop", [x.largo_nota === "estilo" ? `largo del estilo ${porcentaje(x.gate)}` : "tu largo", x.densidad < 1 ? `densidad ${porcentaje(x.densidad)}` : "", x.repeticion ? `redobles ${porcentaje(x.repeticion)}` : "", x.slide ? `slides ${porcentaje(x.slide)}` : ""].filter(Boolean).join(" · "), [
+        ayuda("Cómo suena lo grabado, sin mover tu ritmo: cada nota sigue en su lugar."),
+        campo("Largo de cada nota", segmentado([["tuyo","Como lo tocaste"],["estilo","El del estilo"]], x.largo_nota || "tuyo", (v) => { x.largo_nota = v; guardar(); renderMotores(); }, 2)),
+        ...(x.largo_nota === "estilo" ? [
+          deslizador(x, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
+          deslizador(x, "gate_random", "Variación del largo", 0, 1, 0.05, porcentaje),
+        ] : []),
+        deslizador(x, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas tus notas" : `${porcentaje(v)} de tus notas`),
+        deslizador(x, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
+        deslizador(x, "slide", "Slides", 0, 1, 0.05, (v) => v === 0 ? "nunca" : `${porcentaje(v)} de las notas`),
+        ayuda("Densidad calla algunas de tus notas (siempre las mismas). Redobles: un segundo golpe en media semicorchea. Slide: la nota se pisa con la siguiente; pon el sinte en mono o legato con glide."),
+      ]),
+      grupo("g-tc-filtro", "Filtro del sinte", [x.subida_filtro ? `se abre en las subidas hasta ${Math.round(x.subida_hasta / 1.27)} %` : "", x.fx ? "FX" : "", lfoResumen(x) === "apagado" ? "" : lfoResumen(x)].filter(Boolean).join(" · ") || "apagado", [
+        el("label", {className: "fila", style: "min-height:44px"}, [
+          el("span", {}, ["Se abre en las subidas", el("br"), el("span", {className: "mut", textContent: "Durante el rise el filtro se va abriendo hasta el drop"})]),
+          el("input", {type: "checkbox", className: "switch", checked: !!x.subida_filtro, "aria-label": "Se abre en las subidas",
+            onchange: (e) => { x.subida_filtro = e.target.checked; guardar(); renderMotores(); }})]),
+        ...(x.subida_filtro ? [
+          deslizador(x, "subida_desde", "Parte en", 0, 127, 1, (v) => `${v} (${Math.round(v / 1.27)} %)`),
+          deslizador(x, "subida_hasta", "Al final de la subida", 0, 127, 1, (v) => v >= 127 ? "abierto del todo (127)" : `${v} (${Math.round(v / 1.27)} %)`),
+          campo("Después del drop", segmentado([["vuelve","Vuelve al reposo"],["queda","Se queda ahí"]], x.subida_despues || "vuelve", (v) => { x.subida_despues = v; guardar(); renderMotores(); }, 2)),
+        ] : []),
+        casilla(x, "fx", "Lo interviene el motor de FX", "En las subidas su filtro baja y se va abriendo hasta el drop (sin redobles ni stutter: el ritmo es el tuyo).", () => renderMotores()),
+        x.subida_filtro || x.fx ? el("div", {className: "dos"}, [numeroDe(x, "cc_filtro", "CC del filtro", 0, 127), numeroDe(x, "filtro_reposo", "Reposo (0-127)", 0, 127)]) : null,
+        x.subida_filtro || x.fx ? ayuda("En la MicroFreak el corte es el CC 23; en la FM-1 con Shrub y la MC-101, el 74. El reposo es dónde vuelve después del drop: ponlo donde tienes la perilla.") : null,
+        ...editorLfo(x, "lfo", "LFO 1"),
+        ...editorLfo(x, "lfo2", "LFO 2"),
       ]),
       grupo("g-tc-midi", "Salida MIDI", salidaTexto(x), [
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
@@ -1595,6 +1655,14 @@ function pintarTocado(d) {
     if (seguir) parar.dataset.seguir = "1"; else delete parar.dataset.seguir;
   }
   const borrar = $("tocado_borrar"); if (borrar) borrar.disabled = !t.notas;
+  const largo = $("tocado_largo"), largoTxt = $("tocado_largo_txt"), original = $("tocado_original");
+  const hay = !!t.notas && (t.estado === "loop" || t.estado === "pausa");
+  if (largo && document.activeElement !== largo) {
+    largo.disabled = !hay;
+    if (hay) largo.value = t.pasos;
+    largoTxt.textContent = hay ? pasosTexto(t.pasos) + (t.grabado !== t.pasos ? ` · grabado ${t.grabado}` : "") : "sin loop";
+  }
+  if (original) { original.disabled = !hay || t.grabado === t.pasos; original.dataset.pasos = t.grabado; }
   const grabar = $("tocado_grabar"); if (grabar) grabar.textContent = t.estado === "grabando" || t.estado === "armado" ? "Grabar de nuevo" : "Grabar";
 }
 

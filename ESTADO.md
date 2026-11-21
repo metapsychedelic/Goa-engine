@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.67.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.68.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -220,3 +220,10 @@ Tras probarlo el usuario pidió: cuantización más estricta, los sub-parámetro
 - Alturas por orden de notas: la nota N que tocas toma la nota N que suena en esa secuencia (antes: el paso en que caía, que con pocas notas casi siempre era la raíz). En el loop la cuenta sigue entre vueltas (vuelta × notas + i), así la melodía avanza y un cambio de estilo se oye en la vuelta siguiente. Acentos del estilo: fuerza mínima `acento`. Saltos de octava y ♭2 como en las secuencias.
 - Cuantización: rejilla de semicorcheas o corcheas (tocado.grilla); descuenta LATENCIA = 1 pulso y redondea hacia adelante en la mitad; en estricta ninguna nota se monta sobre la siguiente. Las notas del loop ya no se vuelven a atacar en un cambio de acorde (eso agregaba golpes fuera del ritmo grabado).
 - Grabación de 1 a 128 pasos (8 compases).
+
+## Tocado: los ajustes de las secuencias que no tocan el ritmo, y largo del loop (0.68)
+
+- Arreglo: Grabar seguía topado en 32 pasos (tocado.accion tenía min(32)); ahora 1 a 128.
+- config.TOCADO_EXTRA: armonía (general/guiada/libre), techo, voz doble, slide, mutación (mutar_cada, bloqueada), recorrido, variación de fuerza, gate/gate_random con `largo_nota` (tuyo | estilo), densidad, repetición, FX y filtro en la subida, LFO 1 y 2. No van los que deciden el ritmo (posición, corrimiento, molde, mutación de ritmo, swing, complementar/separar, deslices).
+- Densidad/repetición/slide/gate solo en el loop; techo, doble, recorrido, fuerza y armonía también en vivo. La mutación cambia el patrón del estilo en el compás (Tocado._mutar). LFO en motor._lfo_secuencias; filtro de subida/FX con un SimpleNamespace (tocado.filtro) que motor_forma._con_filtro suma a las secuencias.
+- Largo del loop después de grabar: accion("largo", pasos) — no destructivo. `grabado` = largo de la grabación; si el loop es más largo, la repite (tramos); el JSON guarda "grabado" si difiere.

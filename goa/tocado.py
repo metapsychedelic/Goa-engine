@@ -31,10 +31,13 @@ import logging
 import math
 import random
 
-from . import armonia
+from types import SimpleNamespace
+
+from . import armonia, generador
 from .azar import azar as azar_fijo
 from .config import TOCADO_PATRON
-from .generador import ESTILOS
+from .generador import ESTILOS, FRASEADOS
+from .secuencia import PREFIJOS_LFO, Lfo
 
 log = logging.getLogger("goa.tocado")
 
@@ -60,7 +63,12 @@ class Tocado:
         self.grabadas = []       # (pulso desde el inicio, largo en pulsos, velocidad, tecla)
         self.abiertas = {}       # tecla -> (pulso de inicio, velocidad) mientras se graba
         self.inicio = None       # tick (al principio de un compás) en que empezó la grabación
-        self.largo = 0           # pulsos del loop
+        self.largo = 0           # pulsos del loop (se puede acortar o alargar después de grabar)
+        self.grabado = 0         # pulsos que duró la grabación (alargado, el loop la repite)
+        self.guiada = True       # armonía guiada: en los tiempos fuertes, nota del acorde
+        self.paso_elegido = ({}, {})  # (paso, extra) de la secuencia del estilo para la última nota
+        self.lfos = []           # los dos LFO de filtro (como en una secuencia)
+        self.filtro = None       # lo del filtro en la subida y el FX (motor._filtro_secuencias)
         self.vencen = []         # (tick, nota, dueño) de las notas del loop y las apoyaturas
         self.pendientes = []     # (tick, nota, velocidad, dueño): la nota tras una apoyatura
         self.indice = 0          # notas tocadas en la frase (para el mantra y el azar)
@@ -74,7 +82,7 @@ class Tocado:
 
     # --- Configuración ---
 
-    def configurar(self, cfg, tonalidad, enviar, tick=0):
+    def configurar(self, cfg, tonalidad, enviar, tick=0, guiada=True):
         destino = (cfg.get("salida"), int(cfg.get("canal", 4)) - 1)
         texto = cfg.get("loop", "") or ""
         if texto != self.texto and not self.cambio_loop:
@@ -85,6 +93,17 @@ class Tocado:
         self.activo = bool(cfg.get("activo"))
         self.salida, self.canal = destino
         self.tonalidad = tonalidad
+        self.guiada = guiada
+        seed = cfg.get("seed", "TC-0001")
+        viejos = {l.prefijo: l.ultimo for l in self.lfos}
+        self.lfos = [Lfo(cfg, p, seed) for p in PREFIJOS_LFO]
+        for l in self.lfos:
+            l.ultimo = viejos.get(l.prefijo)
+        self.filtro = SimpleNamespace(
+            activa=self.activo, salida=self.salida, canal=self.canal, fx=bool(cfg.get("fx")),
+            cc_filtro=int(cfg.get("cc_filtro", 74)), subida_filtro=bool(cfg.get("subida_filtro")),
+            subida_desde=int(cfg.get("subida_desde", 20)), subida_hasta=int(cfg.get("subida_hasta", 127)),
+            subida_despues=cfg.get("subida_despues", "vuelve"), filtro_reposo=int(cfg.get("filtro_reposo", 110)))
         clave = json.dumps({k: cfg.get(k) for k in ("estilo", "seed") + TOCADO_PATRON}, sort_keys=True)
         if clave != getattr(self, "_clave_patron", None) or tonalidad is not getattr(self, "_tonalidad_patron", None):
             self._clave_patron, self._tonalidad_patron = clave, tonalidad
@@ -100,7 +119,10 @@ class Tocado:
     def serializar(self):
         if not self.grabadas:
             return ""
-        return json.dumps({"pulsos": self.largo, "notas": [list(g) for g in self.grabadas]}, separators=(",", ":"))
+        datos = {"pulsos": self.largo, "notas": [list(g) for g in self.grabadas]}
+        if self.grabado and self.grabado != self.largo:
+            datos["grabado"] = self.grabado
+        return json.dumps(datos, separators=(",", ":"))
 
     def _cargar(self, texto, tick):
         self.texto = texto
@@ -109,13 +131,14 @@ class Tocado:
             if isinstance(datos, list):   # formato de la 0.64-0.65: [compases, notas]
                 datos = {"pulsos": int(datos[0]) * PULSOS_POR_COMPAS, "notas": datos[1]}
             largo, notas = int(datos["pulsos"]), datos["notas"]
+            grabado = int(datos.get("grabado", largo))
             grabadas = sorted((int(a), int(b), int(c), int(d)) for a, b, c, d in notas)
         except (ValueError, TypeError):
             log.warning("Tocado: no entiendo el loop guardado")
             return
         if self.estado in ("grabando", "armado"):
             return  # estás grabando: lo nuevo manda
-        self.grabadas, self.largo = grabadas, largo
+        self.grabadas, self.largo, self.grabado = grabadas, largo, grabado or largo
         if grabadas and self.largo:
             self.estado = "loop" if self.estado != "pausa" else "pausa"
             self.inicio = max(tick, 0) - max(tick, 0) % PULSOS_POR_COMPAS   # desde el uno de este compás
@@ -138,20 +161,25 @@ class Tocado:
         centro = self._registro()
         ancla = _cerca(raiz, centro)
         self.acento = False
+        fuerte = fuerte and self.guiada   # armonía libre: solo la escala
+        self.paso_elegido = ({}, {})
         if self.cfg.get("modo") == "contorno":
             nota = _en_escala(t, tecla + (centro - 60))
             if fuerte:
                 nota = armonia.nota_del_acorde(nota, clases)
-            return _limitar(nota)
+            return self._techo(nota)
         nota, self.acento = ancla, False
         sec = self.sec
         suenan = [i for i, p in enumerate(self.patron) if p and p.get("suena", True)]
         if suenan:
             # La nota N que tocas toma la nota N que suena en la secuencia del estilo:
-            # tu ritmo con la melodía del estilo (su contorno, sus saltos, su raga).
-            i = suenan[indice % len(suenan)]
+            # tu ritmo con la melodía del estilo (su contorno, sus saltos, su raga). El
+            # recorrido elige el orden: adelante, atrás, péndulo o al azar.
+            k = generador.recorrer(self.cfg.get("recorrido", "adelante"), indice, len(suenan), self.cfg.get("seed", "TC"))
+            i = suenan[k]
             p = self.patron[i]
             x = sec.extra[p.get("fuente", i)] if sec is not None and sec.extra else {}
+            self.paso_elegido = (p, x)
             octava = p.get("octava", 0) + (x.get("direccion", 0) if x.get("salto", 1) < (sec.saltos if sec else 0) else 0)
             escala = (sec.tonalidad if sec is not None and sec.tonalidad is not None else t)
             nota = escala.nota(ancla, p["grado"] + (sec.relacion if sec else 0), "escala") + 12 * octava
@@ -162,10 +190,44 @@ class Tocado:
             else:
                 self.acento = bool(p.get("acento")) or x.get("acento", 1) < (sec.acentos if sec else 0)
             if escala is not t:
-                return _limitar(armonia.nota_del_acorde(nota, clases) if fuerte else nota)   # raga / color: su escala
+                return self._techo(armonia.nota_del_acorde(nota, clases) if fuerte else nota)   # raga / color: su escala
         if fuerte:
             nota = armonia.nota_del_acorde(nota, clases)
-        return _limitar(_en_escala(t, nota))
+        return self._techo(_en_escala(t, nota))
+
+    def _techo(self, nota):
+        techo = int(self.cfg.get("techo", 127))
+        while nota > techo and nota - 12 >= 0:
+            nota -= 12   # lo que pasa de la nota más alta baja de octava (misma nota, más grave)
+        return _limitar(nota)
+
+    def _fuerza(self, velocidad, indice):
+        """Acento del estilo y fuerza al azar (repetible con la seed)."""
+        if self.acento and self.sec is not None:
+            velocidad = max(velocidad, self.sec.acento)
+        azar = float(self.cfg.get("vel_random", 0.0))
+        if azar > 0:
+            velocidad += round(azar * 30 * random.Random(f"{self.cfg.get('seed')}:vel:{indice}").uniform(-1, 1))
+        return max(1, min(127, velocidad))
+
+    def _doble(self, nota, velocidad, duenio, enviar):
+        """Voz doble paralela (tercera, quinta, octava…), un poco más suave. Devuelve la nota o None."""
+        tipo = self.cfg.get("doble", "")
+        if not tipo:
+            return None
+        from .motor import VOZ_DOBLE, _por_grados   # (motor importa este módulo)
+        sec = self.sec
+        escala = sec.tonalidad if sec is not None and sec.tonalidad is not None else self.tonalidad
+        segunda = _por_grados(escala, nota, VOZ_DOBLE[tipo])
+        while segunda > min(int(self.cfg.get("techo", 127)), 127) and segunda - 12 > nota:
+            segunda -= 12
+        if segunda == nota or segunda > 127:
+            return None
+        if segunda in self.sonando:
+            enviar(self.salida, "note_off", self.canal, segunda, 0)
+        self.sonando[segunda] = (("doble", duenio), velocidad)
+        enviar(self.salida, "note_on", self.canal, segunda, max(1, velocidad - 12))
+        return segunda
 
     def _apoyatura(self, nota, pulso_en_compas):
         """Raga: en el tiempo, la nota llega desde la de arriba (un pulso antes)."""
@@ -183,14 +245,14 @@ class Tocado:
         if self.ultima is not None and tick - self.ultima[0] > 2 * 24:
             self.indice, previa = 0, None   # después de una pausa larga empieza otra frase
         nota = self.elegir(tecla, velocidad, en_compas, momento, self.indice, previa, max(tick, 0) // PULSOS_POR_PASO)
-        if self.acento and self.sec is not None:
-            velocidad = max(velocidad, self.sec.acento)   # acento del estilo
+        velocidad = self._fuerza(velocidad, self.indice)
         self.indice += 1
         self.ultima = (tick, nota)
         self.clases = momento.clases if momento is not None else None
         self._sonar(nota, velocidad, tecla, tick, en_compas if corriendo else 1, enviar)
         self.vivas[tecla] = nota
         self.fuerzas[tecla] = velocidad
+        self._doble(nota, velocidad, tecla, enviar)
         if self.estado == "grabando":
             self.abiertas[tecla] = (tick - self.inicio, velocidad)
         elif self.estado == "armado" and PULSOS_POR_COMPAS - en_compas <= ANTES:
@@ -201,6 +263,9 @@ class Tocado:
         if nota is not None and self.sonando.get(nota, (None,))[0] == tecla:
             del self.sonando[nota]
             enviar(self.salida, "note_off", self.canal, nota, 0)
+        for n in [n for n, (d, _) in self.sonando.items() if d == ("doble", tecla)]:
+            del self.sonando[n]
+            enviar(self.salida, "note_off", self.canal, n, 0)
         self.pendientes = [p for p in self.pendientes if p[3] != tecla]
         self.fuerzas.pop(tecla, None)
         abierta = self.abiertas.pop(tecla, None)
@@ -222,12 +287,23 @@ class Tocado:
 
     # --- Grabar y loop ---
 
-    def accion(self, que, tick):
-        pasos = max(1, min(32, int(self.cfg.get("pasos", 16))))
+    def accion(self, que, tick, pasos=None):
+        if que == "largo":
+            # Acortar o alargar el loop ya grabado (alargado, repite lo grabado). No borra
+            # nada: volver al largo original deja el loop como estaba.
+            if self.grabadas and self.estado in ("loop", "pausa") and pasos:
+                nuevo = max(1, min(128, int(pasos))) * PULSOS_POR_PASO
+                if self.estado == "loop" and self.largo:
+                    dentro = (tick - self.inicio) % self.largo
+                    self.inicio = tick - dentro % nuevo   # sigue en el mismo lugar (o vuelve al principio)
+                self.largo = nuevo
+                self.cambio_loop = True
+            return
+        pasos = max(1, min(128, int(self.cfg.get("pasos", 16))))
         if que == "grabar":
             self.grabadas, self.abiertas, self.estado = [], {}, "armado"
             self.anticipadas = {}
-            self.largo = pasos * PULSOS_POR_PASO
+            self.largo = self.grabado = pasos * PULSOS_POR_PASO
         elif que == "parar":
             if self.estado in ("loop", "grabando", "armado"):
                 self.estado = "pausa" if self.grabadas else "libre"
@@ -256,6 +332,7 @@ class Tocado:
             self.pendientes.remove(p)
             _, nota, vel, duenio = p
             if nota in self.sonando and self.sonando[nota][0] == duenio:
+                enviar(self.salida, "note_off", self.canal, nota, 0)   # repetición: se vuelve a atacar
                 enviar(self.salida, "note_on", self.canal, nota, vel)
         if tick % PULSOS_POR_COMPAS == 0 and self.estado == "armado":
             self._empezar(tick)
@@ -263,21 +340,73 @@ class Tocado:
             self._terminar(tick)
         if tick % PULSOS_POR_PASO == 0:
             self._cambio_de_acorde(tick, momento_de(tick // PULSOS_POR_PASO), enviar)
-        if self.estado == "loop" and self.activo and self.largo:
-            dentro = (tick - self.inicio) % self.largo
-            for i, (inicio, largo, vel, tecla) in enumerate(self.grabadas):
-                if inicio == dentro:
-                    momento = momento_de(tick // PULSOS_POR_PASO)
-                    previa = self.ultima[1] if self.ultima is not None else None
-                    vuelta = (tick - self.inicio) // self.largo
-                    nota = self.elegir(tecla, vel, tick % PULSOS_POR_COMPAS, momento, vuelta * len(self.grabadas) + i,
-                                       previa, tick // PULSOS_POR_PASO)
-                    if self.acento and self.sec is not None:
-                        vel = max(vel, self.sec.acento)
-                    self.ultima = (tick, nota)
-                    self.clases = momento.clases if momento is not None else None
-                    self._sonar(nota, vel, ("loop", i), tick, tick % PULSOS_POR_COMPAS, enviar)
-                    self.vencen.append((tick + largo, nota, ("loop", i)))
+        if tick % PULSOS_POR_COMPAS == 0 and tick > 0:
+            self._mutar(tick // PULSOS_POR_COMPAS)
+        if self.estado == "loop" and self.activo and self.largo and self.grabado:
+            self._tocar_loop(tick, momento_de, enviar)
+
+    def _tocar_loop(self, tick, momento_de, enviar):
+        dentro = (tick - self.inicio) % self.largo
+        tramo, base = divmod(dentro, self.grabado)   # alargado: la grabación se repite
+        n = len(self.grabadas)
+        tramos = -(-self.largo // self.grabado)
+        vuelta = (tick - self.inicio) // self.largo
+        seed = self.cfg.get("seed", "TC")
+        for i, (inicio, largo, vel, tecla) in enumerate(self.grabadas):
+            if inicio != base:
+                continue
+            indice = (vuelta * tramos + tramo) * n + i
+            if azar_fijo(f"{seed}:densidad:{i}") >= float(self.cfg.get("densidad", 1.0)):
+                continue   # densidad: esta nota calla (siempre la misma, como en las secuencias)
+            momento = momento_de(tick // PULSOS_POR_PASO)
+            previa = self.ultima[1] if self.ultima is not None else None
+            nota = self.elegir(tecla, vel, tick % PULSOS_POR_COMPAS, momento, indice, previa, tick // PULSOS_POR_PASO)
+            vel = self._fuerza(vel, indice)
+            # Hasta la nota siguiente (en la grabación, que se repite).
+            siguiente = self.grabadas[(i + 1) % n][0] + (self.grabado if i + 1 == n else 0)
+            hueco = max(1, siguiente - inicio)
+            p, x = self.paso_elegido
+            if self.cfg.get("largo_nota") == "estilo":
+                gate = float(self.cfg.get("gate", 0.55)) * p.get("gate_mult", 1.0)
+                g = float(self.cfg.get("gate_random", 0.0))
+                if g > 0:
+                    gate *= 1 + g * random.Random(f"{seed}:gate:{indice}").uniform(-1, 1)
+                largo = max(1, round(PULSOS_POR_PASO * max(0.05, min(1.0, gate))))
+                if p.get("sostener"):
+                    largo = max(1, round(p["sostener"] * PULSOS_POR_PASO) - 1)
+                largo = min(largo, hueco)
+            slide = float(self.cfg.get("slide", 0.0))
+            if "pref_slide" in p:
+                desliza = x.get("slide", 1) < slide * p["pref_slide"]
+            else:
+                desliza = bool(p.get("slide")) or azar_fijo(f"{seed}:slide:{i}") < slide
+            if desliza:
+                largo = hueco + 2   # slide: se pisa con la siguiente (legato + glide en el sinte)
+            primero = self.grabadas[0][0]
+            largo = max(1, min(largo, self.largo - dentro + primero))   # acortado: no pasa del final
+            self.ultima = (tick, nota)
+            self.clases = momento.clases if momento is not None else None
+            duenio = ("loop", i)
+            self._sonar(nota, vel, duenio, tick, tick % PULSOS_POR_COMPAS, enviar)
+            self.vencen.append((tick + largo, nota, duenio))
+            if not desliza and largo >= 4 and azar_fijo(f"{seed}:repeticion:{i}") < float(self.cfg.get("repeticion", 0.0)):
+                self.pendientes.append((tick + PULSOS_POR_PASO // 2, nota, max(1, vel - 15), duenio))   # redoble
+            segunda = self._doble(nota, vel, duenio, enviar)
+            if segunda is not None:
+                self.vencen.append((tick + largo, segunda, ("doble", duenio)))
+
+    def _mutar(self, compas):
+        """Mutación de notas (como en las secuencias): cada `mutar_cada` compases cambia
+        algunas notas del estilo. Tu ritmo no se toca. Bloqueada: queda como está."""
+        c = self.cfg
+        mutacion = float(c.get("mutacion", 0.0))
+        if mutacion <= 0 or c.get("bloqueada") or self.sec is None or compas % max(1, int(c.get("mutar_cada", 8))):
+            return
+        seed = c.get("seed", "TC")
+        if self.sec.estilo in FRASEADOS:
+            self.patron = generador.mutar_clasico(self.patron, seed, compas, mutacion)
+        else:
+            self.patron = generador.mutar(self.patron, seed, compas, mutacion, self.sec.pedal)
 
     def _empezar(self, tick):
         self.estado, self.inicio = "grabando", tick
@@ -295,6 +424,7 @@ class Tocado:
         self._cuantizar()
         self.estado = "loop" if self.grabadas else "libre"
         self.inicio = tick
+        self.grabado = self.largo
         self.cambio_loop = True
         log.info("Tocado: loop de %d pasos con %d notas (%s)", self.largo // PULSOS_POR_PASO, len(self.grabadas),
                  self.cfg.get("cuantizar", "estricta"))
@@ -341,6 +471,11 @@ class Tocado:
             return
         self.clases = momento.clases
         for nota, (duenio, vel) in list(self.sonando.items()):
+            if isinstance(duenio, tuple) and duenio[0] == "doble" and not isinstance(duenio[1], tuple) \
+                    and nota % 12 not in momento.clases:
+                enviar(self.salida, "note_off", self.canal, nota, 0)   # la voz doble de una tecla que choca: calla
+                del self.sonando[nota]
+                continue
             if nota % 12 in momento.clases or isinstance(duenio, tuple):
                 continue  # las del loop no se vuelven a atacar: el ritmo grabado queda exacto
             nueva = armonia.nota_del_acorde(nota, momento.clases)
@@ -368,7 +503,8 @@ class Tocado:
         self.sonando, self.vivas, self.vencen, self.pendientes = {}, {}, [], []
 
     def estado_app(self, tick):
-        e = {"estado": self.estado, "notas": len(self.grabadas), "pasos": self.largo // PULSOS_POR_PASO}
+        e = {"estado": self.estado, "notas": len(self.grabadas), "pasos": self.largo // PULSOS_POR_PASO,
+             "grabado": (self.grabado or self.largo) // PULSOS_POR_PASO}
         if self.estado == "grabando" and self.inicio is not None:
             e["paso"] = min(self.largo, tick - self.inicio) // PULSOS_POR_PASO + 1
         if self.estado == "loop" and self.inicio is not None and self.largo:

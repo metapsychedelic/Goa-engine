@@ -218,7 +218,9 @@ class Motor(FormaMotor):
         self._programas(config)
         self._looper(config)
         self.tonalidad = tonalidad
-        self.tocado.configurar(config.get("tocado", {}), tonalidad, self.enviar, self.tick)
+        tocado = config.get("tocado", {})
+        self.tocado.configurar(tocado, tonalidad, self.enviar, self.tick,
+                               guiada=self._modo_armonia(tocado.get("armonia", "general")) == "guiada")
         self.adaptacion = musica.get("adaptacion", "escala")
         self.cambio = musica.get("cambio_de_nota", "paso")
         self.canal_disparo = int(entrada.get("canal_disparo", 2)) - 1
@@ -578,6 +580,15 @@ class Motor(FormaMotor):
                 valor = lfo.valor(self.tick)
                 if valor != lfo.ultimo:
                     self.enviar(s.salida, "control_change", s.canal, lfo.cc, valor)
+                    lfo.ultimo = valor
+        t = self.tocado
+        if t.activo and t.salida:
+            for lfo in t.lfos:
+                if not lfo.activo or (t.salida, t.canal, lfo.cc) in self.cc_secuencias:
+                    continue
+                valor = lfo.valor(self.tick)
+                if valor != lfo.ultimo:
+                    self.enviar(t.salida, "control_change", t.canal, lfo.cc, valor)
                     lfo.ultimo = valor
 
     def nota_on(self, canal, nota, velocidad=100):

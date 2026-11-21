@@ -376,8 +376,20 @@ ESQUEMA_SECUENCIA = {
 # ajustes de patrón que una secuencia (figura, frase, respuesta, raga…).
 TOCADO_PATRON = ("genero", "figura", "frase", "remate", "variar", "ciclo", "registro", "huecos", "pedal",
                  "saltos", "raga", "ornamentos", "escala_color", "semitono", "relacion", "acentos", "acento", "largo")
-for _clave in TOCADO_PATRON:
+# Ajustes de una secuencia que el Tocado usa sin tocar el ritmo que grabaste: cómo toma
+# la armonía, techo, voz doble, slide, mutación de notas, recorrido, fuerza al azar,
+# filtro en la subida, FX y los dos LFO de filtro. Más los adaptados al loop (gate,
+# densidad, repetición). No van los que deciden el ritmo (posición, corrimiento, molde,
+# mutación de ritmo, swing): el ritmo es el tuyo.
+TOCADO_EXTRA = ("armonia", "techo", "doble", "slide", "mutacion", "mutar_cada", "bloqueada", "recorrido",
+                "vel_random", "gate", "gate_random", "densidad", "repeticion",
+                "fx", "cc_filtro", "subida_filtro", "subida_desde", "subida_hasta", "subida_despues", "filtro_reposo",
+                "lfo", "lfo_cc", "lfo_forma", "lfo_compases", "lfo_min", "lfo_max",
+                "lfo2", "lfo2_cc", "lfo2_forma", "lfo2_compases", "lfo2_min", "lfo2_max")
+for _clave in TOCADO_PATRON + TOCADO_EXTRA:
     ESQUEMA_SECCIONES["tocado"][_clave] = ESQUEMA_SECUENCIA[_clave]
+# Largo de cada nota del loop: el tuyo (como lo tocaste) o el del estilo (su gate).
+ESQUEMA_SECCIONES["tocado"]["largo_nota"] = (str, "tuyo", None, ("tuyo", "estilo"))
 
 
 # Un clip guarda el carácter musical de una secuencia; el destino lo pone la fila
