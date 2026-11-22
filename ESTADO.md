@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.74.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.74.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -282,3 +282,6 @@ El usuario tiene loops de 64 pasos y MSTRSTEPLEN 16: la MC-101 los cambia en cua
 
 ## 0.74 — Fuera el re-encuadre y el reloj al looper
 Resultó que bastaba «entra cada 4» (loops de 64 pasos con MSTRSTEPLEN 16). Se quitaron looper.reencuadrar/parar_antes (Start a la MC-101) y looper.transporte (reenviar reloj a la salida del looper), con su API y su UI; las claves viejas se descartan al cargar. Queda: «entra cada», el pedido en la mitad del compás anterior, el loop de una escena que espera la frase, callar con CC 7, y las mejoras de reloj de 0.70.1.
+
+### 0.74.1 — El eco de las perillas no frena el reloj
+El usuario notó que el desync de la MC-101 venía con el eco de perillas / la entrada del teclado. Teclado._devolver tomaba el candado del motor por cada CC, y Puertos tenía un solo candado de envío compartido con el reenvío del reloj: si el USB de la MicroFreak tardaba, el reloj de la cadena esperaba. Ahora _devolver va sin el candado del motor y Puertos tiene un candado por puerto (Puertos.envio(clave)).

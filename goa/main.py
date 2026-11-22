@@ -50,11 +50,20 @@ class Puertos:
     def __init__(self, salidas):
         self.salidas = sorted(set(salidas))
         self.abiertos = {}
-        # Mandar a un puerto puede pasar desde dos hilos (el reloj reenviado va sin el
-        # candado del motor): este candado chico solo cubre cada envío, que es corto.
-        self.envio = threading.Lock()
+        # Mandar a un puerto puede pasar desde varios hilos (el reloj reenviado y el eco de
+        # las perillas van sin el candado del motor): un candado chico por puerto, así lo
+        # que se manda a la MicroFreak por USB nunca hace esperar al reloj de la cadena.
+        self.envios = {}
+        self.envios_candado = threading.Lock()
         self.avisados = set()
         self.disponibles = []
+
+    def envio(self, clave):
+        candado = self.envios.get(clave)
+        if candado is None:
+            with self.envios_candado:
+                candado = self.envios.setdefault(clave, threading.Lock())
+        return candado
 
     def cambiar_salidas(self, salidas):
         """Con cada cambio de la app. Si las salidas son las mismas no hace nada; si no,
@@ -66,7 +75,7 @@ class Puertos:
             return
         for clave in list(self.abiertos):
             if clave not in nuevas:
-                with self.envio:
+                with self.envio(clave):
                     self.abiertos.pop(clave).close()
         self.salidas = nuevas
         self.revisar(self.disponibles)
@@ -79,7 +88,7 @@ class Puertos:
             puerto = self.abiertos.get(clave)
             if puerto is not None and puerto.name not in self.disponibles:
                 log.warning("Se desconectó la salida %r", clave)
-                with self.envio:
+                with self.envio(clave):
                     puerto.close()
                     del self.abiertos[clave]
             if clave not in self.abiertos:
@@ -109,7 +118,7 @@ class Puertos:
                 msg = mido.Message("pitchwheel", channel=canal, pitch=nota)
             else:
                 msg = mido.Message(tipo, channel=canal, note=nota, velocity=velocidad)
-            with self.envio:
+            with self.envio(clave):
                 puerto.send(msg)
         except (OSError, ValueError) as e:
             log.warning("Error enviando a %r: %s", clave, e)
@@ -119,17 +128,17 @@ class Puertos:
         if puerto is None:
             return
         try:
-            with self.envio:
+            with self.envio(clave):
                 puerto.send(msg)
         except (OSError, ValueError) as e:
             log.warning("Error reenviando a %r: %s", clave, e)
 
     def panico(self):
         """All Notes Off en los 16 canales de cada salida abierta."""
-        for puerto in list(self.abiertos.values()):
+        for clave, puerto in list(self.abiertos.items()):
             for canal in range(16):
                 try:
-                    with self.envio:
+                    with self.envio(clave):
                         puerto.send(mido.Message("control_change", channel=canal, control=123, value=0))
                 except (OSError, ValueError):
                     pass

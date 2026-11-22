@@ -47,7 +47,8 @@ def main():
     todo &= ok(list(p.abiertos) == ["FM-1"], "una salida que ya nadie usa se cierra")
     p.enviar("FM-1", "note_on", 0, 60, 100)
     p.reenviar("FM-1", object())
-    todo &= ok(not p.envio.locked(), "el candado de envío queda libre")
+    todo &= ok(not any(c.locked() for c in p.envios.values()) and p.envio("FM-1") is not p.envio("CH345"),
+               "un candado de envío por puerto, y quedan libres")
 
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)

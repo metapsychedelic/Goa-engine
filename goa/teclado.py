@@ -77,12 +77,14 @@ class Teclado:
                 self.ctx.motor.tocado_off(msg.note)
 
     def _devolver(self, cfg, msg):
+        """Sin el candado del motor: el eco de una perilla no tiene nada que ver con el
+        motor, y con el candado cada movimiento hacía esperar al reloj (y una perilla
+        manda decenas de mensajes por segundo). Puertos usa un candado chico por puerto."""
         canal = cfg["canal_sinte"] - 1
-        with self.ctx.candado:
-            if msg.type == "control_change":
-                self.ctx.puertos.enviar(cfg["puerto"], "control_change", canal, msg.control, msg.value)
-            else:
-                self.ctx.puertos.enviar(cfg["puerto"], "pitchwheel", canal, msg.pitch, 0)
+        if msg.type == "control_change":
+            self.ctx.puertos.enviar(cfg["puerto"], "control_change", canal, msg.control, msg.value)
+        else:
+            self.ctx.puertos.enviar(cfg["puerto"], "pitchwheel", canal, msg.pitch, 0)
 
     def estado(self):
         return {"conectado": self.conectado, "ultimo": self.ultimo, "apretadas": len(self.notas),
