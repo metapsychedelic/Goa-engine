@@ -44,6 +44,16 @@ def buscar_puerto(nombres, parte):
     return hallados[cual - 1] if 0 < cual <= len(hallados) else None
 
 
+def _sin_reloj(entrada):
+    """El teclado y el controlador no necesitan reloj: que el driver lo descarte antes de
+    llegar a Python. La MicroFreak, sincronizada, manda su reloj por USB todo el rato
+    (24 por negra): cada uno despertaba un hilo de Python que competía con el del reloj."""
+    try:
+        entrada._rt.ignore_types(True, True, True)   # sysex, reloj, active sensing
+    except AttributeError:
+        pass
+
+
 class Puertos:
     """Salidas MIDI buscadas por parte del nombre, con reconexión."""
 
@@ -271,6 +281,7 @@ def main():
                 except OSError as e:
                     log.warning("No pude abrir %s: %s", nombre, e)
                 else:
+                    _sin_reloj(abierta)
                     receptor.conectado = nombre
                     log.info("%s conectado: %s", que, nombre)
         return abierta

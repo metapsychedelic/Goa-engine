@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.74.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.74.2** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -285,3 +285,6 @@ Resultó que bastaba «entra cada 4» (loops de 64 pasos con MSTRSTEPLEN 16). Se
 
 ### 0.74.1 — El eco de las perillas no frena el reloj
 El usuario notó que el desync de la MC-101 venía con el eco de perillas / la entrada del teclado. Teclado._devolver tomaba el candado del motor por cada CC, y Puertos tenía un solo candado de envío compartido con el reenvío del reloj: si el USB de la MicroFreak tardaba, el reloj de la cadena esperaba. Ahora _devolver va sin el candado del motor y Puertos tiene un candado por puerto (Puertos.envio(clave)).
+
+### 0.74.2 — Las entradas del teclado y del controlador descartan el reloj en el driver
+El desync aparece con la entrada del teclado abierta aunque no se toque nada. Lo único que llega por ahí en reposo es el reloj que la MicroFreak reenvía por USB (24 por negra): main._sin_reloj le pide a rtmidi ignorar sysex, reloj y active sensing en esas entradas, así ni llegan a Python. Pendiente: confirmar con el usuario si con esto se va (y si probó con la MicroFreak ya en Output USB / Sync MIDI).
