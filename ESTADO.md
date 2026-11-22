@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.73.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.73.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -276,3 +276,6 @@ El usuario no quería depender de un slot vacío. La tabla MIDI de la MC-101 no 
 La MC-101 cuenta los compases desde su propio arranque; si se corre, el loop entra corrido. (Causa probable encontrada con el usuario: la MicroFreak, en la cadena antes de la MC-101, tenía MIDI Output en Both y mezclaba su propio reloj con el de la Pi → dos relojes. Recomendado: Sync Source MIDI, Thru On, Output USB.)
 - looper.reencuadrar (no | escena | loop) y looper.parar_antes: la Pi manda (Stop y) Start por la salida del looper un pulso antes del uno (tras un Start, el pulso siguiente es el uno de la máquina). «escena»: cuando entra una escena o parte (aunque el loop sea el mismo); «loop»: cuando cambia el loop (no en el Start). Motor.reencuadre = (compás, salida, con Stop); Motor._reencuadre_pulso desde reloj. /api/looper/reencuadrar («Re-encuadrar ahora»: próximo múltiplo de «entra cada»).
 - Ojo: el Start reinicia toda la MC-101 y llega a todo lo que vaya por ese cable. Puertos.enviar acepta "start"/"stop".
+
+### 0.73.1 — El loop de una escena también espera la frase
+El usuario tiene loops de 64 pasos y MSTRSTEPLEN 16: la MC-101 los cambia en cualquier compás y un loop que parte en el compás 2 de la frase queda corrido. Con `cada` > 1, el compás en que entra el loop de una escena o parte se redondea hacia arriba al múltiplo de `cada` (Motor._looper).

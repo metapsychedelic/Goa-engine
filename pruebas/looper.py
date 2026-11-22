@@ -136,6 +136,13 @@ def main():
     todo &= ok(not r.cc and not r.pcs, "si el motor no lo hizo sonar, no toca la pista")
     todo &= ok("MC-101" in salidas(base(clip=3, activo=False)), "apagado, el puerto queda abierto para poder callarlo")
 
+    cfg = base(clip=1, cada=4)
+    m, r = arrancar(cfg)
+    compases(m, 1)
+    m.lanzar_escena(normalizar(forma.mezclar(m.base, forma.escena_de(dict(cfg, looper=dict(cfg["looper"], clip=5)), "Y"))), 1)   # llega en el compás 3 (índice 2)
+    compases(m, 6)
+    todo &= ok(r.pcs[-1] == (3, 48, 4), f"escena que llega a mitad de frase: el loop de 4 compases espera el uno de la frase {r.pcs}")
+
     print("\nRe-encuadre")
     class Transporte(Registro):
         def __init__(self):

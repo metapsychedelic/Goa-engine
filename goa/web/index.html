@@ -1740,7 +1740,7 @@ function panelLooper() {
     el("div", {className: "grupos"}, [
       grupo("g-lp-sync", "En sincronía", `entra cada ${x.cada} compás${x.cada > 1 ? "es" : ""}${x.transporte ? " · la Pi le pasa el reloj" : ""}`, [
         campo("El loop entra cada", segmentado([["1","1 compás"],["2","2"],["4","4"],["8","8"]], String(x.cada), (v) => { x.cada = parseInt(v); guardar(); renderMotores(); }, 4)),
-        ayuda("Pon el largo de tus loops: un loop de 4 compases elegido en cualquier momento espera el inicio de la frase (contado desde el Start de la Circuit) y entra siempre en el uno de la frase. Con una escena o parte, entra con ella."),
+        ayuda("Pon el largo de tus loops: un loop de 4 compases elegido en cualquier momento espera el inicio de la frase (contado desde el Start de la Circuit) y entra siempre en el uno de la frase. Con una escena o parte, entra con ella; si la escena llega a mitad de frase, el loop espera el uno de la frase. Ojo: la MC-101 con MSTRSTEPLEN 16 cambia en cualquier compás, así que con loops de 64 pasos pon 4 acá."),
         campo("Re-encuadrar la MC-101", segmentado([["no", "No"], ["escena", "En cada escena"], ["loop", "Al cambiar de loop"]], x.reencuadrar, (v) => { x.reencuadrar = v; guardar(); renderMotores(); }, 3)),
         ...(x.reencuadrar !== "no" ? [casilla(x, "parar_antes", "Con Stop antes del Start", "Más seguro (algunas máquinas ignoran un Start si ya andan), pero puede cortar notas que estén sonando", () => renderMotores())] : []),
         el("button", {type: "button", textContent: "Re-encuadrar ahora", onclick: async () => {

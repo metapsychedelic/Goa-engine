@@ -492,6 +492,11 @@ class Motor(FormaMotor):
         if not lp.get("salida"):
             self.looper_pendiente = None
             return
+        if objetivo is not None:
+            # Una escena o parte que llega a mitad de frase: el loop espera el uno de la
+            # frase (un loop de 4 compases que parte en el compás 2 queda corrido siempre).
+            cada = max(1, int(lp.get("cada", 1)))
+            objetivo = -(-objetivo // cada) * cada
         modo = (self.config or {}).get("looper", {}).get("reencuadrar", "no")
         if objetivo is not None and modo in ("escena", "loop") and lp.get("activo"):
             self._pedir_reencuadre(objetivo)   # entra una escena o una parte
