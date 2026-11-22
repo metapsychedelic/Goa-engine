@@ -109,6 +109,17 @@ details.voz>.cuerpo{display:flex;flex-direction:column;gap:12px;padding:6px 0 10
 .selector button[aria-selected=true]{background:var(--acc);color:var(--sobre)}
 .selector button.apagado:not([aria-selected=true]){opacity:.55}
 .selector button.mas{flex:0 0 auto;color:var(--acc)}
+.selector button.cambiado::after,nav.tabs button.cambiado::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc);box-shadow:var(--glow);margin-left:5px;vertical-align:middle}
+nav.tabs button{position:relative}
+nav.tabs button.cambiado::after{position:absolute;top:8px;right:calc(50% - 16px);margin:0}
+.selector button[aria-selected=true].cambiado::after{background:var(--sobre);box-shadow:none}
+.edicion-caja{position:sticky;top:var(--alto-cab,72px);z-index:4;padding:8px 16px 0}
+.edicion-caja[hidden]{display:none}
+.edicion{max-width:560px;margin:0 auto;background:var(--accbg);border:1px solid var(--acc);border-radius:12px;padding:8px 10px;display:flex;align-items:center;gap:8px;box-shadow:var(--glow)}
+.edicion .t{flex:1;min-width:0;font-size:13px;line-height:1.3}
+.edicion .t b{color:var(--acc)}
+.edicion button{min-height:36px;padding:0 12px;font-size:13px}
+button.escena.editando{outline:2px solid var(--acc);outline-offset:1px}
 input.switch{appearance:none;-webkit-appearance:none;width:44px;height:26px;border-radius:13px;background:var(--line2);position:relative;cursor:pointer;transition:background .15s}
 input.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--txt);transition:transform .15s}
 input.switch:checked{background:var(--acc)}
@@ -237,6 +248,7 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
   </div>
 </div></header>
 
+<div class="edicion-caja" id="edicion_caja" hidden><div class="edicion" id="edicion" role="status"></div></div>
 <main>
   <section class="vista" id="v-tocar" aria-label="Tocar">
     <div id="tocar_escenas"></div>
@@ -667,13 +679,85 @@ function motores() {
 
 let motorSel = leerLocal("motor", "pads");
 
+// --- Edición de escenas ---
+// «Editar» en una escena o parte: suena, y todo lo que muevas queda guardado en ella al
+// momento (el motor lo copia en cada cambio). Arriba, una franja dice qué escena editas,
+// con «Descartar» (vuelve a como estaba al entrar) y «Listo». Los puntos en las pestañas
+// marcan qué motores cambiaron: editando, contra cómo estaba la escena al entrar; si no,
+// contra la última escena que lanzaste.
+let edicion = null;   // {escena, nombre, original (datos de la escena al entrar)}
+const RUTEO = new Set(["salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_resonancia", "cc_filtro", "filtro_reposo", "parar", "nivel"]);
+function referenciaEscena() {
+  if (edicion) return edicion.original;
+  const i = cfg && cfg.forma.escena;
+  if (i === undefined || i < 0 || !cfg.escena[i]) return null;
+  try { return JSON.parse(cfg.escena[i].datos); } catch (e) { return null; }
+}
+function difiere(vivo, guardado) {
+  if (!vivo || !guardado) return false;
+  for (const k in guardado) {
+    if (RUTEO.has(k) || !(k in vivo)) continue;
+    if (JSON.stringify(vivo[k]) !== JSON.stringify(guardado[k])) return true;
+  }
+  return false;
+}
+function motorCambiado(clave, ref) {
+  ref = ref === undefined ? referenciaEscena() : ref;
+  if (!ref || !cfg) return false;
+  if (clave.startsWith("sec")) { const i = parseInt(clave.slice(3)); return difiere(cfg.secuencia[i], (ref.secuencia || [])[i]); }
+  const secciones = clave === "dialogo" ? ["dialogo", "llamada", "respuesta"] : [clave];
+  return secciones.some((s) => difiere(cfg[s], ref[s]));
+}
+function marcarCambios() {
+  const ref = referenciaEscena();
+  document.querySelectorAll(".selector button[data-motor]").forEach((b) => b.classList.toggle("cambiado", motorCambiado(b.dataset.motor, ref)));
+  const arm = document.querySelector("nav.tabs button[data-vista=armonia]");
+  if (arm) arm.classList.toggle("cambiado", !!ref && difiere(cfg.musica, ref.musica));
+  const mot = document.querySelector("nav.tabs button[data-vista=motores]");
+  if (mot) mot.classList.toggle("cambiado", !!ref && motores().some(([c]) => motorCambiado(c, ref)));
+}
+async function entrarEdicion(datos) {
+  try {
+    await api("/api/editar", datos); await recargar(); await estado();
+    aviso("Editando: lo que muevas queda guardado en la escena");
+  } catch (e) { aviso(e.message, true); }
+}
+function pintarEdicion(e) {
+  const cab = document.querySelector("header.top");
+  if (cab) document.documentElement.style.setProperty("--alto-cab", cab.offsetHeight + "px");
+  const b = $("edicion");
+  if (!e) {
+    if (edicion) { edicion = null; marcarCambios(); }
+    $("edicion_caja").hidden = true;
+    document.querySelectorAll("button.escena.editando").forEach((x) => x.classList.remove("editando"));
+    return;
+  }
+  if (!edicion || edicion.escena !== e.escena) {
+    edicion = {escena: e.escena, original: null};
+    api("/api/editar/original").then((r) => { if (edicion && r.original) { edicion.original = JSON.parse(r.original); marcarCambios(); } }).catch(() => {});
+  }
+  edicion.nombre = e.nombre;
+  if (!b.firstChild) {
+    b.append(el("span", {className: "t"}),
+      el("button", {type: "button", textContent: "Descartar", onclick: async () => {
+        if (!confirm(`¿Volver «${edicion.nombre}» a como estaba antes de editarla?`)) return;
+        try { await api("/api/editar/descartar"); await recargar(); await estado(); aviso("Escena como estaba"); } catch (x) { aviso(x.message, true); } }}),
+      el("button", {type: "button", className: "prim", textContent: "Listo", onclick: async () => {
+        try { await api("/api/editar/listo"); await recargar(); await estado(); aviso(`«${edicion ? edicion.nombre : "Escena"}» guardada`); } catch (x) { aviso(x.message, true); } }}));
+  }
+  b.querySelector(".t").replaceChildren(el("b", {textContent: `Editando «${e.nombre}»`}), el("br"),
+    el("span", {className: "mut", textContent: e.cambios ? "Con cambios · se guardan solos" : "Lo que muevas se guarda solo"}));
+  $("edicion_caja").hidden = false;
+  document.querySelectorAll("button.escena[data-escena]").forEach((x) => x.classList.toggle("editando", Number(x.dataset.escena) === e.escena));
+}
+
 function renderSelector() {
   const sel = $("selector"); sel.innerHTML = "";
   const lista = motores();
   if (!lista.some((m) => m[0] === motorSel)) motorSel = "pads";
   for (const [clave, nombre, obj, k] of lista) {
     sel.append(el("button", {type: "button", role: "tab", textContent: nombre, "aria-selected": clave === motorSel ? "true" : "false",
-      className: obj[k] ? "" : "apagado", onclick: () => { motorSel = clave; escribirLocal("motor", clave); renderMotores(); }}));
+      className: (obj[k] ? "" : "apagado") + (motorCambiado(clave) ? " cambiado" : ""), "data-motor": clave, onclick: () => { motorSel = clave; escribirLocal("motor", clave); renderMotores(); }}));
   }
   if (cfg.secuencia.length < 8) {
     sel.append(el("button", {type: "button", className: "mas", textContent: "+", "aria-label": "Añadir secuencia", title: "Añadir secuencia", onclick: agregarSecuencia}));
@@ -2089,6 +2173,7 @@ function bloqueEscenas() {
     ]);
     if (editarEscenas) {
       grilla.append(el("div", {style: "display:flex;flex-direction:column;gap:4px;min-width:0"}, [boton,
+        el("button", {type: "button", textContent: "Editar", style: "font-size:12px;padding:0 6px", onclick: () => { editarEscenas = false; entrarEdicion({escena: i}); }}),
         el("div", {className: "dos", style: "gap:4px"}, [
           el("button", {type: "button", textContent: "Guardar aquí", style: "font-size:12px;padding:0 6px", onclick: () => guardarEscena(i)}),
           el("button", {type: "button", textContent: "Borrar", style: "font-size:12px;padding:0 6px;color:var(--bad)", onclick: () => borrarEscena(i)}),
@@ -2188,7 +2273,11 @@ function bloqueParte(p, i) {
     el("div", {className: "dos"}, [
       el("button", {type: "button", textContent: c.activa ? "Saltar aquí" : "Escuchar",
         onclick: () => accionParte("/api/parte/escuchar", {indice: i}, c.activa ? `${p.nombre} en el próximo compás` : `Suena ${p.nombre}`)}),
-      el("button", {type: "button", textContent: "Guardar lo que suena",
+      c.activa ? null : el("button", {type: "button", className: "prim", textContent: "Editar",
+        onclick: () => entrarEdicion({parte: i})}),
+    ].filter(Boolean)),
+    el("div", {}, [
+      el("button", {type: "button", textContent: "Guardar lo que suena", style: "width:100%",
         onclick: () => { if (p.escena < 0 || confirm(`¿Guardar lo que suena ahora en la escena de ${p.nombre}? Cambia en todas las partes que usan esa escena.`))
           accionParte("/api/parte/guardar", {indice: i}, `Guardado en ${p.nombre}`); }}),
     ]),
@@ -2292,7 +2381,7 @@ function renderCancion() {
       el("button", {type: "button", textContent: "Cargar plantilla…", onclick: cargarPlantilla}),
       el("button", {type: "button", textContent: "Actualizar con la plantilla…", onclick: actualizarConPlantilla}),
       cfg.parte.some((p) => p.escena < 0) ? ayuda("Las partes sin escena siguen lo que suena. Para elegir qué suena en una: arma el sonido en modo libre y toca «Guardar lo que suena» en esa parte.") : null,
-      ayuda("Arma cada parte en modo libre: deja sonando lo que quieres (secuencias, pads, bajo…) y toca «+ Parte con lo que suena», o «Guardar lo que suena» en una parte que ya existe. «Escuchar» la vuelve a poner para seguir armándola."),
+      ayuda("Arma cada parte en modo libre: toca «Editar» en la parte, y todo lo que muevas (secuencias, pads, bajo…) queda guardado en ella al momento. Arriba aparece «Listo» para terminar y «Descartar» para volverla a como estaba. «Escuchar» solo la hace sonar, sin editarla."),
       ayuda("Para tocar con la Circuit: prende el modo canción y arma su cadena de escenas con los mismos largos. Al dar Play en la Circuit los dos parten juntos. Si se desfasan (por ejemplo, saltaste una escena en la Circuit), usa «Saltar aquí» en la parte que corresponde."),
     ]),
   );
@@ -2610,6 +2699,8 @@ async function estado() {
     $("ver").textContent = "Yantra v" + d.version;
     $("deshacer").disabled = !d.deshacer;
     pintarProyecto(d.proyecto_al_dia);
+    pintarEdicion(d.editando);
+    marcarCambios();
     $("acorde").textContent = d.acorde ? "Acorde: " + d.acorde : "Sin acorde";
     const azar = document.getElementById("prog_azar");
     if (azar) azar.textContent = d.progresion || "";

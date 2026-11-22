@@ -64,6 +64,9 @@ class Contexto:
         self._pedidos = 0
         # ¿El archivo del proyecto abierto tiene lo mismo que suena? (la app avisa si no)
         self.proyecto_al_dia = _proyecto_igual(self, config)
+        # Escena en edición: {"escena": índice, "original": la escena como estaba al entrar}.
+        # Mientras dura, cada cambio queda en esa escena (ver sincronizar_edicion).
+        self.editando = None
         threading.Thread(target=self._guardador, name="guardar-config", daemon=True).start()
 
     def sincronizar_tocado(self):
@@ -124,6 +127,33 @@ class Contexto:
                 log.warning("No pude guardar la configuración: %s", e)
                 self.error_guardado = "Aplicado, pero no se pudo guardar en la tarjeta"
                 return
+
+    def sincronizar_edicion(self):
+        """Modo edición: lo que suena se copia en la escena que estás editando (con el
+        candado, en cada cambio). Así no hay que acordarse de «Guardar lo que suena»."""
+        ed = self.editando
+        if ed is None:
+            return
+        escenas = self.config["escena"]
+        i = ed["escena"]
+        if i >= len(escenas) or self.config["cancion"]["activa"]:
+            self.editando = None
+            return
+        nueva = forma.escena_de(self.config, escenas[i]["nombre"])
+        if nueva["datos"] == escenas[i]["datos"] and nueva["energia"] == escenas[i]["energia"]:
+            return
+        lista = list(escenas)
+        lista[i] = nueva
+        self.config = dict(self.config, escena=lista)
+        self.motor.base["escena"] = copy.deepcopy(lista)
+
+    def estado_edicion(self):
+        ed = self.editando
+        if ed is None or ed["escena"] >= len(self.config["escena"]):
+            return None
+        e = self.config["escena"][ed["escena"]]
+        return {"escena": ed["escena"], "nombre": e["nombre"],
+                "cambios": e["datos"] != ed["original"]["datos"] or e["energia"] != ed["original"]["energia"]}
 
     def _autoguardar(self, cfg, texto=None):
         """Con un proyecto abierto y el autoguardado prendido, el cambio queda también en
@@ -263,6 +293,7 @@ def crear_servidor(ctx, puerto):
                     estado["inicio"] = INICIO
                     estado["deshacer"] = len(ctx.historia)
                     estado["proyecto_al_dia"] = ctx.proyecto_al_dia
+                    estado["editando"] = ctx.estado_edicion()
                     estado["version_externa"] = ctx.version_externa
                     if ctx.control is not None:
                         estado["control"] = ctx.control.estado()
@@ -329,6 +360,10 @@ def crear_servidor(ctx, puerto):
                 "/api/escena/guardar": self._escena_guardar,
                 "/api/escena/lanzar": self._escena_lanzar,
                 "/api/escena/borrar": self._escena_borrar,
+                "/api/editar": self._editar,
+                "/api/editar/listo": self._editar_listo,
+                "/api/editar/descartar": self._editar_descartar,
+                "/api/editar/original": self._editar_original,
                 "/api/energia": self._energia,
                 "/api/piloto": self._piloto,
                 "/api/subida": self._subida,
@@ -410,6 +445,7 @@ def crear_servidor(ctx, puerto):
             return self._guardar_activa()
 
         def _guardar_activa(self):
+            ctx.sincronizar_edicion()
             return ctx.pedir_guardado()   # se escribe en otro hilo, sin el candado
 
         def _responder(self, aviso=None, **extra):
@@ -654,20 +690,78 @@ def crear_servidor(ctx, puerto):
                 nueva["forma"]["escena"] = indice
                 compases = int(datos.get("compases") or nueva["forma"]["transicion"])
                 Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+                if datos.get("editar"):
+                    nueva["forma"]["piloto"] = False   # editando, el piloto no mueve nada por su cuenta
                 with ctx.candado:
                     if ctx.config is not actual:
                         continue
+                    if ctx.editando is not None and (datos.get("editar") or ctx.editando["escena"] != indice):
+                        ctx.editando = None   # lanzar otra escena termina la edición (ya quedó guardada)
                     ctx.motor.lanzar_escena(nueva, compases, indice)
                     ctx.config = nueva
                     ctx.puertos.cambiar_salidas(salidas(nueva))
+                    if datos.get("editar"):
+                        ctx.editando = {"escena": indice, "original": copy.deepcopy(nueva["escena"][indice])}
+                        ctx.historia.clear()   # deshacer no vuelve a antes de entrar (para eso, «Descartar»)
                     aviso = self._guardar_activa()
-                self._responder(aviso)
+                self._responder(aviso, **({"original": ctx.editando["original"]["datos"]} if datos.get("editar") else {}))
                 return
             raise ValueError("La configuración cambió mientras lanzaba la escena: vuelve a intentarlo")
+
+        def _editar(self, datos):
+            """Entra a editar una escena (o la de una parte): suena, y lo que muevas queda en ella."""
+            with ctx.candado:
+                if ctx.config["cancion"]["activa"]:
+                    raise ValueError("Apaga el modo canción para editar: en él, lo que suena lo decide la canción")
+                if datos.get("parte") is not None:
+                    p = ctx.config["parte"][int(datos["parte"])]
+                    if p["escena"] < 0:   # parte sin escena: se la crea con lo que suena ahora
+                        if len(ctx.config["escena"]) >= forma.MAX_ESCENAS:
+                            raise ValueError(f"Ya hay {forma.MAX_ESCENAS} escenas: elige una que ya exista para esta parte")
+                        ctx.config["escena"].append(forma.escena_de(ctx.config, p["nombre"]))
+                        p["escena"] = len(ctx.config["escena"]) - 1
+                        ctx.motor.base["escena"] = copy.deepcopy(ctx.config["escena"])
+                        ctx.motor.base["parte"] = copy.deepcopy(ctx.config["parte"])
+                    indice = p["escena"]
+                else:
+                    indice = int(datos["escena"])
+                if not 0 <= indice < len(ctx.config["escena"]):
+                    raise ValueError("Esa escena no existe")
+            self._escena_lanzar({"indice": indice, "compases": 1, "editar": True})
+
+        def _editar_listo(self, datos):
+            with ctx.candado:
+                ctx.editando = None
+            self._responder()
+
+        def _editar_original(self, datos):
+            with ctx.candado:
+                ed = ctx.editando
+                self._json({"ok": True, "original": ed["original"]["datos"] if ed else None})
+
+        def _editar_descartar(self, datos):
+            """Vuelve la escena a como estaba al entrar a editar, y la hace sonar así."""
+            with ctx.candado:
+                ed = ctx.editando
+                if ed is None:
+                    raise ValueError("No estás editando ninguna escena")
+                i = ed["escena"]
+                lista = list(ctx.config["escena"])
+                lista[i] = ed["original"]
+                ctx.editando = None
+                ctx.config = dict(ctx.config, escena=lista)
+                ctx.motor.base["escena"] = copy.deepcopy(lista)
+            self._escena_lanzar({"indice": i, "compases": 1})
 
         def _escena_borrar(self, datos):
             with ctx.candado:
                 indice = int(datos["indice"])
+                ed = ctx.editando
+                if ed is not None:
+                    if ed["escena"] == indice:
+                        ctx.editando = None
+                    elif ed["escena"] > indice:
+                        ed["escena"] -= 1
                 del ctx.config["escena"][indice]
                 for p in ctx.config["parte"]:  # las partes de la canción siguen apuntando bien
                     p["escena"] = -1 if p["escena"] == indice else p["escena"] - (1 if p["escena"] > indice else 0)

@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.75.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.76.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -291,3 +291,10 @@ El desync aparece con la entrada del teclado abierta aunque no se toque nada. Lo
 
 ## 0.75 — La MC-101 como reloj maestro
 Causa real del Looper descuadrado: el reloj que reenvía la Pi llega con jitter (Python + dongle barato) y el Looper de la MC-101 mide el tempo al arrancar cada loop (la primera vuelta salía mal, la segunda bien; con cable directo del dongle, peor). Solución: la MC-101 es la maestra (Sync INT) → Circuit (sigue reloj externo) → Pi; la Pi sigue igual. thru.reloj (por defecto sí): apagado, el thru no reenvía clock/start/stop/continue/songpos, así el reloj no vuelve a la MC-101 por la cadena (MicroFreak → MC-101).
+
+## 0.76 — Modo edición de escenas
+El usuario armaba escenas con «Escuchar» y después «Guardar lo que suena» (incómodo). Ahora:
+- «Editar» en una escena (Tocar › Escenas › Editar) o en una parte (Canción, modo libre): /api/editar lanza la escena en 1 compás y deja ctx.editando = {escena, original}. Cada cambio (web._guardar_activa → Contexto.sincronizar_edicion) copia lo que suena en esa escena (forma.escena_de). Al entrar se limpia la historia de deshacer y se apaga el piloto. Una parte sin escena recibe una nueva.
+- Franja arriba (sticky): «Editando «X»», con «Descartar» (/api/editar/descartar: vuelve la escena a `original` y la lanza) y «Listo». Lanzar otra escena termina la edición; borrar escenas corre el índice. En modo canción no se edita.
+- Puntos de cambios: en las pestañas de motores (y en Motores/Armonía de la barra) cuando lo que suena difiere de la referencia: editando, la escena como estaba al entrar (/api/editar/original); si no, la última escena lanzada. Se ignoran las claves de enrutamiento.
+- Prueba nueva: pruebas/edicion.py.
