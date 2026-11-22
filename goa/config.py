@@ -240,12 +240,7 @@ ESQUEMA_SECCIONES["looper"] = {
     "clip": (int, 0, 0, 16),                 # 0 = ningún loop (callado)
     "parar": (int, 0, 0, 16),                # slot vacío que se lanza para callar (0 = no calla)
     "cada": (int, 1, 1, 16),                 # compases: el loop entra en múltiplos de esto desde el Start
-    "transporte": (bool, False, None, None), # la Pi le pasa el reloj y Start/Stop a la MC-101
     "nivel": (int, 100, 1, 127),             # volumen de la pista al volver a sonar (callado sin slot vacío = CC 7 a 0)
-    # Re-encuadre: un Start justo antes del uno (con Stop antes, si se elige) para que la
-    # MC-101 vuelva a su compás 1 ahí. Llega a toda la MC-101 y a lo que vaya en ese cable.
-    "reencuadrar": (str, "no", None, ("no", "escena", "loop")),
-    "parar_antes": (bool, True, None, None),
 }
 
 # Controlador (Korg nanoKONTROL2 en modo CC): cada canal maneja un motor y el transporte

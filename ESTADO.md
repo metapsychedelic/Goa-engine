@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.73.1** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.74.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -279,3 +279,6 @@ La MC-101 cuenta los compases desde su propio arranque; si se corre, el loop ent
 
 ### 0.73.1 — El loop de una escena también espera la frase
 El usuario tiene loops de 64 pasos y MSTRSTEPLEN 16: la MC-101 los cambia en cualquier compás y un loop que parte en el compás 2 de la frase queda corrido. Con `cada` > 1, el compás en que entra el loop de una escena o parte se redondea hacia arriba al múltiplo de `cada` (Motor._looper).
+
+## 0.74 — Fuera el re-encuadre y el reloj al looper
+Resultó que bastaba «entra cada 4» (loops de 64 pasos con MSTRSTEPLEN 16). Se quitaron looper.reencuadrar/parar_antes (Start a la MC-101) y looper.transporte (reenviar reloj a la salida del looper), con su API y su UI; las claves viejas se descartan al cargar. Queda: «entra cada», el pedido en la mitad del compás anterior, el loop de una escena que espera la frase, callar con CC 7, y las mejoras de reloj de 0.70.1.
