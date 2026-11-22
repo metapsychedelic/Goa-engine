@@ -110,6 +110,8 @@ class Puertos:
                 msg = mido.Message("control_change", channel=canal, control=nota, value=velocidad)
             elif tipo == "pitchwheel":
                 msg = mido.Message("pitchwheel", channel=canal, pitch=nota)
+            elif tipo in ("start", "stop"):
+                msg = mido.Message(tipo)   # transporte (re-encuadre de la MC-101)
             else:
                 msg = mido.Message(tipo, channel=canal, note=nota, velocity=velocidad)
             with self.envio:

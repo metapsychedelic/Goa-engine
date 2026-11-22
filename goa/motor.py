@@ -58,6 +58,7 @@ class Motor(FormaMotor):
         self.looper_enviado = None  # (salida, canal, clip o -parar) del último Program Change del looper
         self.looper_pendiente = None  # (clave, programa o None, volumen o None, compás en que entra)
         self.looper_mudo = None       # (salida, canal) si el motor bajó el volumen de la pista
+        self.reencuadre = None        # (compás, salida, con Stop): Start a la MC-101 justo antes de ese uno
         # Efectos de subida de la parte de la canción que suena (ver _efectos_parte)
         self.roll_desde, self.roll_compases = None, 0
         self.hueco_desde = None
@@ -491,6 +492,9 @@ class Motor(FormaMotor):
         if not lp.get("salida"):
             self.looper_pendiente = None
             return
+        modo = (self.config or {}).get("looper", {}).get("reencuadrar", "no")
+        if objetivo is not None and modo in ("escena", "loop") and lp.get("activo"):
+            self._pedir_reencuadre(objetivo)   # entra una escena o una parte
         canal = int(lp.get("canal", 4)) - 1
         clip, parar = int(lp.get("clip", 0)), int(lp.get("parar", 0))
         pc = nivel = None
@@ -518,12 +522,43 @@ class Motor(FormaMotor):
         if objetivo is None:
             cada = max(1, int(lp.get("cada", 1)))
             objetivo = (compas // cada + 1) * cada
+            if modo == "loop" and pc is not None and clip > 0 and lp.get("activo") and not ya and self.tick >= 0:
+                self._pedir_reencuadre(objetivo)   # cambia el loop
         nuevo = (clave, pc, nivel, objetivo)
         pendiente = self.looper_pendiente
         if pendiente is not None and pendiente[:3] == nuevo[:3] and pendiente[3] <= objetivo:
             return   # ya pedido para antes
         self.looper_pendiente = nuevo
         self._looper_pulso(forzar=ya or self.tick < 0)
+
+    def _pedir_reencuadre(self, compas=None):
+        """Pide el re-encuadre de la MC-101 para el uno de `compas` (sin compás: el próximo
+        múltiplo de «entra cada»). Va un pulso antes del uno: tras un Start, el pulso de
+        reloj siguiente es el uno de la máquina, y ese es el uno de la Circuit."""
+        lp = (self.config or {}).get("looper", {})
+        if not lp.get("salida") or not self.corriendo:
+            return False
+        if compas is None:
+            cada = max(1, int(lp.get("cada", 1)))
+            compas = (self._compas_actual() // cada + 1) * cada
+        if compas * TICKS_POR_PASO * PASOS_POR_COMPAS - 1 <= self.tick:
+            return False   # ya pasó
+        self.reencuadre = (compas, lp["salida"], bool(lp.get("parar_antes", True)))
+        return True
+
+    def reencuadrar(self):
+        """Desde la app: re-encuadra la MC-101 en el próximo uno de la frase («entra cada»)."""
+        return self._pedir_reencuadre()
+
+    def _reencuadre_pulso(self):
+        compas, salida, parar = self.reencuadre
+        if self.tick < compas * TICKS_POR_PASO * PASOS_POR_COMPAS - 1:
+            return
+        self.reencuadre = None
+        if parar:
+            self.enviar(salida, "stop", 0, 0, 0)
+        self.enviar(salida, "start", 0, 0, 0)
+        log.info("Looper: re-encuadre de la MC-101 en el compás %d", compas + 1)
 
     def _looper_pulso(self, forzar=False):
         """Manda lo pedido cuando toca (llamado en cada pulso si hay algo pendiente): el
@@ -563,6 +598,7 @@ class Motor(FormaMotor):
         self.subida, self.subida_pedida = None, None
         self.corriendo = True
         self.looper_pendiente = None
+        self.reencuadre = None
         self._looper(self.config, ya=True)   # antes del primer pulso: la MC-101 arranca con él
         self.tick = -1
         self.tocado.reiniciar(0)
@@ -587,6 +623,8 @@ class Motor(FormaMotor):
         self.tick += 1
         if self.looper_pendiente is not None:
             self._looper_pulso()
+        if self.reencuadre is not None:
+            self._reencuadre_pulso()
         self._apagar_vencidas()
         self.dialogo.tick(self.tick, self.enviar)
         if self.tick % 3 == 0:

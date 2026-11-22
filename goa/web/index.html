@@ -1741,6 +1741,11 @@ function panelLooper() {
       grupo("g-lp-sync", "En sincronía", `entra cada ${x.cada} compás${x.cada > 1 ? "es" : ""}${x.transporte ? " · la Pi le pasa el reloj" : ""}`, [
         campo("El loop entra cada", segmentado([["1","1 compás"],["2","2"],["4","4"],["8","8"]], String(x.cada), (v) => { x.cada = parseInt(v); guardar(); renderMotores(); }, 4)),
         ayuda("Pon el largo de tus loops: un loop de 4 compases elegido en cualquier momento espera el inicio de la frase (contado desde el Start de la Circuit) y entra siempre en el uno de la frase. Con una escena o parte, entra con ella."),
+        campo("Re-encuadrar la MC-101", segmentado([["no", "No"], ["escena", "En cada escena"], ["loop", "Al cambiar de loop"]], x.reencuadrar, (v) => { x.reencuadrar = v; guardar(); renderMotores(); }, 3)),
+        ...(x.reencuadrar !== "no" ? [casilla(x, "parar_antes", "Con Stop antes del Start", "Más seguro (algunas máquinas ignoran un Start si ya andan), pero puede cortar notas que estén sonando", () => renderMotores())] : []),
+        el("button", {type: "button", textContent: "Re-encuadrar ahora", onclick: async () => {
+          try { const d = await api("/api/looper/reencuadrar", {}); aviso(`Re-encuadre en el compás ${d.compas}`); } catch (e) { aviso(e.message, true); } }}),
+        ayuda("Justo antes del uno, la Pi le manda Start a la MC-101: vuelve a su compás 1 ahí y el loop parte desde su inicio en el uno de la Circuit. Ojo: reinicia toda la MC-101 (no solo la pista Looper) y llega a todo lo que vaya por ese cable (la MicroFreak y lo que siga en la cadena). «Ahora» lo hace en el próximo uno de la frase («entra cada»)."),
         casilla(x, "transporte", "Pasarle el reloj y Start/Stop", "La Pi le reenvía a la MC-101 el reloj y el Start/Stop de la Circuit: arranca junto con todo y su compás cae siempre en el de la Circuit", () => renderMotores()),
         ayuda("Para que el loop cuadre siempre, la MC-101 tiene que arrancar con el Start de la Circuit (si arranca sola, su compás queda corrido y el loop entra corrido). Si ya le llega el reloj por otro lado (el Launchpad, el thru), no hace falta: revisa ahí que también le lleguen el Start y el Stop. En la MC-101, el tempo tiene que venir de afuera (sincronía externa) por la entrada por donde le llega."),
       ]),

@@ -315,6 +315,7 @@ def crear_servidor(ctx, puerto):
                 "/api/fabrica": self._fabrica,
                 "/api/secuencia/fabrica": lambda d: self._fabrica(dict(d, motor="secuencia")),
                 "/api/deshacer": self._deshacer,
+                "/api/looper/reencuadrar": self._reencuadrar,
                 "/api/ajuste": self._ajuste,
                 "/api/tocado": self._tocado,
                 "/api/cc": self._cc,
@@ -516,6 +517,15 @@ def crear_servidor(ctx, puerto):
                 ctx.puertos.enviar(str(datos["salida"]), "control_change", int(datos["canal"]) - 1,
                                    max(0, min(127, int(datos["cc"]))), max(0, min(127, int(datos["valor"]))))
             self._responder()
+
+        def _reencuadrar(self, datos):
+            with ctx.candado:
+                if not ctx.motor.corriendo:
+                    raise ValueError("Con la Circuit detenida no hay nada que encuadrar: al darle Start, la MC-101 arranca con ella")
+                if not ctx.motor.reencuadrar():
+                    raise ValueError("Falta la salida del looper")
+                compas = ctx.motor.reencuadre[0]
+            self._json({"ok": True, "compas": compas + 1})
 
         def _deshacer(self, datos):
             """Deshace el último paso (un cambio de controles, un género o un «fábrica»).

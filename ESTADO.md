@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.72.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.73.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -270,3 +270,9 @@ El usuario no quería depender de un slot vacío. La tabla MIDI de la MC-101 no 
 - Interruptor apagado o «Callado» sin slot vacío: CC 7 = 0 en el canal del looper justo en el uno (en el próximo múltiplo de `cada`, o cuando entra la escena); al volver a sonar, CC 7 = looper.nivel (100) en el uno en que entra (el Program Change, si cambia el loop, sigue yendo en la mitad del compás anterior). Con slot vacío elegido, igual que antes.
 - Solo calla lo que el motor hizo sonar (Motor.looper_enviado); Motor.looper_mudo recuerda que bajó el volumen. looper_pendiente = (clave, pc|None, nivel|None, compás).
 - config.salidas deja abierta la salida del looper apagado si tiene un loop elegido (para poder callarlo). `nivel` es de la máquina: las escenas no lo guardan.
+
+## Looper: re-encuadre de la MC-101 (0.73)
+
+La MC-101 cuenta los compases desde su propio arranque; si se corre, el loop entra corrido. (Causa probable encontrada con el usuario: la MicroFreak, en la cadena antes de la MC-101, tenía MIDI Output en Both y mezclaba su propio reloj con el de la Pi → dos relojes. Recomendado: Sync Source MIDI, Thru On, Output USB.)
+- looper.reencuadrar (no | escena | loop) y looper.parar_antes: la Pi manda (Stop y) Start por la salida del looper un pulso antes del uno (tras un Start, el pulso siguiente es el uno de la máquina). «escena»: cuando entra una escena o parte (aunque el loop sea el mismo); «loop»: cuando cambia el loop (no en el Start). Motor.reencuadre = (compás, salida, con Stop); Motor._reencuadre_pulso desde reloj. /api/looper/reencuadrar («Re-encuadrar ahora»: próximo múltiplo de «entra cada»).
+- Ojo: el Start reinicia toda la MC-101 y llega a todo lo que vaya por ese cable. Puertos.enviar acepta "start"/"stop".

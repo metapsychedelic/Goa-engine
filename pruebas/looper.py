@@ -136,6 +136,39 @@ def main():
     todo &= ok(not r.cc and not r.pcs, "si el motor no lo hizo sonar, no toca la pista")
     todo &= ok("MC-101" in salidas(base(clip=3, activo=False)), "apagado, el puerto queda abierto para poder callarlo")
 
+    print("\nRe-encuadre")
+    class Transporte(Registro):
+        def __init__(self):
+            super().__init__(); self.tr = []
+        def __call__(self, salida, tipo, canal, a, b):
+            super().__call__(salida, tipo, canal, a, b)
+            if tipo in ("start", "stop"):
+                self.tr.append((self.motor.tick, salida, tipo))
+    def con_tr(cfg):
+        r = Transporte(); m = Motor(cfg, r); r.motor = m; m.start(); m.nota_on(1, 45); return m, r
+    m, r = con_tr(base(clip=3, cada=4))
+    compases(m, 1)
+    todo &= ok(m.reencuadrar() and m.reencuadre[0] == 4, "«ahora»: en el próximo uno de la frase")
+    compases(m, 4)
+    todo &= ok(r.tr == [(4 * PULSOS - 1, "MC-101", "stop"), (4 * PULSOS - 1, "MC-101", "start")],
+               f"Stop y Start un pulso antes del uno: el pulso siguiente es el uno de la MC-101 {r.tr}")
+    cfg = base(clip=1, reencuadrar="escena", parar_antes=False)
+    m, r = con_tr(cfg)
+    compases(m, 3)
+    m.lanzar_escena(normalizar(forma.mezclar(m.base, forma.escena_de(dict(cfg, looper=dict(cfg["looper"], clip=1)), "X"))), 2)
+    fin = m.conductor.transicion.fin
+    compases(m, 4)
+    todo &= ok(r.tr == [(fin * PULSOS - 1, "MC-101", "start")], f"en cada escena (aunque el loop sea el mismo), solo Start {r.tr}")
+    m, r = con_tr(base(clip=1, reencuadrar="loop", cada=2))
+    compases(m, 2)
+    cfg2 = json.loads(json.dumps(m.base)); cfg2["looper"]["clip"] = 4
+    m.aplicar_config(normalizar(cfg2)); compases(m, 4)
+    todo &= ok(len(r.tr) == 2 and r.tr[0][0] == 4 * PULSOS - 1 and r.pcs[-1][:2] == (3, 48),
+               f"al cambiar de loop: el loop entra y la MC-101 se encuadra en el mismo uno {r.tr} {r.pcs}")
+    m, r = con_tr(base(clip=1))
+    compases(m, 6)
+    todo &= ok(not r.tr, "sin re-encuadre no manda Start nunca")
+
     print("\nEscenas")
     cfg = base(clip=1, parar=16)
     escena_b = forma.escena_de(dict(cfg, looper=dict(cfg["looper"], clip=9, parar=3)), "B")
