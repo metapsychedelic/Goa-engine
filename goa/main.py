@@ -54,6 +54,9 @@ def _sin_reloj(entrada):
         pass
 
 
+TRANSPORTE = ("clock", "start", "stop", "continue", "songpos")
+
+
 class Puertos:
     """Salidas MIDI buscadas por parte del nombre, con reconexión."""
 
@@ -239,7 +242,8 @@ def main():
     def procesar(msg):
         t = msg.type
         thru = ctx.config["thru"]
-        if thru["activo"] and t != "sysex" and getattr(msg, "channel", None) not in motor.canales_disparo:
+        if thru["activo"] and t != "sysex" and getattr(msg, "channel", None) not in motor.canales_disparo \
+                and (thru["reloj"] or t not in TRANSPORTE):
             # Pasa todo lo de la Circuit (reloj, notas, CC) a la cadena MIDI, menos los
             # canales de las notas largas: esas notas son solo para la Pi. Va antes y sin
             # el candado del motor: si la app está aplicando un cambio, el reloj de las

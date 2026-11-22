@@ -25,6 +25,9 @@ ESQUEMA_SECCIONES = {
     "thru": {
         "activo": (bool, False, None, None),
         "salida": (str, "USB MIDI", None, None),
+        # Con la MC-101 (u otra máquina de la cadena) como reloj maestro: el reloj y el
+        # Start/Stop no se reenvían, así no vuelven a la maestra.
+        "reloj": (bool, True, None, None),
     },
     "musica": {
         "tonica": (str, "F", None, None),

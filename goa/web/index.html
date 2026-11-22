@@ -286,6 +286,8 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
         <input type="checkbox" id="thru_activo"></label>
       <div class="campo">Salida del reenvío
         <div id="thru_salida"></div></div>
+      <label class="fila" style="min-height:44px"><span>Reenviar también el reloj y Start/Stop<br><span class="mut">Apágalo si el reloj maestro está en la cadena (la MC-101): así no le vuelve su propio reloj</span></span>
+        <input type="checkbox" id="thru_reloj"></label>
     </div>
     <div class="card" id="teclado_card">
       <h2>Teclado de la MicroFreak</h2>
@@ -1947,6 +1949,8 @@ function renderAjustes() {
   $("entrada_puerto").replaceChildren(puertoSelect("entrada", cfg.entrada.puerto, (v) => { cfg.entrada.puerto = v; guardar(); }));
   const ta = $("thru_activo"); ta.checked = cfg.thru.activo;
   ta.onchange = () => { cfg.thru.activo = ta.checked; guardar(); };
+  const tr = $("thru_reloj"); tr.checked = cfg.thru.reloj !== false;
+  tr.onchange = () => { cfg.thru.reloj = tr.checked; guardar(); };
   $("thru_salida").replaceChildren(puertoSelect("salida", cfg.thru.salida, (v) => { cfg.thru.salida = v; guardar(); }));
   $("proyecto_nombre").textContent = cfg.app.proyecto || "Sin proyecto";
   $("proyecto_auto").checked = cfg.app.autoguardar !== false;

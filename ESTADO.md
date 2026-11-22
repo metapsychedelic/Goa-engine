@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.74.2** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.75.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -288,3 +288,6 @@ El usuario notó que el desync de la MC-101 venía con el eco de perillas / la e
 
 ### 0.74.2 — Las entradas del teclado y del controlador descartan el reloj en el driver
 El desync aparece con la entrada del teclado abierta aunque no se toque nada. Lo único que llega por ahí en reposo es el reloj que la MicroFreak reenvía por USB (24 por negra): main._sin_reloj le pide a rtmidi ignorar sysex, reloj y active sensing en esas entradas, así ni llegan a Python. Pendiente: confirmar con el usuario si con esto se va (y si probó con la MicroFreak ya en Output USB / Sync MIDI).
+
+## 0.75 — La MC-101 como reloj maestro
+Causa real del Looper descuadrado: el reloj que reenvía la Pi llega con jitter (Python + dongle barato) y el Looper de la MC-101 mide el tempo al arrancar cada loop (la primera vuelta salía mal, la segunda bien; con cable directo del dongle, peor). Solución: la MC-101 es la maestra (Sync INT) → Circuit (sigue reloj externo) → Pi; la Pi sigue igual. thru.reloj (por defecto sí): apagado, el thru no reenvía clock/start/stop/continue/songpos, así el reloj no vuelve a la MC-101 por la cadena (MicroFreak → MC-101).
