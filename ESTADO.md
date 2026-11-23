@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.77.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.78.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -309,3 +309,8 @@ Propuesta de pantallas: https://claude.ai/artifact/QgXAzQJS2tbR9DQXztgZP8 (lienz
 - La pestaña «Canción» pasa a ser «Tema», primera de la barra y vista de inicio (localStorage vista_v2 la fija una vez). Arriba, renderLinea(): partes × motores (motores()), cada casillero según la escena de la parte: suena / cambia de estilo o variante (◆, difiere() contra la parte anterior) / no suena / parte sin escena. Pantalla ≥ 700 px: horizontal (columnas proporcionales a los compases, curva de energía, fila de apoyos); celular: vertical (partes = filas con alto según compases, motores = columnas, barra de energía).
 - Tocar un casillero: editarMotorEnParte (si el modo canción está prendido pide pasar a modo libre) → /api/editar {parte}, elige ese motor y abre Motores. Tocar el nombre: elige la parte y abre su tarjeta.
 - Cabezal: en modo canción, la posición de /api/estado.cancion (moverCabezal en cada estado); la parte que suena brilla y la que editas lleva borde. refrescarLinea redibuja si cambian (no mientras escribes en una tarjeta).
+
+## 0.78 — App nueva, etapa 2: copiar y pegar desde la línea de tiempo
+- Mantener apretado un casillero (0,45 s) o clic derecho: hoja con Editar, Copiar, Pegar, Igual en la siguiente, Que no suene aquí; y para la parte entera Copiar la parte / Pegar una parte aquí. Copiar entra al modo pegar (franja #pegar_caja): cada toque en la misma columna pega ahí; con una parte copiada, tocar el nombre de otra abre la elección de motores.
+- Backend: /api/parte/copiar {desde, hacia: [partes], motores: ["bajo", "sec0", "dialogo" (con llamada y respuesta), …]} copia solo esas secciones de la escena de origen a la de cada destino (si no tiene, se le crea con lo que suena); responde `compartidas` si la escena de destino la usa otra parte. /api/parte/apagar {parte, motor}. Si la escena cambiada es la que suena o la que editas (modo libre), se vuelve a lanzar en 1 compás (la edición sigue). La lista de escenas se copia antes de cambiarla (la historia de deshacer guarda la anterior).
+- Pruebas: pruebas/edicion.py (copiar y pegar).

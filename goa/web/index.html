@@ -140,6 +140,20 @@ nav.tabs button.cambiado::after{position:absolute;top:8px;right:calc(50% - 16px)
 .linea .lt-en{display:flex;align-items:center;justify-content:flex-end;padding-right:2px}
 .linea .lt-en i{width:6px;border-radius:3px;background:var(--acc)}
 details.grupo.elegida{outline:2px solid var(--acc);outline-offset:2px}
+dialog.hoja{font:15px/1.45 "Plex Local","IBM Plex Sans",system-ui,sans-serif;position:fixed;inset:auto 0 0 0;margin:0 auto;max-width:560px;width:100%;border:none;border-top:1px solid var(--acc);border-radius:18px 18px 0 0;background:var(--card);color:var(--txt);padding:10px 16px max(18px,env(safe-area-inset-bottom));box-shadow:0 -12px 30px rgba(0,0,0,.6)}
+dialog.hoja::backdrop{background:rgba(7,7,12,.6)}
+dialog.hoja .asa{width:40px;height:4px;border-radius:2px;background:var(--line2);margin:0 auto 10px}
+dialog.hoja h2{margin:0;font-size:18px}
+dialog.hoja .sub{color:var(--mut);font-size:13px;margin:2px 0 12px}
+dialog.hoja .acciones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+dialog.hoja .acciones .ancho{grid-column:1/-1}
+dialog.hoja h3{margin:14px 0 8px;font-size:12px;color:var(--mut);letter-spacing:.04em;text-transform:uppercase}
+button.peligro{border-color:var(--badline);background:var(--badbg);color:var(--bad)}
+.linea.pegando .lt-c{opacity:.35}
+.linea.pegando .lt-c.destino{opacity:1;outline:1px dashed var(--acc);outline-offset:1px}
+.linea.pegando .lt-c.pegada{opacity:1;outline:2px solid var(--acc);outline-offset:1px;box-shadow:var(--glow)}
+.linea.pegando .lt-c.fuente{opacity:1;outline:2px solid var(--txt);outline-offset:1px}
+.linea.pegando-parte .lt-parte{outline:1px dashed var(--acc);outline-offset:1px}
 .linea-ley{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:var(--mut)}
 .linea-ley span{display:flex;align-items:center;gap:5px}
 .linea-ley i{display:inline-block;width:12px;height:9px;border-radius:3px}
@@ -279,6 +293,7 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
 </div></header>
 
 <div class="edicion-caja" id="edicion_caja" hidden><div class="edicion" id="edicion" role="status"></div></div>
+<div class="edicion-caja" id="pegar_caja" hidden><div class="edicion" id="pegar" role="status"></div></div>
 <main>
   <section class="vista" id="v-tocar" aria-label="Tocar">
     <div id="tocar_escenas"></div>
@@ -2443,24 +2458,134 @@ function elegirParte(i) {
   renderCancion();
   if (parteSel !== null) { const g = document.getElementById(`g-parte-${i}`); if (g) { g.open = true; g.scrollIntoView({behavior: "smooth", block: "start"}); } }
 }
+// --- Copiar y pegar en la línea de tiempo ---
+// Mantener apretado (o clic derecho) un casillero abre un menú: editar, copiar ese motor,
+// pegarlo, igual en la siguiente parte, que no suene aquí; y para la parte entera, copiar
+// y pegar (eligiendo qué motores). Copiar entra al modo pegar: cada toque pega ahí.
+let portapapeles = null;   // {tipo: "motor", clave, nombre, desde, pegadas: []} | {tipo: "parte", desde, pegadas: []}
+function hoja(titulo, sub, hijos) {
+  const d = el("dialog", {className: "hoja", "aria-label": titulo}, [el("div", {className: "asa"}), el("h2", {textContent: titulo}),
+    sub ? el("div", {className: "sub", textContent: sub}) : null, ...hijos].filter(Boolean));
+  d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
+  d.addEventListener("close", () => d.remove());
+  document.body.append(d); d.showModal();
+  return d;
+}
+const nombreMotor = (clave) => (motores().find((m) => m[0] === clave) || [, clave])[1];
+function resumenMotor(datos, clave) {
+  const s = seccionDe(datos, clave);
+  if (!s) return "";
+  return [s.estilo, s.genero, s.seed || s.variante, s.progresion].filter(Boolean).slice(0, 3).join(" · ");
+}
+async function pegarMotor(desde, hacia, motoresLista) {
+  const r = await api("/api/parte/copiar", {desde, hacia, motores: motoresLista});
+  await recargar(); await estado();
+  if (r.compartidas && r.compartidas.length) aviso(`Ojo: esa escena también la usa ${r.compartidas.join(", ")}, y cambió ahí también`, true);
+  return r;
+}
+function menuCasillero(i, clave) {
+  const p = cfg.parte[i], m = motores().find((x) => x[0] === clave);
+  const datos = p.escena >= 0 ? datosEscena(p.escena) : null;
+  const suena = datos && suenaEn(datos, clave, m[3]);
+  const puedePegar = portapapeles && portapapeles.tipo === "motor" && portapapeles.clave === clave && portapapeles.desde !== i;
+  let d;
+  const accion = (txt, fn, extra = {}) => el("button", Object.assign({type: "button", textContent: txt, onclick: async () => { d.close(); try { await fn(); } catch (e) { aviso(e.message, true); } }}, extra));
+  d = hoja(`${m[1]} · ${p.nombre}`, !datos ? "Parte sin escena todavía" : suena ? (resumenMotor(datos, clave) || "Suena en esta parte") : "No suena en esta parte", [
+    el("div", {className: "acciones"}, [
+      accion("Editar", () => editarMotorEnParte(i, clave), {className: "prim ancho"}),
+      accion("Copiar", async () => { if (!datos) throw new Error(`${p.nombre} todavía no tiene escena: edítala primero`);
+        portapapeles = {tipo: "motor", clave, nombre: m[1], desde: i, pegadas: []}; pintarPegar(); renderCancion(); }, {disabled: !datos}),
+      accion(puedePegar ? `Pegar ${portapapeles.nombre} de ${cfg.parte[portapapeles.desde].nombre}` : "Pegar", async () => {
+        await pegarMotor(portapapeles.desde, [i], [clave]); aviso(`${m[1]} de ${cfg.parte[portapapeles.desde].nombre} pegado en ${p.nombre}`); }, {disabled: !puedePegar}),
+      accion("Igual en la siguiente", async () => { if (!datos) throw new Error(`${p.nombre} todavía no tiene escena`);
+        await pegarMotor(i, [i + 1], [clave]); aviso(`${m[1]} de ${p.nombre} también en ${cfg.parte[i + 1].nombre}`); }, {disabled: !datos || i + 1 >= cfg.parte.length}),
+      accion("Que no suene aquí", async () => { await api("/api/parte/apagar", {parte: i, motor: clave}); await recargar(); await estado(); aviso(`${m[1]} callado en ${p.nombre}`); },
+        {disabled: !suena, className: "peligro"}),
+    ]),
+    el("h3", {textContent: `Toda la parte ${p.nombre}`}),
+    el("div", {className: "acciones"}, [
+      accion("Copiar la parte", async () => { if (!datos) throw new Error(`${p.nombre} todavía no tiene escena`);
+        portapapeles = {tipo: "parte", desde: i, pegadas: []}; pintarPegar(); renderCancion(); }, {disabled: !datos}),
+      accion("Pegar una parte aquí", () => elegirMotoresYPegar(portapapeles.desde, i), {disabled: !(portapapeles && portapapeles.tipo === "parte" && portapapeles.desde !== i)}),
+    ]),
+  ]);
+}
+function elegirMotoresYPegar(desde, hacia) {
+  const origen = datosEscena(cfg.parte[desde].escena);
+  const ms = motores();
+  const marcas = ms.map(([clave, nombre, , k]) => el("input", {type: "checkbox", checked: true, "aria-label": nombre, "data-clave": clave}));
+  let d;
+  d = hoja(`Pegar ${cfg.parte[desde].nombre} en ${cfg.parte[hacia].nombre}`, "Elige qué motores llevar: lo demás de la parte queda como está.", [
+    el("div", {style: "display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto;margin-bottom:12px"}, ms.map(([clave, nombre, , k], n) =>
+      el("label", {className: "fila", style: "min-height:44px;justify-content:flex-start;gap:12px"}, [marcas[n],
+        el("span", {}, [nombre, el("br"), el("span", {className: "mut", style: "font-size:12px", textContent: suenaEn(origen, clave, k) ? (resumenMotor(origen, clave) || "suena") : "no suena"})])]))),
+    el("div", {className: "acciones"}, [
+      el("button", {type: "button", textContent: "Cancelar", onclick: () => d.close()}),
+      el("button", {type: "button", className: "prim", textContent: "Pegar", onclick: async () => {
+        const elegidos = marcas.filter((x) => x.checked).map((x) => x.dataset.clave);
+        d.close();
+        if (!elegidos.length) return;
+        try { await pegarMotor(desde, [hacia], elegidos);
+          if (portapapeles) { portapapeles.pegadas.push(hacia); pintarPegar(); }
+          aviso(`${elegidos.length} motor${elegidos.length > 1 ? "es" : ""} de ${cfg.parte[desde].nombre} en ${cfg.parte[hacia].nombre}`); } catch (e) { aviso(e.message, true); } }}),
+    ]),
+  ]);
+}
+function pintarPegar() {
+  const caja = $("pegar_caja"), b = $("pegar");
+  if (!portapapeles) { caja.hidden = true; return; }
+  const pp = portapapeles, origen = cfg.parte[pp.desde] ? cfg.parte[pp.desde].nombre : "";
+  b.replaceChildren(
+    el("span", {className: "t"}, [el("b", {textContent: pp.tipo === "motor" ? `Pegando ${pp.nombre} de ${origen}` : `Pegando la parte ${origen}`}), el("br"),
+      el("span", {className: "mut", textContent: (pp.tipo === "motor" ? `Toca casilleros de ${pp.nombre}` : "Toca el nombre de otra parte") + (pp.pegadas.length ? ` · pegado en ${pp.pegadas.length}` : "")})]),
+    el("button", {type: "button", className: "prim", textContent: "Listo", onclick: () => { portapapeles = null; pintarPegar(); renderCancion(); }}));
+  caja.hidden = false;
+}
+function apretar(boton, alApretar) {
+  // Mantener apretado ~0,45 s (o clic derecho): abre el menú; el clic que sigue no cuenta.
+  let reloj = null, largo = false;
+  const cortar = () => { clearTimeout(reloj); reloj = null; };
+  boton.addEventListener("pointerdown", (e) => { largo = false; cortar(); reloj = setTimeout(() => { largo = true; if (navigator.vibrate) navigator.vibrate(15); alApretar(); }, 450); });
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) boton.addEventListener(ev, cortar);
+  boton.addEventListener("contextmenu", (e) => { e.preventDefault(); cortar(); largo = true; alApretar(); });
+  boton.addEventListener("click", (e) => { if (largo) { e.stopImmediatePropagation(); e.preventDefault(); largo = false; } }, true);
+}
+async function tocarCasillero(i, clave) {
+  const pp = portapapeles;
+  if (pp && pp.tipo === "motor") {
+    if (clave !== pp.clave || i === pp.desde) { aviso(`Estás pegando ${pp.nombre}: toca un casillero de esa columna, o «Listo»`); return; }
+    try { await pegarMotor(pp.desde, [i], [clave]); pp.pegadas.push(i); pintarPegar(); renderCancion();
+      aviso(`${pp.nombre} pegado en ${cfg.parte[i].nombre}`); } catch (e) { aviso(e.message, true); }
+    return;
+  }
+  editarMotorEnParte(i, clave);
+}
+function tocarNombreParte(i) {
+  const pp = portapapeles;
+  if (pp && pp.tipo === "parte") { if (i !== pp.desde) elegirMotoresYPegar(pp.desde, i); return; }
+  elegirParte(i);
+}
 function lineaVertical() { return !window.matchMedia("(min-width: 700px)").matches; }
 function renderLinea() {
   if (!cfg.parte.length) return null;
   const pistas = celdasLinea();
   const sonando = parteSonando();
   const editando = edicion ? cfg.parte.findIndex((p) => p.escena === edicion.escena) : -1;
-  const celda = (m, est, i) => el("button", {type: "button",
-    className: `lt-c ${est === "on" ? "on" : est === "cambia" ? "on cambia" : est}${i === editando ? " editando" : ""}`,
+  const pp = portapapeles;
+  const marcaPegar = (m, i) => !pp || pp.tipo !== "motor" || m.clave !== pp.clave ? "" : i === pp.desde ? " fuente" : pp.pegadas.includes(i) ? " pegada" : " destino";
+  const celda = (m, est, i) => { const b = el("button", {type: "button",
+    className: `lt-c ${est === "on" ? "on" : est === "cambia" ? "on cambia" : est}${i === editando ? " editando" : ""}${marcaPegar(m, i)}`,
     textContent: est === "cambia" ? "◆" : "",
-    "aria-label": `${m.nombre} en ${cfg.parte[i].nombre}: ${est === "sin" ? "parte sin escena" : est === "off" ? "no suena" : est === "cambia" ? "suena, cambia" : "suena"} · editar`,
-    onclick: () => editarMotorEnParte(i, m.clave)});
+    "aria-label": `${m.nombre} en ${cfg.parte[i].nombre}: ${est === "sin" ? "parte sin escena" : est === "off" ? "no suena" : est === "cambia" ? "suena, cambia" : "suena"} · ${pp && pp.tipo === "motor" ? "pegar aquí" : "editar; mantén apretado para copiar y más"}`,
+    onclick: () => tocarCasillero(i, m.clave)});
+    apretar(b, () => menuCasillero(i, m.clave)); return b; };
   const total = cfg.parte.reduce((s, p) => s + p.compases, 0);
   let caja;
   if (lineaVertical()) {
     const cols = `84px repeat(${pistas.length}, minmax(0, 1fr)) 22px`;
     const altura = (p) => Math.max(32, Math.round(p.compases * 1.6 + 8));
     const filas = cfg.parte.map((p, i) => el("div", {className: "lt-fila" + (i === parteSel ? " sel" : ""), style: `grid-template-columns:${cols};height:${altura(p)}px`}, [
-      el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === sonando ? " suena" : ""), onclick: () => elegirParte(i),
+      el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === sonando ? " suena" : ""), onclick: () => tocarNombreParte(i),
         "aria-label": `${p.nombre}, ${p.compases} compases: elegir`},
         [el("b", {textContent: p.nombre}), el("span", {textContent: `${p.compases}${apoyosDe(p).length ? " · " + apoyosDe(p).join(" ") : ""}`})]),
       ...pistas.map((m) => celda(m, m.celdas[i], i)),
@@ -2472,7 +2597,7 @@ function renderLinea() {
         el("span", {className: "lt-lab", style: "font-size:9px", textContent: "en."})]),
       ...filas,
       el("div", {className: "lt-cab", id: "lt_cab", style: "display:none;left:0;right:0;width:auto;height:2px"})]);
-    caja = el("div", {className: "linea", id: "linea"}, [cab]);
+    caja = el("div", {className: "linea" + (pp ? (pp.tipo === "motor" ? " pegando" : " pegando-parte") : ""), id: "linea"}, [cab]);
     caja.dataset.vertical = "1";
     caja._alturas = cfg.parte.map(altura);
   } else {
@@ -2486,13 +2611,13 @@ function renderLinea() {
     const grid = el("div", {className: "lt-h", style: `grid-template-columns:${cols}`}, [
       ...fila(el("span", {className: "lt-lab", textContent: "Partes"}), cfg.parte.map((p, i) => { const d = desde; desde += p.compases;
         return el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === parteSel ? " sel" : "") + (i === sonando ? " suena" : ""),
-          onclick: () => elegirParte(i), title: p.nombre, "aria-label": `${p.nombre}, compás ${d}, ${p.compases} compases: elegir`}, [el("b", {textContent: p.nombre}), el("span", {textContent: String(d)})]); })),
+          onclick: () => tocarNombreParte(i), title: p.nombre, "aria-label": `${p.nombre}, compás ${d}, ${p.compases} compases: elegir`}, [el("b", {textContent: p.nombre}), el("span", {textContent: String(d)})]); })),
       el("span", {className: "lt-lab", textContent: "Energía"}), energia,
       ...pistas.flatMap((m) => fila(el("span", {className: "lt-lab", textContent: m.nombre}), m.celdas.map((est, i) => celda(m, est, i)))),
       ...fila(el("span", {className: "lt-lab", textContent: "Apoyos"}), cfg.parte.map((p) => el("span", {className: "lt-apoyo", textContent: apoyosDe(p).join(" · ")}))),
       el("div", {className: "lt-cab", id: "lt_cab", style: "display:none;top:0;bottom:0"}),
     ]);
-    caja = el("div", {className: "linea", id: "linea"}, [grid]);
+    caja = el("div", {className: "linea" + (pp ? (pp.tipo === "motor" ? " pegando" : " pegando-parte") : ""), id: "linea"}, [grid]);
   }
   const ley = el("div", {className: "linea-ley"}, [
     el("span", {}, [el("i", {style: "background:#5A5F96"}), "suena"]),
@@ -2500,7 +2625,7 @@ function renderLinea() {
     el("span", {}, [el("i", {style: "background:repeating-linear-gradient(45deg,transparent 0 3px,#33334a 3px 6px)"}), "parte sin escena"]),
     el("span", {}, [el("i", {style: "width:3px;background:var(--txt)"}), "entra de golpe"]),
   ]);
-  const nota = el("p", {className: "ayuda", style: "margin:0", textContent: "Toca un casillero para editar ese motor en esa parte. Toca el nombre de una parte para ver sus ajustes."});
+  const nota = el("p", {className: "ayuda", style: "margin:0", textContent: "Toca un casillero para editar ese motor en esa parte; mantenlo apretado (o clic derecho) para copiar, pegar y más. Toca el nombre de una parte para ver sus ajustes."});
   setTimeout(() => moverCabezal(), 0);
   return el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [caja, ley, nota]);
 }

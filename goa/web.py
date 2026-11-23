@@ -373,6 +373,8 @@ def crear_servidor(ctx, puerto):
                 "/api/parte/nueva": self._parte_nueva,
                 "/api/parte/guardar": self._parte_guardar,
                 "/api/parte/escuchar": self._parte_escuchar,
+                "/api/parte/copiar": self._parte_copiar,
+                "/api/parte/apagar": self._parte_apagar,
                 "/api/proyecto/guardar": self._proyecto_guardar,
                 "/api/proyecto/abrir": self._proyecto_abrir,
                 "/api/proyecto/borrar": self._proyecto_borrar,
@@ -866,6 +868,102 @@ def crear_servidor(ctx, puerto):
                     ctx.config["escena"][p["escena"]] = escena
                 ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _escena_de_parte(self, j):
+            """La escena de la parte j (si no tiene, se le crea con lo que suena)."""
+            p = ctx.config["parte"][j]
+            if p["escena"] < 0:
+                if len(ctx.config["escena"]) >= forma.MAX_ESCENAS:
+                    raise ValueError(f"Ya hay {forma.MAX_ESCENAS} escenas: elige una que ya exista para {p['nombre']}")
+                ctx.config["escena"].append(forma.escena_de(ctx.config, p["nombre"]))
+                p["escena"] = len(ctx.config["escena"]) - 1
+            return p["escena"]
+
+        def _cambiar_escenas(self, cambiadas):
+            """Escenas cambiadas desde la línea de tiempo: quedan en la config, y si una es la
+            que suena (o la que editas) se vuelve a lanzar, para oír el cambio."""
+            ctx.config = dict(ctx.config, escena=list(ctx.config["escena"]))
+            ctx.motor.base["escena"] = copy.deepcopy(ctx.config["escena"])
+            ctx.motor.base["parte"] = copy.deepcopy(ctx.config["parte"])
+            suena = ctx.editando["escena"] if ctx.editando else ctx.config["forma"]["escena"]
+            return suena if suena in cambiadas and not ctx.config["cancion"]["activa"] else None
+
+        @staticmethod
+        def _seccion(datos, motor):
+            """Las secciones de una escena que son de un motor («sec2» = la 3.ª secuencia)."""
+            if motor.startswith("sec"):
+                return [("secuencia", int(motor[3:]))]
+            if motor == "dialogo":
+                return [("dialogo", None), ("llamada", None), ("respuesta", None)]
+            if motor not in forma.SECCIONES:
+                raise ValueError(f"Motor desconocido: {motor}")
+            return [(motor, None)]
+
+        def _parte_copiar(self, datos):
+            """Copia motores de una parte a otras (solo esos: lo demás de la parte de destino
+            queda). Si la parte de destino comparte su escena con otras, cambian todas."""
+            desde = int(datos["desde"])
+            hacia = [int(j) for j in (datos["hacia"] if isinstance(datos["hacia"], list) else [datos["hacia"]])]
+            motores = list(datos["motores"])
+            with ctx.candado:
+                ctx.config = dict(ctx.config, escena=list(ctx.config["escena"]))   # (la historia guarda la lista de antes)
+                partes = ctx.config["parte"]
+                origen = partes[desde]["escena"]
+                if origen < 0:
+                    raise ValueError(f"{partes[desde]['nombre']} todavía no tiene escena: edítala primero")
+                fuente = json.loads(ctx.config["escena"][origen]["datos"])
+                cambiadas, compartidas = set(), set()
+                for j in hacia:
+                    if j == desde:
+                        continue
+                    idx = self._escena_de_parte(j)
+                    if idx == origen:
+                        continue   # la misma escena: ya tiene lo mismo
+                    destino = json.loads(ctx.config["escena"][idx]["datos"])
+                    for motor in motores:
+                        for sec, n in self._seccion(fuente, motor):
+                            if n is None:
+                                if sec in fuente:
+                                    destino[sec] = copy.deepcopy(fuente[sec])
+                            else:
+                                lista = destino.setdefault("secuencia", [])
+                                if n < len(fuente.get("secuencia", [])):
+                                    while len(lista) <= n:
+                                        lista.append(dict(fuente["secuencia"][len(lista)], activa=False))
+                                    lista[n] = copy.deepcopy(fuente["secuencia"][n])
+                    ctx.config["escena"][idx] = dict(ctx.config["escena"][idx], datos=json.dumps(destino, ensure_ascii=False, separators=(",", ":")))
+                    cambiadas.add(idx)
+                    compartidas |= {p["nombre"] for k, p in enumerate(partes) if p["escena"] == idx and k not in hacia}
+                relanzar = self._cambiar_escenas(cambiadas)
+                if relanzar is None:
+                    aviso = self._guardar_activa()
+            if relanzar is not None:
+                self._escena_lanzar({"indice": relanzar, "compases": 1})
+                return
+            self._responder(aviso, compartidas=sorted(compartidas))
+
+        def _parte_apagar(self, datos):
+            """«Que no suene aquí»: el motor queda apagado en la escena de esa parte."""
+            j, motor = int(datos["parte"]), str(datos["motor"])
+            with ctx.candado:
+                ctx.config = dict(ctx.config, escena=list(ctx.config["escena"]))
+                idx = ctx.config["parte"][j]["escena"]
+                if idx < 0:
+                    raise ValueError("Esa parte todavía no tiene escena")
+                d = json.loads(ctx.config["escena"][idx]["datos"])
+                for sec, n in self._seccion(d, motor):
+                    if n is None and sec in d and sec in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "tocado"):
+                        d[sec]["activo"] = False
+                    elif n is not None and n < len(d.get("secuencia", [])):
+                        d["secuencia"][n]["activa"] = False
+                ctx.config["escena"][idx] = dict(ctx.config["escena"][idx], datos=json.dumps(d, ensure_ascii=False, separators=(",", ":")))
+                relanzar = self._cambiar_escenas({idx})
+                if relanzar is None:
+                    aviso = self._guardar_activa()
+            if relanzar is not None:
+                self._escena_lanzar({"indice": relanzar, "compases": 1})
+                return
             self._responder(aviso)
 
         def _parte_escuchar(self, datos):

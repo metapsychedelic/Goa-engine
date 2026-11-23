@@ -99,6 +99,37 @@ def main():
     codigo, r = post("/api/editar", {"escena": 0})
     todo &= ok(codigo == 400 and "canción" in r.get("error", ""), "con el modo canción prendido no se edita")
 
+    print("\nCopiar y pegar desde la línea de tiempo")
+    cfg = get("/api/config"); cfg["cancion"]["activa"] = False
+    cfg["parte"] = [{"nombre": n, "compases": 16, "escena": -1, "energia": 0.5, "energia_fin": 0.5, "entrada": "suave"} for n in ("A", "B", "C", "D")]
+    post("/api/config", cfg)
+    for i, (bajo, octava) in enumerate([(True, 2), (False, -1), (False, 0)]):
+        post("/api/editar", {"parte": i})
+        c = get("/api/config"); c["bajo"]["activo"] = bajo; c["bajo"]["octava"] = octava if "octava" in c["bajo"] else c["bajo"].get("octava"); c["secuencia"][0]["octava"] = octava
+        post("/api/config", c)
+        post("/api/editar/listo")
+    cfg = get("/api/config")
+    esc = lambda c, i: datos(c, c["parte"][i]["escena"])
+    antes_sec = esc(cfg, 1)["secuencia"][0]["octava"]
+    codigo, r = post("/api/parte/copiar", {"desde": 0, "hacia": [1, 2], "motores": ["bajo"]})
+    cfg = get("/api/config")
+    todo &= ok(codigo == 200 and esc(cfg, 1)["bajo"]["activo"] and esc(cfg, 2)["bajo"]["activo"], "pegar el bajo de A en B y C")
+    todo &= ok(esc(cfg, 1)["secuencia"][0]["octava"] == antes_sec == -1, "solo el bajo: la secuencia de B queda como estaba")
+    codigo, r = post("/api/parte/copiar", {"desde": 0, "hacia": 3, "motores": ["sec0"]})
+    cfg = get("/api/config")
+    todo &= ok(cfg["parte"][3]["escena"] >= 0 and esc(cfg, 3)["secuencia"][0]["octava"] == 2, "pegar en una parte sin escena le crea una")
+    post("/api/parte/apagar", {"parte": 0, "motor": "bajo"})
+    todo &= ok(not esc(get("/api/config"), 0)["bajo"]["activo"], "«que no suene aquí» apaga el bajo en A")
+    cfg = get("/api/config"); cfg["parte"][3]["escena"] = cfg["parte"][1]["escena"]; post("/api/config", cfg)
+    codigo, r = post("/api/parte/copiar", {"desde": 2, "hacia": [3], "motores": ["sec0"]})
+    todo &= ok(r.get("compartidas") == ["B"], f"avisa si la escena la comparte otra parte {r.get('compartidas')}")
+    post("/api/editar", {"parte": 2})
+    post("/api/parte/copiar", {"desde": 0, "hacia": [2], "motores": ["sec0"]})
+    cfg = get("/api/config")
+    todo &= ok(cfg["secuencia"][0]["octava"] == 2 and bool(get("/api/estado")["editando"]), "pegar en la parte que editas: suena al tiro y sigue la edición")
+    codigo, r = post("/api/parte/copiar", {"desde": 0, "hacia": [1], "motores": ["nada"]})
+    todo &= ok(codigo == 400, "un motor que no existe da error")
+
     print("\n" + ("Todo bien" if todo else "HAY FALLAS"))
     shutil.rmtree(carpeta, ignore_errors=True)
     raise SystemExit(0 if todo else 1)
