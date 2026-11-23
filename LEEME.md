@@ -749,3 +749,5 @@ cada una, la energía (que el drop entre de golpe) y que al apagarlo vuelva todo
 ### Dos sintes juntos: «Con la otra voz»
 
 Desde la segunda secuencia aparece el grupo **Con la otra voz** (todo opcional): **Corrimiento** corre el patrón 1 a 15 semicorcheas, **Complementar** calla donde el lead ataca (100 % = hocket) y **Separar las notas** evita segundas, séptimas y tritonos contra el lead.
+
+En la 0.97 hay un motor **Obertura**: una intro épica (batalla vikinga) para la MC-101 con cuerdas graves, cuernos, coro y percusión de guerra, en carácter batalla, frigia o trágica, que crece por etapas y termina con un golpe y silencio antes del drop. Va con seed como lo demás y cambia de escena en la MC-101 (Program Change en el canal de control) al empezar y al volver. Cómo armar esa escena: [docs/molde-obertura.md](docs/molde-obertura.md).

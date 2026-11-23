@@ -24,7 +24,7 @@ import json
 
 from . import copia
 
-SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas", "looper", "tocado")
+SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas", "looper", "tocado", "obertura")
 # «parar» es el slot vacío del looper: es de la máquina, no de la escena.
 ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_resonancia", "cc_filtro", "filtro_reposo", "parar", "nivel"))
 # Floats que no se pueden mover de a poco: rehacen el patrón entero.
@@ -37,8 +37,8 @@ PASO_ENERGIA = 0.1  # lo más que se mueve la energía en un compás
 
 # Orden en que entran (y, al revés, salen) los motores en una transición:
 # primero la armonía, al final el bajo.
-ORDEN_ENTRADA = ("pads", "texturas", "secuencia", "dialogo", "bajo", "fx")
-ORDEN_SALIDA = ("fx", "secuencia", "dialogo", "bajo", "texturas", "pads")
+ORDEN_ENTRADA = ("obertura", "pads", "texturas", "secuencia", "dialogo", "bajo", "fx")
+ORDEN_SALIDA = ("fx", "secuencia", "dialogo", "bajo", "texturas", "pads", "obertura")
 
 
 # --- Escenas ---
@@ -193,7 +193,7 @@ def _mezcla(seccion, k, a, b, t):
     return a
 
 
-ACTIVO = {"pads": "activo", "bajo": "activo", "dialogo": "activo", "fx": "activo", "texturas": "activo"}
+ACTIVO = {"pads": "activo", "bajo": "activo", "dialogo": "activo", "fx": "activo", "texturas": "activo", "obertura": "activo"}
 
 
 def _motores(cfg):

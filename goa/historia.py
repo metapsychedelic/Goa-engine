@@ -18,13 +18,13 @@ JUNTAR = 1.5   # segundos: mover un deslizador manda varios cambios seguidos; so
 
 # Lo que se puede deshacer. Las escenas, partes, clips guardados, la canción y la app
 # tienen sus propios botones (y confirmaciones), y no entran.
-SECCIONES = ("musica", "armonia_tema", "entrada", "thru", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas", "looper", "tocado", "forma")
+SECCIONES = ("musica", "armonia_tema", "entrada", "thru", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas", "looper", "tocado", "obertura", "forma")
 # De la forma, lo que se toca en vivo (el control de energía, el piloto, la escena que suena) no es un paso.
 FORMA_EN_VIVO = ("energia", "piloto", "escena", "duracion")
 
 NOMBRES = {"musica": "Música", "armonia_tema": "Armonía del tema", "entrada": "Entrada", "thru": "Thru", "pads": "Pads", "bajo": "Bajo",
            "dialogo": "Llamada y respuesta", "llamada": "Llamada y respuesta", "respuesta": "Llamada y respuesta",
-           "fx": "FX", "texturas": "Texturas", "looper": "Looper", "tocado": "Tocado", "forma": "Forma"}
+           "fx": "FX", "texturas": "Texturas", "looper": "Looper", "tocado": "Tocado", "obertura": "Obertura", "forma": "Forma"}
 ORIGENES = {"fabrica": "ajustes de fábrica", "genero": "género", "limpiar": "limpiar"}
 
 

@@ -989,7 +989,7 @@ def crear_servidor(ctx, puerto):
             nueva = dict(actual)
             for motor in MOTORES_FABRICA:
                 nueva = fabrica_motor(nueva, motor)
-            for seccion in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "tocado"):
+            for seccion in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "tocado", "obertura"):
                 nueva[seccion] = dict(nueva[seccion], activo=False)
             nueva["secuencia"] = [dict(fabrica_secuencia(s), activa=False) for s in actual["secuencia"]]
             nueva = normalizar(nueva)
@@ -1226,7 +1226,7 @@ def crear_servidor(ctx, puerto):
                     raise ValueError("Esa parte todavía no tiene escena")
                 d = json.loads(ctx.config["escena"][idx]["datos"])
                 for sec, n in self._seccion(d, motor):
-                    if n is None and sec in d and sec in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "tocado"):
+                    if n is None and sec in d and sec in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "tocado", "obertura"):
                         d[sec]["activo"] = False
                     elif n is not None and n < len(d.get("secuencia", [])):
                         d["secuencia"][n]["activa"] = False

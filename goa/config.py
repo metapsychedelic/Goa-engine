@@ -242,6 +242,29 @@ ESQUEMA_SECCIONES["texturas"] = {
     "seed": (str, "TX-0001", None, None),
 }
 
+# Obertura: preludio orquestal de batalla por capas que desemboca en el drop (ver obertura.py
+# y docs/molde-obertura.md). Cada capa a un canal de la escena «orquesta» de la MC-101.
+ESQUEMA_SECCIONES["obertura"] = {
+    "activo": (bool, False, None, None),
+    "salida": (str, "MC-101", None, None),
+    "caracter": (str, "batalla", None, ("batalla", "frigia", "tragica")),
+    "frases": (int, 4, 1, 8),                 # frases de 8 compases (4 = 32 compases)
+    "velocidad": (int, 115, 1, 127),          # la fuerza del final (crece hasta ahí)
+    "expresion": (bool, True, None, None),    # crescendo también por CC 11
+    "canal_cuerdas": (int, 1, 0, 16),         # 0 = esa capa no suena
+    "canal_cuernos": (int, 2, 0, 16),
+    "canal_coro": (int, 3, 0, 16),
+    "canal_percusion": (int, 4, 0, 16),
+    "nota_taiko": (int, 36, 0, 127),
+    "nota_tambor": (int, 38, 0, 127),
+    "nota_golpe": (int, 49, 0, 127),
+    "escena": (int, 0, 0, 128),               # escena «orquesta» de la MC-101 (1-128; 0 = no cambia)
+    "escena_vuelta": (int, 0, 0, 128),        # escena a la que vuelve antes del drop (0 = no cambia)
+    "canal_control": (int, 16, 1, 16),        # canal de control de la MC-101 (el de las escenas)
+    "preparar": (bool, True, None, None),     # con escena: un compás antes para que la MC cambie (cambia en el uno)
+    "seed": (str, "OB-0001", None, None),
+}
+
 # Looper: loops de samples en una pista Looper de la MC-101. Cada escena elige qué slot
 # (1-16) suena; el motor manda el Program Change del slot (PC 0-15 = clip 1-16 en el
 # canal de la pista) un compás antes de que llegue la escena, y la MC-101 lo cambia en
@@ -730,7 +753,7 @@ def _suenan_en_cancion(cfg):
                 datos = json.loads(cfg["escena"][p["escena"]]["datos"])
             except ValueError:
                 continue
-            for motor in ("pads", "bajo", "dialogo", "fx", "texturas", "looper"):
+            for motor in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "obertura"):
                 if (datos.get(motor) or {}).get("activo"):
                     suenan.add(motor)
     return suenan
@@ -750,6 +773,8 @@ def salidas(cfg):
         claves.append(cfg["fx"]["salida"])
     if cfg["texturas"]["activo"] or "texturas" in cancion:
         claves.append(cfg["texturas"]["salida"])
+    if cfg["obertura"]["activo"] or "obertura" in cancion:
+        claves.append(cfg["obertura"]["salida"])
     if cfg["looper"]["activo"] or cfg["looper"]["clip"] or "looper" in cancion:   # apagado, sigue abierta para callarlo
         claves.append(cfg["looper"]["salida"])
     if cfg["tocado"]["activo"]:
@@ -862,7 +887,8 @@ def fabrica_secuencia(secuencia):
 CONSERVAR_EN_FABRICA_MOTOR = ("activo", "suenan", "salida", "canal", "programa", "disparo", "escucha", "genero", "seed",
                               "filtro_cc", "cc_corte", "cc", "parar", "loop")
 MOTORES_FABRICA = {"pads": ("pads",), "bajo": ("bajo",), "dialogo": ("dialogo", "llamada", "respuesta"),
-                   "fx": ("fx",), "texturas": ("texturas",), "looper": ("looper",), "tocado": ("tocado",)}
+                   "fx": ("fx",), "texturas": ("texturas",), "looper": ("looper",), "tocado": ("tocado",),
+                   "obertura": ("obertura",)}
 
 
 def _fabrica_seccion(seccion, datos):

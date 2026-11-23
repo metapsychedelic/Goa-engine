@@ -9,6 +9,7 @@ function motores() {
   lista.push(["dialogo", "Diálogo", cfg.dialogo, "activo"]);
   lista.push(["fx", "FX", cfg.fx, "activo"]);
   if (cfg.texturas) lista.push(["texturas", "Texturas", cfg.texturas, "activo"]);
+  if (cfg.obertura) lista.push(["obertura", "Obertura", cfg.obertura, "activo"]);
   if (cfg.looper) lista.push(["looper", "Looper", cfg.looper, "activo"]);
   if (cfg.tocado) lista.push(["tocado", "Tocado", cfg.tocado, "activo"]);
   return lista;
@@ -110,6 +111,7 @@ function renderMotores() {
   else if (motorSel === "dialogo") panel.append(...panelDialogo());
   else if (motorSel === "fx") panel.append(...panelFx());
   else if (motorSel === "texturas") panel.append(...panelTexturas());
+  else if (motorSel === "obertura") panel.append(...panelObertura());
   else if (motorSel === "looper") panel.append(...panelLooper());
   else if (motorSel === "tocado") panel.append(...panelTocado());
   else panel.append(...panelSecuencia(parseInt(motorSel.slice(3))));
@@ -146,6 +148,7 @@ const FABRICA = {
   dialogo: ["la llamada y respuesta", "Llamada y respuesta", "Vuelven las dos voces. Se mantienen sus salidas MIDI, canales, programas, la nota larga, la entrada que escucha, el género y la seed."],
   fx: ["el FX", "FX", "Se mantienen su salida MIDI, canal, programa, nota larga, género, seed y el CC del corte."],
   texturas: ["las texturas", "Texturas", "Se mantienen su salida MIDI, canal, programa, nota larga, seed y el CC que respira."],
+  obertura: ["la obertura", "Obertura", "Se mantienen su salida MIDI y la seed; vuelven los canales, notas y escenas de fábrica."],
   tocado: ["el tocado", "Tocado", "No borra lo grabado. Se mantienen su salida MIDI, canal, programa y seed."],
   looper: ["el looper", "Looper", "Queda sin loop elegido. Se mantienen su salida MIDI, canal y el slot vacío para callar."],
 };
@@ -1386,6 +1389,47 @@ function panelTexturas() {
         ayuda("Un canal de la MC-101 distinto al de los FX y al del bajo."),
         numeroDe(x, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
         programaDe(x),
+      ]),
+    ]),
+  ];
+}
+
+// --- Obertura: preludio orquestal de batalla que desemboca en el drop (goa/obertura.py) ---
+const CARACTERES_OBERTURA = [["batalla","Batalla"],["frigia","Frigia"],["tragica","Trágica"]];
+const TEXTO_OBERTURA = {batalla: "Eólica, i – ♭VI – ♭VII – i: cuernos en quintas, la más guerrera.",
+  frigia: "i – ♭II: más oscura y amenazante; el tema cae al ♭2.",
+  tragica: "i – iv – ♭VI – ♭VII con tercera menor en los cuernos: lamento antes de la batalla."};
+function panelObertura() {
+  const x = cfg.obertura;
+  const compases = 8 * x.frases;
+  const total = compases + (x.escena && x.preparar ? 1 : 0);
+  return [
+    cabMotor("Obertura", `${x.salida} · ${compases} compases${x.escena ? ` · escena ${x.escena}` : ""}`, x, "activo", null, botonFabricaMotor("obertura")),
+    ayuda("Un preludio orquestal de batalla que crece por capas (coro en drone, cuerdas graves al galope, cuernos, tambores de guerra) y termina con un golpe y un silencio: la parte siguiente entra en el uno. Suena una vez desde el compás en que la prendes. Arma la escena «orquesta» de la MC-101 con el molde (docs/molde-obertura.md)."),
+    bloqueVariante(x, "obertura", null),
+    el("div", {className: "card principales"}, [
+      campo("Carácter", segmentado(CARACTERES_OBERTURA, x.caracter, (v) => { x.caracter = v; guardar(); renderMotores(); }, 3)),
+      ayuda(TEXTO_OBERTURA[x.caracter] + " La seed elige la variante de la progresión, el galope, la llamada de cuerno, el tema y los taikos."),
+      deslizador(x, "frases", "Largo", 1, 8, 1, (v) => `${v} frase${v > 1 ? "s" : ""} · ${8 * v} compases`, () => renderMotores()),
+      ayuda(`En el modo canción, haz que su parte dure ${total} compases${total > compases ? " (uno de preparación para que la MC cambie de escena)" : ""}; la parte siguiente es el drop.`),
+      numeroDe(x, "velocidad", "Fuerza del final (1-127)", 1, 127),
+      casilla(x, "expresion", "Crescendo por CC 11", "Además de la fuerza de las notas, la expresión de cada pista va subiendo"),
+    ]),
+    el("div", {className: "grupos"}, [
+      grupo("g-ob-escenas", "Escenas de la MC-101", x.escena ? `orquesta ${x.escena} · vuelve a ${x.escena_vuelta || "—"}` : "no cambia de escena", [
+        numeroDe(x, "escena", "Escena «orquesta» (1-128, 0 = no cambia)", 0, 128, () => renderMotores()),
+        numeroDe(x, "escena_vuelta", "Escena a la que vuelve para el drop (0 = no cambia)", 0, 128, () => renderMotores()),
+        numeroDe(x, "canal_control", "Canal de control de la MC-101", 1, 16),
+        casilla(x, "preparar", "Compás de preparación", "La MC-101 cambia de escena en el uno siguiente: la obertura manda el cambio y empieza un compás después", () => renderMotores()),
+        ayuda("La MC-101 no cambia de sonido por Program Change: cambia de escena con un Program Change en su canal de control. La vuelta va en el silencio del final, así la escena psy entra justo con el drop."),
+      ]),
+      grupo("g-ob-capas", "Capas y canales", `cuerdas ${x.canal_cuerdas || "—"} · cuernos ${x.canal_cuernos || "—"} · coro ${x.canal_coro || "—"} · percusión ${x.canal_percusion || "—"}`, [
+        el("div", {className: "dos"}, [numeroDe(x, "canal_cuerdas", "Cuerdas graves (0 = no)", 0, 16), numeroDe(x, "canal_cuernos", "Cuernos / metales (0 = no)", 0, 16)]),
+        el("div", {className: "dos"}, [numeroDe(x, "canal_coro", "Coro (0 = no)", 0, 16), numeroDe(x, "canal_percusion", "Percusión (0 = no)", 0, 16)]),
+        el("div", {className: "dos"}, [numeroDe(x, "nota_taiko", "Nota del taiko", 0, 127), numeroDe(x, "nota_tambor", "Nota del tambor", 0, 127)]),
+        numeroDe(x, "nota_golpe", "Nota del golpe de orquesta", 0, 127),
+        ayuda("El canal de cada pista de la escena «orquesta» y las notas de los pads del kit de percusión (36 = C1)."),
+        destinoDe(x, renderMotores),
       ]),
     ]),
   ];

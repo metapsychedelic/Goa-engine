@@ -22,6 +22,7 @@ from .fx import Fx
 from .motor_forma import FormaMotor
 from .pads import Pads, _cerca
 from .secuencia import PASOS_POR_COMPAS, TICKS_POR_PASO, Secuencia, celda_molde
+from .obertura import Obertura
 from .texturas import Texturas
 from .tocado import Tocado
 
@@ -69,6 +70,7 @@ class Motor(FormaMotor):
         self.saltar_parte_a = None  # parte pedida desde la app (entra en el próximo compás)
         self.fx = None
         self.texturas = None
+        self.obertura = None
         self.tocado = Tocado()      # lo que tocas con el teclado de la MicroFreak (goa/tocado.py)
         # Subida de FX: {"desde": paso, "hasta": paso del drop, "origen": manual, cancion o piloto}
         self.subida = None
@@ -225,6 +227,13 @@ class Motor(FormaMotor):
         else:
             nuevas_texturas = Texturas(tx_cfg, tonalidad)
             nuevas_texturas.continuar_de(self.texturas, self.enviar)
+        ob_cfg = config.get("obertura", {})
+        if self.obertura is not None and mismo("obertura") and musica_igual:
+            nueva_obertura = self.obertura
+        else:
+            nueva_obertura = Obertura(ob_cfg, tonalidad)
+            nueva_obertura.continuar_de(self.obertura, self.enviar)
+        self.obertura = nueva_obertura
         self.config_aplicada = config
         self._programas(config)
         self._looper(config)
@@ -420,7 +429,8 @@ class Motor(FormaMotor):
             "version_base": self.version_base,
             "motores": dict({"pads": bool(self.pads and self.pads.activo), "bajo": bool(self.bajo and self.bajo.activo),
                              "dialogo": bool(self.dialogo and self.dialogo.activo), "fx": bool(self.fx and self.fx.activo),
-                             "texturas": bool(self.texturas and self.texturas.activo)},
+                             "texturas": bool(self.texturas and self.texturas.activo),
+                             "obertura": bool(self.obertura and self.obertura.activo)},
                             **{f"sec{i}": s.activa for i, s in enumerate(self.secuencias)}),
             "bajo": {"estilo": self.bajo.estilo, "activo": self.bajo.activo,
                      "cola": self.cola_bajo.estilo if self.cola_bajo is not None else None} if self.bajo else None,
@@ -577,6 +587,7 @@ class Motor(FormaMotor):
         if self.cola_bajo is not None:
             self.bajo, self.cola_bajo = self.cola_bajo, None
         self.bajo.reiniciar()
+        self.obertura.reiniciar()
         self.subida, self.subida_pedida, self.subida_final = None, None, None
         self.corriendo = True
         self.looper_pendiente = None
@@ -613,6 +624,7 @@ class Motor(FormaMotor):
         self.bajo.tick(self.tick, self.enviar)
         self.fx.tick(self.tick, self.enviar)
         self.texturas.tick(self.tick, self.enviar)
+        self.obertura.tick(self.tick, self.enviar)
         self._espacio_bombo()
         if self.tick % TICKS_POR_PASO == 0:
             self._paso(self.tick // TICKS_POR_PASO)
@@ -765,6 +777,7 @@ class Motor(FormaMotor):
         self._paso_bajo(paso)
         self._paso_fx(paso)
         self._paso_texturas(paso)
+        self.obertura.paso(paso, self.tick, self.enviar)
         self._filtro_secuencias(paso)
 
     # --- FX: subidas, riser, filtros y glitches ---
@@ -1177,6 +1190,8 @@ class Motor(FormaMotor):
             self.fx.apagar(self.enviar)
         if self.texturas is not None:
             self.texturas.apagar(self.enviar)
+        if self.obertura is not None:
+            self.obertura.apagar(self.enviar)
         if self.tocado is not None:
             self.tocado.apagar(self.enviar)
 
