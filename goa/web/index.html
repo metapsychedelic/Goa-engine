@@ -2995,9 +2995,12 @@ function renderParte() {
     el("button", {type: "button", textContent: cfg.cancion.activa ? "Saltar aquí" : "Escuchar",
       onclick: () => accionParte("/api/parte/escuchar", {indice: i}, cfg.cancion.activa ? `${p.nombre} en el próximo compás` : `Suena ${p.nombre}`)}),
   ]) : !p ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null;
+  const limpiar = el("button", {type: "button", textContent: p ? `Limpiar ${p.nombre}` : "Limpiar lo que suena",
+    title: "Todos los motores y las secuencias a sus valores de fábrica, en silencio",
+    onclick: async () => { if (p && !editandoVista()) { await editarMotorEnParte(i, null); if (!editandoVista()) return; } await limpiarTodo(); if (vista === "parte") renderParte(); }});
   const ajustes = p ? bloqueParte(p, i) : null;
   if (ajustes) { ajustes.open = true; ajustes.querySelector("summary b").textContent = "Entrada, apoyos y ajustes de la parte"; }
-  caja.replaceChildren(...[nav, cab, acciones, el("div", {className: "motores-lista"}, filas), ajustes,
+  caja.replaceChildren(...[nav, cab, acciones, el("div", {className: "motores-lista"}, filas), limpiar, ajustes,
     p && !vivo ? null : null].filter(Boolean));
 }
 
@@ -3108,6 +3111,10 @@ function renderCancion() {
   for (const [k, t] of [["repetir", "repite"], ["quedarse", "se queda en la última"]]) fin.append(el("button", {type: "button", textContent: t, "aria-pressed": c.al_final === k ? "true" : "false",
     onclick: async () => { c.al_final = k; renderCancion(); try { await api("/api/cancion", {al_final: k}); } catch (e) { aviso(e.message, true); } }}));
   caja.replaceChildren(
+    el("div", {className: "dos"}, [
+      el("button", {type: "button", textContent: "Lo que suena ›", onclick: () => abrirParte(-1)}),
+      el("button", {type: "button", textContent: edicion ? `Limpiar «${edicion.nombre}»` : "Limpiar", onclick: limpiarTodo,
+        title: "Todos los motores y las secuencias a sus valores de fábrica, en silencio"})]),
     ...[renderLinea()].filter(Boolean),
     el("div", {className: "energia"}, [
       el("div", {className: "fila"}, [
@@ -3121,10 +3128,6 @@ function renderCancion() {
       cfg.parte.length ? el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Al terminar"}), fin]) : null,
     ]),
     el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [
-      el("div", {className: "dos"}, [
-        el("button", {type: "button", textContent: "Lo que suena ›", onclick: () => abrirParte(-1)}),
-        el("button", {type: "button", textContent: edicion ? `Limpiar «${edicion.nombre}»` : "Limpiar", onclick: limpiarTodo,
-          title: "Todos los motores y las secuencias a sus valores de fábrica, en silencio"})]),
       cfg.parte.length < 32 ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null,
       el("button", {type: "button", textContent: "Cargar plantilla…", onclick: cargarPlantilla}),
       el("button", {type: "button", textContent: "Actualizar con la plantilla…", onclick: actualizarConPlantilla}),
