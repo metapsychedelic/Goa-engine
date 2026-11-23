@@ -299,6 +299,10 @@ ESQUEMA_SECCIONES["cancion"] = {
     "activa": (bool, False, None, None),     # False = modo libre (como siempre)
     "nombre": (str, "Mi canción", None, None),
     "al_final": (str, "repetir", None, ("repetir", "quedarse")),  # como la cadena de escenas de la Circuit
+    # Loop de partes (como una cadena de escenas en la Circuit): al dar Play parte en
+    # «loop_desde» y repite hasta «loop_hasta» (índices de partes; -1 = sin loop).
+    "loop_desde": (int, -1, -1, 31),
+    "loop_hasta": (int, -1, -1, 31),
 }
 ESQUEMA_PARTE = {
     "nombre": (str, "Parte", None, None),

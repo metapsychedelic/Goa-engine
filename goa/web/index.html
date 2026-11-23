@@ -123,6 +123,8 @@ nav.tabs button.cambiado::after{position:absolute;top:8px;right:calc(50% - 16px)
 .linea .lt-parte.golpe{border-left:3px solid var(--txt)}
 .linea .lt-parte.sel{border-color:var(--acc);background:var(--accbg)}
 .linea .lt-parte.suena{box-shadow:var(--glow)}
+.linea .fuera-loop{opacity:.35}
+.linea .lt-parte.en-loop b::before{content:"↻ ";color:var(--acc)}
 .linea .lt-c{min-height:26px;border-radius:6px;border:1px solid #22222E;background:transparent;padding:0;cursor:pointer;font-size:9px;color:var(--sobre)}
 .linea .lt-c.on{background:#5A5F96;border-color:transparent}
 .linea .lt-c.cambia{background:#9AA2E6}
@@ -2441,8 +2443,8 @@ function pedirSubidaFinal(n) {
 function irAOtraParte() {
   let d;
   d = hoja("Ir a otra parte", "Entra en el próximo compás y el tema sigue desde ahí.", [
-    el("div", {className: "motores-lista", style: "max-height:60vh;overflow:auto;margin-bottom:12px"}, cfg.parte.map((p, j) =>
-      el("button", {type: "button", onclick: () => { d.close(); pedirCancion({saltar: j}, `${p.nombre} en el próximo compás`); }}, [
+    el("div", {className: "motores-lista", style: "max-height:60vh;overflow:auto;margin-bottom:12px"}, cfg.parte.flatMap((p, j) =>
+      loopMarcado() && (j < loopMarcado()[0] || j > loopMarcado()[1]) ? [] : el("button", {type: "button", onclick: () => { d.close(); pedirCancion({saltar: j}, `${p.nombre} en el próximo compás`); }}, [
         el("span", {className: "punto" + (ultimoEstado && ultimoEstado.cancion && ultimoEstado.cancion.parte === j ? " si" : "")}),
         el("span", {style: "flex:1;min-width:0"}, [p.nombre, el("br"), el("span", {className: "mut", style: "font-size:12px", textContent: `${p.compases} compases · ${p.entrada === "golpe" ? "de golpe" : "suave"}`})]),
         el("span", {className: "mut", textContent: "›"})]))),
@@ -2684,6 +2686,42 @@ function bloqueParte(p, i) {
   return g;
 }
 
+// --- Loop de partes: como dejar una cadena de escenas en la Circuit ---
+function loopMarcado() {
+  const c = cfg.cancion || {};
+  const d = c.loop_desde ?? -1, h = c.loop_hasta ?? -1;
+  return d >= 0 && h >= d && h < cfg.parte.length ? [d, h] : null;
+}
+async function ponerLoop(loop) {
+  try {
+    await api("/api/cancion", loop ? {loop, activa: true} : {loop}); await recargar(); estado();   // el loop es del modo canción: lo prende
+    if (!loop) aviso("Sin loop: el tema completo desde el próximo Play");
+    else {
+      const comp = cfg.parte.slice(loop[0], loop[1] + 1).reduce((n, p) => n + p.compases, 0);
+      aviso(`Loop de la parte ${loop[0] + 1} a la ${loop[1] + 1} (${comp} compases), desde el próximo Play`);
+    }
+  } catch (e) { aviso(e.message, true); }
+}
+function bloqueLoop() {
+  const lp = loopMarcado();
+  const opciones = (sel) => cfg.parte.map((p, i) => el("option", {value: String(i), textContent: `${i + 1} · ${p.nombre}`, selected: i === sel}));
+  const desde = el("select", {"aria-label": "Loop desde la parte"}, opciones(lp ? lp[0] : 0));
+  const hasta = el("select", {"aria-label": "Loop hasta la parte"}, opciones(lp ? lp[1] : Math.min(cfg.parte.length - 1, 1)));
+  const aplicar = () => { let d = parseInt(desde.value), h = parseInt(hasta.value); if (h < d) [d, h] = [h, d]; ponerLoop([d, h]); };
+  desde.onchange = () => { if (lp) aplicar(); };
+  hasta.onchange = () => { if (lp) aplicar(); };
+  const comp = lp ? cfg.parte.slice(lp[0], lp[1] + 1).reduce((n, p) => n + p.compases, 0) : 0;
+  return el("div", {style: "display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px;margin-top:2px"}, [
+    el("div", {className: "fila"}, [
+      el("span", {style: "font-size:13px;font-weight:650;color:var(--txt2)", textContent: lp ? `↻ Loop · ${comp} compases` : "Loop de partes"}),
+      lp ? el("button", {type: "button", textContent: "Quitar", style: "min-height:32px;padding:0 12px;font-size:12px", onclick: () => ponerLoop(null)})
+        : el("button", {type: "button", className: "prim", textContent: "Hacer loop", style: "min-height:32px;padding:0 12px;font-size:12px", onclick: aplicar})]),
+    el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Desde", desde]), el("label", {className: "campo"}, ["Hasta", hasta])]),
+    el("span", {className: "mut", style: "font-size:12px", textContent: lp
+      ? "Al dar Play parte en la primera del loop y repite solo esas partes, como la cadena de escenas de la Circuit. Cambiarlo vale desde el próximo Play."
+      : "Para trabajar unas partes: deja la misma cadena de escenas en la Circuit y marca aquí las mismas partes."}),
+  ]);
+}
 async function limpiarTodo() {
   // Lo que suena (o la parte que editas): todos los motores y las secuencias a sus valores
   // de fábrica y en silencio; quedan sus salidas y canales. Se puede deshacer.
@@ -3031,12 +3069,14 @@ function renderLinea() {
     onclick: () => tocarCasillero(i, m.clave)});
     apretar(b, () => menuCasillero(i, m.clave)); return b; };
   const total = cfg.parte.reduce((s, p) => s + p.compases, 0);
+  const lp = loopMarcado();
+  const enLoop = (i) => !lp ? "" : i >= lp[0] && i <= lp[1] ? " en-loop" : " fuera-loop";
   let caja;
   if (lineaVertical()) {
     const cols = `84px repeat(${pistas.length}, minmax(0, 1fr)) 22px`;
     const altura = (p) => Math.max(32, Math.round(p.compases * 1.6 + 8));
-    const filas = cfg.parte.map((p, i) => el("div", {className: "lt-fila" + (i === parteSel ? " sel" : ""), style: `grid-template-columns:${cols};height:${altura(p)}px`}, [
-      el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === sonando ? " suena" : ""), onclick: () => tocarNombreParte(i),
+    const filas = cfg.parte.map((p, i) => el("div", {className: "lt-fila" + (i === parteSel ? " sel" : "") + enLoop(i), style: `grid-template-columns:${cols};height:${altura(p)}px`}, [
+      el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === sonando ? " suena" : "") + enLoop(i), onclick: () => tocarNombreParte(i),
         "aria-label": `${p.nombre}, ${p.compases} compases: elegir`},
         [el("b", {textContent: p.nombre}), el("span", {textContent: `${p.compases}${apoyosDe(p).length ? " · " + apoyosDe(p).join(" ") : ""}`})]),
       ...pistas.map((m) => celda(m, m.celdas[i], i)),
@@ -3061,7 +3101,7 @@ function renderLinea() {
     let desde = 1;
     const grid = el("div", {className: "lt-h", style: `grid-template-columns:${cols}`}, [
       ...fila(el("span", {className: "lt-lab", textContent: "Partes"}), cfg.parte.map((p, i) => { const d = desde; desde += p.compases;
-        return el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === parteSel ? " sel" : "") + (i === sonando ? " suena" : ""),
+        return el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === parteSel ? " sel" : "") + (i === sonando ? " suena" : "") + enLoop(i),
           onclick: () => tocarNombreParte(i), title: p.nombre, "aria-label": `${p.nombre}, compás ${d}, ${p.compases} compases: elegir`}, [el("b", {textContent: p.nombre}), el("span", {textContent: String(d)})]); })),
       el("span", {className: "lt-lab", textContent: "Energía"}), energia,
       ...pistas.flatMap((m) => fila(el("span", {className: "lt-lab", textContent: m.nombre}), m.celdas.map((est, i) => celda(m, est, i)))),
@@ -3138,6 +3178,7 @@ function renderCancion() {
       cfg.parte.length ? barra : null,
       el("span", {className: "mut", id: "cancion_total", style: "font-size:12px", textContent: textoTotal()}),
       cfg.parte.length ? el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Al terminar"}), fin]) : null,
+      cfg.parte.length > 1 ? bloqueLoop() : null,
     ]),
     el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [
       cfg.parte.length < 32 ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null,

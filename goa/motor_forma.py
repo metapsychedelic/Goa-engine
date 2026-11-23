@@ -30,6 +30,9 @@ class FormaMotor:
         """Canción: pasa a la parte `indice` en el próximo compás (para volver a cuadrar con la Circuit)."""
         if not (0 <= indice < len(self.base.get("parte", []))):
             raise ValueError("Esa parte no existe")
+        r = forma.rango_loop(self.base)   # saltar toma el loop que está marcado ahora
+        if r and not r[0] <= indice <= r[1]:
+            raise ValueError("Esa parte está fuera del loop: quita el loop para ir a ella")
         self.saltar_parte_a = indice
 
     def quedarse_parte(self, compases=16):
@@ -94,10 +97,13 @@ class FormaMotor:
             return
         partes = self.base["parte"]
         if self.saltar_parte_a is not None:
-            c.cancion = {"origen": compas - forma.inicio_parte(partes, self.saltar_parte_a), "lanzada": None}
+            r = forma.rango_loop(self.base)
+            en_juego, desde = forma.partes_en_juego(self.base, r)
+            c.cancion = {"origen": compas - forma.inicio_parte(en_juego, self.saltar_parte_a - desde), "lanzada": None, "loop": r}
             self.saltar_parte_a = None
         if c.cancion is None:
-            c.cancion = {"origen": compas, "lanzada": None}  # la canción parte aquí (en el Start, compás 0)
+            # La canción parte aquí (en el Start, compás 0); con loop, en la primera parte del loop.
+            c.cancion = {"origen": compas, "lanzada": None, "loop": forma.rango_loop(self.base)}
         extra = c.cancion.get("extra")
         if extra is not None and compas >= extra["fin"]:
             c.cancion["origen"] += extra["n"]   # la parte alargada ya terminó: la canción queda corrida
@@ -169,19 +175,20 @@ class FormaMotor:
         """Dónde va la canción, para la app (None en modo libre)."""
         if not self.base or not forma.cancion_activa(self.base):
             return None
-        partes = self.base["parte"]
+        loop = (self.conductor.cancion or {}).get("loop") if self.corriendo else forma.rango_loop(self.base)
+        partes, desde = forma.partes_en_juego(self.base, loop)
         compas = self._compas_actual()
         ahora = self.conductor.parte(self.base, compas) if self.corriendo else None
         if ahora is None:
-            return {"parte": None, "total": forma.total_cancion(partes),
+            return {"parte": None, "total": forma.total_cancion(partes), "loop": loop,
                     "pedida": self.saltar_parte_a}
         siguiente = self.conductor.parte(self.base, compas + ahora["largo"] - ahora["dentro"])
-        pos = sum(p["compases"] for p in partes[:ahora["i"]]) + ahora["dentro"]
+        pos = sum(p["compases"] for p in partes[:ahora["i"] - desde]) + ahora["dentro"]
         extra = (self.conductor.cancion or {}).get("extra")
         mas = extra["n"] if extra is not None else 0
         return {"parte": ahora["i"], "compas": ahora["dentro"] + 1, "largo": ahora["largo"], "extra": mas,
                 "vuelta": ahora["vuelta"] + 1, "posicion": pos + 1, "total": forma.total_cancion(partes) + mas,
-                "siguiente": siguiente["i"] if siguiente else None, "pedida": self.saltar_parte_a}
+                "siguiente": siguiente["i"] if siguiente else None, "pedida": self.saltar_parte_a, "loop": loop}
 
     def _forma_estado(self):
         tr = self.conductor.transicion

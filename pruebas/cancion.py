@@ -112,6 +112,30 @@ if __name__ == "__main__":
     todo &= ok(subidas[0] == {"pedida": 4, "final": True}, f"la app ve la subida pedida para el final {subidas[0]}")
     todo &= ok(empieza == 12 and m.subida is None, f"«últimos 4» en el Groove (compases 8-15): parte en el 12 y cae en el drop ({empieza})")
 
+    print("\nLoop de partes (como una cadena de escenas en la Circuit)")
+    con_loop = armar()
+    con_loop["parte"].append(dict(con_loop["parte"][0], nombre="Outro"))
+    con_loop["cancion"].update(loop_desde=1, loop_hasta=2)
+    m, v, _ = correr(normalizar(con_loop), 30)
+    todo &= ok([x["parte"] for x in v][:26] == [1] * 8 + [2] * 4 + [1] * 8 + [2] * 4 + [1] * 2,
+               "al dar Play parte en el Groove y repite Groove y Drop (8 + 4), sin pasar por la Intro ni el Outro")
+    todo &= ok(v[0]["activas"] == [False, True] and v[8]["activas"] == [True, True], "cada parte del loop suena con su escena")
+    e = m.estado()["cancion"]
+    todo &= ok(e["loop"] == (1, 2) and e["total"] == 12, f"la app ve el loop y su largo {e.get('loop')} {e.get('total')}")
+    def marcar(m):
+        b = dict(m.base, cancion=dict(m.base["cancion"], loop_desde=-1, loop_hasta=-1))
+        m.base = b
+    m, v, _ = correr(normalizar(con_loop), 30, en_compas={5: marcar})
+    todo &= ok([x["parte"] for x in v][:14] == [1] * 8 + [2] * 4 + [1] * 2, "quitarlo sonando no corre nada: vale desde el próximo Play")
+    m, v, _ = correr(normalizar(con_loop), 4)
+    try:
+        m.saltar_parte(0)
+        fuera = False
+    except ValueError:
+        fuera = True
+    m.saltar_parte(2)
+    todo &= ok(fuera and m.saltar_parte_a == 2, "dentro del loop se puede saltar; a una parte de afuera, no")
+
     print("\nScatter de la MC-101 al final de la parte")
     from goa.motor import Motor as _Motor
 

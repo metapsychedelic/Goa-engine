@@ -852,6 +852,15 @@ def crear_servidor(ctx, puerto):
                     c["al_final"] = datos["al_final"]
                 if "nombre" in datos:
                     c["nombre"] = str(datos["nombre"]).strip()[:40] or c["nombre"]
+                if "loop" in datos:
+                    # [desde, hasta] (partes, desde 0) o null para quitarlo. Vale desde el próximo Play.
+                    if datos["loop"] is None:
+                        c["loop_desde"] = c["loop_hasta"] = -1
+                    else:
+                        d, h = (int(x) for x in datos["loop"])
+                        if not 0 <= d <= h < len(ctx.config["parte"]):
+                            raise ValueError("Ese loop no calza con las partes")
+                        c["loop_desde"], c["loop_hasta"] = d, h
                 ctx.motor.aplicar_config(ctx.config)
                 if datos.get("saltar") is not None:
                     ctx.motor.saltar_parte(int(datos["saltar"]))

@@ -382,6 +382,22 @@ def ubicar(partes, pos, al_final="repetir"):
     return None
 
 
+def rango_loop(base):
+    """(desde, hasta) del loop de partes, o None si no hay (o no tiene sentido)."""
+    c = base.get("cancion", {})
+    d, h = int(c.get("loop_desde", -1)), int(c.get("loop_hasta", -1))
+    n = len(base.get("parte", []))
+    if d < 0 or h < d or h >= n:
+        return None
+    return d, h
+
+
+def partes_en_juego(base, r=None):
+    """Las partes que recorre la canción y el índice de la primera (con el loop `r`, solo las del loop)."""
+    partes = base.get("parte", [])
+    return (partes[r[0]:r[1] + 1], r[0]) if r else (partes, 0)
+
+
 def inicio_parte(partes, indice):
     """Compás (desde el inicio de la canción) en que empieza la parte `indice`."""
     return sum(p["compases"] for p in partes[:indice])
@@ -429,10 +445,16 @@ class Conductor:
                 pos -= extra["n"]
         if pos < 0:
             return None
-        donde = ubicar(base["parte"], pos, base["cancion"].get("al_final", "repetir"))
+        # El loop que vale es el que había al dar Play (o al saltar): cambiarlo sonando no corre la canción.
+        r = self.cancion.get("loop")
+        if r is not None and r[1] >= len(base["parte"]):
+            r = None
+        partes, desde = partes_en_juego(base, r)
+        donde = ubicar(partes, pos, "repetir" if r else base["cancion"].get("al_final", "repetir"))
         if donde is None:
             return None
         i, dentro, largo, vuelta = donde
+        i += desde
         return {"i": i, "dentro": dentro, "largo": largo, "avance": dentro / max(1, largo - 1), "vuelta": vuelta}
 
     def _avanzar_piloto(self, base, compas):
