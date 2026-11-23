@@ -199,24 +199,6 @@ function ayuda(texto) {
 
 function porcentaje(v) { return Math.round(v * 100) + " %"; }
 
-function variante(obj, clave, etiqueta = "Variante") {
-  // Guarda las últimas variantes probadas (en este teléfono) para volver a una que sonaba bien.
-  const leer = () => { try { return JSON.parse(leerLocal("historial:" + clave, "[]")); } catch (e) { return []; } };
-  const escribir = (h) => escribirLocal("historial:" + clave, JSON.stringify(h.slice(-20)));
-  const seed = el("input", {type: "text", value: obj.seed, "aria-label": etiqueta,
-    onchange: () => { const antes = obj.seed; obj.seed = seed.value.trim() || obj.seed; seed.value = obj.seed;
-      if (obj.seed !== antes) escribir(leer().concat([antes])); actualizar(); guardar(); }});
-  const anterior = el("button", {type: "button", "aria-label": "Variante anterior", onclick: () => {
-    const h = leer(); if (!h.length) return;
-    obj.seed = h.pop(); escribir(h); seed.value = obj.seed; actualizar(); guardar(); }},
-    [el("span", {textContent: "←", "aria-hidden": "true"})]);
-  const otra = el("button", {type: "button", textContent: "Otra variante", className: "prim", onclick: () => {
-    escribir(leer().concat([obj.seed])); obj.seed = seedNueva(); seed.value = obj.seed; actualizar(); guardar(); }});
-  const actualizar = () => { anterior.disabled = !leer().length; };
-  actualizar();
-  return el("div", {className: "seed"}, [anterior, seed, otra]);
-}
-
 function numeroDe(obj, k, etiqueta, min, max, alCambiar) {
   const inp = el("input", {type: "number", min, max, value: obj[k],
     onchange: () => { const n = parseInt(inp.value); obj[k] = isNaN(n) ? obj[k] : Math.max(min, Math.min(max, n)); inp.value = obj[k]; if (alCambiar) alCambiar(); guardar(); }});

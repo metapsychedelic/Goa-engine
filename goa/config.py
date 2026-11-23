@@ -82,7 +82,7 @@ ESQUEMA_SECCIONES = {
         "escucha": (int, 4, 1, 16),
         "seguir_pads": (bool, True, None, None),
         "evolucion": (float, 0.5, 0.0, 1.0),
-        "mutar_cada": (int, 4, 1, 16),
+        "mutar_cada": (int, 4, 1, 64),
         "seed": (str, "CR-0001", None, None),
         "responde": (str, "contraste", None, dialogo.RESPONDE),
         "genero": (str, "goa", None, generos.ORDEN),
@@ -137,7 +137,7 @@ ESQUEMA_SECCIONES["bajo"] = {
     "porta": (bool, False, None, None),    # prende el portamento del sinte (CC 65) para los slides
     "porta_tiempo": (int, 30, 0, 127),     # tiempo del portamento (CC 5)
     "evolucion": (float, 0.0, 0.0, 1.0),
-    "mutar_cada": (int, 4, 1, 16),
+    "mutar_cada": (int, 4, 1, 64),
     "transponer": (int, 0, -7, 7),       # grados de escala
     "densidad": (float, 1.0, 0.0, 1.0),
     "swing": (float, 0.0, 0.0, 0.5),
@@ -342,6 +342,7 @@ ESQUEMA_CLIP_DIALOGO = dict(
     {"nombre": (str, "Diálogo", None, None)},
     **{k: v for k, v in ESQUEMA_SECCIONES["dialogo"].items() if k != "activo"},
     **{f"{voz}_{k}": v for voz in VOCES for k, v in ESQUEMA_SECCIONES[voz].items()},
+    con_variante=(bool, True, None, None),
 )
 
 ESQUEMA_SECUENCIA = {
@@ -638,13 +639,26 @@ def clip_aplicado(fila, clip):
     return dict(fila, **{k: v for k, v in clip.items() if k not in fuera}, activa=True)
 
 
-def clip_de_dialogo(cfg, nombre):
+def clip_de_dialogo(cfg, nombre, variante=True):
     """La conversación que está armada, lista para guardarse como clip."""
     clip = {"nombre": nombre.strip()[:40] or "Diálogo"}
     clip.update({k: v for k, v in cfg["dialogo"].items() if k != "activo"})
     for voz in VOCES:
         clip.update({f"{voz}_{k}": v for k, v in cfg[voz].items()})
+    clip["con_variante"] = bool(variante)
     return clip
+
+
+RUTEO_DIALOGO = ("disparo",) + tuple(f"{voz}_{k}" for voz in VOCES for k in ("salida", "canal"))
+
+
+def dialogo_con_clip(cfg, clip):
+    """Las secciones dialogo, llamada y respuesta con el clip puesto. Igual que en las secuencias,
+    el bajo y los pads: salidas, canales y nota larga se quedan como están; sin variante, la seed también."""
+    actual = clip_de_dialogo(cfg, "")
+    fuera = {"nombre", "con_variante"} | set(RUTEO_DIALOGO) | (set() if clip.get("con_variante", True) else {"seed"})
+    actual.update({k: v for k, v in clip.items() if k not in fuera and k in actual})
+    return secciones_de_clip(actual)
 
 
 def secciones_de_clip(clip):

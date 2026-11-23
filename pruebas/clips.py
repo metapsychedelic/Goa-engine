@@ -99,14 +99,37 @@ def main():
         post("/api/motor/clip/lanzar", {"motor": motor, "clip": 0})
         sec = get("/api/config")[motor]
         todo &= ok(sec[clave] == valor and sec["seed"] == "S1", "su clip vuelve a lo guardado")
-        post("/api/deshacer", {})
-        todo &= ok(get("/api/config")[motor][clave] != valor, "tocar un clip se deshace")
+        todo &= ok(get("/api/estado")["clips_motor"][motor] == "Mío", "el motor recuerda qué clip suena (como una fila)")
+        cfg = get("/api/config"); cfg[motor]["octava"] = cfg[motor]["octava"]; post("/api/config", cfg)
+        todo &= ok(get("/api/estado")["clips_motor"][motor] == "Mío", "y lo sigue recordando si ajustas algo")
+        post("/api/motor/clip/parar", {"motor": motor})
+        todo &= ok(get("/api/config")[motor]["activo"] is False and get("/api/estado")["clips_motor"][motor] is None, "Parar lo calla")
+        post("/api/motor/clip/lanzar", {"motor": motor, "clip": 0})
+        todo &= ok(get("/api/config")[motor]["activo"] is True, "tocar un clip lo prende")
         post("/api/motor/clip/renombrar", {"motor": motor, "indice": 1, "nombre": "Otro"})
         antes = get("/api/config")[f"clip_{motor}"][1]
         post("/api/motor/clip/borrar", {"motor": motor, "indice": 1})
         post("/api/motor/clip/restaurar", {"motor": motor, "indice": 1, "clip": antes})
         despues = get("/api/config")[f"clip_{motor}"]
         todo &= ok(len(despues) == 2 and despues[1] == antes and antes["nombre"] == "Otro", f"renombrar, borrar y deshacer {[c['nombre'] for c in despues]} {antes['nombre']}")
+
+    print("\nClips del diálogo (los mismos endpoints)")
+    cfg = get("/api/config")
+    cfg["dialogo"].update(seed="D1", evolucion=0.2); cfg["llamada"]["canal"] = 7
+    post("/api/config", cfg)
+    post("/api/motor/clip/guardar", {"motor": "dialogo", "nombre": "Pregunta", "variante": False})
+    cfg = get("/api/config"); cfg["dialogo"].update(seed="D2", evolucion=0.9); cfg["llamada"]["canal"] = 5
+    post("/api/config", cfg)
+    post("/api/motor/clip/lanzar", {"motor": "dialogo", "clip": len(cfg["clip_dialogo"]) - 1})
+    cfg = get("/api/config")
+    todo &= ok(cfg["dialogo"]["evolucion"] == 0.2 and cfg["dialogo"]["seed"] == "D2" and cfg["llamada"]["canal"] == 5,
+               "sin variante: trae sus ajustes, deja la seed y el canal de la voz")
+    todo &= ok(get("/api/estado")["fila_dialogo"]["clip"] == "Pregunta", "el diálogo recuerda el clip")
+    post("/api/motor/clip/lanzar", {"motor": "dialogo", "fabrica": "ambient"})
+    cfg = get("/api/config")
+    todo &= ok(cfg["dialogo"]["espacio"] == 3 and cfg["llamada"]["golpes"] == 2 and cfg["llamada"]["canal"] == 5, "Ambient de fábrica en el diálogo")
+    post("/api/motor/clip/parar", {"motor": "dialogo"})
+    todo &= ok(get("/api/config")["dialogo"]["activo"] is False, "Parar el diálogo")
 
     print("\nArchivos de la app")
     base = f"http://localhost:{PUERTO}"

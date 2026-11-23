@@ -47,6 +47,7 @@ class Motor(FormaMotor):
         self.cola_bajo = None  # bajo nuevo que entra en el próximo compás (cambio al vuelo)
         self.cola = {}  # fila -> (cfg, nombre) o None para detener; se aplica en el próximo compás
         self.cola_dialogo = False  # False = nada en cola · None = detener · (secciones, nombre) = lanzar
+        self.clip_motor = {"bajo": None, "pads": None}  # qué clip se tocó en el bajo y en los pads (como `Secuencia.clip`)
         self.musica = {}
         self.base = None            # la configuración que pidió la app (sin energía ni transición)
         self.conductor = forma.Conductor()
@@ -422,6 +423,7 @@ class Motor(FormaMotor):
                      "cola": self.cola_bajo.estilo if self.cola_bajo is not None else None} if self.bajo else None,
             "subida": self._subida_estado(),
             "fx_gesto": self.fx.ultimo if self.fx and self.corriendo else None,
+            "clips_motor": dict(self.clip_motor),
             "fila_dialogo": {"clip": self.dialogo.clip, "activa": self.dialogo.activo,
                              "cola": (None if self.cola_dialogo is False else
                                       ("detener" if self.cola_dialogo is None else self.cola_dialogo[1]))},

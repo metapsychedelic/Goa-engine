@@ -157,7 +157,7 @@ def aplicar(cfg, genero, parte=None, indice=None):
 
 def clips_fabrica(motor):
     """Clips de fábrica de un motor, uno por género, sacados de los perfiles de arriba.
-    Sin variante: al tocarlos, el motor sigue con su seed. motor: secuencia, bajo o pads."""
+    Sin variante: al tocarlos, el motor sigue con su seed. motor: secuencia, bajo, pads o dialogo."""
     clips = []
     for g in ORDEN:
         if motor == "secuencia":
@@ -168,6 +168,10 @@ def clips_fabrica(motor):
             valores = dict(BAJO[g], genero=g)
         elif motor == "pads":
             valores = dict(GENEROS[g]["pads"], genero=g)
+        elif motor == "dialogo":
+            valores = dict(GENEROS[g]["dialogo"], genero=g)
+            for voz in ("llamada", "respuesta"):
+                valores.update({f"{voz}_{k}": v for k, v in GENEROS[g][voz].items()})
         else:
             raise ValueError(f"Motor sin clips de fábrica: {motor!r}")
         clips.append(dict(valores, nombre=GENEROS[g]["nombre"], con_variante=False, fabrica=g))

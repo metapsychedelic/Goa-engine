@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, actualizar, copia, forma, fuentes, generador, generos, historia, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, MOTORES_FABRICA, ConfigError, a_toml, cargar, LISTA_CLIPS, clip_aplicado, clip_de, clip_de_dialogo, clip_de_motor, con_clip_de_motor, fabrica_motor, fabrica_secuencia, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, MOTORES_FABRICA, ConfigError, a_toml, cargar, LISTA_CLIPS, clip_aplicado, clip_de, clip_de_dialogo, clip_de_motor, dialogo_con_clip, con_clip_de_motor, fabrica_motor, fabrica_secuencia, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -425,6 +425,7 @@ def crear_servidor(ctx, puerto):
                 "/api/clip/restaurar": self._clip_restaurar,
                 "/api/motor/clip/guardar": self._mclip_guardar,
                 "/api/motor/clip/lanzar": self._mclip_lanzar,
+                "/api/motor/clip/parar": self._mclip_parar,
                 "/api/motor/clip/borrar": self._mclip_borrar,
                 "/api/motor/clip/renombrar": self._mclip_renombrar,
                 "/api/motor/clip/restaurar": self._mclip_restaurar,
@@ -726,12 +727,21 @@ def crear_servidor(ctx, puerto):
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
-        # --- Clips del bajo y de los pads (clip_bajo, clip_pads) ---
+        # --- Clips del bajo, los pads y el diálogo: igual que los de una secuencia ---
+        # Tocar uno entra en el próximo compás, prende el motor, el motor recuerda su nombre y no
+        # queda en la historia (como /api/lanzar). Salida, canal y nota larga se quedan.
+        LISTAS = dict(LISTA_CLIPS, dialogo="clip_dialogo")
+
         def _mlista(self, datos):
             motor = str(datos.get("motor", ""))
-            if motor not in LISTA_CLIPS:
+            if motor not in self.LISTAS:
                 raise ValueError(f"Motor sin clips: {motor!r}")
-            return motor, ctx.config[LISTA_CLIPS[motor]]
+            return motor, ctx.config[self.LISTAS[motor]]
+
+        def _mclip_nuevo(self, motor, nombre, variante):
+            if motor == "dialogo":
+                return clip_de_dialogo(ctx.config, nombre, variante)
+            return clip_de_motor(ctx.config, motor, nombre, variante)
 
         def _mclip_guardar(self, datos):
             """{motor, nombre, variante=true, indice?}: con indice guarda lo que suena encima."""
@@ -739,25 +749,48 @@ def crear_servidor(ctx, puerto):
                 motor, clips = self._mlista(datos)
                 if datos.get("indice") is not None:
                     i = int(datos["indice"])
-                    clips[i] = clip_de_motor(ctx.config, motor, str(datos.get("nombre") or clips[i]["nombre"]),
-                                             datos.get("variante", clips[i].get("con_variante", True)))
+                    clips[i] = self._mclip_nuevo(motor, str(datos.get("nombre") or clips[i]["nombre"]),
+                                                 datos.get("variante", clips[i].get("con_variante", True)))
                 else:
                     if len(clips) >= MAX_CLIPS:
                         raise ValueError(f"Máximo {MAX_CLIPS} clips")
-                    clips.append(clip_de_motor(ctx.config, motor, str(datos.get("nombre", "")), datos.get("variante", True)))
+                    clips.append(self._mclip_nuevo(motor, str(datos.get("nombre", "")), datos.get("variante", True)))
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
         def _mclip_lanzar(self, datos):
-            """{motor, clip: i} o {motor, fabrica: género}: pone sus valores en el motor (como elegir un género)."""
+            """{motor, clip: i} o {motor, fabrica: género}."""
             with ctx.candado:
                 motor, clips = self._mlista(datos)
                 clip = generos.clip_fabrica(motor, str(datos["fabrica"])) if datos.get("fabrica") else clips[int(datos["clip"])]
-                nueva = copia.config(ctx.config)
-                nueva[motor] = con_clip_de_motor(nueva[motor], clip)
-                nueva = normalizar(nueva)
-                Motor(nueva, lambda *a: None)  # valida antes de tocar nada
-                aviso = self._aplicar(nueva, "clip")
+                if motor == "dialogo":
+                    dialogo, llamada, respuesta = dialogo_con_clip(ctx.config, clip)
+                    ctx.motor.lanzar_dialogo(dialogo, llamada, respuesta, clip["nombre"])
+                    ctx.config = dict(ctx.config, dialogo=dialogo, llamada=llamada, respuesta=respuesta)
+                    ctx.puertos.cambiar_salidas(salidas(ctx.config))
+                    aviso = self._guardar_activa()
+                else:
+                    nueva = copia.config(ctx.config)
+                    nueva[motor] = dict(con_clip_de_motor(nueva[motor], clip), activo=True)
+                    nueva = normalizar(nueva)
+                    Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+                    aviso = self._aplicar(nueva)
+                    ctx.motor.clip_motor[motor] = clip["nombre"]
+            self._responder(aviso)
+
+        def _mclip_parar(self, datos):
+            """Calla el motor en el próximo compás (como «Parar» en una fila de secuencias)."""
+            with ctx.candado:
+                motor, _ = self._mlista(datos)
+                if motor == "dialogo":
+                    ctx.motor.detener_dialogo()
+                    ctx.config = dict(ctx.config, dialogo=dict(ctx.config["dialogo"], activo=False))
+                    aviso = self._guardar_activa()
+                else:
+                    nueva = copia.config(ctx.config)
+                    nueva[motor] = dict(nueva[motor], activo=False)
+                    aviso = self._aplicar(normalizar(nueva))
+                    ctx.motor.clip_motor[motor] = None
             self._responder(aviso)
 
         def _mclip_borrar(self, datos):
@@ -780,7 +813,8 @@ def crear_servidor(ctx, puerto):
                 motor, clips = self._mlista(datos)
                 if len(clips) >= MAX_CLIPS:
                     raise ValueError(f"Máximo {MAX_CLIPS} clips")
-                clip = normalizar(dict(ctx.config, **{LISTA_CLIPS[motor]: [datos["clip"]]}))[LISTA_CLIPS[motor]][0]
+                lista = self.LISTAS[motor]
+                clip = normalizar(dict(ctx.config, **{lista: [datos["clip"]]}))[lista][0]
                 clips.insert(max(0, min(len(clips), int(datos.get("indice", len(clips))))), clip)
                 aviso = self._guardar_activa()
             self._responder(aviso)
@@ -808,14 +842,7 @@ def crear_servidor(ctx, puerto):
             self._responder(aviso)
 
         def _dialogo_lanzar(self, datos):
-            with ctx.candado:
-                clip = ctx.config["clip_dialogo"][int(datos["clip"])]
-                dialogo, llamada, respuesta = secciones_de_clip(clip)
-                ctx.motor.lanzar_dialogo(dialogo, llamada, respuesta, clip["nombre"])
-                ctx.config = dict(ctx.config, dialogo=dialogo, llamada=llamada, respuesta=respuesta)
-                ctx.puertos.cambiar_salidas(salidas(ctx.config))
-                aviso = self._guardar_activa()
-            self._responder(aviso)
+            self._mclip_lanzar(dict(datos, motor="dialogo"))
 
         def _dialogo_detener(self, datos):
             with ctx.candado:
