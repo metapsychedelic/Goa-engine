@@ -7,6 +7,7 @@ por nota, pitch bend y CC 74 del motor), con bombo y hi-hats.
 Deja un .mp3 por ejemplo (o .wav si no hay ffmpeg).
 """
 
+import math
 import shutil
 import subprocess
 import sys
@@ -21,30 +22,43 @@ from pruebas.simular import RAIZ
 
 SR = 44100
 
-# nombre, BPM, nota larga, escala, ajustes del bajo, sonido (ver SONIDOS)
+# nombre, BPM, nota larga, escala, ajustes del bajo, sonido (ver SONIDOS), batería ("4x4" o "halftime")
+# Zenonesque: 126-134 BPM, bajo de una nota a contratiempo, corto, semicorcheas con swing y el filtro
+# moviéndose lento en frases largas; la nota larga entra justo después del bombo y cae.
+# Swampy (swamp / psybass): la contraparte lenta del forest, groove en halftime, notas largas
+# que se deslizan y un filtro «squelchy» que se abre en cada nota.
 EJEMPLOS = [
-    ("01_rolling_de_base", 140, 42, "frigio", dict(estilo="rolling", frase=4), "psy"),
-    ("02_rolling_remates_de_los_packs", 140, 42, "frigio", dict(estilo="rolling", frase=2, remates_pack=1.0), "psy"),
-    ("03_trote_332", 138, 42, "frigio", dict(estilo="trote", frase=4), "psy"),
-    ("04_zenon_ciclo_de_5", 136, 41, "frigio", dict(estilo="rolling", frase=4, remates=False, ciclo=5), "zenon"),
-    ("05_zenon_ciclo_de_7", 136, 41, "menor", dict(estilo="rolling", frase=4, remates=False, ciclo=7), "zenon"),
-    ("06_zenon_nota_larga_que_cae", 136, 41, "frigio", dict(estilo="rolling", frase=4, remates=False, zenon=1.0,
-                                                             caida=7), "zenon"),
-    ("07_zenon_todo_junto", 136, 41, "frigio", dict(estilo="rolling", frase=4, ciclo=5, remates_pack=0.7, zenon=0.6,
-                                                     caida=5, evolucion=0.4, mutar_cada=4), "zenon"),
-    ("08_swampy_forest", 148, 43, "frigio", dict(estilo="rolling", frase=4, remates_pack=0.5, filtro=True,
-                                                  filtro_min=20, filtro_max=70, filtro_ciclo=8, filtro_forma="ola",
-                                                  filtro_nota=0.9, acentos=0.35, fantasmas=0.25), "swampy"),
-    ("09_swampy_ciclo_y_caida", 148, 43, "frigio", dict(estilo="rolling", frase=4, ciclo=7, zenon=0.5, caida=12,
-                                                         filtro=True, filtro_min=25, filtro_max=80, filtro_ciclo=4,
-                                                         filtro_forma="ola", filtro_nota=1.0, acentos=0.4), "swampy"),
+    ("01_rolling_de_base", 140, 42, "frigio", dict(estilo="rolling", frase=4), "psy", "4x4"),
+    ("02_rolling_remates_de_los_packs", 140, 42, "frigio", dict(estilo="rolling", frase=2, remates_pack=1.0), "psy", "4x4"),
+    ("03_trote_332", 138, 42, "frigio", dict(estilo="trote", frase=4), "psy", "4x4"),
+    ("04_zenon_offbeat_seco", 132, 41, "frigio", dict(estilo="offbeat", frase=4, remates=False, gate=0.35, swing=0.12,
+                                                       movimiento=0.0, filtro=True, filtro_min=30, filtro_max=85,
+                                                       filtro_ciclo=16, filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
+    ("05_zenon_offbeat_nota_larga", 132, 41, "frigio", dict(estilo="offbeat", frase=4, remates=False, gate=0.35,
+                                                             swing=0.12, movimiento=0.0, zenon=1.0, caida=7, filtro=True,
+                                                             filtro_min=30, filtro_max=85, filtro_ciclo=16,
+                                                             filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
+    ("06_zenon_offbeat_ciclo_de_5", 132, 41, "dorico", dict(estilo="offbeat", frase=4, remates=False, gate=0.35,
+                                                             swing=0.12, movimiento=0.0, ciclo=5, filtro=True,
+                                                             filtro_min=30, filtro_max=85, filtro_ciclo=32,
+                                                             filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
+    ("07_zenon_trote_con_swing", 132, 41, "frigio", dict(estilo="trote", frase=4, gate=0.45, swing=0.15, zenon=0.6,
+                                                          caida=5, filtro=True, filtro_min=30, filtro_max=80,
+                                                          filtro_ciclo=16, filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
+    ("08_swampy_halftime", 140, 43, "frigio", dict(estilo="dub", frase=4, slide=0.6, swing=0.1, movimiento=0.6,
+                                                    filtro=True, filtro_min=20, filtro_max=75, filtro_ciclo=8,
+                                                    filtro_forma="ola", filtro_nota=1.0), "swampy", "halftime"),
+    ("09_swampy_halftime_que_evoluciona", 140, 43, "frigio", dict(estilo="dub", frase=2, slide=0.5, swing=0.15,
+                                                              movimiento=0.7, evolucion=0.6, mutar_cada=2,
+                                                              filtro=True, filtro_min=15, filtro_max=80, filtro_ciclo=4,
+                                                              filtro_forma="ola", filtro_nota=1.0), "swampy", "halftime"),
 ]
 
 # corte base (Hz) sin CC, octavas que abre la envolvente, decaimiento (s), resonancia (0-1), FM, sub
 SONIDOS = {
     "psy": dict(corte=170, abre=3.6, decae=0.045, res=0.35, fm=0.0, sub=0.35),
     "zenon": dict(corte=140, abre=3.0, decae=0.07, res=0.55, fm=0.25, sub=0.45),
-    "swampy": dict(corte=None, abre=2.2, decae=0.09, res=0.82, fm=0.6, sub=0.4),
+    "swampy": dict(corte=None, abre=2.4, decae=0.12, res=0.85, fm=0.6, sub=0.5, glide=0.07),
 }
 
 
@@ -106,6 +120,15 @@ def sinte_bajo(evs, n, bpm, sonido):
     np.maximum.accumulate(idx, out=idx)
     freq = np.where(freq > 0, freq, freq[idx])
     freq[freq == 0] = 55.0
+    if s.get("glide"):
+        # Portamento: la frecuencia se desliza (filtro de un polo sobre el logaritmo).
+        a = math.exp(-1 / (s["glide"] * SR))
+        lf = np.log2(freq).tolist()
+        y = lf[0]
+        for i in range(n):
+            y = a * y + (1 - a) * lf[i]
+            lf[i] = y
+        freq = 2 ** np.array(lf)
     f = freq * 2 ** (bend / 12)
     fase = np.cumsum(f / SR)
     sierra = 2 * (fase % 1.0) - 1
@@ -144,7 +167,7 @@ def _svf(x, corte, res):
     return out
 
 
-def bateria(n, bpm):
+def bateria(n, bpm, forma="4x4"):
     out, duck = np.zeros(n), np.ones(n)
     negra = 60 / bpm
     t = np.arange(int(0.25 * SR)) / SR
@@ -155,11 +178,17 @@ def bateria(n, bpm):
     ruido = np.random.default_rng(1).uniform(-1, 1, len(th))
     hat = np.diff(ruido, prepend=0) * np.exp(-th * 60)
     caida = np.concatenate([np.linspace(0.0, 1, int(0.1 * SR)), np.ones(1)])
+    tp = np.arange(int(0.2 * SR)) / SR
+    caja = (np.random.default_rng(4).uniform(-1, 1, len(tp)) * np.exp(-tp * 25) * 0.6
+            + np.sin(2 * np.pi * 190 * tp) * np.exp(-tp * 30) * 0.5)
     k = 0
     while k * negra * SR < n:
         a = int(k * negra * SR)
-        out[a:a + len(bombo)] += bombo[: n - a]
-        duck[a:a + len(caida)] = np.minimum(duck[a:a + len(caida)], caida[: n - a])
+        if forma == "4x4" or k % 4 == 0:
+            out[a:a + len(bombo)] += bombo[: n - a]
+            duck[a:a + len(caida)] = np.minimum(duck[a:a + len(caida)], caida[: n - a])
+        if forma == "halftime" and k % 4 == 2:   # halftime: bombo en el 1, caja en el 3
+            out[a:a + len(caja)] += caja[: n - a] * 0.7
         h = int((k + 0.5) * negra * SR)
         if h < n:
             out[h:h + len(hat)] += hat[: n - h] * 0.25
@@ -168,11 +197,11 @@ def bateria(n, bpm):
 
 
 def render(ejemplo, carpeta, compases):
-    nombre, bpm, nota_larga, escala, ajustes, sonido = ejemplo
+    nombre, bpm, nota_larga, escala, ajustes, sonido, forma = ejemplo
     evs = eventos(bpm, nota_larga, escala, ajustes, compases)
     n = int((compases * 4 * 60 / bpm + 0.5) * SR)
     b = sinte_bajo(evs, n, bpm, sonido)
-    bat, duck = bateria(n, bpm)
+    bat, duck = bateria(n, bpm, forma)
     mezcla = b * duck * 0.55 + bat * 0.5
     mezcla /= max(1e-9, np.max(np.abs(mezcla))) / 0.9
     wav = Path(carpeta) / f"{nombre}.wav"
