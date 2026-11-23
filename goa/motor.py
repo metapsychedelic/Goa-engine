@@ -787,6 +787,12 @@ class Motor(FormaMotor):
         self.dialogo.paso(paso, self.tick, raiz, self.enviar)
 
     def _tocar_paso(self, paso, solo_canal=None):
+        self._tocar_paso_secuencias(paso, solo_canal)
+        for s in self.secuencias:
+            if solo_canal is None or s.disparo == solo_canal:
+                _anotar_huella(s, paso)
+
+    def _tocar_paso_secuencias(self, paso, solo_canal=None):
         tocadas = []   # las secuencias ya tocadas en este paso (la primera activa es la referencia)
         for s in self.secuencias:
             if solo_canal is not None and s.disparo != solo_canal:
@@ -1124,6 +1130,19 @@ VOZ_DOBLE = {"tercera": 2, "cuarta": 3, "quinta": 4, "sexta": 5, "octava": 7}
 def _desfase(s, paso, p):
     """Ticks tarde dentro del paso: swing (pasos impares) más el retraso del patrón."""
     return (round(s.swing * TICKS_POR_PASO) if paso % 2 == 1 else 0) + p.get("retraso", 0)
+
+
+def _anotar_huella(s, paso):
+    """Lo que la secuencia tocó de verdad en cada paso de su patrón (para verlo en la app):
+    [nota, fuerte] o None si calló. Se sobreescribe en cada vuelta, así se ve lo que mutó."""
+    largo = max(1, s.largo)
+    huella = getattr(s, "huella", None)
+    if huella is None or len(huella) != largo:
+        huella = s.huella = [None] * largo
+    i = _indice(s, paso) % largo
+    t = s.toco
+    huella[i] = [t[1], bool(t[2])] if t is not None and t[0] == paso and s.activa else None
+    s.huella_paso = i
 
 
 def _indice(s, paso):

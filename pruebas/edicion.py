@@ -130,6 +130,16 @@ def main():
     codigo, r = post("/api/parte/copiar", {"desde": 0, "hacia": [1], "motores": ["nada"]})
     todo &= ok(codigo == 400, "un motor que no existe da error")
 
+    print("\nEditor de secuencia: copiar lo que suena y ver lo que toca")
+    post("/api/editar/listo")
+    c = get("/api/config"); c["secuencia"][0]["octava"] = 3; post("/api/config", c)
+    codigo, r = post("/api/parte/copiar", {"desde": -1, "hacia": [1], "motores": ["sec0"]})
+    cfg = get("/api/config")
+    todo &= ok(codigo == 200 and esc(cfg, 1)["secuencia"][0]["octava"] == 3, "copiar la secuencia de lo que suena ahora a otra parte")
+    p = get("/api/patron?sec=0")
+    todo &= ok(p["corriendo"] is False and p["ahora"] is None and p["largo"] >= 7, f"con el motor quieto no marca paso {p}")
+    todo &= ok(get("/api/patron?sec=99")["activa"] is False, "una secuencia que no existe no se cae")
+
     print("\n" + ("Todo bien" if todo else "HAY FALLAS"))
     shutil.rmtree(carpeta, ignore_errors=True)
     raise SystemExit(0 if todo else 1)

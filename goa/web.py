@@ -309,6 +309,21 @@ def crear_servidor(ctx, puerto):
                 with ctx.candado:
                     ctx.sincronizar()
                     self._json(dict(ctx.config, version_base=ctx.version_base, version_externa=ctx.version_externa))
+            elif self.path.startswith("/api/patron"):
+                # Lo que toca una secuencia ahora (la franja de arriba del editor).
+                try:
+                    fila = int(self.path.rpartition("sec=")[2])
+                except ValueError:
+                    fila = -1
+                with ctx.candado:
+                    m = ctx.motor
+                    s = m.secuencias[fila] if 0 <= fila < len(m.secuencias) else None
+                    huella = list(getattr(s, "huella", None) or []) if s is not None else []
+                    datos = {"corriendo": bool(m.corriendo), "activa": bool(s is not None and s.activa),
+                             "largo": s.largo if s is not None else 16, "pasos": huella,
+                             "raiz": bool(s is not None and s.disparo in m.disparos and m.disparos[s.disparo].raiz is not None),
+                             "ahora": getattr(s, "huella_paso", None) if s is not None and m.corriendo else None}
+                self._json(datos)
             elif self.path.startswith("/api/molde/azar"):
                 # Un molde al azar (🎲): lo arma el motor, la app no repite los pesos.
                 estilo = self.path.rpartition("estilo=")[2] or "goa"
@@ -909,10 +924,14 @@ def crear_servidor(ctx, puerto):
             with ctx.candado:
                 ctx.config = dict(ctx.config, escena=list(ctx.config["escena"]))   # (la historia guarda la lista de antes)
                 partes = ctx.config["parte"]
-                origen = partes[desde]["escena"]
-                if origen < 0:
-                    raise ValueError(f"{partes[desde]['nombre']} todavía no tiene escena: edítala primero")
-                fuente = json.loads(ctx.config["escena"][origen]["datos"])
+                if desde < 0:
+                    origen = None   # «lo que suena ahora»: lo que está tocando, sin parte
+                    fuente = forma.foto(ctx.config)
+                else:
+                    origen = partes[desde]["escena"]
+                    if origen < 0:
+                        raise ValueError(f"{partes[desde]['nombre']} todavía no tiene escena: edítala primero")
+                    fuente = json.loads(ctx.config["escena"][origen]["datos"])
                 cambiadas, compartidas = set(), set()
                 for j in hacia:
                     if j == desde:

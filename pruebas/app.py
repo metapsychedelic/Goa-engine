@@ -47,10 +47,16 @@ def main():
     with candado:
         motor.start()
         motor.nota_on(motor.canal_disparo, 41)
+    pulsos = 0
     while True:  # reloj a 140 BPM
         time.sleep(60 / 140 / 24)
         with candado:
             motor.reloj()
+            pulsos += 1
+            if pulsos % 96 == 0:   # como la Circuit: cada motor con su nota larga (si un cambio la soltó)
+                for c, d in motor.disparos.items():
+                    if d.raiz is None:
+                        motor.nota_on(c, 41)
 
 
 if __name__ == "__main__":
