@@ -45,6 +45,13 @@ PROGRESIONES = {
     "i_bVI_bII": [0, 5, 1],          # oscura y amplia: del ♭VI cae al ♭II
     "i_iv_bVI_bIII": [0, 3, 5, 2],   # de los packs de psytrance (Chakra 17, 19, 20): el clásico del drop
     "i_v_bVI_iv": [0, 4, 5, 3],      # Chakra 3: con menor armónica, i–V–♭VI–iv
+    # De la carpeta de MIDIs (0.92): acordes de los breakdowns del pack Impact y bajos de Chakra.
+    "i_v_bVI_bVII": [0, 4, 5, 6],    # Impact (Am, Em): la más usada en los breakdowns
+    "iv_bIII_iv_i": [3, 2, 3, 0],    # Impact kit 5: parte lejos de casa y llega a la i al final
+    "iv_bVII_i_bVII": [3, 6, 0, 6],  # Impact (D#m): del iv al ♭VII, la i queda en el medio
+    "i_bIII_bVII_iv": [0, 2, 6, 3],  # Impact kit 1: en quintas y sus4 suena muy psy
+    "i_bIII_iv_bVII": [0, 2, 3, 6],  # Chakra Bass 3: el bajo sube y cae al ♭VII
+    "i_ii_bIII_iv": [0, 1, 2, 3],    # Impact (D#m): sube por grados (en frigio, i–♭II–♭III–iv)
     "aleatoria": [0],                # se arma al azar con la seed y la escala (ver progresion_aleatoria)
 }
 

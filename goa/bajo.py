@@ -29,9 +29,9 @@ TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
 TICKS_POR_COMPAS = TICKS_POR_PASO * PASOS_POR_COMPAS
 
-ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "dub", "sub")
+ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "trote", "dub", "sub")
 ALIAS = {"psy_chill": "galope", "deepnotic": "offbeat"}  # nombres que tuvo (0.18) o estilos que se sacaron (0.45)
-PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado"}
+PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "trote"}
 
 
 @dataclass(frozen=True)
@@ -40,6 +40,7 @@ class Golpe:
     retraso: int = 0    # ticks después del paso (tresillos)
     grado: int = 0      # grado de escala desde la raíz del acorde
     fusa: object = None  # remate en fusas: grado de la segunda fusa (el golpe se parte en dos)
+    caida: bool = False  # nota larga zenon: el pitch bend la hace caer mientras suena
 
 
 def _cada_tiempo(lugares, dur, retrasos=None):
@@ -59,6 +60,9 @@ BASES = {
     # Sincopado progresivo (Chakra Bass 3, 12, 15): lejos del bombo, notas largas en
     # «y» y «a» del tiempo; cambia de nota con el acorde.
     "sincopado": {2: Golpe(6), 3: Golpe(12), 6: Golpe(12), 10: Golpe(6), 11: Golpe(12), 14: Golpe(12)},
+    # Trote 3-3-2 (Progressive 001 y 019, Apex 019): ·B·B··B··B·B··B· — grupos de 3+3+2
+    # entre los bombos, nunca en el tiempo.
+    "trote": {l: Golpe(6) for l in (1, 3, 6, 9, 11, 14)},
     "dub": {0: Golpe(30), 7: Golpe(12), 10: Golpe(24)},    # en el uno, antes del tres y en el tres
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
@@ -78,9 +82,28 @@ REMATES = {
     "tresillo": ({13: 7, 14: 4}, {13: 4, 14: 6}),
     "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
     "sincopado": ({11: 4, 14: 7}, {10: 6, 11: 4, 14: 1}),
+    "trote": ({14: 0, 15: 6}, {11: 4, 14: 7, 15: 6}),   # Progressive 001: cierra en la ♭7
     "dub": ({14: 4}, {13: 6, 15: 4}),
     "sub": ({}, {}),
 }
+# Remates sacados de los bajos de la carpeta de MIDIs (Zenhiser Apex, 0.92): siempre en
+# la segunda mitad del compás, sobre el rolling (lugar -> grado). Con «remates de los
+# packs», en esa proporción de frases el remate es uno de estos en vez del clásico.
+REMATES_PACK = (
+    {9: 0, 10: 0, 11: 6, 13: 0, 14: 7, 15: 0},   # ♭7 y octava (Apex 001, 006, 009, 045)
+    {9: 0, 10: 0, 11: 1, 13: 0, 14: 2, 15: 0},   # ♭2 y ♭3 (Apex 042)
+    {9: 0, 10: 0, 11: 0, 13: 0, 14: 2, 15: 1},   # ♭3 que cae al ♭2 (Apex 048)
+    {9: 0, 10: 0, 11: 0, 13: 0, 14: 0, 15: 2},   # solo la última sube al ♭3 (Apex 041)
+    {9: 1, 10: 1, 11: 1, 13: 1, 14: 1, 15: 1},   # media frase en el ♭2 (Apex 047)
+    {9: 2, 10: 2, 11: 2, 13: 2, 14: 2, 15: 2},   # media frase en el ♭3 (Apex 007)
+    {9: 0, 10: 0, 11: 0, 13: -1, 14: -1, 15: -1},  # el último tiempo un grado abajo (Apex 050)
+)
+CON_REMATES_PACK = ("rolling", "fullon", "chillgressive")
+# Ciclo de alturas (zenonesque): el ritmo queda fijo y las notas de la raíz rotan por un
+# ciclo de 5 o 7 grados; como no calza con el compás (12 notas en el rolling, 6 en el
+# trote), cae distinto cada vez y vuelve a empezar recién después de 5 o 7 compases.
+# (Uno de 3 no sirve: en el rolling calza justo con el tiempo y todos los compases son iguales.)
+CICLOS = {5: (0, 0, 1, 0, 7), 7: (0, 0, 7, 0, 1, 0, 4)}
 # Grados que puede tomar una nota variada del remate, según el rango elegido.
 GRADOS_REMATE = {"quinta": (0, 1, 2, 3, 4), "octava": (0, 1, 3, 4, 6, 7)}
 
@@ -105,6 +128,7 @@ MOVIMIENTOS = {
     "tresillo": [(lambda l: l % 4 == 2, 7, 0.5)],
     "chillgressive": [(lambda l: l % 4 == 3, 7, 0.4), (lambda l: l % 4 == 1, 4, 0.2)],
     "sincopado": [(lambda l: l in (6, 14), 4, 0.4), (lambda l: l == 11, 7, 0.3)],
+    "trote": [(lambda l: l in (6, 14), 4, 0.3), (lambda l: l == 11, 7, 0.3)],
     "dub": [(lambda l: l == 7, 7, 0.6), (lambda l: l == 10, 4, 0.6)],
     "sub": [],
 }
@@ -145,6 +169,18 @@ class Bajo:
         # últimas notas del compás que cierra se parten en dos fusas (un redoble corto
         # antes del uno). Con más de 60 % también el final del tiempo 3.
         self.fusas = _fraccion(cfg.get("fusas", 0.0))
+        self.remates_pack = _fraccion(cfg.get("remates_pack", 0.0))  # frases con un remate de los packs
+        # Nota larga zenonesque: en esa proporción de frases, el compás antes del que cierra
+        # cambia su segunda mitad por una sola nota larga que entra justo después del
+        # bombo (no en el contratiempo como un bajo con glide) y cae de altura con el
+        # pitch bend (`caida` semitonos; `bend_rango` = el rango de bend del sinte).
+        self.zenon = _fraccion(cfg.get("zenon", 0.0))
+        self.caida = max(0, min(24, int(cfg.get("caida", 0))))
+        self.bend_rango = max(1, min(24, int(cfg.get("bend_rango", 12))))
+        self.bends = []          # (tick, valor) pendientes
+        self.bend_movido = False
+        ciclo = int(cfg.get("ciclo", 0) or 0)
+        self.ciclo = ciclo if ciclo in CICLOS else 0
         # Filtro automático por CC (opcional): se abre de a poco y vuelve a cerrarse.
         self.filtro = bool(cfg.get("filtro", False))
         self.filtro_cc = max(0, min(127, int(cfg.get("filtro_cc", 74))))
@@ -250,6 +286,8 @@ class Bajo:
         """Golpes de un compás: el patrón (con lo mutado), la densidad, las notas fantasma y el remate."""
         golpes = {l: g for i, (l, g) in enumerate(sorted(self.patron.items()))
                   if i == 0 or self._azar("densidad", l) < self.densidad}
+        if self.ciclo and self.estilo not in SIN_SUBE:
+            golpes = self._ciclar(golpes, compas)
         if self.sube and self.estilo not in SIN_SUBE:
             golpes = self._subir(golpes, compas)
         if self.fantasmas:
@@ -257,6 +295,9 @@ class Bajo:
                 if (l not in golpes and not (self.estilo in PSY and l % 4 == 0) and self.estilo not in ("sub", "dub")
                         and self._azar("fantasma", l) < self.fantasmas * 0.6):
                     golpes[l] = Golpe(4, 0, 0)
+        if self.zenon_en(compas):
+            golpes = {l: g for l, g in golpes.items() if l < 9}
+            golpes[9] = Golpe(7 * TICKS_POR_PASO, 0, 0, None, True)
         remate = self.remate(compas)
         if remate:
             desde = min(remate) // 4 * 4
@@ -265,6 +306,29 @@ class Bajo:
                 molde = BASES[self.estilo].get(lugar, Golpe(12 if self.estilo == "dub" else 6))
                 golpes[lugar] = replace(molde, grado=grado)
         return self._fusas(golpes, compas)
+
+    def zenon_en(self, compas):
+        """Si este compás lleva la nota larga zenon: el anterior al que cierra la frase
+        (con frase de 1, el tercero de cada 4), en esa proporción de frases."""
+        if not self.zenon or self.estilo in ("sub", "dub"):
+            return False
+        largo = self.frase if self.frase > 1 else 4
+        if compas % largo != largo - 2:
+            return False
+        return random.Random(f"bajo:{self.seed}:zenon:{compas // largo}").random() < self.zenon
+
+    def _ciclar(self, golpes, compas):
+        """Ciclo de alturas: la n-ésima nota del patrón (contando desde el primer compás)
+        toma el grado n del ciclo. Solo cambian las notas en la raíz: lo que el
+        movimiento o la evolución ya movieron se queda."""
+        ciclo = CICLOS[self.ciclo]
+        orden = sorted(self.patron)
+        golpes = dict(golpes)
+        for l, g in golpes.items():
+            if g.grado == 0 and l in orden:
+                n = compas * len(orden) + orden.index(l)
+                golpes[l] = replace(g, grado=ciclo[n % len(ciclo)])
+        return golpes
 
     def _fusas(self, golpes, compas):
         """Remate en fusas: en el compás que cierra la frase (o cada 4, sin frase), las
@@ -298,6 +362,10 @@ class Bajo:
         if not (self.remates and self.frase > 1 and compas % self.frase == self.frase - 1):
             return {}, set()
         frase = compas // self.frase
+        if (self.remates_pack and self.estilo in CON_REMATES_PACK
+                and random.Random(f"bajo:{self.seed}:pack:{frase}").random() < self.remates_pack):
+            elegido = random.Random(f"bajo:{self.seed}:pack-cual:{frase}").choice(REMATES_PACK)
+            return dict(elegido), set()
         remate = dict(REMATES[self.estilo][frase % 2])
         if not remate:
             return remate, set()
@@ -469,6 +537,14 @@ class Bajo:
             fin = min(fin, inicio + mitad - 1)
             segunda = self._nota(raiz, golpe.fusa, momento, False, False)
             self.pendientes.append((inicio + mitad, segunda, max(1, vel - 12), inicio + 2 * mitad - 1))
+        if golpe.caida and self.caida:
+            # La caída: el bend baja con una curva (rápido al principio) mientras suena y
+            # vuelve al centro cuando termina, antes de la nota siguiente.
+            tope = -min(8192, round(8192 * self.caida / self.bend_rango))
+            largo = max(2, fin - inicio)
+            for t in range(2, largo, 2):
+                self.bends.append((inicio + t, round(tope * (1 - (1 - t / largo) ** 2))))
+            self.bends.append((fin, 0))
         if retraso:
             self.pendientes.append((inicio, nota, vel, fin))
         else:
@@ -492,6 +568,8 @@ class Bajo:
         if (viejo.salida, viejo.canal) == (self.salida, self.canal):
             self.sonando, self.pendientes = dict(viejo.sonando), list(viejo.pendientes)
             viejo.sonando, viejo.pendientes = {}, []
+            self.bends, self.bend_movido = list(viejo.bends), viejo.bend_movido  # la caída termina y vuelve al centro
+            viejo.bends, viejo.bend_movido = [], False
         else:
             viejo.apagar(enviar)
 
@@ -502,17 +580,32 @@ class Bajo:
             if fin <= tick:
                 enviar(self.salida, "note_off", self.canal, nota, 0)
                 del self.sonando[nota]
+        if self.bends:
+            self._mover_bends(tick, enviar)
         if self.pendientes:
             listas = [p for p in self.pendientes if p[0] <= tick]
             self.pendientes = [p for p in self.pendientes if p[0] > tick]
             for inicio, nota, vel, fin in listas:
                 self._encender(nota, vel, inicio, fin, enviar)
 
+    def _mover_bends(self, tick, enviar):
+        listos = [b for b in self.bends if b[0] <= tick]
+        if not listos:
+            return
+        self.bends = [b for b in self.bends if b[0] > tick]
+        valor = listos[-1][1]
+        enviar(self.salida, "pitchwheel", self.canal, valor, 0)
+        self.bend_movido = valor != 0
+
     def apagar(self, enviar):
         for nota in self.sonando:
             enviar(self.salida, "note_off", self.canal, nota, 0)
         self.sonando = {}
         self.pendientes = []
+        self.bends = []
+        if self.bend_movido:
+            enviar(self.salida, "pitchwheel", self.canal, 0, 0)
+            self.bend_movido = False
 
 
 def _fraccion(x):

@@ -481,6 +481,16 @@ sinte polifónico); y los pads pueden tocar **Stabs psy** (acordes cortos a cont
 el pulso 1-4 elige el ritmo). Progresiones nuevas: i–iv–♭VI–♭III y i–v–♭VI–iv. *Huecos* va de la máscara más llena a la más vacía. Comparte frase,
 respuesta, respuestas distintas, raga y techo con el Goa clásico.
 
+Del segundo análisis (0.92): el bajo suma el estilo **Trote 3-3-2** (·B·B··B··B·B··B·,
+de los packs Progressive y Apex), los **Remates de los packs** (en rolling, full-on y
+chillgressive: ♭7 y octava, ♭2 y ♭3, media frase en el ♭2 o el ♭3, el último tiempo un
+grado abajo), el **Ciclo de alturas** de 5 o 7 (zenonesque: el ritmo queda fijo y la
+raíz rota por un ciclo que cae distinto en cada compás) y la **Nota larga zenon** (en el
+compás antes del que cierra la frase, una nota larga que entra justo después del bombo
+y cae con el pitch bend; pon el rango de bend de tu sinte). Progresiones nuevas de los
+breakdowns: i–v–♭VI–♭VII, i–♭III–iv–♭VII, i–♭III–♭VII–iv, i–ii–♭III–iv, iv–♭III–iv–i e
+iv–♭VII–i–♭VII.
+
 En Notas, cualquier secuencia tiene además: **Deslices de notas** (opcional; en 0
 no cambia nada): notas de gracia, ligados y notas que respiran en vez de la raíz
 martillada y aproximaciones al adorno que viene, sin cambiar la escala. **Raga**: Bhairav, Bhairavi, Todi, Marwa o Hijaz

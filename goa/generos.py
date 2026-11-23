@@ -100,9 +100,9 @@ BAJO = {
 # Estilos de bajo que muestra cada género (el primero es el que pone al elegir el género).
 ESTILOS_BAJO_POR_GENERO = {
     "goa": ("rolling", "fullon", "tresillo", "galope", "saltado", "offbeat"),
-    "psytrance": ("rolling", "fullon", "galope", "saltado", "tresillo", "sincopado"),
+    "psytrance": ("rolling", "fullon", "galope", "saltado", "tresillo", "sincopado", "trote"),
     "psy_chill": ("galope", "offbeat", "saltado", "dub"),
-    "chillgressive": ("chillgressive", "rolling", "offbeat", "galope", "sincopado"),
+    "chillgressive": ("chillgressive", "rolling", "offbeat", "galope", "sincopado", "trote"),
     "chillout": ("dub", "offbeat", "sub"),
     "ambient": ("sub", "dub"),
 }

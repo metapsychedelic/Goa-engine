@@ -151,6 +151,11 @@ ESQUEMA_SECCIONES["bajo"] = {
     "remate_largo": (float, 0.75, 0.3, 1.0),  # cuánto del hueco hasta la siguiente ocupa
     "remate_marca": (float, 1.0, 0.0, 1.0),   # 0 = como el resto, 1 = acentuado y sin slide
     "fusas": (float, 0.0, 0.0, 1.0),          # remate en fusas: proporción de frases que cierran con un redoble
+    "remates_pack": (float, 0.0, 0.0, 1.0),   # frases cuyo remate sale de los bajos de los packs (rolling, full-on, chillgressive)
+    "zenon": (float, 0.0, 0.0, 1.0),          # frases con la nota larga zenon (justo después del bombo)
+    "caida": (int, 0, 0, 24),                 # semitonos que cae la nota larga con el pitch bend (0 = no cae)
+    "bend_rango": (int, 12, 1, 24),           # rango de pitch bend del sinte del bajo
+    "ciclo": (int, 0, 0, 7),                  # ciclo de alturas: 0 = sin ciclo, 5 o 7 notas (otro valor = sin ciclo)
     "frase": (int, 4, 1, 8),
     "octava": (int, 0, -2, 2),
     "gate": (float, 0.6, 0.05, 1.0),
@@ -382,6 +387,9 @@ ESQUEMA_SECUENCIA = {
     "figura": (str, "auto", None, generador.FIGURAS_CON_AUTO),
     "frase": (int, 2, 2, 4),
     "remate": (float, 0.5, 0.0, 1.0),
+    "zenon": (float, 0.0, 0.0, 1.0),          # frases con la nota larga zenon (justo después del bombo)
+    "caida": (int, 0, 0, 24),                 # semitonos que cae la nota larga con el pitch bend (0 = no cae)
+    "bend_rango": (int, 12, 1, 24),           # rango de pitch bend del sinte del bajo
     "ciclo": (int, 0, 0, 7),
     "registro": (int, 2, 1, 3),
     "variar": (float, 0.0, 0.0, 1.0),       # respuestas distintas en cada vuelta de la frase (0 = siempre la misma)

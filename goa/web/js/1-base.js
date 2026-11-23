@@ -9,6 +9,12 @@ const PROGRESIONES = [
   ["i_bVI_bII","i – ♭VI – ♭II · oscura y amplia · frigio"],
   ["i_iv_bVI_bIII","i – iv – ♭VI – ♭III · el del drop psy · menor"],
   ["i_v_bVI_iv","i – v – ♭VI – iv · con menor armónica, V mayor"],
+  ["i_v_bVI_bVII","i – v – ♭VI – ♭VII · la de los breakdowns · menor"],
+  ["i_bIII_iv_bVII","i – ♭III – iv – ♭VII · el bajo sube y cae · menor, frigio"],
+  ["i_bIII_bVII_iv","i – ♭III – ♭VII – iv · en quintas suena muy psy · menor, frigio"],
+  ["i_ii_bIII_iv","i – ii – ♭III – iv · sube por grados (en frigio, ♭II) · menor, frigio"],
+  ["iv_bIII_iv_i","iv – ♭III – iv – i · parte lejos y llega a la i · menor"],
+  ["iv_bVII_i_bVII","iv – ♭VII – i – ♭VII · la i queda al medio · menor"],
   ["i_bII_bVII_i","i – ♭II – ♭VII – i · sube al ♭II y baja por el ♭VII · frigio"],
   ["i_iv_bII_i","i – iv – ♭II – i · ciclo largo para breaks · frigio"],
   ["i_bVII_bVI_bVII","i – ♭VII – ♭VI – ♭VII · va y vuelve, hipnótica · frigio, menor"],
@@ -61,7 +67,7 @@ const FORMAS_TEXTO = {entrelazado: "La respuesta toca solo en los huecos que dej
   turnos: "La llamada toca unos compases y después contesta la respuesta."};
 const ESTILOS_BAJO = [["sincopado","Sincopado","· · B B · · B ·"],["rolling","Rolling","K B B B"],["fullon","Full-on","K B B B ♪"],["tresillo","Tresillo","K ³B B"],
   ["galope","Galope","K · B B"],["saltado","Saltado","K B · B"],["offbeat","Offbeat","K · B ·"],
-  ["chillgressive","Chillgressive","K B b B"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
+  ["chillgressive","Chillgressive","K B b B"],["trote","Trote 3-3-2","· B · B · · B ·"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
 const LFO_FORMAS = [["seno","Seno"],["triangulo","Triángulo"],["azar","Al azar"],["sube","Sube"],["baja","Baja"]];
 const LFO_CICLOS = [["0.25","1 tiempo"],["0.5","2 tiempos"],["1","1 compás"],["2","2 compases"],["4","4 compases"],["8","8 compases"],["16","16 compases"],["32","32 compases"]];
 const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa y el full-on.",
@@ -72,6 +78,7 @@ const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del G
   offbeat: "Una corchea a contratiempo: el bajo del progressive y del psy chill.",
   chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
   sincopado: "Progresivo: lejos del bombo, notas largas en la «y» y la «a» del tiempo, cambia de nota con el acorde.",
+  trote: "Grupos de 3+3+2 entre los bombos (packs Progressive y Apex): una síncopa que avanza y nunca cae en el bombo.",
   dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
   sub: "Una nota grave por acorde, ligada: casi un drone."};
 

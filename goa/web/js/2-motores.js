@@ -280,6 +280,9 @@ function panelBajo() {
         (x) => x === 0 ? "solo la raíz" : x < 0.4 ? `camina poco (${porcentaje(x)})` : x < 0.7 ? `camina (${porcentaje(x)})` : `camina mucho (${porcentaje(x)})`),
       ["dub", "sub"].includes(b.estilo) ? null : deslizador(b, "sube", "Notas que suben", 0, 1, 0.05,
         (x) => x === 0 ? "siempre en la raíz" : x < 0.35 ? `un paso (${porcentaje(x)})` : x < 0.7 ? `hasta la quinta (${porcentaje(x)})` : `hasta la octava (${porcentaje(x)})`),
+      ["dub", "sub"].includes(b.estilo) ? null : campo("Ciclo de alturas", segmentado([["0","Sin ciclo"],["5","De 5"],["7","De 7"]], String(b.ciclo || 0),
+        (v) => { b.ciclo = parseInt(v); guardar(); renderMotores(); }, 3)),
+      (b.ciclo && !["dub", "sub"].includes(b.estilo)) ? ayuda(`Zenonesque: el ritmo queda igual y las notas de la raíz rotan por un ciclo de ${b.ciclo} grados (raíz, octava, ♭2…). Como no calza con el compás, cae distinto cada vez y se repite recién cada ${b.ciclo} compases.`) : null,
       deslizador(b, "evolucion", "Evolución", 0, 1, 0.05,
         (x) => x === 0 ? "fijo" : x < 0.4 ? `cambia de a poco (${porcentaje(x)})` : x < 0.7 ? `va cambiando (${porcentaje(x)})` : `cambia mucho (${porcentaje(x)})`),
       deslizador(b, "transponer", "Transponer", -7, 7, 1, (x) => x === 0 ? "desde la raíz" : `${x > 0 ? "+" : ""}${x} grado${Math.abs(x) > 1 ? "s" : ""}${x === 4 ? " (la quinta)" : x === 2 ? " (la tercera)" : ""}`),
@@ -324,6 +327,9 @@ function panelBajo() {
           b.remate_largas > 0 ? deslizador(b, "remate_largo", "Largo de la nota larga", 0.3, 1, 0.05,
             (x) => `${porcentaje(x)} del espacio hasta la siguiente`) : null,
           ayuda("Una nota del remate (nunca la última) se alarga hacia la siguiente y siempre termina antes de que empiece: nunca se pisan. A lo más una por remate."),
+          ["rolling", "fullon", "chillgressive"].includes(b.estilo) ? deslizador(b, "remates_pack", "Remates de los packs", 0, 1, 0.05,
+            (x) => x === 0 ? "nunca" : `en ${porcentaje(x)} de las frases`) : null,
+          ["rolling", "fullon", "chillgressive"].includes(b.estilo) && b.remates_pack > 0 ? ayuda("Remates sacados de los bajos de tu carpeta de MIDIs (Apex): ♭7 y octava, ♭2 y ♭3, media frase en el ♭2 o el ♭3, el último tiempo un grado abajo. Siempre en la segunda mitad del compás, sin tocar el bombo.") : null,
           deslizador(b, "fusas", "Remate en fusas", 0, 1, 0.05, (x) => x === 0 ? "nunca" : x > 0.6 ? `en ${porcentaje(x)} de las frases · también el tiempo 3` : `en ${porcentaje(x)} de las frases`),
           ayuda("Un redoble corto antes del uno: las últimas notas del compás que cierra la frase se parten en dos fusas (la segunda repite, salta a la octava o cae en la ♭7)."),
           deslizador(b, "remate_marca", "Remate marcado", 0, 1, 0.05,
@@ -343,6 +349,15 @@ function panelBajo() {
         ayuda("Las notas con slide se pisan un instante con la siguiente: en un sinte en legato con glide, se deslizan."),
         deslizador(b, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
         deslizador(b, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
+      ]),
+      ["dub", "sub"].includes(b.estilo) ? null : grupo("g-bajo-zenon", "Nota larga zenon", b.zenon > 0 ? `en ${porcentaje(b.zenon)} de las frases${b.caida ? ` · cae ${b.caida} st` : ""}` : "apagada", [
+        deslizador(b, "zenon", "Frases con nota larga", 0, 1, 0.05, (x) => x === 0 ? "nunca" : `en ${porcentaje(x)} de las frases`, () => renderMotores()),
+        ayuda("Zenonesque: en el compás antes del que cierra la frase, la segunda mitad pasa a ser una sola nota larga que entra justo después del bombo (no en el contratiempo como un bajo con glide) y cae de altura."),
+        ...(b.zenon > 0 ? [
+          deslizador(b, "caida", "Cuánto cae", 0, 24, 1, (x) => x === 0 ? "no cae" : `${x} semitono${x > 1 ? "s" : ""}${x === 12 ? " (una octava)" : ""}`, () => renderMotores()),
+          b.caida > 0 ? numeroDe(b, "bend_rango", "Rango de pitch bend del sinte (semitonos)", 1, 24) : null,
+          b.caida > 0 ? ayuda("La caída va por pitch bend: pon aquí el rango que tiene el sinte del bajo (en la MC-101 se ajusta por tono; si no coincide, cae más o menos de lo pedido). Vuelve al centro al terminar la nota.") : null,
+        ] : []),
       ]),
       grupo("g-bajo-var", "Variación", `mutar cada ${b.mutar_cada} · ${armoniaTexto(b)}`, [
         numeroDe(b, "mutar_cada", "Cada (compases, de 1 a 64)", 1, 64, () => renderMotores()),
@@ -415,7 +430,7 @@ function estiloDeSecuencia(s, clave) {
   return bloqueEstilo(s, {familias: FAMILIAS, nombre: nombreEstilo, clave, detalle: figuraTexto(s), elegir: (v) => elegirEstilo(s, v),
     opciones: s.estilo === "clasico" ? panelClasico(s) : s.estilo === "psytrance" ? panelPsy(s) : []});
 }
-const FAMILIAS_BAJO = [["Rodantes", ["rolling","fullon","galope","tresillo"]], ["Con aire", ["offbeat","saltado","sincopado","chillgressive"]],
+const FAMILIAS_BAJO = [["Rodantes", ["rolling","fullon","galope","tresillo"]], ["Con aire", ["offbeat","saltado","sincopado","trote","chillgressive"]],
   ["Lentos", ["dub","sub"]]];
 
 // --- Variante y clips: un solo componente para todos los motores ---
