@@ -549,15 +549,29 @@ function filaClipsMotor(motor, titulo, estiloDe, ordenEstilos, nombreEst) {
 }
 
 function bloqueVariante(i, s) {
+  // Plegable: cerrada queda solo la seed que suena y «Otra»; abierta, A/B, favoritas, la seed a mano y los clips.
   const seed = el("input", {type: "text", value: s.seed, style: "font-family:ui-monospace,Menlo,monospace", "aria-label": "Variante escrita a mano",
     onchange: (e) => { const v = e.target.value.trim(); if (v && v !== s.seed) { s.seed = v; guardar(); renderMotores(); } }});
-  return el("div", {className: "card variante-card"}, [
-    el("div", {className: "fila", style: "gap:8px"}, [el("b", {textContent: "Variante"}), pestanaClip(`sec${i}`, nombreClipFila(i), {"data-pestana-clip": i})]),
-    clipsAbiertos.has(`sec${i}`) ? cajaClips(clipsDeSecuencia(i, s)) : null,
-    varianteAB(s, `sec-${s.nombre}`),
-    el("details", {className: "voz"}, [el("summary", {}, [el("span", {textContent: "Escrita a mano"}), el("span", {className: "der", textContent: s.seed})]),
-      el("div", {className: "cuerpo"}, [el("label", {className: "campo"}, ["Seed (cualquier texto)", seed])])]),
-  ].filter(Boolean));
+  const ab = varianteAB(s, `sec-${s.nombre}`);
+  const seedCab = el("span", {className: "seed-cab", textContent: s.seed});
+  const clip = nombreClipFila(i);
+  const subtitulo = el("span", {"data-sub-clip": i, textContent: clip ? `Clip: ${clip}` : "Sin clip"});
+  // El «Otra» de arriba es el mismo de A/B: la que probabas pasa al historial y la nueva queda en B.
+  ab.addEventListener("click", () => setTimeout(() => { seedCab.textContent = s.seed; }));
+  const otra = el("button", {type: "button", className: "prim otra-cab", textContent: "Otra", "aria-label": "Otra variante",
+    onclick: (e) => { e.preventDefault(); e.stopPropagation(); ab.querySelector(".ab-fila .prim").click(); seedCab.textContent = s.seed; }});
+  return recordar(el("details", {className: "card variante-card"}, [
+    el("summary", {}, [
+      el("span", {className: "cab"}, [el("b", {textContent: "Variante"}), subtitulo]),
+      seedCab, otra]),
+    el("div", {className: "cuerpo"}, [
+      el("div", {className: "fila", style: "gap:8px;justify-content:flex-end"}, [pestanaClip(`sec${i}`, clip, {"data-pestana-clip": i})]),
+      clipsAbiertos.has(`sec${i}`) ? cajaClips(clipsDeSecuencia(i, s)) : null,
+      ab,
+      el("details", {className: "voz"}, [el("summary", {}, [el("span", {textContent: "Escrita a mano"}), el("span", {className: "der", textContent: s.seed})]),
+        el("div", {className: "cuerpo"}, [el("label", {className: "campo"}, ["Seed (cualquier texto)", seed])])]),
+    ].filter(Boolean)),
+  ]), "sec-variante", false);
 }
 
 function panelSecuencia(i) {
@@ -1542,6 +1556,11 @@ function pintarFila(fila, f) {
 
 function pintarClips() {
   if (!ultimoEstado || !ultimoEstado.filas) return;
+  document.querySelectorAll("[data-sub-clip]").forEach((s) => {
+    const n = nombreClipFila(parseInt(s.dataset.subClip));
+    const t = n ? `Clip: ${n}` : "Sin clip";
+    if (s.textContent !== t) s.textContent = t;
+  });
   document.querySelectorAll("[data-pestana-clip]").forEach((b) => {
     const n = nombreClipFila(parseInt(b.dataset.pestanaClip));
     const t = (n ? `Clip: ${n}` : "Sin clip") + " ▾";

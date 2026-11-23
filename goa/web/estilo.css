@@ -336,3 +336,13 @@ details.grupo.estilo-sec>summary .cab{flex:1}
 .clips-fabrica{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .clips-caja .clip-fila .clip{flex:1;min-width:0}
 details.voz>.cuerpo.clips-fabrica{display:grid}
+details.variante-card{gap:0}
+details.variante-card>summary{display:flex;align-items:center;gap:10px;min-height:44px}
+details.variante-card>summary .cab{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+details.variante-card>summary .cab span{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.variante-card>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(-45deg);flex:none;transition:transform .15s}
+details.variante-card[open]>summary::after{transform:rotate(45deg)}
+details.variante-card>.cuerpo{display:flex;flex-direction:column;gap:10px;padding-top:10px}
+.seed-cab{font-family:ui-monospace,Menlo,monospace;font-weight:650;letter-spacing:.04em;flex:none}
+.otra-cab{flex:none;min-height:40px;padding:0 16px}
+details.variante-card[open] .otra-cab{display:none}
