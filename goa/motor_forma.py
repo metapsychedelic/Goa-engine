@@ -366,6 +366,48 @@ class FormaMotor:
                 return k, True  # se traba en la última nota que sonó
         return ventana, False  # no había nota cerca: el tiempo queda en silencio (corte)
 
+    def _scatter_pedido(self, paso):
+        """El pad de Scatter que va en `paso` (1-16) o None: suave desde scatter_compases
+        antes del final de la parte, intenso en los 2 últimos compases, extremo en el último tiempo."""
+        compas = paso // PASOS_POR_COMPAS
+        parte = self.conductor.parte(self.base, compas)
+        if parte is None:
+            return None
+        p = self.base["parte"][parte["i"]]
+        if not p.get("scatter"):
+            return None
+        fin = (compas - parte["dentro"] + parte["largo"]) * PASOS_POR_COMPAS
+        falta = fin - paso   # pasos que quedan, contando este
+        if falta <= 4:
+            pad = p.get("scatter_extremo", 16)
+        elif falta <= 2 * PASOS_POR_COMPAS:
+            pad = p.get("scatter_intenso", 8)
+        elif falta <= int(p.get("scatter_compases", 4)) * PASOS_POR_COMPAS:
+            pad = p.get("scatter_suave", 1)
+        else:
+            return None
+        return pad or None
+
+    def _paso_scatter(self, paso):
+        """Aprieta y suelta los pads de Scatter de la MC-101 (notas 60-75 en su canal de
+        control). Cambiar de etapa suelta el pad anterior y aprieta el nuevo en el mismo paso;
+        en el uno de la parte siguiente se suelta."""
+        pad = self._scatter_pedido(paso)
+        sc = self.base.get("scatter") or {}
+        quiero = None if pad is None else (sc.get("salida", "MC-101"), int(sc.get("canal", 16)) - 1, 59 + int(pad))
+        if quiero == self.scatter_nota:
+            return
+        self._soltar_scatter()
+        if quiero is not None:
+            self.enviar(quiero[0], "note_on", quiero[1], quiero[2], int(sc.get("fuerza", 100)))
+            self.scatter_nota = quiero
+
+    def _soltar_scatter(self):
+        if getattr(self, "scatter_nota", None) is not None:
+            salida, canal, nota = self.scatter_nota
+            self.enviar(salida, "note_off", canal, nota, 0)
+            self.scatter_nota = None
+
     def _en_hueco(self, paso):
         return self.hueco_desde is not None and self.hueco_desde <= paso < self.hueco_desde + 4
 

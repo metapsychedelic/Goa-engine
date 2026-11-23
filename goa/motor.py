@@ -71,6 +71,7 @@ class Motor(FormaMotor):
         self.subida_pedida = None   # compases de la subida pedida desde la app (0 = cancelar)
         self.subida_final = None    # subida pedida para los últimos N compases de la parte
         self.relanzar_parte = False  # «quedarse» cuando la parte siguiente ya entraba
+        self.scatter_nota = None     # (salida, canal, nota) del pad de Scatter apretado
         self.cc_secuencias = {}     # (salida, canal, cc) -> (valor mandado, reposo): filtros intervenidos
         self.aplicar_config(config)
 
@@ -581,6 +582,7 @@ class Motor(FormaMotor):
     def stop(self):
         log.info("Stop")
         self.corriendo = False
+        self._soltar_scatter()
         self.apagar_todo()
         self.subida = None
         self._soltar_filtros()
@@ -708,6 +710,7 @@ class Motor(FormaMotor):
             self.bajo.evolucionar(compas)
         for d in self.disparos.values():
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
+        self._paso_scatter(paso)
         if self._en_hueco(paso):
             if paso == self.hueco_desde:
                 self.apagar_todo()  # el último tiempo antes de la parte que viene: silencio

@@ -246,6 +246,15 @@ ESQUEMA_SECCIONES["looper"] = {
     "nivel": (int, 100, 1, 127),             # volumen de la pista al volver a sonar (callado sin slot vacío = CC 7 a 0)
 }
 
+# Scatter de la MC-101 en las subidas: cada pad de Scatter (1-16) es una nota 60-75 en el
+# canal de control de la MC-101 (RX Scatter en ON). Suena mientras la nota está apretada.
+# Es de la máquina, no de la escena: cada parte elige si lo usa y qué pads.
+ESQUEMA_SECCIONES["scatter"] = {
+    "salida": (str, "MC-101", None, None),
+    "canal": (int, 16, 1, 16),               # canal de control de la MC-101
+    "fuerza": (int, 100, 1, 127),
+}
+
 # Controlador (Korg nanoKONTROL2 en modo CC): cada canal maneja un motor y el transporte
 # las escenas. Ver goa/control.py.
 ESQUEMA_SECCIONES["control"] = {
@@ -304,6 +313,14 @@ ESQUEMA_PARTE = {
     "tension": (bool, False, None, None),            # el último compás va a un acorde de tensión
     "hueco": (bool, False, None, None),              # el último tiempo, el motor en silencio
     "riser": (bool, False, None, None),              # subida de FX en la parte (riser, filtros, stutter) y drop al terminar
+    # Scatter de la MC-101 al final de la parte: suave desde `scatter_compases` antes del
+    # final, intenso en los 2 últimos compases y extremo en el último tiempo (pad 0 = esa
+    # etapa no suena). Se suelta justo en el uno de la parte siguiente.
+    "scatter": (bool, False, None, None),
+    "scatter_compases": (int, 4, 1, 32),
+    "scatter_suave": (int, 1, 0, 16),
+    "scatter_intenso": (int, 8, 0, 16),
+    "scatter_extremo": (int, 16, 0, 16),
 }
 MAX_PARTES = 32
 
@@ -627,6 +644,8 @@ def salidas(cfg):
         claves.append(cfg["looper"]["salida"])
     if cfg["tocado"]["activo"]:
         claves.append(cfg["tocado"]["salida"])
+    if any(p.get("scatter") for p in cfg.get("parte", [])) and cfg.get("cancion", {}).get("activa"):
+        claves.append(cfg["scatter"]["salida"])
     if cfg["teclado"]["activo"] and cfg["teclado"]["perillas"]:
         claves.append(cfg["teclado"]["puerto"])  # para devolverle sus perillas
     if cfg["control"]["activo"] and cfg["control"]["luces"]:

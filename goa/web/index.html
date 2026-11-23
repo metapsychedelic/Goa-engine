@@ -401,6 +401,10 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
       <label class="fila" style="min-height:44px"><span>Reenviar también el reloj y Start/Stop<br><span class="mut">Apágalo si el reloj maestro está en la cadena (la MC-101): así no le vuelve su propio reloj</span></span>
         <input type="checkbox" id="thru_reloj"></label>
     </div>
+    <div class="card" id="scatter_card">
+      <h2>Scatter de la MC-101</h2>
+      <div id="scatter_resto"></div>
+    </div>
     <div class="card" id="teclado_card">
       <h2>Teclado de la MicroFreak</h2>
       <label class="fila" style="min-height:44px"><span>Conectada por USB a la Pi<br><span class="mut" id="teclado_estado">Apagado</span></span>
@@ -2257,6 +2261,12 @@ function renderPuente() {
 // --- Ajustes ---
 
 function renderAjustes() {
+  const sc = cfg.scatter;
+  if (sc) $("scatter_resto").replaceChildren(
+    el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Salida", puertoSelect("salida", sc.salida, (v) => { sc.salida = v; guardar(); })]),
+      numeroDe(sc, "canal", "Canal de control", 1, 16)]),
+    deslizador(sc, "fuerza", "Fuerza de los pads", 1, 127, 1, (v) => String(v)),
+    ayuda("Cada parte elige si lo usa y qué pads, en «Apoyo a la subida». En la MC-101: canal de control igual a este y RX Scatter en ON."));
   const cd = $("canal_disparo"); cd.value = cfg.entrada.canal_disparo;
   cd.onchange = () => { cfg.entrada.canal_disparo = Math.max(1, Math.min(16, parseInt(cd.value) || 4)); cd.value = cfg.entrada.canal_disparo; guardar(); };
   const nm = $("nota_maxima"); nm.value = cfg.entrada.nota_maxima;
@@ -2574,7 +2584,7 @@ function resumenParte(p) {
   const esc = p.escena >= 0 && cfg.escena[p.escena] ? cfg.escena[p.escena].nombre : "sigue lo que suena";
   const ener = Math.round(p.energia * 100) === Math.round(p.energia_fin * 100) ? `${Math.round(p.energia * 100)}`
     : `${Math.round(p.energia * 100)}→${Math.round(p.energia_fin * 100)}`;
-  const subida = [p.pads_suben && "pads suben", p.roll && "roll", p.corte_bajo && "corte de bajo", p.tension && "tensión", p.hueco && "hueco", p.riser && "riser"].filter(Boolean);
+  const subida = [p.pads_suben && "pads suben", p.roll && "roll", p.corte_bajo && "corte de bajo", p.tension && "tensión", p.hueco && "hueco", p.riser && "riser", p.scatter && "scatter"].filter(Boolean);
   return `${p.compases} compases · ${esc} · ${p.entrada === "golpe" ? "de golpe" : "suave"} · energía ${ener}${subida.length ? " · " + subida.join(", ") : ""}`;
 }
 
@@ -2622,8 +2632,10 @@ function bloqueParte(p, i) {
     casilla(p, "tension", "Acorde de tensión al final", "El último compás va a un acorde que pide resolver (♭II en frigio, V en menor armónica, ♭VII en menor) y la parte siguiente parte en la i. Lo siguen los pads, el bajo y las secuencias guiadas.", () => renderCancion()),
     casilla(p, "hueco", "Hueco antes del cambio", "El último tiempo de la parte, el motor queda en silencio.", () => renderCancion()),
     casilla(p, "riser", "Riser de FX", `Subida de FX en ${p.compases > 32 ? "los 32 últimos compases" : "toda la parte"}: riser, filtros que bajan y se abren, redobles en las secuencias con FX. En el uno de la parte siguiente, el drop con su caída.`, () => renderCancion()),
+    casilla(p, "scatter", "Scatter de la MC-101", "Aprieta pads de Scatter de la MC-101 al final de la parte: suave, intenso en los 2 últimos compases y extremo en el último tiempo. Se suelta justo en el uno de la parte siguiente.", () => { renderCancion(); if (vista === "parte") renderParte(); }),
+    ...(p.scatter ? bloqueScatter(p) : []),
     ayuda(p.entrada === "golpe" ? "Entra de una en su primer compás, con su energía (como un drop)."
-      : `Llega de a poco en los compases antes (los de Transición en Tocar, como mucho la mitad de la parte anterior). Los motores entran y salen justo en su primer compás.`),
+      : `Llega de a poco en los compases antes (los de Transición en Vivo, como mucho la mitad de la parte anterior). Los motores entran y salen justo en su primer compás.`),
     el("div", {className: "dos"}, [
       el("div", {className: "dos", style: "gap:4px"}, [
         el("button", {type: "button", textContent: "↑", "aria-label": "Subir", disabled: i === 0, onclick: () => mover(-1)}),
@@ -2705,7 +2717,7 @@ function suenaEn(datos, clave, k) { const s = seccionDe(datos, clave); return !!
 const SIGLAS = {pads: "Pa", bajo: "Ba", dialogo: "Di", fx: "FX", texturas: "Tx", looper: "Lp", tocado: "To"};
 const sigla = (clave, nombre) => SIGLAS[clave] || (nombre || "").slice(0, 2);
 function apoyosDe(p) {
-  return [p.riser && "riser", p.roll && "roll", p.corte_bajo && "corte", p.tension && "tensión", p.hueco && "hueco", p.pads_suben && "pads"].filter(Boolean);
+  return [p.riser && "riser", p.roll && "roll", p.corte_bajo && "corte", p.tension && "tensión", p.hueco && "hueco", p.pads_suben && "pads", p.scatter && "scatter"].filter(Boolean);
 }
 function parteSonando() {
   const c = ultimoEstado && ultimoEstado.cancion;
@@ -2738,6 +2750,25 @@ async function editarMotorEnParte(i, clave) {
     else if (vista === "parte") renderParte();
     aviso(`Editando ${p.nombre}${clave ? " · " + (motores().find((m) => m[0] === clave) || [, ""])[1] : ""}`);
   } catch (e) { aviso(e.message, true); }
+}
+function bloqueScatter(p) {
+  const pad = (k, titulo, cuando) => {
+    const sel = el("select", {"aria-label": `Pad de Scatter: ${titulo}`, onchange: () => { p[k] = parseInt(sel.value); guardar(); }},
+      [el("option", {value: "0", textContent: "no suena"}), ...Array.from({length: 16}, (_, n) => el("option", {value: String(n + 1), textContent: `pad ${n + 1}`}))]);
+    sel.value = String(p[k] ?? 0);
+    return el("label", {className: "fila", style: "min-height:44px;gap:10px"}, [
+      el("span", {style: "min-width:0"}, [el("b", {textContent: titulo, style: "font-weight:600"}), el("br"), el("span", {className: "mut", style: "font-size:12px", textContent: cuando})]),
+      el("span", {style: "flex:none;width:120px"}, [sel])]);
+  };
+  const desde = p.scatter_compases || 4;
+  const sc = cfg.scatter || {salida: "MC-101", canal: 16};
+  return [el("div", {className: "card", style: "display:flex;flex-direction:column;gap:6px"}, [
+    campo("Empieza antes del final (compases)", segmentado([["2","2"],["4","4"],["8","8"],["16","16"]], String(desde), (v) => { p.scatter_compases = parseInt(v); guardar(); renderCancion(); if (vista === "parte") renderParte(); }, 4)),
+    desde > 2 ? pad("scatter_suave", "Suave", `desde ${desde} compases antes`) : null,
+    pad("scatter_intenso", "Intenso", "los 2 últimos compases"),
+    pad("scatter_extremo", "Extremo", "el último tiempo"),
+    ayuda(`Sale por ${sc.salida}, canal ${sc.canal} (el de control de la MC-101; pad 1 = nota 60 … pad 16 = nota 75). En la MC-101, RX Scatter tiene que estar en ON. El canal se cambia en Ajustes.`),
+  ].filter(Boolean))];
 }
 function elegirParte(i) {
   parteSel = parteSel === i ? null : i;

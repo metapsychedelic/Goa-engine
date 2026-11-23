@@ -112,6 +112,42 @@ if __name__ == "__main__":
     todo &= ok(subidas[0] == {"pedida": 4, "final": True}, f"la app ve la subida pedida para el final {subidas[0]}")
     todo &= ok(empieza == 12 and m.subida is None, f"«últimos 4» en el Groove (compases 8-15): parte en el 12 y cae en el drop ({empieza})")
 
+    print("\nScatter de la MC-101 al final de la parte")
+    from goa.motor import Motor as _Motor
+
+    def scatter(ajuste, compases=18, en_compas=None):
+        cfg = armar()
+        cfg["parte"][1].update(scatter=True, **ajuste)
+        cfg = normalizar(cfg)
+        ev, ref = [], {}
+        m = _Motor(cfg, lambda sal, tipo, canal, n, v: "m" in ref and tipo in ("note_on", "note_off") and (sal, canal) == ("MC-101", 15)
+                   and ev.append((max(ref["m"].tick, 0), tipo, n)))
+        ref["m"] = m
+        m.start()
+        for tick in range(compases * 96):
+            if en_compas and tick % 96 == 50 and tick // 96 in en_compas:
+                en_compas[tick // 96](m)
+            m.reloj()
+            if tick == 1:
+                m.nota_on(1, 41)
+        return m, ev
+    m, ev = scatter({})
+    # El Groove dura los compases 8-15: termina en el paso 256 (tick 1536).
+    todo &= ok(ev == [(192 * 6, "note_on", 60), (224 * 6, "note_off", 60), (224 * 6, "note_on", 67),
+                      (252 * 6, "note_off", 67), (252 * 6, "note_on", 75), (256 * 6, "note_off", 75)],
+               "suave 4 compases antes (pad 1 = nota 60), intenso en los 2 últimos (pad 8), extremo en el último tiempo (pad 16) y suelta en el uno, por el canal 16")
+    m, ev = scatter({"scatter_compases": 2, "scatter_intenso": 0})
+    todo &= ok(ev == [(252 * 6, "note_on", 75), (256 * 6, "note_off", 75)], f"un pad en 0 no suena: solo el extremo {ev}")
+    m, ev = scatter({}, compases=15, en_compas={14: lambda m: m.stop()})
+    todo &= ok(ev[-1][1] == "note_off" and len([e for e in ev if e[1] == "note_on"]) == len([e for e in ev if e[1] == "note_off"]),
+               "con Stop se suelta el pad que estaba apretado")
+    m, ev = scatter({}, compases=18, en_compas={13: lambda m: m.saltar_parte(0)})
+    todo &= ok(ev[-1] == (14 * 96, "note_off", 60), f"si saltas a otra parte, se suelta en el uno de esa parte {ev[-2:]}")
+    m, ev = scatter({}, compases=22, en_compas={12: lambda m: m.quedarse_parte(4)})
+    todo &= ok(ev[:3] == [(192 * 6, "note_on", 60), (201 * 6, "note_off", 60), (256 * 6, "note_on", 60)] and ev[-1] == (320 * 6, "note_off", 75),
+               f"con «quedarse» a mitad del Scatter: se suelta en el paso siguiente y vuelve 4 compases antes del nuevo final {ev}")
+    todo &= ok("MC-101" in salidas(normalizar(dict(armar(), parte=[dict(armar()["parte"][0], scatter=True)]))), "abre la salida del Scatter")
+
     def reiniciar(m):
         m.stop()
         m.start()
