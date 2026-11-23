@@ -201,7 +201,8 @@ class Bajo:
         self.bends = []          # (tick, valor) pendientes
         self.bend_movido = False
         # Arco de altura (medido en «Sons of Earth»): en esa proporción de las notas largas
-        # (2 pasos o más) el pitch bend sube `arco_alto` semitonos y vuelve mientras suena.
+        # (más de 2 pasos: allá las de 3 pasos arquean y las de 2 quedan rectas) el pitch
+        # bend sube `arco_alto` semitonos y vuelve mientras suena.
         self.arco = _fraccion(cfg.get("arco", 0.0))
         self.arco_alto = max(1, min(24, int(cfg.get("arco_alto", 12))))
         ciclo = int(cfg.get("ciclo", 0) or 0)
@@ -566,7 +567,7 @@ class Bajo:
             fin = min(fin, inicio + mitad - 1)
             segunda = self._nota(raiz, golpe.fusa, momento, False, False)
             self.pendientes.append((inicio + mitad, segunda, max(1, vel - 12), inicio + 2 * mitad - 1))
-        if (self.arco and not golpe.caida and fin - inicio >= 2 * TICKS_POR_PASO
+        if (self.arco and not golpe.caida and fin - inicio > 2 * TICKS_POR_PASO + 2
                 and self._azar("arco", compas % max(1, self.frase), lugar) < self.arco):
             # Arco: sube y vuelve (seno), sin pasar del rango de bend del sinte.
             tope = min(8191, round(8192 * self.arco_alto / self.bend_rango))

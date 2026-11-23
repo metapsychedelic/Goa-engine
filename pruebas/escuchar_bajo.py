@@ -31,7 +31,7 @@ EJEMPLOS = [
     ("01_rolling_de_base", 140, 42, "frigio", dict(estilo="rolling", frase=4), "psy", "4x4"),
     ("02_rolling_remates_de_los_packs", 140, 42, "frigio", dict(estilo="rolling", frase=2, remates_pack=1.0), "psy", "4x4"),
     ("03_trote_332", 138, 42, "frigio", dict(estilo="trote", frase=4), "psy", "4x4"),
-    ("04_zenon_largas_sons_of_earth", 140, 46, "menor", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-2", frase=4, remates=False, arco=0.7), "zenon", "4x4"),
+    ("04_zenon_largas_sons_of_earth", 140, 46, "menor", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-2", frase=4, remates=False, arco=1.0), "zenon", "4x4"),
     ("05_zenon_largas_sincopadas", 136, 46, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-5", frase=4, arco=0.3, swing=0.08), "zenon", "4x4"),
     ("06_zenon_largas_anticipadas", 136, 46, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-7", frase=4, arco=0.3), "zenon", "4x4"),
     ("07_zenon_largas_nota_que_cae", 136, 46, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-2", frase=4, remates=False, arco=0.4,

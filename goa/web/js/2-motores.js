@@ -357,7 +357,7 @@ function panelBajo() {
         b.zenon > 0 ? deslizador(b, "caida", "Cuánto cae la nota larga", 0, 24, 1, (x) => x === 0 ? "no cae" : `${x} semitono${x > 1 ? "s" : ""}${x === 12 ? " (una octava)" : ""}`, () => renderMotores()) : null,
         deslizador(b, "arco", "Arco de altura", 0, 1, 0.05, (x) => x === 0 ? "nunca" : `en ${porcentaje(x)} de las notas largas`, () => renderMotores()),
         b.arco > 0 ? deslizador(b, "arco_alto", "Cuánto sube el arco", 1, 24, 1, (x) => `${x} semitono${x > 1 ? "s" : ""}${x === 12 ? " (una octava)" : x === 7 ? " (la quinta)" : ""}`) : null,
-        ayuda("Medido en «Sons of Earth» (Dekel & Ilan Or): las notas largas suben con el pitch bend y vuelven mientras suenan. Se aplica a las notas de 2 pasos o más; brilla con el estilo Zenon."),
+        ayuda("Medido en «Sons of Earth» (Dekel & Ilan Or): las notas largas suben con el pitch bend y vuelven mientras suenan. Se aplica a las notas de más de 2 pasos (allá las de 3 arquean y las de 2 quedan rectas); brilla con el estilo Zenon."),
         (b.caida > 0 && b.zenon > 0) || b.arco > 0 ? numeroDe(b, "bend_rango", "Rango de pitch bend del sinte (semitonos)", 1, 24) : null,
         (b.caida > 0 && b.zenon > 0) || b.arco > 0 ? ayuda("La caída y el arco van por pitch bend: pon aquí el rango que tiene el sinte del bajo (si no coincide, se mueve más o menos de lo pedido). Siempre vuelve al centro al terminar la nota.") : null,
       ]),
