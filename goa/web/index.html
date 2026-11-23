@@ -31,7 +31,7 @@ main{max-width:560px;margin:0 auto;padding:14px 16px calc(96px + env(safe-area-i
 .vista{display:flex;flex-direction:column;gap:16px}
 .vista[hidden]{display:none}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card2);border-top:1px solid var(--line);padding:4px 8px max(10px,env(safe-area-inset-bottom))}
-nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 nav.tabs button{border:none;background:none;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--mut);font-size:11px;font-weight:500;padding:4px 0;border-radius:10px}
 nav.tabs button[aria-selected=true]{color:var(--acc);font-weight:650}
 nav.tabs svg{width:22px;height:22px}
@@ -261,14 +261,26 @@ input[type=range]:focus-visible{outline:2px solid var(--acc);outline-offset:4px;
 }
 /* Tablet horizontal: Tocar fijo a la izquierda y la pestaña elegida a la derecha. */
 @media (min-width:1000px){
-  header.top .in,nav.tabs .in{max-width:1400px}
-  main{max-width:1400px;display:grid;grid-template-columns:minmax(380px,460px) minmax(0,1fr);gap:24px;align-items:start}
-  #v-tocar{grid-column:1;grid-row:1;position:sticky;top:76px;max-height:calc(100vh - 76px - 96px - env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
-  #v-tocar[hidden]{display:flex}
-  .vista:not(#v-tocar){grid-column:2;grid-row:1}
-  nav.tabs .in{grid-template-columns:repeat(4,minmax(0,1fr));max-width:720px}
-  nav.tabs button[data-vista=tocar]{display:none}
+  header.top .in{max-width:1400px}
+  main{max-width:1400px}
+  #v-tocar,#v-motores,#v-armonia,#v-ajustes,#v-parte{max-width:760px;margin:0 auto;width:100%}
 }
+.volver{display:flex;align-items:center;gap:8px}
+.volver button.atras{min-height:40px;padding:0 10px 0 4px;border:none;background:none;color:var(--acc);font-weight:600;display:flex;align-items:center;gap:2px}
+.volver .der{margin-left:auto;display:flex;gap:6px}
+.volver .der button{width:40px;padding:0}
+.motores-lista{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.motores-lista button{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border:none;border-radius:0;background:none;text-align:left;width:100%}
+.motores-lista button + button{border-top:1px solid #22222E}
+.motores-lista .punto{width:10px;height:10px;border-radius:50%;flex:none;border:1.5px solid var(--line2)}
+.motores-lista .punto.si{background:var(--acc);border-color:var(--acc)}
+.motores-lista .txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.motores-lista .txt b{font-size:14px;font-weight:600}
+.motores-lista .txt span{color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.motores-lista .txt.callado b{color:var(--mut)}
+.motores-lista .cambio{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:var(--glow);flex:none}
+.chips-info{display:flex;flex-wrap:wrap;gap:6px}
+.chips-info span{padding:5px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line2);font-size:12px}
 input[type=checkbox]:not(.switch){-webkit-appearance:none;appearance:none;border:1.5px solid var(--line2);border-radius:6px;background:var(--bg);cursor:pointer}
 input[type=checkbox]:not(.switch):checked{background:var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E1030' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='5 12 10 17 19 7'/%3E%3C/svg%3E") center/16px no-repeat;border-color:var(--acc)}
 input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);outline-offset:2px}
@@ -310,12 +322,18 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
     </div>
   </section>
 
+  <section class="vista" id="v-parte" aria-label="Parte" hidden>
+    <div id="parte_caja" style="display:flex;flex-direction:column;gap:14px"></div>
+  </section>
+
   <section class="vista" id="v-motores" aria-label="Motores" hidden>
+    <div class="volver" id="volver_motores"></div>
     <div class="selector" role="tablist" aria-label="Motor" id="selector"></div>
     <div class="panel" id="motor_panel"></div>
   </section>
 
   <section class="vista" id="v-armonia" aria-label="Armonía" hidden>
+    <div class="volver" id="volver_armonia"></div>
     <div class="card" id="armonia_caja"></div>
     <div class="card" id="puente_caja"></div>
   </section>
@@ -385,9 +403,7 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
 
 <nav class="tabs" aria-label="Secciones"><div class="in" role="tablist">
   <button type="button" role="tab" data-vista="cancion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5H9.5V2H14.5V3.5H20.5V9.5H22V14.5H20.5V20.5H14.5V22H9.5V20.5H3.5V14.5H2V9.5H3.5Z"/><line x1="7" y1="15" x2="7" y2="13"/><line x1="10" y1="15" x2="10" y2="11"/><line x1="13.5" y1="15" x2="13.5" y2="9"/><line x1="17" y1="15" x2="17" y2="12"/><circle class="bindu" cx="13.5" cy="7" r="1.4" fill="currentColor" stroke="none"/></svg>Tema</button>
-  <button type="button" role="tab" data-vista="tocar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><polygon points="9.2 7 17.2 12 9.2 17"/><circle class="bindu" cx="11.9" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>Tocar</button>
-  <button type="button" role="tab" data-vista="motores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 5 18.4 16 5.6 16" stroke-dasharray="2 2"/><circle cx="12" cy="5" r="2.6"/><circle cx="18.4" cy="16" r="2.6"/><circle cx="5.6" cy="16" r="2.6"/><circle class="bindu" cx="12" cy="12.3" r="1.5" fill="currentColor" stroke="none"/></svg>Motores</button>
-  <button type="button" role="tab" data-vista="armonia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 20 17 4 17"/><polygon points="12 21 20 7 4 7"/><circle class="bindu" cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>Armonía</button>
+  <button type="button" role="tab" data-vista="tocar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><polygon points="9.2 7 17.2 12 9.2 17"/><circle class="bindu" cx="11.9" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>Vivo</button>
   <button type="button" role="tab" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(0.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(45.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(90.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(135.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(180.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(225.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(270.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(315.0)"/><circle class="bindu" cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>Ajustes</button>
 </div></nav>
 <div class="guardado" id="aviso" role="status" aria-live="polite"></div>
@@ -697,13 +713,16 @@ escribirLocal("vista_v2", 1);
 // Tablet horizontal (pantalla ancha): Tocar queda siempre a la izquierda y las pestañas eligen
 // lo de la derecha. Se elige solo por el ancho; en el teléfono todo sigue igual.
 const ancha = window.matchMedia("(min-width: 1000px)");
-const dosColumnas = () => ancha.matches;
+const dosColumnas = () => false;   // (la app nueva usa una columna también en pantalla ancha)
 const tocarVisible = () => vista === "tocar" || dosColumnas();
 function mostrar(v) {
   vista = v; escribirLocal("vista", v);
   const derecha = dosColumnas() && v === "tocar" ? "motores" : v;
   for (const s of document.querySelectorAll(".vista")) s.hidden = s.id !== "v-" + derecha;
-  for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.vista === derecha ? "true" : "false");
+  const pestana = ["parte", "motores", "armonia"].includes(derecha) ? "cancion" : derecha;   // Parte y sus motores son parte de Tema
+  for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.vista === pestana ? "true" : "false");
+  if (cfg && (derecha === "motores" || derecha === "armonia")) pintarVolver();
+  if (cfg && derecha === "parte") renderParte();
   if (dosColumnas() && cfg) { renderTocar(); if (derecha === "motores") renderMotores(); }
   window.scrollTo(0, 0);
 }
@@ -2220,7 +2239,7 @@ function bloqueEscenas() {
     ]);
     if (editarEscenas) {
       grilla.append(el("div", {style: "display:flex;flex-direction:column;gap:4px;min-width:0"}, [boton,
-        el("button", {type: "button", textContent: "Editar", style: "font-size:12px;padding:0 6px", onclick: () => { editarEscenas = false; entrarEdicion({escena: i}); }}),
+        el("button", {type: "button", textContent: "Editar", style: "font-size:12px;padding:0 6px", onclick: async () => { editarEscenas = false; await entrarEdicion({escena: i}); abrirParte(-1); }}),
         el("div", {className: "dos", style: "gap:4px"}, [
           el("button", {type: "button", textContent: "Guardar aquí", style: "font-size:12px;padding:0 6px", onclick: () => guardarEscena(i)}),
           el("button", {type: "button", textContent: "Borrar", style: "font-size:12px;padding:0 6px;color:var(--bad)", onclick: () => borrarEscena(i)}),
@@ -2442,6 +2461,7 @@ function celdasLinea() {
 }
 async function editarMotorEnParte(i, clave) {
   const p = cfg.parte[i];
+  parteVista = i; escribirLocal("parte_vista", i);
   try {
     if (cfg.cancion.activa) {
       if (!confirm(`Para editar ${p.nombre}, Yantra pasa a modo libre (deja de seguir la canción). ¿Seguir?`)) return;
@@ -2450,6 +2470,7 @@ async function editarMotorEnParte(i, clave) {
     const yaEdito = edicion && p.escena >= 0 && edicion.escena === p.escena;
     if (!yaEdito) { await api("/api/editar", {parte: i}); await recargar(); await estado(); }
     if (clave) { motorSel = clave; escribirLocal("motor", clave); mostrar("motores"); renderMotores(); }
+    else if (vista === "parte") renderParte();
     aviso(`Editando ${p.nombre}${clave ? " · " + (motores().find((m) => m[0] === clave) || [, ""])[1] : ""}`);
   } catch (e) { aviso(e.message, true); }
 }
@@ -2563,8 +2584,81 @@ async function tocarCasillero(i, clave) {
 function tocarNombreParte(i) {
   const pp = portapapeles;
   if (pp && pp.tipo === "parte") { if (i !== pp.desde) elegirMotoresYPegar(pp.desde, i); return; }
-  elegirParte(i);
+  abrirParte(i);
 }
+// --- Parte: lo que suena en una parte, y desde ahí cada motor ---
+// parteVista: índice de la parte, o -1 para «lo que suena ahora» (sin parte).
+let parteVista = parseInt(leerLocal("parte_vista", "-1"));
+function abrirParte(i) { parteVista = i; escribirLocal("parte_vista", i); mostrar("parte"); }
+function nombreVista() { return parteVista >= 0 && cfg.parte[parteVista] ? cfg.parte[parteVista].nombre : "Lo que suena"; }
+function pintarVolver() {
+  for (const id of ["volver_motores", "volver_armonia"]) {
+    const caja = $(id); if (!caja) continue;
+    caja.replaceChildren(el("button", {type: "button", className: "atras", onclick: () => mostrar("parte")},
+      [el("span", {textContent: "‹", style: "font-size:22px;line-height:1"}), nombreVista()]));
+  }
+}
+function editandoVista() { return parteVista >= 0 && !!edicion && cfg.parte[parteVista] && cfg.parte[parteVista].escena === edicion.escena; }
+function textoArmonia(m) {
+  if (!m) return "";
+  const esc = (ESCALAS.find((e) => e[0] === m.escala) || ["", m.escala || ""])[1];
+  return [`${m.tonica || ""} ${(esc || "").toLowerCase()}`.trim(), m.progresion, m.armonia].filter(Boolean).join(" · ");
+}
+async function abrirMotor(clave) {
+  if (parteVista >= 0) {
+    if (clave === "armonia") { await editarMotorEnParte(parteVista, null); mostrar("armonia"); renderArmonia(); }
+    else await editarMotorEnParte(parteVista, clave);
+  } else if (clave === "armonia") { mostrar("armonia"); renderArmonia(); }
+  else { motorSel = clave; escribirLocal("motor", clave); mostrar("motores"); renderMotores(); }
+}
+function renderParte() {
+  const caja = $("parte_caja");
+  if (!caja || !cfg) return;
+  if (parteVista >= cfg.parte.length) parteVista = -1;
+  const i = parteVista, p = i >= 0 ? cfg.parte[i] : null;
+  const vivo = !p || p.escena < 0 || editandoVista();
+  const datos = vivo ? null : datosEscena(p.escena);
+  const fuente = (clave) => vivo ? seccionDe({...cfg, secuencia: cfg.secuencia}, clave) : seccionDe(datos, clave);
+  const desde = p ? cfg.parte.slice(0, i).reduce((s, x) => s + x.compases, 1) : 0;
+  const ms = motores();
+  const filas = [["armonia", "Armonía", null]].concat(ms.map(([c, n, , k]) => [c, n, k])).map(([clave, nombre, k]) => {
+    const s = clave === "armonia" ? (vivo ? cfg.musica : datos && datos.musica) : fuente(clave);
+    const suena = clave === "armonia" ? true : !!(s && s[k]);
+    const resumen = clave === "armonia" ? textoArmonia(s) : !s ? "Sin escena todavía" : suena ? (resumenMotor({x: s}, "x") || "suena") : "no suena aquí";
+    const cambio = editandoVista() && (clave === "armonia" ? edicion.original && difiere(cfg.musica, edicion.original.musica) : motorCambiado(clave));
+    return el("button", {type: "button", onclick: () => abrirMotor(clave), "aria-label": `${nombre}: ${resumen}. Abrir`}, [
+      el("span", {className: "punto" + (suena ? " si" : "")}),
+      el("span", {className: "txt" + (suena ? "" : " callado")}, [el("b", {textContent: nombre}), el("span", {textContent: resumen})]),
+      cambio ? el("span", {className: "cambio", "aria-hidden": "true"}) : null,
+      el("span", {className: "mut", "aria-hidden": "true", textContent: "›"}),
+    ].filter(Boolean));
+  });
+  const nav = el("div", {className: "volver"}, [
+    el("button", {type: "button", className: "atras", onclick: () => mostrar("cancion")}, [el("span", {textContent: "‹", style: "font-size:22px;line-height:1"}), "Tema"]),
+    p ? el("div", {className: "der"}, [
+      el("button", {type: "button", textContent: "‹", "aria-label": "Parte anterior", disabled: i === 0, onclick: () => abrirParte(i - 1)}),
+      el("button", {type: "button", textContent: "›", "aria-label": "Parte siguiente", disabled: i === cfg.parte.length - 1, onclick: () => abrirParte(i + 1)})]) : null,
+  ].filter(Boolean));
+  const cab = el("div", {style: "display:flex;flex-direction:column;gap:6px"}, [
+    p ? el("div", {className: "mut", style: "font-size:11px;font-family:'Plex Mono Local',monospace", textContent: `PARTE ${i + 1} · COMPASES ${desde}–${desde + p.compases - 1}`}) : null,
+    el("h1", {style: "margin:0;font-size:26px;font-weight:700", textContent: p ? p.nombre : "Lo que suena ahora"}),
+    p ? el("div", {className: "chips-info"}, [
+      el("span", {textContent: `${p.compases} compases`}), el("span", {textContent: p.entrada === "golpe" ? "de golpe" : "suave"}),
+      el("span", {textContent: `energía ${Math.round(p.energia * 100)} → ${Math.round(p.energia_fin * 100)}`}),
+      ...apoyosDe(p).map((a) => el("span", {textContent: a}))]) :
+      ayuda("Lo que está sonando, sin parte: lo que muevas aquí no queda en ninguna parte hasta que lo guardes en una (o crees una con lo que suena)."),
+  ].filter(Boolean));
+  const acciones = p && !editandoVista() ? el("div", {className: "dos"}, [
+    el("button", {type: "button", className: "prim", textContent: "Editar esta parte", onclick: () => editarMotorEnParte(i, null)}),
+    el("button", {type: "button", textContent: cfg.cancion.activa ? "Saltar aquí" : "Escuchar",
+      onclick: () => accionParte("/api/parte/escuchar", {indice: i}, cfg.cancion.activa ? `${p.nombre} en el próximo compás` : `Suena ${p.nombre}`)}),
+  ]) : !p ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null;
+  const ajustes = p ? bloqueParte(p, i) : null;
+  if (ajustes) { ajustes.open = true; ajustes.querySelector("summary b").textContent = "Entrada, apoyos y ajustes de la parte"; }
+  caja.replaceChildren(...[nav, cab, acciones, el("div", {className: "motores-lista"}, filas), ajustes,
+    p && !vivo ? null : null].filter(Boolean));
+}
+
 function lineaVertical() { return !window.matchMedia("(min-width: 700px)").matches; }
 function renderLinea() {
   if (!cfg.parte.length) return null;
@@ -2633,11 +2727,12 @@ let claveLinea = "";
 function refrescarLinea() {
   // Lo que cambia solo (la parte que suena, la que editas): se vuelve a dibujar si cambió
   // y no estás escribiendo en una tarjeta de parte.
-  if (!cfg || vista !== "cancion") return;
+  if (!cfg || (vista !== "cancion" && vista !== "parte")) return;
   const editando = edicion ? edicion.escena : -1;
-  const clave = `${parteSonando()}|${editando}|${lineaVertical()}`;
-  const escribiendo = document.activeElement && $("cancion_caja").contains(document.activeElement) && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
-  if (clave !== claveLinea && !escribiendo) { claveLinea = clave; renderCancion(); }
+  const clave = `${vista}|${parteSonando()}|${editando}|${lineaVertical()}`;
+  const activo = document.activeElement;
+  const escribiendo = activo && /INPUT|SELECT|TEXTAREA/.test(activo.tagName) && ($("cancion_caja").contains(activo) || $("parte_caja").contains(activo));
+  if (clave !== claveLinea && !escribiendo) { claveLinea = clave; if (vista === "parte") renderParte(); else renderCancion(); }
   else moverCabezal();
 }
 window.matchMedia("(min-width: 700px)").addEventListener("change", () => refrescarLinea());
@@ -2684,8 +2779,7 @@ function renderCancion() {
       cfg.parte.length ? el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Al terminar"}), fin]) : null,
     ]),
     el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [
-      h3("Partes"),
-      ...cfg.parte.map(bloqueParte),
+      el("button", {type: "button", textContent: "Lo que suena ahora ›", onclick: () => abrirParte(-1)}),
       cfg.parte.length < 32 ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null,
       el("button", {type: "button", textContent: "Cargar plantilla…", onclick: cargarPlantilla}),
       el("button", {type: "button", textContent: "Actualizar con la plantilla…", onclick: actualizarConPlantilla}),
@@ -2695,6 +2789,7 @@ function renderCancion() {
     ]),
   );
   if (ultimoEstado) pintarCancion(ultimoEstado);
+  if (vista === "parte") renderParte();
 }
 
 function pintarCancion(d) {
@@ -3053,7 +3148,7 @@ $("panico").onclick = async () => {
   try { await fetch("/api/panico", {method: "POST"}); aviso("Notas apagadas"); } catch (e) { aviso("Sin conexión con la Pi", true); }
 };
 
-mostrar(["tocar", "motores", "armonia", "cancion", "ajustes"].includes(vista) ? vista : "cancion");
+mostrar(["tocar", "cancion", "ajustes"].includes(vista) ? vista : "cancion");
 (async () => {
   try { cfg = await (await fetch("/api/config")).json(); render(); }
   catch (e) { aviso("No pude cargar la configuración", true); }

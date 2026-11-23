@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.78.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.79.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -314,3 +314,8 @@ Propuesta de pantallas: https://claude.ai/artifact/QgXAzQJS2tbR9DQXztgZP8 (lienz
 - Mantener apretado un casillero (0,45 s) o clic derecho: hoja con Editar, Copiar, Pegar, Igual en la siguiente, Que no suene aquí; y para la parte entera Copiar la parte / Pegar una parte aquí. Copiar entra al modo pegar (franja #pegar_caja): cada toque en la misma columna pega ahí; con una parte copiada, tocar el nombre de otra abre la elección de motores.
 - Backend: /api/parte/copiar {desde, hacia: [partes], motores: ["bajo", "sec0", "dialogo" (con llamada y respuesta), …]} copia solo esas secciones de la escena de origen a la de cada destino (si no tiene, se le crea con lo que suena); responde `compartidas` si la escena de destino la usa otra parte. /api/parte/apagar {parte, motor}. Si la escena cambiada es la que suena o la que editas (modo libre), se vuelve a lanzar en 1 compás (la edición sigue). La lista de escenas se copia antes de cambiarla (la historia de deshacer guarda la anterior).
 - Pruebas: pruebas/edicion.py (copiar y pegar).
+
+## 0.79 — App nueva, etapa 3: pantalla de Parte y barra Tema · Vivo · Ajustes
+- La barra queda en Tema · Vivo (la antigua Tocar) · Ajustes. Motores y Armonía ya no son pestañas: se llega desde una Parte (con «‹ <parte>» para volver; pintarVolver). En pantalla ancha, una sola columna (Tema usa todo el ancho; dosColumnas() = false).
+- Vista v-parte (renderParte, parteVista en localStorage; -1 = «lo que suena ahora»): anterior/siguiente, compases y chips (entrada, energía, apoyos), «Editar esta parte» / «Escuchar» (o «Saltar aquí»), la lista de motores con Armonía primero (resumen de la escena de la parte, o de lo que suena si la editas o no tiene escena; punto de cambio si la editas) y la tarjeta de la parte (bloqueParte) abierta como «Entrada, apoyos y ajustes de la parte». Tocar un motor entra a editar la parte y abre ese motor (abrirMotor).
+- En Tema: tocar el nombre de una parte abre su Parte; las tarjetas de partes salen de la lista (quedan en cada Parte); «Lo que suena ahora ›». «Editar» de una escena (Vivo) abre «Lo que suena».
