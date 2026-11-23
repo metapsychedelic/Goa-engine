@@ -274,6 +274,20 @@ def crear_servidor(ctx, puerto):
                 self.send_header("Content-Length", str(len(cuerpo)))
                 self.end_headers()
                 self.wfile.write(cuerpo)
+            elif self.path.startswith("/app/"):
+                # Los archivos de la app (estilo.css y js/*.js), solo de goa/web y sin salir de ahí.
+                ruta = (PAGINA.parent / self.path[len("/app/"):].split("?")[0]).resolve()
+                tipos = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
+                if PAGINA.parent.resolve() not in ruta.parents or ruta.suffix not in tipos or not ruta.is_file():
+                    self.send_error(404)
+                    return
+                cuerpo = ruta.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", tipos[ruta.suffix])
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(cuerpo)))
+                self.end_headers()
+                self.wfile.write(cuerpo)
             elif self.path.startswith("/fuentes/"):
                 datos = fuentes.leer(self.path[len("/fuentes/"):])
                 if datos is None:
