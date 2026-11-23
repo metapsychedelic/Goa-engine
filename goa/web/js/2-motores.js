@@ -678,6 +678,8 @@ function panelSecuencia(i) {
         [s.mutacion ? `notas ${porcentaje(s.mutacion)}` : "", s.mutacion_ritmo ? `ritmo ${porcentaje(s.mutacion_ritmo)}` : "", s.molde_muta ? "filtro" : "", `cada ${s.mutar_cada}`].filter(Boolean).join(" · "), [
         deslizador(s, "mutacion", "Mutación de notas", 0, 1, 0.05, (v) => s.bloqueada ? "congelada" : v === 0 ? "fija" : porcentaje(v), () => renderMotores()),
         deslizador(s, "mutacion_ritmo", "Mutación de ritmo", 0, 1, 0.05, (v) => s.bloqueada ? "congelada" : v === 0 ? "apagada" : porcentaje(v), () => renderMotores()),
+        deslizador(s, "respuesta_par", "Respuesta en el compás par", 0, 1, 0.05, (v) => v === 0 ? "apagada" : `${porcentaje(v)} de las notas del tiempo 4`),
+        s.respuesta_par > 0 ? ayuda("Como en los packs: en el 2.º compás de cada par, el último tiempo toma otras notas (♭7, 5.ª, ♭3, octava, ♭2) y el siguiente vuelve. Distinto en cada par, mismo ritmo.") : null,
         ayuda("Además de las notas, el ritmo cambia de a poco: mueve una nota a un lugar vecino, agrega o quita una, o vuelve al ritmo original. Respeta dónde caen las notas y la cantidad se mantiene cerca de la original."),
         usaCada ? numeroDe(s, "mutar_cada", "Cada (compases, de 1 a 64)", 1, 64, () => renderMotores()) : null,
         usaCada && s.molde_muta > 0 ? ayuda("También marca cada cuánto muta el filtro de notas.") : null,
@@ -1278,7 +1280,7 @@ function panelFx() {
     campo("Carácter de los gestos · qué gestos aparecen y cuántos", segmentado(GENEROS, x.genero, (v) => cambiarGenero(v, {parte: "fx"}), 3)),
     ayuda({goa: "Goa: zaps, ácido y glitches, todos a la mano.", psytrance: "Psytrance: zaps y glitches, algo de ácido.", psy_chill: "Psy chill: sobre todo burbujas, pocos zaps.",
       chillgressive: "Chillgressive: de todo, un poco menos seguido.", chillout: "Chillout: burbujas y algún zap, espaciados.",
-      ambient: "Ambient: solo burbujas, muy de vez en cuando."}[x.genero]),
+      zenon: "Zenon: glitches, barridos y ecos, pocos y sin escaleras.", ambient: "Ambient: solo burbujas, muy de vez en cuando."}[x.genero]),
     bloqueVariante(x, "fx", null),
     el("div", {className: "card principales"}, [
       deslizador(x, "locura", "Locura", 0, 1, 0.05, (v) => v === 0 ? "solo subidas y fondo" : v < 0.3 ? `poca (${porcentaje(v)})` : v < 0.7 ? `media (${porcentaje(v)})` : `mucha (${porcentaje(v)})`),

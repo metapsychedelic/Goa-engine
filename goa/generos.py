@@ -58,6 +58,19 @@ GENEROS = {
         "llamada": {"golpes": 3, "gate": 0.7, "oscuridad": 0.45},
         "respuesta": {"golpes": 2, "gate": 0.8, "oscuridad": 0.45},
     },
+    # Zenon / dark prog (0.96): de lo aprendido de Dekel y del zenonesque: bajo de notas largas
+    # que dejan libre el bombo, armonía quieta (va y vuelve cada 16), secuencias escasas en ciclos
+    # impares y una sola cosa que cambia a la vez. Pide 132-138 BPM en la Circuit.
+    "zenon": {
+        "nombre": "Zenon / dark prog",
+        "musica": {"escala": "frigio", "desplazamiento": 0.1, "tension": 0.4},
+        "forma": {"un_cambio": True, "espacio_bombo": 0.3},
+        "pads": {"progresion": "i_bVII_bVI_bVII", "acorde": "menor_add9", "cambia_cada": 16, "apertura": "abierta",
+                 "ataque": "ligado", "drone": False, "rasgueo": 1, "pulso": 0, "variacion": 0.05, "suspensiones": 0.3},
+        "dialogo": {"rejilla": "semicorcheas", "espacio": 3, "evolucion": 0.3, "mutar_cada": 8},
+        "llamada": {"golpes": 3, "gate": 0.35, "oscuridad": 0.85},
+        "respuesta": {"golpes": 2, "gate": 0.35, "oscuridad": 0.85},
+    },
     "ambient": {
         "nombre": "Ambient",
         "musica": {"escala": "lidio", "desplazamiento": 0.6, "tension": 0.1},
@@ -76,6 +89,8 @@ SECUENCIAS = {
     "psy_chill": {"posicion": "offbeat", "largo": 16, "gate": 0.5, "pedal": 0.6, "swing": 0.05, "largas": 0.0},
     "chillgressive": {"posicion": "offbeat", "largo": 16, "gate": 0.45, "pedal": 0.55, "swing": 0.0, "largas": 0.0},
     "chillout": {"posicion": "todos", "largo": 16, "gate": 0.9, "pedal": 0.5, "swing": 0.1, "largas": 0.6},
+    "zenon": {"posicion": "todos", "largo": 16, "gate": 0.4, "pedal": 0.6, "swing": 0.08, "largas": 0.0,
+              "figura": "ciclo", "ciclo": 5, "respuesta_par": 0.4},
     "ambient": {"posicion": "todos", "largo": 13, "gate": 1.0, "pedal": 0.4, "swing": 0.0, "largas": 1.0},
 }
 for _g, _s in SECUENCIAS.items():
@@ -84,17 +99,19 @@ for _g, _s in SECUENCIAS.items():
 # Bajo por género: su estilo y cuánto camina.
 BAJO = {
     "goa": {"estilo": "rolling", "gate": 0.6, "movimiento": 0.3, "frase": 4, "octava": 0,
-            "evolucion": 0.3, "swing": 0.0, "slide": 0.0},
+            "evolucion": 0.3, "swing": 0.0, "slide": 0.0, "arco": 0.0},
     "psytrance": {"estilo": "rolling", "gate": 0.5, "movimiento": 0.2, "frase": 4, "octava": 0,
-                  "evolucion": 0.2, "swing": 0.0, "slide": 0.0},
+                  "evolucion": 0.2, "swing": 0.0, "slide": 0.0, "arco": 0.0},
     "psy_chill": {"estilo": "galope", "gate": 0.7, "movimiento": 0.4, "frase": 4, "octava": 0,
-                  "evolucion": 0.3, "swing": 0.05, "slide": 0.1},
+                  "evolucion": 0.3, "swing": 0.05, "slide": 0.1, "arco": 0.0},
     "chillgressive": {"estilo": "chillgressive", "gate": 0.45, "movimiento": 0.3, "frase": 8, "octava": 0,
-                      "evolucion": 0.2, "swing": 0.0, "slide": 0.0},
+                      "evolucion": 0.2, "swing": 0.0, "slide": 0.0, "arco": 0.0},
     "chillout": {"estilo": "dub", "gate": 0.9, "movimiento": 0.5, "frase": 4, "octava": 0,
-                 "evolucion": 0.3, "swing": 0.1, "slide": 0.0},
+                 "evolucion": 0.3, "swing": 0.1, "slide": 0.0, "arco": 0.0},
+    "zenon": {"estilo": "zenon", "gate": 0.95, "movimiento": 0.0, "frase": 4, "octava": 0,
+              "evolucion": 0.15, "swing": 0.08, "slide": 0.0, "arco": 0.5},
     "ambient": {"estilo": "sub", "gate": 1.0, "movimiento": 0.0, "frase": 4, "octava": -1,
-                "evolucion": 0.2, "swing": 0.0, "slide": 0.0},
+                "evolucion": 0.2, "swing": 0.0, "slide": 0.0, "arco": 0.0},
 }
 
 # Estilos de bajo que muestra cada género (el primero es el que pone al elegir el género).
@@ -104,6 +121,7 @@ ESTILOS_BAJO_POR_GENERO = {
     "psy_chill": ("galope", "offbeat", "saltado", "dub", "zenon"),
     "chillgressive": ("chillgressive", "rolling", "offbeat", "galope", "sincopado", "trote"),
     "chillout": ("dub", "offbeat", "sub"),
+    "zenon": ("zenon", "trote", "offbeat", "sincopado", "dub"),
     "ambient": ("sub", "dub"),
 }
 
@@ -150,6 +168,9 @@ def aplicar(cfg, genero, parte=None, indice=None):
             s["posicion"] = POSICION_NECESARIA[s["estilo"]]
     if parte is None:
         nueva["musica"].update(perfil["musica"], genero=genero)
+        # Lo del género que vive en la forma (Zenon: un cambio a la vez y espacio para el
+        # bombo); los otros géneros lo apagan.
+        nueva["forma"].update(perfil.get("forma", {"un_cambio": False, "espacio_bombo": 0.0}))
         for s in nueva.get("secuencia") or []:
             s.update(SECUENCIAS[genero], genero=genero)
     return nueva

@@ -49,10 +49,11 @@ PALETAS = {
     "psy_chill": {"zap": 1, "burbujas": 3, "acido": 1, "glitch": 1, "barrido": 2, "gate": 1, "eco": 3, "escalera": 1},
     "chillgressive": {"zap": 2, "burbujas": 2, "acido": 2, "glitch": 2, "barrido": 2, "gate": 2, "eco": 2, "escalera": 2},
     "chillout": {"zap": 1, "burbujas": 3, "acido": 0, "glitch": 0, "barrido": 2, "gate": 0, "eco": 3, "escalera": 1},
+    "zenon": {"zap": 1, "burbujas": 2, "acido": 1, "glitch": 2, "barrido": 2, "gate": 1, "eco": 2, "escalera": 0},
     "ambient": {"zap": 0, "burbujas": 1, "acido": 0, "glitch": 0, "barrido": 2, "gate": 0, "eco": 2, "escalera": 0},
 }
 # Cuánto aparecen los gestos en cada género (multiplica la locura).
-DENSIDAD_GENERO = {"goa": 1.0, "psytrance": 0.9, "psy_chill": 0.7, "chillgressive": 0.8, "chillout": 0.5, "ambient": 0.35}
+DENSIDAD_GENERO = {"goa": 1.0, "psytrance": 0.9, "psy_chill": 0.7, "chillgressive": 0.8, "chillout": 0.5, "zenon": 0.45, "ambient": 0.35}
 
 DONDE = ("frase", "compas", "tiempo")
 FONDO_NOTAS = ("raiz", "acorde", "quinta", "octavas")

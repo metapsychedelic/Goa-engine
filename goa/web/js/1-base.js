@@ -44,12 +44,13 @@ const ACORDES = [["quintas","Quintas abiertas"],["sus2","Sus2"],["menor_add9","M
 const ESCALA_CIRCUIT = {frigio: ["Phrygian", 0], menor_armonica: ["Harmonic Minor", 0], frigio_dominante: ["Harmonic Minor", 5],
   menor: ["Natural Minor", 0], hungara_menor: ["Hungarian Minor", 0], dorico: ["Dorian", 0], lidio: ["Major", 7], doble_armonica: ["Hungarian Minor", 5]};
 const ESCALAS = [["frigio","Frigio"],["menor_armonica","Menor armónica"],["frigio_dominante","Frigio dominante"],["menor","Menor natural"],["hungara_menor","Húngara menor"],["dorico","Dórica"],["lidio","Lidia"],["doble_armonica","Doble armónica"]];
-const GENEROS = [["goa","Goa"],["psytrance","Psytrance"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["chillout","Chillout"],["ambient","Ambient"]];
+const GENEROS = [["goa","Goa"],["psytrance","Psytrance"],["psy_chill","Psy chill"],["chillgressive","Chillgressive"],["chillout","Chillout"],["zenon","Zenon / dark prog"],["ambient","Ambient"]];
 const GENERO_TEXTO = {goa: "Frigio, i – ♭II, llamada y respuesta en corcheas, pegada al beat.",
   psytrance: "Frigio, i – ♭II cada 16 compases, riffs con huecos para el bombo, notas cortas y bajo rolling.",
   psy_chill: "Dórica, i – IV – i – ♭VII con pulso suave en los pads, motivos cortos.",
   chillgressive: "Menor, i – ♭VI – ♭VII – v cada 8 compases, diálogo en semicorcheas.",
   chillout: "Menor, acordes de séptima y novena juntos, notas largas y algo de swing.",
+  zenon: "Frigio, i – ♭VII – ♭VI – ♭VII cada 16 compases, bajo Zenon de notas largas que arquean, secuencias escasas en ciclos de 5 y una sola cosa que cambia a la vez. Pon la Circuit a 132-138 BPM.",
   ambient: "Lidia, drone y acordes que duran 16 compases, voces que entran de a una, mucho espacio."};
 const nombreGenero = (g) => (GENEROS.find((x) => x[0] === g) || [g, g])[1];
 function desplTexto(x) {

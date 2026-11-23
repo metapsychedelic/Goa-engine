@@ -77,6 +77,9 @@ class Secuencia:
         self.seed = str(cfg.get("seed", "goa"))
         self.mutacion = float(cfg.get("mutacion", 0.0))
         self.mutar_cada = max(1, int(cfg.get("mutar_cada", 8)))
+        # Respuesta en el compás par (de los packs: la variación cae en el 2.º compás de cada
+        # par y sobre todo en el tiempo 4): esa proporción de notas del último tiempo cambia.
+        self.respuesta_par = max(0.0, min(1.0, float(cfg.get("respuesta_par", 0.0))))
         self.mutacion_ritmo = float(cfg.get("mutacion_ritmo", 0.0))
         self.bloqueada = bool(cfg.get("bloqueada", False))
         self.velocidad = int(cfg.get("velocidad", 100))

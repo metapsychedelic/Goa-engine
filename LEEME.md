@@ -496,6 +496,14 @@ swampy: la variante elige la figura (una sacada de «Sons of Earth» de Dekel & 
 el **Arco de altura** las notas largas suben (una octava por defecto) y vuelven con el pitch
 bend; pon el rango de bend de tu sinte.
 
+En la 0.96 lo aprendido se aplica al resto: el género **Zenon / dark prog** (bajo Zenon con
+arco, secuencias en ciclo de 5, FX escasos; pon la Circuit a 132-138 BPM), y en Tema ›
+variación larga: **Un cambio a la vez** (el director mueve una sola cosa por período y
+puede tocar el arco o el filtro del bajo), **Armonía según la energía** (en el drop los
+pads se callan y la armonía la lleva el bajo; en el breakdown suenan) y **Espacio para
+el bombo** (bajo y secuencias se cortan justo antes de cada bombo). Cada secuencia tiene
+**Respuesta en el compás par**: el último tiempo del 2.º compás de cada par cambia de notas.
+
 En Notas, cualquier secuencia tiene además: **Deslices de notas** (opcional; en 0
 no cambia nada): notas de gracia, ligados y notas que respiran en vez de la raíz
 martillada y aproximaciones al adorno que viene, sin cambiar la escala. **Raga**: Bhairav, Bhairavi, Todi, Marwa o Hijaz

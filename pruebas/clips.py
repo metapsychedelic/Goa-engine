@@ -12,6 +12,7 @@ import threading
 import urllib.request
 from pathlib import Path
 
+from goa import generos
 from goa.config import cargar, normalizar
 from goa.motor import Motor
 from goa.web import Contexto, crear_servidor
@@ -78,7 +79,7 @@ def main():
 
     print("\nFábrica (secuencia)")
     fab = get("/api/clips/fabrica?motor=secuencia")["clips"]
-    todo &= ok(len(fab) == 6 and all(c["con_variante"] is False for c in fab), "seis clips de fábrica, sin variante")
+    todo &= ok(len(fab) == len(generos.ORDEN) and all(c["con_variante"] is False for c in fab), "un clip de fábrica por género, sin variante")
     cambiar(seed="DDDD", posicion="offbeat")
     post("/api/lanzar", {"fila": 0, "fabrica": "ambient"})
     s = get("/api/config")["secuencia"][0]

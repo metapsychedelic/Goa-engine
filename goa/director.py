@@ -14,6 +14,12 @@ dos cambios nuevos para el período que empieza:
 - **Protagonista:** un motor queda adelante y los otros dejan espacio (tocan
   menos notas).
 
+Con «un cambio a la vez» (zenonesque: frases largas donde se mueve una sola cosa)
+hace a lo más un cambio por período y suma dos que tocan el bajo:
+
+- **Arco del bajo:** las notas largas del bajo empiezan (o dejan) de arquear.
+- **Bajo se abre:** el filtro automático del bajo sube un tramo.
+
 Una secuencia congelada queda fuera: el director no la toca.
 
 No toca la configuración: cambia los motores que suenan y todo vuelve solo al
@@ -26,7 +32,7 @@ from collections import deque
 
 from . import generador
 
-TIPOS = ("hermana", "recuerdo", "octava", "roles", "pads_guian", "protagonista")
+TIPOS = ("hermana", "recuerdo", "octava", "roles", "pads_guian", "protagonista", "bajo_arco", "bajo_abre")
 TRANSFORMACIONES = ("corrido", "tercera", "espejo")
 
 
@@ -121,6 +127,12 @@ class Director:
                 self._poner(re, clave, dict(zip(("salida", "canal", "octava"), a)))
             elif tipo == "pads_guian":
                 self._poner(motor.pads, clave, {"suenan": False})
+            elif tipo == "bajo_arco":
+                b = motor.bajo
+                self._poner(b, clave, {"arco": 0.0 if b.arco > 0 else 0.6})
+            elif tipo == "bajo_abre":
+                b = motor.bajo
+                self._poner(b, clave, {"filtro_min": min(127, b.filtro_min + 20), "filtro_max": min(127, b.filtro_max + 20)})
             elif tipo == "protagonista":
                 for i, s in enumerate(motor.secuencias):
                     if f"sec{i}" != objetivo and not s.bloqueada:
@@ -136,13 +148,13 @@ class Director:
                 self._sacar(s, clave)
                 if tipo in ("hermana", "recuerdo"):
                     self._sacar_patron(s)
-            for obj in (motor.pads, motor.dialogo.llamada, motor.dialogo.respuesta):
+            for obj in (motor.pads, motor.dialogo.llamada, motor.dialogo.respuesta, motor.bajo):
                 self._sacar(obj, clave)
         self.efectos = []
 
     # --- Cada compás ---
 
-    def compas(self, motor, compas, variacion, periodo, semilla):
+    def compas(self, motor, compas, variacion, periodo, semilla, un_cambio=False):
         """Al inicio de cada compás. En el borde de un período cambia lo que hace."""
         if compas <= 0 or compas % periodo:
             self.aplicar(motor)
@@ -151,10 +163,10 @@ class Director:
         for i, s in enumerate(motor.secuencias):
             self.memoria.setdefault(i, deque(maxlen=4)).append(copy.deepcopy(s.patron))
         if variacion > 0:
-            self.efectos = self._elegir(motor, random.Random(f"director:{semilla}:{compas}"), variacion, compas)
+            self.efectos = self._elegir(motor, random.Random(f"director:{semilla}:{compas}"), variacion, compas, un_cambio)
         self.aplicar(motor)
 
-    def _elegir(self, motor, rng, variacion, compas):
+    def _elegir(self, motor, rng, variacion, compas, un_cambio=False):
         secs = [i for i, s in enumerate(motor.secuencias) if s.activa]
         dialogo = motor.dialogo.activo and motor.dialogo.modo == "motor"
         otros = len(secs) + (1 if dialogo else 0) + (1 if motor.bajo.activo else 0)
@@ -176,7 +188,13 @@ class Director:
         candidatos = [f"sec{i}" for i in secs] + (["dialogo"] if dialogo else [])
         if len(candidatos) >= 2:
             posibles.append(("protagonista", None))
+        if un_cambio and motor.bajo.activo and motor.bajo.estilo not in ("sub", "dub"):
+            posibles.append(("bajo_arco", None))
+            if motor.bajo.filtro:
+                posibles.append(("bajo_abre", None))
         cuantos = (1 if rng.random() < variacion else 0) + (1 if rng.random() < variacion - 0.5 else 0)
+        if un_cambio:
+            cuantos = min(cuantos, 1)  # una sola cosa por período
         efectos = []
         for _ in range(cuantos):
             libres = [p for p in posibles if p[1] is None or all(e[1] != p[1] for e in efectos)]
@@ -217,6 +235,10 @@ class Director:
                 textos.append("Diálogo: cambian de sinte")
             elif tipo == "pads_guian":
                 textos.append("Pads: solo guían")
+            elif tipo == "bajo_arco":
+                textos.append("Bajo: " + ("deja de arquear" if motor.bajo.arco == 0 else "arquea"))
+            elif tipo == "bajo_abre":
+                textos.append("Bajo: se abre el filtro")
             elif tipo == "protagonista":
                 textos.append("Adelante: " + ("diálogo" if objetivo == "dialogo" else nombre(int(objetivo[3:]))))
         return textos

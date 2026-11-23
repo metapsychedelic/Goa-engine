@@ -48,6 +48,7 @@ ESTILOS_POR_GENERO = {
     "psy_chill": ("psy_chill", "galope", "arpegio3"),
     "chillgressive": ("rolling", "euclidiano", "acido"),
     "chillout": ("largas", "euclidiano", "arpegio3"),
+    "zenon": ("clasico", "psytrance", "euclidiano"),
     "ambient": ("ambient", "largas", "arpegio3"),
 }
 

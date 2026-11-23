@@ -728,6 +728,10 @@ function bloqueForma() {
     deslizador(f, "variacion", "Variación larga", 0, 1, 0.05, (x) => x === 0 ? "apagada" : x < 0.35 ? `poca (${porcentaje(x)})` : x < 0.7 ? `media (${porcentaje(x)})` : `mucha (${porcentaje(x)})`),
     el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Cambia cada (compases)"}), chips]),
     el("span", {className: "mut", id: "director_linea", textContent: ""}),
+    casilla(f, "un_cambio", "Un cambio a la vez", "Zenonesque: en cada período cambia una sola cosa (y puede tocar el arco o el filtro del bajo)"),
+    casilla(f, "pads_por_energia", "Armonía según la energía", "Con mucha energía (drop) los pads se callan y la armonía la lleva el bajo; con poca (breakdown) los acordes suenan"),
+    deslizador(f, "espacio_bombo", "Espacio para el bombo", 0, 1, 0.05, (x) => x === 0 ? "apagado" : `se cortan ${Math.max(1, Math.round(x * 6))}/6 de semicorchea antes`),
+    ayuda("Como en los temas de Dekel: el bajo y las secuencias se cortan justo antes de cada bombo y vuelven después, un sidechain hecho con las notas."),
   ]);
 }
 

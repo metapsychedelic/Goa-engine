@@ -101,7 +101,7 @@ def resumen(escena):
     if d.get("texturas", {}).get("activo"):
         suenan.append("texturas")
     genero = {"goa": "Goa", "psytrance": "Psytrance", "psy_chill": "Psy chill", "chillgressive": "Chillgressive",
-              "chillout": "Chillout", "ambient": "Ambient"}.get(d.get("musica", {}).get("genero"), "")
+              "chillout": "Chillout", "zenon": "Zenon", "ambient": "Ambient"}.get(d.get("musica", {}).get("genero"), "")
     return f"{genero} · {', '.join(suenan) or 'silencio'}"
 
 
@@ -160,6 +160,22 @@ def energizar(cfg, energia):
         c["fx"]["locura"] = round(_limitar(_escala(c["fx"]["locura"], f)), 3)
     if "texturas" in c:
         c["texturas"]["densidad"] = round(_limitar(_escala(c["texturas"]["densidad"], f)), 3)
+    return c
+
+
+# Armonía según la parte (de los MIDIs de los packs): en los breakdowns los acordes
+# suenan y se sostienen; en el drop la armonía la lleva el bajo y los pads solo guían.
+ENERGIA_DROP = 0.75
+ENERGIA_CALMA = 0.35
+
+
+def armonia_por_energia(cfg, energia):
+    """Con mucha energía los pads se callan (siguen guiando la armonía: el bajo y las
+    secuencias la siguen); con poca suenan aunque estuvieran callados. En el medio, como estén."""
+    if ENERGIA_CALMA < energia < ENERGIA_DROP:
+        return cfg
+    c = copia.config(cfg)
+    c["pads"]["suenan"] = energia <= ENERGIA_CALMA
     return c
 
 
@@ -538,6 +554,8 @@ class Conductor:
             cfg = con_piloto(cfg, sec[0], sec[1])
         energia = self.energia if self.energia is not None else cfg["forma"]["energia"]
         cfg = energizar(cfg, energia)
+        if base.get("forma", {}).get("pads_por_energia") and cfg["pads"]["activo"]:
+            cfg = armonia_por_energia(cfg, energia)
         parte = self.parte(base, compas)
         if parte is not None:
             p = base["parte"][parte["i"]]

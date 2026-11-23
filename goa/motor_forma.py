@@ -487,7 +487,7 @@ class FormaMotor:
         self.conductor.terminar_si_corresponde(compas)
         f = self.base.get("forma", {})
         self.director.compas(self, compas, float(f.get("variacion", 0.0)), max(1, int(f.get("periodo", 16))),
-                             self.base.get("pads", {}).get("seed", ""))
+                             self.base.get("pads", {}).get("seed", ""), bool(f.get("un_cambio", False)))
 
     def _origen_nueva(self, compas, antes, despues):
         """Compás donde parte una progresión nueva. Normalmente en su i. Pero si solo

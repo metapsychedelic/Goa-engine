@@ -172,6 +172,9 @@ ESQUEMA_SECCIONES["forma"] = {
     "escena": (int, -1, -1, forma.MAX_ESCENAS - 1),  # la última escena lanzada (-1 = ninguna)
     "variacion": (float, 0.4, 0.0, 1.0),     # cuánto cambia el director en cada período
     "periodo": (int, 16, 8, 32),             # compases de cada período del director
+    "un_cambio": (bool, False, None, None),  # el director cambia una sola cosa por período (zenonesque)
+    "pads_por_energia": (bool, False, None, None),  # con mucha energía los pads solo guían; con poca suenan
+    "espacio_bombo": (float, 0.0, 0.0, 1.0), # bajo y secuencias se cortan antes de cada bombo (0 = no)
     "piloto": (bool, False, None, None),     # piloto automático: intro, build, clímax, break, drop
     "duracion": (str, "normal", None, tuple(forma.DURACIONES)),
 }
@@ -401,6 +404,7 @@ ESQUEMA_SECUENCIA = {
     "seed": (str, "goa", None, None),
     "mutacion": (float, 0.0, 0.0, 1.0),
     "mutar_cada": (int, 8, 1, 64),
+    "respuesta_par": (float, 0.0, 0.0, 1.0),  # en el 2.º compás de cada par, el último tiempo cambia de notas
     "mutacion_ritmo": (float, 0.0, 0.0, 1.0),
     "bloqueada": (bool, False, None, None),
     "velocidad": (int, 96, 1, 127),

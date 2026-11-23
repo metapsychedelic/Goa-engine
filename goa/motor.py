@@ -30,6 +30,9 @@ MITAD_COMPAS = 48   # pulso en que se pide el loop de la MC-101 (ver Motor._loop
 log = logging.getLogger("goa")
 
 
+GRADOS_PAR = (6, 4, 2, 7, 1)  # ♭7, 5.ª, ♭3, octava, ♭2 (grados de escala desde la raíz)
+
+
 class Motor(FormaMotor):
     def __init__(self, config, enviar):
         self.enviar = enviar
@@ -610,6 +613,7 @@ class Motor(FormaMotor):
         self.bajo.tick(self.tick, self.enviar)
         self.fx.tick(self.tick, self.enviar)
         self.texturas.tick(self.tick, self.enviar)
+        self._espacio_bombo()
         if self.tick % TICKS_POR_PASO == 0:
             self._paso(self.tick // TICKS_POR_PASO)
         elif self.tick % TICKS_POR_PASO == 2:
@@ -626,6 +630,33 @@ class Motor(FormaMotor):
             if not self._en_hueco(paso):
                 self.pads.actualizar(self.tick // TICKS_POR_PASO, raiz, self.tick, self.enviar)
         self.tocado.pulso(self.tick, self._momento_tocado, self.enviar)
+
+    def _espacio_bombo(self):
+        """Espacio para el bombo (los temas de Dekel): poco antes de cada tiempo se cortan
+        las notas del bajo y de las secuencias que seguirían sonando encima del bombo, como
+        un sidechain hecho con las notas. Lo que entra en el tiempo o después no se toca;
+        el bajo sub (un drone) tampoco."""
+        espacio = float((self.base or {}).get("forma", {}).get("espacio_bombo", 0.0))
+        if espacio <= 0:
+            return
+        antes = max(1, round(espacio * TICKS_POR_PASO))
+        tiempo = 4 * TICKS_POR_PASO
+        if (self.tick + antes) % tiempo:
+            return
+        b = self.bajo
+        if b.activo and b.estilo != "sub":
+            for nota in [n for n, fin in b.sonando.items() if fin > self.tick]:
+                self.enviar(b.salida, "note_off", b.canal, nota, 0)
+                del b.sonando[nota]
+            if b.bends:
+                b.bends = []  # la caída o el arco de la nota cortada no siguen
+                if b.bend_movido:
+                    self.enviar(b.salida, "pitchwheel", b.canal, 0, 0)
+                    b.bend_movido = False
+        for s in self.secuencias:
+            for nota in [n for n, fin in s.sonando.items() if fin > self.tick]:
+                self.enviar(s.salida, "note_off", s.canal, nota, 0)
+                del s.sonando[nota]
 
     # --- Tocado: el teclado de la MicroFreak ---
 
@@ -837,6 +868,13 @@ class Motor(FormaMotor):
             i = _indice(s, fuente)
             p = s.patron[i]
             x = s.extra[p.get("fuente", i)]
+            if s.respuesta_par and (paso // 16) % 2 == 1 and paso % 16 >= 12 and p["suena"]:
+                # Respuesta en el compás par: el último tiempo del 2.º compás de cada par toma
+                # otras notas (♭7, 5.ª, ♭3, octava, ♭2), distintas cada par y repetibles.
+                vuelta = (paso // 32) % 4
+                if azar_fijo(f"{s.seed}:par:{vuelta}:{paso % 16}") < s.respuesta_par:
+                    grados = GRADOS_PAR
+                    p = dict(p, grado=grados[int(azar_fijo(f"{s.seed}:par-g:{vuelta}:{paso % 16}") * len(grados))])
             # Filtro (molde, opcional): la seed arma las notas y el filtro decide cuáles pasan.
             celda = celda_molde(s.molde_vivo, s.molde_prob, s.seed, paso, s.filtro)
             if (raiz is None or not s.activa or celda == "-" or not generador.pasa_posicion(s.posicion, fuente)
