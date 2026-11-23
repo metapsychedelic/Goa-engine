@@ -257,6 +257,8 @@ details.grupo.parte-actual{border-color:var(--acc)}
 .mute.piloto{border-style:dotted}
 .guardado{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:6;max-width:calc(100vw - 32px)}
 .guardado.ver{opacity:1}
+.guardado.accion{display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:auto;padding:4px 6px 4px 16px;width:min(360px,calc(100vw - 32px))}
+.aviso-deshacer{min-height:36px;padding:0 12px;border-color:var(--acc);color:var(--acc);font-size:13px}
 .guardado.error{color:var(--bad);border-color:#8C3B42}
 
 html{background:var(--bg)}
@@ -548,6 +550,25 @@ function el(tag, props = {}, hijos = []) {
   return e;
 }
 
+function avisoDeshacer(texto, deshacerFn) {
+  // En vez de preguntar antes: lo hace, y el aviso trae «Deshacer» por unos segundos.
+  const a = $("aviso");
+  const b = el("button", {type: "button", className: "aviso-deshacer", textContent: "Deshacer", onclick: async () => {
+    a.className = "guardado"; try { await deshacerFn(); aviso("Deshecho"); } catch (e) { aviso(e.message, true); } }});
+  a.replaceChildren(el("span", {textContent: texto}), b);
+  a.className = "guardado ver accion";
+  clearTimeout(a._t);
+  a._t = setTimeout(() => a.className = "guardado", 6000);
+}
+const deshacerUltimo = async () => { await enviarPendiente(); await api("/api/deshacer", {}); await recargar(); estado(); };
+const fotoPartes = () => JSON.parse(JSON.stringify({escena: cfg.escena, parte: cfg.parte, nombre: cfg.cancion.nombre}));
+async function volverPartes(f) {
+  await enviarPendiente();
+  await api("/api/escena/restaurar", {escena: f.escena, parte: f.parte});
+  cfg = await (await fetch("/api/config")).json();
+  cfg.cancion.nombre = f.nombre; await api("/api/config", cfg);
+  await recargar(); estado();
+}
 function aviso(texto, error = false) {
   const a = $("aviso");
   a.textContent = texto;
@@ -847,8 +868,9 @@ function pintarEdicion(e) {
   if (!b.firstChild) {
     b.append(el("span", {className: "t"}),
       el("button", {type: "button", textContent: "Descartar", onclick: async () => {
-        if (!confirm(`¿Volver «${edicion.nombre}» a como estaba antes de editarla?`)) return;
-        try { await api("/api/editar/descartar"); await recargar(); await estado(); aviso("Escena como estaba"); } catch (x) { aviso(x.message, true); } }}),
+        const f = fotoPartes(), nombre = edicion.nombre;
+        try { await enviarPendiente(); await api("/api/editar/descartar"); await recargar(); await estado();
+          avisoDeshacer(`«${nombre}» como estaba`, () => volverPartes(f)); } catch (x) { aviso(x.message, true); } }}),
       el("button", {type: "button", className: "prim", textContent: "Listo", onclick: async () => {
         try { await api("/api/editar/listo"); await recargar(); await estado(); aviso(`«${edicion ? edicion.nombre : "Escena"}» guardada`); } catch (x) { aviso(x.message, true); } }}));
   }
@@ -919,8 +941,8 @@ function botonRestaurar(quien, titulo, datos, conserva) {
   const b = el("button", {type: "button", className: "icono-mini", title: "Restaurar ajustes de fábrica",
     "aria-label": `Restaurar ajustes de fábrica de ${quien}`,
     onclick: async () => {
-      if (!confirm(`¿Volver ${quien} a los ajustes de fábrica?\n\nTodos sus controles vuelven a los valores de fábrica y se deshacen sus mutaciones. ${conserva}`)) return;
-      try { await enviarPendiente(); const d = await api("/api/fabrica", datos); await recargar(); aviso(d.igual ? `${titulo} ya estaba en ajustes de fábrica` : `${titulo} en ajustes de fábrica`); estado(); }
+      try { await enviarPendiente(); const d = await api("/api/fabrica", datos); await recargar(); estado();
+        if (d.igual) aviso(`${titulo} ya estaba en ajustes de fábrica`); else avisoDeshacer(`${titulo} en ajustes de fábrica`, deshacerUltimo); }
       catch (e) { aviso(e.message, true); }
     }});
   b.innerHTML = ICONO_FABRICA;
@@ -1241,7 +1263,7 @@ function panelSecuencia(i) {
         el("div", {className: "dos"}, [numeroDe(s, "canal", "Canal MIDI", 1, 16, renderMotores), numeroDe(s, "disparo", "Canal de su nota larga (0 = general)", 0, 16, renderMotores)]),
         programaDe(s),
         el("button", {type: "button", textContent: "Eliminar secuencia", style: "color:var(--bad);border-color:var(--badline)",
-          onclick: () => { if (confirm(`¿Eliminar la secuencia ${s.nombre}?`)) { cfg.secuencia.splice(i, 1); motorSel = "pads"; render(); guardar(); } }}),
+          onclick: async () => { cfg.secuencia.splice(i, 1); motorSel = "pads"; render(); await enviarConfig(); avisoDeshacer(`Secuencia ${s.nombre} eliminada`, deshacerUltimo); }}),
       ]),
     ]),
     cfg.parte && cfg.parte.length ? el("div", {style: "display:flex;flex-direction:column"}, [
@@ -2090,7 +2112,6 @@ function clipsSecuencia(fi) {
   if (!cfg.clip.length) return el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay clips."});
   cfg.clip.forEach((c, ci) => fila.append(borrarClips
     ? el("button", {className: "clip", textContent: "Borrar " + c.nombre, style: "color:var(--bad)", onclick: async () => {
-        if (!confirm(`¿Borrar el clip ${c.nombre}?`)) return;
         try { await api("/api/clip/borrar", {indice: ci}); await recargar(); } catch (e) { aviso(e.message, true); } }})
     : el("button", {className: "clip", textContent: c.nombre, "data-clip": c.nombre,
         onclick: async () => { try { await api("/api/lanzar", {fila: fi, clip: ci}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }})));
@@ -2106,7 +2127,6 @@ function clipsDialogo() {
   const fila = el("div", {className: "clips", "data-fila-dialogo": "1"});
   dialogos.forEach((c, ci) => fila.append(borrarClips
     ? el("button", {className: "clip", textContent: "Borrar " + c.nombre, style: "color:var(--bad)", onclick: async () => {
-        if (!confirm(`¿Borrar el clip de diálogo ${c.nombre}?`)) return;
         try { await api("/api/dialogo/clip/borrar", {indice: ci}); await recargar(); } catch (e) { aviso(e.message, true); } }})
     : el("button", {className: "clip", textContent: c.nombre, "data-clip": c.nombre,
         onclick: async () => { try { await api("/api/dialogo/lanzar", {clip: ci}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }})));
@@ -2555,8 +2575,8 @@ async function guardarEscena(i) {
 }
 
 async function borrarEscena(i) {
-  if (!confirm(`¿Borrar la escena ${cfg.escena[i].nombre}?`)) return;
-  try { await api("/api/escena/borrar", {indice: i}); await recargar(); } catch (e) { aviso(e.message, true); }
+  const f = fotoPartes(), nombre = cfg.escena[i].nombre;
+  try { await api("/api/escena/borrar", {indice: i}); await recargar(); avisoDeshacer(`Escena ${nombre} borrada`, () => volverPartes(f)); } catch (e) { aviso(e.message, true); }
 }
 
 // --- Canción ---
@@ -2619,8 +2639,9 @@ function bloqueParte(p, i) {
     ].filter(Boolean)),
     el("div", {}, [
       el("button", {type: "button", textContent: "Guardar lo que suena", style: "width:100%",
-        onclick: () => { if (p.escena < 0 || confirm(`¿Guardar lo que suena ahora en la escena de ${p.nombre}? Cambia en todas las partes que usan esa escena.`))
-          accionParte("/api/parte/guardar", {indice: i}, `Guardado en ${p.nombre}`); }}),
+        onclick: async () => { const f = fotoPartes();
+          await accionParte("/api/parte/guardar", {indice: i}, `Guardado en ${p.nombre}`);
+          if (f.parte[i] && f.parte[i].escena >= 0) avisoDeshacer(`Guardado en ${p.nombre}`, () => volverPartes(f)); }}),
     ]),
     deslizador(p, "energia", "Energía al empezar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
     deslizador(p, "energia_fin", "Energía al terminar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
@@ -2641,7 +2662,8 @@ function bloqueParte(p, i) {
         el("button", {type: "button", textContent: "↑", "aria-label": "Subir", disabled: i === 0, onclick: () => mover(-1)}),
         el("button", {type: "button", textContent: "↓", "aria-label": "Bajar", disabled: i === cfg.parte.length - 1, onclick: () => mover(1)})]),
       el("button", {type: "button", textContent: "Borrar parte", style: "color:var(--bad)",
-        onclick: () => { if (confirm(`¿Borrar la parte ${p.nombre}? (su escena no se borra)`)) { cfg.parte.splice(i, 1); renderCancion(); guardar(); } }}),
+        onclick: async () => { const f = fotoPartes(); cfg.parte.splice(i, 1); renderCancion(); await enviarConfig();
+          avisoDeshacer(`Parte ${p.nombre} borrada`, () => volverPartes(f)); }}),
     ]),
   ]);
   g.dataset.parte = i;
@@ -2650,6 +2672,17 @@ function bloqueParte(p, i) {
   return g;
 }
 
+async function limpiarTodo() {
+  // Lo que suena (o la parte que editas): todos los motores y las secuencias a sus valores
+  // de fábrica y en silencio; quedan sus salidas y canales. Se puede deshacer.
+  const nombre = edicion ? `«${edicion.nombre}»` : "Lo que suena";
+  try {
+    await enviarPendiente();
+    await api("/api/limpiar", {});
+    await recargar(); estado();
+    avisoDeshacer(`${nombre}: todo de fábrica y en silencio`, deshacerUltimo);
+  } catch (e) { aviso(e.message, true); }
+}
 async function cargarPlantilla() {
   let lista = [];
   try { lista = (await (await fetch("/api/plantillas")).json()).plantillas; } catch (e) { aviso("Sin conexión con la Pi", true); return; }
@@ -2659,8 +2692,9 @@ async function cargarPlantilla() {
   if (r === null) return;
   const p = lista[parseInt(r) - 1];
   if (!p) { aviso("Ese número no está en la lista", true); return; }
-  if (cfg.parte.length && !confirm(`Reemplaza las ${cfg.parte.length} partes que tienes por las de ${p.nombre}. Tus escenas no se borran. ¿Seguir?`)) return;
-  accionParte("/api/cancion/plantilla", {clave: p.clave}, `${p.nombre} cargada: elige qué suena en cada parte`);
+  const f = fotoPartes();
+  await accionParte("/api/cancion/plantilla", {clave: p.clave}, `${p.nombre} cargada: elige qué suena en cada parte`);
+  if (f.parte.length) avisoDeshacer(`${p.nombre} cargada`, () => volverPartes(f));
 }
 
 async function actualizarConPlantilla() {
@@ -2677,14 +2711,14 @@ async function actualizarConPlantilla() {
     clave = p.clave;
   }
   const nombre = lista.find((p) => p.clave === clave).nombre;
-  if (!confirm(`Pone los largos de las partes como en ${nombre} y suma las partes nuevas. Tus escenas, energías, entradas y apoyos se quedan. ¿Seguir?`)) return;
+  const fotoAntes = fotoPartes();
   try {
     clearTimeout(temporizador); await api("/api/config", cfg);
     const r = await api("/api/cancion/actualizar", {clave});
     await recargar(); estado();
     const cambios = r.cambios || [];
     if (!cambios.length) aviso("Tu canción ya estaba al día");
-    else { aviso(`${cambios.length} cambios`); alert("Cambios:\n" + cambios.join("\n")); }
+    else avisoDeshacer(`${cambios.length} cambio${cambios.length === 1 ? "" : "s"}: ${cambios.slice(0, 2).join(" · ")}${cambios.length > 2 ? "…" : ""}`, () => volverPartes(fotoAntes));
   } catch (e) { aviso(e.message, true); }
 }
 
@@ -2741,8 +2775,7 @@ async function editarMotorEnParte(i, clave) {
   parteVista = i; escribirLocal("parte_vista", i);
   try {
     if (cfg.cancion.activa) {
-      if (!confirm(`Para editar ${p.nombre}, Yantra pasa a modo libre (deja de seguir la canción). ¿Seguir?`)) return;
-      await api("/api/cancion", {activa: false});
+      await api("/api/cancion", {activa: false});   // para editar, el tema deja de avanzar solo (se vuelve a prender en Tema)
     }
     const yaEdito = edicion && p.escena >= 0 && edicion.escena === p.escena;
     if (!yaEdito) { await api("/api/editar", {parte: i}); await recargar(); await estado(); }
@@ -3088,7 +3121,10 @@ function renderCancion() {
       cfg.parte.length ? el("div", {className: "fila"}, [el("span", {className: "mut", textContent: "Al terminar"}), fin]) : null,
     ]),
     el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [
-      el("button", {type: "button", textContent: "Lo que suena ahora ›", onclick: () => abrirParte(-1)}),
+      el("div", {className: "dos"}, [
+        el("button", {type: "button", textContent: "Lo que suena ›", onclick: () => abrirParte(-1)}),
+        el("button", {type: "button", textContent: edicion ? `Limpiar «${edicion.nombre}»` : "Limpiar", onclick: limpiarTodo,
+          title: "Todos los motores y las secuencias a sus valores de fábrica, en silencio"})]),
       cfg.parte.length < 32 ? el("button", {type: "button", textContent: "+ Parte con lo que suena", onclick: nuevaParte}) : null,
       el("button", {type: "button", textContent: "Cargar plantilla…", onclick: cargarPlantilla}),
       el("button", {type: "button", textContent: "Actualizar con la plantilla…", onclick: actualizarConPlantilla}),
@@ -3387,7 +3423,7 @@ $("proyecto_abrir").onclick = async () => {
   for (const p of d.proyectos) {
     lista.append(el("div", {className: "fila"}, [
       el("button", {textContent: p.nombre, style: "flex:1;text-align:left", onclick: async () => {
-        if (!(ultimoEstado && ultimoEstado.proyecto_al_dia) && !confirm(`El proyecto actual tiene cambios sin guardar. ¿Abrir ${p.nombre} igual? (Guárdalo antes para no perderlos.)`)) return;
+        if (!cfg.app.proyecto && !confirm(`Lo que suena ahora no está guardado en ningún tema. ¿Abrir ${p.nombre} igual?`)) return;
         await enviarPendiente();
         try { await api("/api/proyecto/abrir", {nombre: p.archivo}); lista.style.display = "none"; await recargar(); aviso("Proyecto abierto"); }
         catch (e) { aviso(e.message, true); } }}),

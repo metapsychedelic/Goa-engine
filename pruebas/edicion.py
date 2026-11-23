@@ -140,6 +140,24 @@ def main():
     todo &= ok(p["corriendo"] is False and p["ahora"] is None and p["largo"] >= 7, f"con el motor quieto no marca paso {p}")
     todo &= ok(get("/api/patron?sec=99")["activa"] is False, "una secuencia que no existe no se cae")
 
+    print("\nLimpiar y deshacer sin preguntar")
+    c = get("/api/config")
+    c["secuencia"][0].update(activa=True, densidad=0.3, canal=7); c["bajo"]["activo"] = True; c["pads"]["activo"] = True
+    post("/api/config", c)
+    codigo, r = post("/api/limpiar")
+    c = get("/api/config")
+    todo &= ok(codigo == 200 and not any(s["activa"] for s in c["secuencia"]) and not c["bajo"]["activo"] and not c["pads"]["activo"]
+               and c["secuencia"][0]["densidad"] == 1.0 and c["secuencia"][0]["canal"] == 7,
+               "limpiar: todo de fábrica y callado, cada secuencia con su salida y canal")
+    post("/api/deshacer")
+    c = get("/api/config")
+    todo &= ok(c["secuencia"][0]["activa"] and c["secuencia"][0]["densidad"] == 0.3 and c["bajo"]["activo"], "deshacer vuelve a como estaba")
+    antes = get("/api/config")
+    post("/api/escena/borrar", {"indice": 0})
+    codigo, r = post("/api/escena/restaurar", {"escena": antes["escena"], "parte": antes["parte"]})
+    c = get("/api/config")
+    todo &= ok(codigo == 200 and c["escena"] == antes["escena"] and c["parte"] == antes["parte"], "borrar una escena se deshace con sus partes")
+
     print("\nTema nuevo desde la bienvenida")
     codigo, r = post("/api/proyecto/guardar", {"nombre": "Viejo", "nuevo": True})
     codigo, r = post("/api/proyecto/guardar", {"nombre": "Nuevo", "nuevo": True})

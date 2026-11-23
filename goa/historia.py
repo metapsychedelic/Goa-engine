@@ -25,7 +25,7 @@ FORMA_EN_VIVO = ("energia", "piloto", "escena", "duracion")
 NOMBRES = {"musica": "Música", "entrada": "Entrada", "thru": "Thru", "pads": "Pads", "bajo": "Bajo",
            "dialogo": "Llamada y respuesta", "llamada": "Llamada y respuesta", "respuesta": "Llamada y respuesta",
            "fx": "FX", "texturas": "Texturas", "looper": "Looper", "tocado": "Tocado", "forma": "Forma"}
-ORIGENES = {"fabrica": "ajustes de fábrica", "genero": "género"}
+ORIGENES = {"fabrica": "ajustes de fábrica", "genero": "género", "limpiar": "limpiar"}
 
 
 class Conflicto(Exception):

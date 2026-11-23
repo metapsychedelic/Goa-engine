@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, actualizar, copia, forma, fuentes, generador, generos, historia, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, ConfigError, a_toml, cargar, clip_de, clip_de_dialogo, fabrica_motor, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, MOTORES_FABRICA, ConfigError, a_toml, cargar, clip_de, clip_de_dialogo, fabrica_motor, fabrica_secuencia, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -361,6 +361,8 @@ def crear_servidor(ctx, puerto):
                 "/api/config": self._config,
                 "/api/genero": self._genero,
                 "/api/fabrica": self._fabrica,
+                "/api/limpiar": self._limpiar,
+                "/api/escena/restaurar": self._escena_restaurar,
                 "/api/secuencia/fabrica": lambda d: self._fabrica(dict(d, motor="secuencia")),
                 "/api/deshacer": self._deshacer,
                 "/api/ajuste": self._ajuste,
@@ -771,6 +773,39 @@ def crear_servidor(ctx, puerto):
                 ctx.config = dict(ctx.config, escena=lista)
                 ctx.motor.base["escena"] = copy.deepcopy(lista)
             self._escena_lanzar({"indice": i, "compases": 1})
+
+        def _escena_restaurar(self, datos):
+            """Deshacer de «Borrar escena»: vuelven la lista de escenas y las partes como estaban."""
+            with ctx.candado:
+                prueba = normalizar(dict(ctx.config, escena=list(datos["escena"]), parte=list(datos["parte"])))
+                ctx.editando = None
+                ctx.config["escena"], ctx.config["parte"] = prueba["escena"], prueba["parte"]
+                ctx.motor.base["parte"] = copy.deepcopy(ctx.config["parte"])
+                ctx.motor.base["escena"] = copy.deepcopy(ctx.config["escena"])
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _limpiar(self, datos):
+            """Limpiar lo que suena (o la parte que editas): todos los motores y las secuencias
+            vuelven a sus valores de fábrica y quedan callados. Quedan sus salidas y canales.
+            Se puede deshacer."""
+            with ctx.candado:
+                actual = ctx.config
+            nueva = dict(actual)
+            for motor in MOTORES_FABRICA:
+                nueva = fabrica_motor(nueva, motor)
+            for seccion in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "tocado"):
+                nueva[seccion] = dict(nueva[seccion], activo=False)
+            nueva["secuencia"] = [dict(fabrica_secuencia(s), activa=False) for s in actual["secuencia"]]
+            nueva = normalizar(nueva)
+            Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+            with ctx.candado:
+                aviso = self._aplicar(nueva, "limpiar")
+                for fila in range(len(nueva["secuencia"])):
+                    ctx.motor.reiniciar_secuencia(fila)
+                ctx.motor.reiniciar_bajo()
+                ctx.motor.reiniciar_dialogo()
+            self._responder(aviso)
 
         def _escena_borrar(self, datos):
             with ctx.candado:
