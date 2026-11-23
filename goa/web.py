@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, actualizar, copia, forma, fuentes, generador, generos, historia, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, MOTORES_FABRICA, ConfigError, a_toml, cargar, clip_aplicado, clip_de, clip_de_dialogo, fabrica_motor, fabrica_secuencia, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, MOTORES_FABRICA, ConfigError, a_toml, cargar, LISTA_CLIPS, clip_aplicado, clip_de, clip_de_dialogo, clip_de_motor, con_clip_de_motor, fabrica_motor, fabrica_secuencia, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
@@ -370,6 +370,13 @@ def crear_servidor(ctx, puerto):
                              "raiz": bool(s is not None and s.disparo in m.disparos and m.disparos[s.disparo].raiz is not None),
                              "ahora": getattr(s, "huella_paso", None) if s is not None and m.corriendo else None}
                 self._json(datos)
+            elif self.path.startswith("/api/clips/fabrica"):
+                # Clips de fábrica (uno por género) de secuencia, bajo o pads.
+                motor = self.path.rpartition("motor=")[2] or "secuencia"
+                try:
+                    self._json({"clips": generos.clips_fabrica(motor)})
+                except ValueError:
+                    self.send_error(404)
             elif self.path.startswith("/api/molde/azar"):
                 # Un molde al azar (🎲): lo arma el motor, la app no repite los pesos.
                 estilo = self.path.rpartition("estilo=")[2] or "goa"
@@ -416,6 +423,11 @@ def crear_servidor(ctx, puerto):
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/clip/renombrar": self._clip_renombrar,
                 "/api/clip/restaurar": self._clip_restaurar,
+                "/api/motor/clip/guardar": self._mclip_guardar,
+                "/api/motor/clip/lanzar": self._mclip_lanzar,
+                "/api/motor/clip/borrar": self._mclip_borrar,
+                "/api/motor/clip/renombrar": self._mclip_renombrar,
+                "/api/motor/clip/restaurar": self._mclip_restaurar,
                 "/api/lanzar": self._lanzar,
                 "/api/detener": self._detener,
                 "/api/dialogo/clip/guardar": self._dialogo_clip_guardar,
@@ -703,11 +715,73 @@ def crear_servidor(ctx, puerto):
         def _lanzar(self, datos):
             with ctx.candado:
                 fila = int(datos["fila"])
-                clip = ctx.config["clip"][int(datos["clip"])]
+                if datos.get("fabrica"):
+                    clip = generos.clip_fabrica("secuencia", str(datos["fabrica"]))
+                else:
+                    clip = ctx.config["clip"][int(datos["clip"])]
                 fila_cfg = ctx.config["secuencia"][fila]
                 nueva = clip_aplicado(fila_cfg, clip)
                 ctx.motor.lanzar(fila, nueva, clip["nombre"])
                 self._cambiar_fila(fila, nueva)
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        # --- Clips del bajo y de los pads (clip_bajo, clip_pads) ---
+        def _mlista(self, datos):
+            motor = str(datos.get("motor", ""))
+            if motor not in LISTA_CLIPS:
+                raise ValueError(f"Motor sin clips: {motor!r}")
+            return motor, ctx.config[LISTA_CLIPS[motor]]
+
+        def _mclip_guardar(self, datos):
+            """{motor, nombre, variante=true, indice?}: con indice guarda lo que suena encima."""
+            with ctx.candado:
+                motor, clips = self._mlista(datos)
+                if datos.get("indice") is not None:
+                    i = int(datos["indice"])
+                    clips[i] = clip_de_motor(ctx.config, motor, str(datos.get("nombre") or clips[i]["nombre"]),
+                                             datos.get("variante", clips[i].get("con_variante", True)))
+                else:
+                    if len(clips) >= MAX_CLIPS:
+                        raise ValueError(f"Máximo {MAX_CLIPS} clips")
+                    clips.append(clip_de_motor(ctx.config, motor, str(datos.get("nombre", "")), datos.get("variante", True)))
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _mclip_lanzar(self, datos):
+            """{motor, clip: i} o {motor, fabrica: género}: pone sus valores en el motor (como elegir un género)."""
+            with ctx.candado:
+                motor, clips = self._mlista(datos)
+                clip = generos.clip_fabrica(motor, str(datos["fabrica"])) if datos.get("fabrica") else clips[int(datos["clip"])]
+                nueva = copia.config(ctx.config)
+                nueva[motor] = con_clip_de_motor(nueva[motor], clip)
+                nueva = normalizar(nueva)
+                Motor(nueva, lambda *a: None)  # valida antes de tocar nada
+                aviso = self._aplicar(nueva, "clip")
+            self._responder(aviso)
+
+        def _mclip_borrar(self, datos):
+            with ctx.candado:
+                _, clips = self._mlista(datos)
+                del clips[int(datos["indice"])]
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _mclip_renombrar(self, datos):
+            with ctx.candado:
+                _, clips = self._mlista(datos)
+                clip = clips[int(datos["indice"])]
+                clip["nombre"] = str(datos.get("nombre", "")).strip()[:40] or clip["nombre"]
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _mclip_restaurar(self, datos):
+            with ctx.candado:
+                motor, clips = self._mlista(datos)
+                if len(clips) >= MAX_CLIPS:
+                    raise ValueError(f"Máximo {MAX_CLIPS} clips")
+                clip = normalizar(dict(ctx.config, **{LISTA_CLIPS[motor]: [datos["clip"]]}))[LISTA_CLIPS[motor]][0]
+                clips.insert(max(0, min(len(clips), int(datos.get("indice", len(clips))))), clip)
                 aviso = self._guardar_activa()
             self._responder(aviso)
 

@@ -330,3 +330,9 @@ details.grupo.estilo-sec>summary .cab{flex:1}
 .clip-fila .clip.sonando .mut{color:var(--sobre)}
 .clip-menu{flex:none;width:48px;min-height:48px;padding:0;font-size:20px;border-radius:12px}
 .clips-lista .clip.parar{flex:none;text-align:center;align-items:center}
+.clips-caja .clip{flex:none;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:1px;min-height:48px}
+.clips-caja .clip .mut{font-size:12px;font-weight:400;font-family:ui-monospace,Menlo,monospace}
+.clips-caja .clip.sonando .mut{color:var(--sobre)}
+.clips-fabrica{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.clips-caja .clip-fila .clip{flex:1;min-width:0}
+details.voz>.cuerpo.clips-fabrica{display:grid}

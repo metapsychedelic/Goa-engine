@@ -11,7 +11,7 @@ textos, booleanos): basta copiar cada diccionario, sin la maquinaria de deepcopy
 
 import copy
 
-BIBLIOTECA = frozenset(("escena", "parte", "clip", "clip_dialogo"))
+BIBLIOTECA = frozenset(("escena", "parte", "clip", "clip_dialogo", "clip_bajo", "clip_pads"))
 _SIMPLES = (int, float, str, bool, type(None))
 
 

@@ -76,6 +76,38 @@ def main():
     post("/api/clip/restaurar", {"indice": 0, "clip": antes})
     todo &= ok(get("/api/config")["clip"] == [antes, c[1]], "deshacer lo vuelve a su lugar, igual que estaba")
 
+    print("\nFábrica (secuencia)")
+    fab = get("/api/clips/fabrica?motor=secuencia")["clips"]
+    todo &= ok(len(fab) == 6 and all(c["con_variante"] is False for c in fab), "seis clips de fábrica, sin variante")
+    cambiar(seed="DDDD", posicion="offbeat")
+    post("/api/lanzar", {"fila": 0, "fabrica": "ambient"})
+    s = get("/api/config")["secuencia"][0]
+    todo &= ok(s["estilo"] == "ambient" and s["posicion"] == "todos" and s["seed"] == "DDDD", "Ambient de fábrica: su estilo, todas las notas, la seed se queda")
+
+    for motor, clave, valor in (("bajo", "estilo", "dub"), ("pads", "progresion", "i_bVI_iv_v")):
+        print(f"\nClips del {motor}")
+        cfg = get("/api/config")
+        cfg[motor].update({clave: valor, "seed": "S1", "canal": 9})
+        post("/api/config", cfg)
+        post("/api/motor/clip/guardar", {"motor": motor, "nombre": "Mío"})
+        post("/api/motor/clip/guardar", {"motor": motor, "nombre": "Sin seed", "variante": False})
+        lista = get("/api/config")[f"clip_{motor}"]
+        todo &= ok([c["nombre"] for c in lista] == ["Mío", "Sin seed"] and "canal" not in lista[0], "dos clips, sin salida ni canal")
+        post("/api/motor/clip/lanzar", {"motor": motor, "fabrica": "goa"})
+        sec = get("/api/config")[motor]
+        todo &= ok(sec[clave] != valor and sec["seed"] == "S1" and sec["canal"] == 9, f"fábrica Goa: cambia {clave}, se quedan seed y canal")
+        post("/api/motor/clip/lanzar", {"motor": motor, "clip": 0})
+        sec = get("/api/config")[motor]
+        todo &= ok(sec[clave] == valor and sec["seed"] == "S1", "su clip vuelve a lo guardado")
+        post("/api/deshacer", {})
+        todo &= ok(get("/api/config")[motor][clave] != valor, "tocar un clip se deshace")
+        post("/api/motor/clip/renombrar", {"motor": motor, "indice": 1, "nombre": "Otro"})
+        antes = get("/api/config")[f"clip_{motor}"][1]
+        post("/api/motor/clip/borrar", {"motor": motor, "indice": 1})
+        post("/api/motor/clip/restaurar", {"motor": motor, "indice": 1, "clip": antes})
+        despues = get("/api/config")[f"clip_{motor}"]
+        todo &= ok(len(despues) == 2 and despues[1] == antes and antes["nombre"] == "Otro", f"renombrar, borrar y deshacer {[c['nombre'] for c in despues]} {antes['nombre']}")
+
     print("\nArchivos de la app")
     base = f"http://localhost:{PUERTO}"
     html = urllib.request.urlopen(base + "/").read().decode()

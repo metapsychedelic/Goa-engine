@@ -195,6 +195,8 @@ function panelPads() {
   pulso.querySelector("input").addEventListener("change", () => renderMotores());
   return [
     cabMotor("Pads y drones", `${p.salida} · canal ${p.canal} · ${p.suenan ? "guían la armonía" : "callados, solo guían"}`, p, "activo", null, botonFabricaMotor("pads")),
+    filaClipsMotor("pads", "Pads", (c) => ((PROGRESIONES.find((x) => x[0] === c.progresion) || [, c.progresion || ""])[1] || "").split(" · ")[0],
+      PROGRESIONES.map((x) => x[0]), (v) => ((PROGRESIONES.find((x) => x[0] === v) || [, v])[1] || "").split(" · ")[0]),
     campo("Género", segmentado(GENEROS, p.genero, (v) => cambiarGenero(v, {parte: "pads"}), 3)),
     campo("Textura", segmentado([["acordes","Acordes"],["nota","Nota sola"],["raiz_acorde","Raíz + acorde"]], p.textura || "acordes",
       (v) => { p.textura = v; renderMotores(); guardar(); }, 3)),
@@ -265,6 +267,7 @@ function panelBajo() {
   const estilos = [...new Set([...ESTILOS_BAJO_POR_GENERO[b.genero], b.estilo])].map((v) => ESTILOS_BAJO.find((x) => x[0] === v));
   return [
     cabMotor("Bajo", `${b.salida} · canal ${b.canal} · ${armoniaTexto(b)}`, b, "activo", null, botonFabricaMotor("bajo")),
+    filaClipsMotor("bajo", "Bajo", (c) => (ESTILOS_BAJO.find((x) => x[0] === c.estilo) || [, c.estilo])[1], ESTILOS_BAJO.map((x) => x[0]), (v) => (ESTILOS_BAJO.find((x) => x[0] === v) || [, v])[1]),
     campo("Género", segmentado(GENEROS, b.genero, (v) => cambiarGenero(v, {parte: "bajo"}), 3)),
     campo("Estilo · solo cambia el ritmo, tus ajustes se quedan", segmentado(estilos, b.estilo, (v) => {
       b.estilo = v; renderMotores(); guardar();
@@ -406,99 +409,151 @@ function bloqueEstilo(s) {
 }
 
 // --- Clips: una pestaña chica con lo que suena; abierta, la lista ---
+// Lo mismo para las secuencias, el bajo y los pads: cada uno arma su «m» con lo que cambia.
 let clipsAbiertos = new Set();
+const fabricas = {};   // clips de fábrica por motor (los manda la Pi una vez)
+async function cargarFabrica(motor) {
+  if (fabricas[motor]) return;
+  fabricas[motor] = [];
+  try { fabricas[motor] = (await (await fetch(`/api/clips/fabrica?motor=${motor}`)).json()).clips; renderMotores(); } catch (e) { delete fabricas[motor]; }
+}
 const nombreClipFila = (i) => {
   const f = ultimoEstado && ultimoEstado.filas && ultimoEstado.filas[i];
   return f && f.activa && f.clip ? f.clip : "";
 };
 
-function pestanaClip(i) {
-  const n = nombreClipFila(i);
-  return el("button", {type: "button", className: "pestana-clip" + (clipsAbiertos.has(i) ? " abierta" : ""), "data-pestana-clip": i,
-    "aria-expanded": clipsAbiertos.has(i) ? "true" : "false",
-    textContent: (n ? `Clip: ${n}` : "Sin clip") + " ▾",
-    onclick: () => { clipsAbiertos.has(i) ? clipsAbiertos.delete(i) : clipsAbiertos.add(i); renderMotores(); }});
+function pestanaClip(id, nombre, extra = {}) {
+  return el("button", Object.assign({type: "button", className: "pestana-clip" + (clipsAbiertos.has(id) ? " abierta" : ""),
+    "aria-expanded": clipsAbiertos.has(id) ? "true" : "false", textContent: (nombre ? `Clip: ${nombre}` : "Sin clip") + " ▾",
+    onclick: () => { clipsAbiertos.has(id) ? clipsAbiertos.delete(id) : clipsAbiertos.add(id); renderMotores(); }}, extra));
 }
 
-function listaClips(i, s) {
-  const agrupar = leerLocal("clips_por_estilo", "0") === "1";
-  const fila = el("div", {className: "clips-lista", "data-fila": i});
+async function intentar(f) { try { await f(); } catch (e) { aviso(e.message, true); } }
+async function aplicarAntes() { clearTimeout(temporizador); await api("/api/config", cfg); }
+
+function cajaClips(m) {
+  cargarFabrica(m.motor);
+  const agrupar = leerLocal("clips_por_estilo", "0") === "1" && m.estiloDe;   // en los pads: por progresión
+  const lista = el("div", {className: "clips-lista"});
   const filaClip = (c, ci) => el("div", {className: "clip-fila"}, [
-    el("button", {type: "button", className: "clip", "data-clip": c.nombre,
-      onclick: async () => { try { await api("/api/lanzar", {fila: i, clip: ci}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }}, [
+    el("button", {type: "button", className: "clip" + (m.actual && m.actual(c) ? " sonando" : ""), "data-clip": c.nombre,
+      onclick: () => intentar(async () => { await m.lanzar({clip: ci}); })}, [
       el("span", {className: "clip-nombre", textContent: c.nombre}),
-      el("span", {className: "mut", textContent: [agrupar ? "" : nombreEstilo(c.estilo), c.con_variante === false ? "sin variante" : c.seed].filter(Boolean).join(" · ")})]),
-    el("button", {type: "button", className: "clip-menu", textContent: "⋯", "aria-label": `Opciones de ${c.nombre}`, onclick: () => menuClip(i, s, c, ci)}),
+      el("span", {className: "mut", textContent: [agrupar || !m.estiloDe ? "" : m.estiloDe(c), c.con_variante === false ? "sin variante" : c.seed].filter(Boolean).join(" · ")})]),
+    el("button", {type: "button", className: "clip-menu", textContent: "⋯", "aria-label": `Opciones de ${c.nombre}`, onclick: () => menuClip(m, c, ci)}),
   ]);
-  const clips = cfg.clip.map((c, ci) => [c, ci]);
-  if (!clips.length) fila.append(el("p", {className: "mut", style: "margin:4px 0", textContent: "Todavía no hay clips."}));
+  const clips = m.clips.map((c, ci) => [c, ci]);
+  if (!clips.length) lista.append(el("p", {className: "mut", style: "margin:4px 0", textContent: "Todavía no guardas clips."}));
   else if (agrupar) {
-    for (const v of ORDEN_ESTILOS) {
-      const de = clips.filter(([c]) => c.estilo === v);
-      if (!de.length) continue;
-      fila.append(el("span", {className: "familia-nombre", textContent: nombreEstilo(v)}), ...de.map(([c, ci]) => filaClip(c, ci)));
+    for (const v of m.ordenEstilos) {
+      const de = clips.filter(([c]) => (m.claveEstilo || "estilo") in c ? c[m.claveEstilo || "estilo"] === v : false);
+      if (de.length) lista.append(el("span", {className: "familia-nombre", textContent: m.nombreEstilo(v)}), ...de.map(([c, ci]) => filaClip(c, ci)));
     }
-  } else fila.append(...clips.map(([c, ci]) => filaClip(c, ci)));
-  if (clips.length) fila.append(el("button", {type: "button", className: "clip parar", textContent: "■ Parar en el próximo compás", "data-parar": "1",
-    onclick: async () => { try { await api("/api/detener", {fila: i}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }}));
-  const caja = el("div", {className: "clips-caja"}, [
-    clips.length > 1 ? el("label", {className: "fila mut", style: "min-height:36px;font-size:13px"}, [el("span", {textContent: "Agrupar por estilo"}),
-      el("input", {type: "checkbox", checked: agrupar, onchange: (e) => { escribirLocal("clips_por_estilo", e.target.checked ? "1" : "0"); renderMotores(); }})]) : null,
-    fila,
-    el("button", {type: "button", textContent: "+ Guardar lo que suena", onclick: () => hojaGuardarClip(i, s)}),
+  } else lista.append(...clips.map(([c, ci]) => filaClip(c, ci)));
+  if (m.parar) lista.append(el("button", {type: "button", className: "clip parar", textContent: "■ Parar en el próximo compás", "data-parar": "1",
+    onclick: () => intentar(m.parar)}));
+  const fab = fabricas[m.motor] || [];
+  const caja = el("div", Object.assign({className: "clips-caja"}, m.atributos || {}), [
+    clips.length > 1 && m.estiloDe ? el("label", {className: "fila mut", style: "min-height:36px;font-size:13px"}, [el("span", {textContent: m.claveEstilo === "progresion" ? "Agrupar por progresión" : "Agrupar por estilo"}),
+      el("input", {type: "checkbox", checked: !!agrupar, onchange: (e) => { escribirLocal("clips_por_estilo", e.target.checked ? "1" : "0"); renderMotores(); }})]) : null,
+    lista,
+    el("button", {type: "button", textContent: "+ Guardar lo que suena", onclick: () => hojaGuardarClip(m)}),
+    fab.length ? recordar(el("details", {className: "voz"}, [el("summary", {}, [el("span", {textContent: "De fábrica"}), el("span", {className: "der mut", textContent: "uno por género"})]),
+      el("div", {className: "cuerpo clips-fabrica", style: "padding-top:2px"}, fab.map((c) => el("button", {type: "button", className: "clip" + (m.actual && m.actual(c) ? " sonando" : ""), "data-clip": c.nombre,
+        onclick: () => intentar(async () => { await m.lanzar({fabrica: c.fabrica}); })}, [
+        el("span", {className: "clip-nombre", textContent: c.nombre}),
+        el("span", {className: "mut", textContent: m.estiloDe ? m.estiloDe(c) : "sin variante"})])))]), `fabrica-${m.motor}`, false) : null,
   ].filter(Boolean));
   setTimeout(pintarClips);
   return caja;
 }
 
-async function aplicarAntes() { clearTimeout(temporizador); await api("/api/config", cfg); }
-
-function hojaGuardarClip(i, s) {
-  const nombre = el("input", {type: "text", value: `${nombreEstilo(s.estilo)} ${s.seed}`, maxLength: 40, "aria-label": "Nombre del clip"});
+function hojaGuardarClip(m) {
+  const nombre = el("input", {type: "text", value: m.nombrePorDefecto, maxLength: 40, "aria-label": "Nombre del clip"});
   const conSeed = el("input", {type: "checkbox", checked: true});
   let d;
-  d = hoja("Guardar lo que suena", `Secuencia ${s.nombre} · ${nombreEstilo(s.estilo)}`, [
+  d = hoja("Guardar lo que suena", m.titulo, [
     el("label", {className: "campo"}, ["Nombre", nombre]),
     el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Incluir la variante", el("br"),
-      el("span", {className: "mut", textContent: `Con la seed ${s.seed}. Sin ella, al tocarlo la secuencia sigue con su variante`})]), conSeed]),
+      el("span", {className: "mut", textContent: `Con la seed ${m.seed}. Sin ella, al tocarlo se queda la variante que esté sonando`})]), conSeed]),
     el("div", {className: "acciones"}, [
       el("button", {type: "button", textContent: "Cancelar", onclick: () => d.close()}),
-      el("button", {type: "button", className: "prim", textContent: "Guardar", onclick: async () => {
-        try { await aplicarAntes(); await api("/api/clip/guardar", {fila: i, nombre: nombre.value, variante: conSeed.checked});
-          d.close(); clipsAbiertos.add(i); await recargar(); aviso("Clip guardado"); } catch (e) { aviso(e.message, true); } }})]),
+      el("button", {type: "button", className: "prim", textContent: "Guardar", onclick: () => intentar(async () => {
+        await aplicarAntes(); await m.guardar({nombre: nombre.value, variante: conSeed.checked});
+        d.close(); clipsAbiertos.add(m.id); await recargar(); aviso("Clip guardado"); })})]),
   ]);
   nombre.focus(); nombre.select();
 }
 
-function menuClip(i, s, c, ci) {
+function menuClip(m, c, ci) {
   const nombre = el("input", {type: "text", value: c.nombre, maxLength: 40, "aria-label": "Nombre del clip"});
   let d;
-  d = hoja(c.nombre, `${nombreEstilo(c.estilo)} · ${c.con_variante === false ? "sin variante" : c.seed}`, [
+  d = hoja(c.nombre, [m.estiloDe ? m.estiloDe(c) : "", c.con_variante === false ? "sin variante" : c.seed].filter(Boolean).join(" · "), [
     el("label", {className: "campo"}, ["Renombrar", el("div", {style: "display:flex;gap:8px"}, [nombre,
-      el("button", {type: "button", textContent: "Listo", onclick: async () => {
-        try { await api("/api/clip/renombrar", {indice: ci, nombre: nombre.value}); d.close(); await recargar(); } catch (e) { aviso(e.message, true); } }})])]),
+      el("button", {type: "button", textContent: "Listo", onclick: () => intentar(async () => {
+        await m.api("renombrar", {indice: ci, nombre: nombre.value}); d.close(); await recargar(); })})])]),
     el("div", {className: "acciones", style: "margin-top:12px"}, [
-      el("button", {type: "button", className: "ancho", textContent: `Guardar lo que suena aquí (secuencia ${s.nombre})`, onclick: async () => {
+      el("button", {type: "button", className: "ancho", textContent: `Guardar lo que suena aquí (${m.quien})`, onclick: () => intentar(async () => {
         const antes = JSON.parse(JSON.stringify(c));
-        try { await aplicarAntes(); await api("/api/clip/guardar", {fila: i, indice: ci}); d.close(); await recargar();
-          avisoDeshacer(`«${c.nombre}» ahora guarda lo que suena`, async () => {
-            await api("/api/clip/borrar", {indice: ci}); await api("/api/clip/restaurar", {indice: ci, clip: antes}); await recargar(); });
-        } catch (e) { aviso(e.message, true); } }}),
-      el("button", {type: "button", className: "ancho", style: "color:var(--bad);border-color:var(--badline)", textContent: "Borrar", onclick: async () => {
+        await aplicarAntes(); await m.guardar({indice: ci}); d.close(); await recargar();
+        avisoDeshacer(`«${c.nombre}» ahora guarda lo que suena`, async () => {
+          await m.api("borrar", {indice: ci}); await m.api("restaurar", {indice: ci, clip: antes}); await recargar(); });
+      })}),
+      el("button", {type: "button", className: "ancho", style: "color:var(--bad);border-color:var(--badline)", textContent: "Borrar", onclick: () => intentar(async () => {
         const antes = JSON.parse(JSON.stringify(c));
-        try { await api("/api/clip/borrar", {indice: ci}); d.close(); await recargar();
-          avisoDeshacer(`Clip «${c.nombre}» borrado`, async () => { await api("/api/clip/restaurar", {indice: ci, clip: antes}); await recargar(); });
-        } catch (e) { aviso(e.message, true); } }}),
+        await m.api("borrar", {indice: ci}); d.close(); await recargar();
+        avisoDeshacer(`Clip «${c.nombre}» borrado`, async () => { await m.api("restaurar", {indice: ci, clip: antes}); await recargar(); });
+      })}),
     ]),
   ]);
+}
+
+// Las secuencias: sus clips se lanzan en la fila y entran en el próximo compás.
+function clipsDeSecuencia(i, s) {
+  return {id: `sec${i}`, motor: "secuencia", clips: cfg.clip, seed: s.seed, quien: `secuencia ${s.nombre}`,
+    titulo: `Secuencia ${s.nombre} · ${nombreEstilo(s.estilo)}`, nombrePorDefecto: `${nombreEstilo(s.estilo)} ${s.seed}`,
+    atributos: {"data-fila": i}, estiloDe: (c) => nombreEstilo(c.estilo), nombreEstilo, ordenEstilos: ORDEN_ESTILOS,
+    lanzar: async (q) => { await api("/api/lanzar", Object.assign({fila: i}, q)); await recargar(); estado(); },
+    parar: async () => { await api("/api/detener", {fila: i}); await recargar(); estado(); },
+    guardar: (q) => api("/api/clip/guardar", Object.assign({fila: i}, q)),
+    api: (accion, q) => api(`/api/clip/${accion}`, q)};
+}
+
+// Bajo y pads: tocar un clip pone sus valores en el motor (como elegir un género). Un clip
+// «suena» si todos sus valores son los que tiene el motor ahora.
+function coincideClip(seccion, c) {
+  return Object.keys(c).every((k) => ["nombre", "con_variante", "fabrica"].includes(k) || (k === "seed" && c.con_variante === false) || seccion[k] === c[k]);
+}
+function clipsDeMotor(motor, titulo, estiloDe, ordenEstilos, nombreEst) {
+  const sec = cfg[motor];
+  const lista = cfg["clip_" + motor] || [];
+  return {id: motor, motor, clips: lista, seed: sec.seed, quien: titulo.toLowerCase(), titulo,
+    nombrePorDefecto: `${estiloDe ? estiloDe(sec) + " " : ""}${sec.seed}`, estiloDe, ordenEstilos, nombreEstilo: nombreEst,
+    claveEstilo: motor === "pads" ? "progresion" : "estilo",
+    actual: (c) => coincideClip(sec, c),
+    lanzar: async (q) => { await aplicarAntes(); await api("/api/motor/clip/lanzar", Object.assign({motor}, q)); await recargar(); },
+    guardar: (q) => api("/api/motor/clip/guardar", Object.assign({motor}, q)),
+    api: (accion, q) => api(`/api/motor/clip/${accion}`, Object.assign({motor}, q))};
+}
+function clipActualDeMotor(motor) {
+  const sec = cfg[motor];
+  const c = (cfg["clip_" + motor] || []).find((x) => coincideClip(sec, x)) || (fabricas[motor] || []).find((x) => coincideClip(sec, x));
+  return c ? c.nombre : "";
+}
+function filaClipsMotor(motor, titulo, estiloDe, ordenEstilos, nombreEst) {
+  cargarFabrica(motor);
+  return el("div", {className: "card variante-card"}, [
+    el("div", {className: "fila", style: "gap:8px"}, [el("b", {textContent: "Clips"}), pestanaClip(motor, clipActualDeMotor(motor))]),
+    clipsAbiertos.has(motor) ? cajaClips(clipsDeMotor(motor, titulo, estiloDe, ordenEstilos, nombreEst)) : null,
+  ].filter(Boolean));
 }
 
 function bloqueVariante(i, s) {
   const seed = el("input", {type: "text", value: s.seed, style: "font-family:ui-monospace,Menlo,monospace", "aria-label": "Variante escrita a mano",
     onchange: (e) => { const v = e.target.value.trim(); if (v && v !== s.seed) { s.seed = v; guardar(); renderMotores(); } }});
   return el("div", {className: "card variante-card"}, [
-    el("div", {className: "fila", style: "gap:8px"}, [el("b", {textContent: "Variante"}), pestanaClip(i)]),
-    clipsAbiertos.has(i) ? listaClips(i, s) : null,
+    el("div", {className: "fila", style: "gap:8px"}, [el("b", {textContent: "Variante"}), pestanaClip(`sec${i}`, nombreClipFila(i), {"data-pestana-clip": i})]),
+    clipsAbiertos.has(`sec${i}`) ? cajaClips(clipsDeSecuencia(i, s)) : null,
     varianteAB(s, `sec-${s.nombre}`),
     el("details", {className: "voz"}, [el("summary", {}, [el("span", {textContent: "Escrita a mano"}), el("span", {className: "der", textContent: s.seed})]),
       el("div", {className: "cuerpo"}, [el("label", {className: "campo"}, ["Seed (cualquier texto)", seed])])]),

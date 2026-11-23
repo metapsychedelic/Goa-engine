@@ -453,6 +453,15 @@ CLAVES_DESTINO = ("disparo", "activa", "salida", "canal", "cc_filtro", "filtro_r
 ESQUEMA_CLIP = dict({k: v for k, v in ESQUEMA_SECUENCIA.items() if k not in CLAVES_DESTINO},
                     con_variante=(bool, True, None, None))  # False: al tocarlo, la secuencia conserva su seed
 
+# Clips del bajo y de los pads: sus valores musicales (sin salida, canal ni nota larga), un
+# nombre y si traen la variante (seed). Viven en clip_bajo y clip_pads.
+RUTEO_MOTOR = ("activo", "salida", "canal", "disparo", "filtro_cc")
+LISTA_CLIPS = {"bajo": "clip_bajo", "pads": "clip_pads"}
+ESQUEMA_CLIP_MOTOR = {m: dict({"nombre": (str, "Clip", None, None)},
+                              **{k: v for k, v in ESQUEMA_SECCIONES[m].items() if k not in RUTEO_MOTOR},
+                              con_variante=(bool, True, None, None))
+                      for m in LISTA_CLIPS}
+
 
 class ConfigError(ValueError):
     pass
@@ -526,6 +535,12 @@ def normalizar(cfg):
         raise ConfigError("clip_dialogo debe ser una lista")
     limpia["clip_dialogo"] = [{k: _valor(k, (s or {}).get(k), e) for k, e in ESQUEMA_CLIP_DIALOGO.items()}
                               for s in clips[:MAX_CLIPS]]
+    for motor, lista in LISTA_CLIPS.items():
+        clips = cfg.get(lista) or []
+        if not isinstance(clips, list):
+            raise ConfigError(f"{lista} debe ser una lista")
+        limpia[lista] = [{k: _valor(k, (s or {}).get(k), e) for k, e in ESQUEMA_CLIP_MOTOR[motor].items()}
+                         for s in clips[:MAX_CLIPS]]
     escenas = cfg.get("escena") or []
     if not isinstance(escenas, list):
         raise ConfigError("escena debe ser una lista")
@@ -600,6 +615,21 @@ def clip_de(secuencia, nombre, variante=True):
     clip["nombre"] = nombre.strip()[:40] or secuencia.get("nombre", "Clip")
     clip["con_variante"] = bool(variante)
     return clip
+
+
+def clip_de_motor(cfg, motor, nombre, variante=True):
+    """Lo que suena en el bajo o los pads, listo para guardarse como clip."""
+    seccion = cfg[motor]
+    clip = {k: seccion[k] for k in ESQUEMA_CLIP_MOTOR[motor] if k in seccion}
+    clip["nombre"] = nombre.strip()[:40] or "Clip"
+    clip["con_variante"] = bool(variante)
+    return clip
+
+
+def con_clip_de_motor(seccion, clip):
+    """La sección del bajo o los pads con el clip puesto: su salida, canal y si suena se quedan."""
+    fuera = {"nombre", "con_variante"} | (set() if clip.get("con_variante", True) else {"seed"})
+    return dict(seccion, **{k: v for k, v in clip.items() if k not in fuera})
 
 
 def clip_aplicado(fila, clip):
@@ -702,6 +732,11 @@ def a_toml(cfg):
         lineas.append("[[clip]]")
         lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
         lineas.append("")
+    for lista in LISTA_CLIPS.values():
+        for s in cfg.get(lista, []):
+            lineas.append(f"[[{lista}]]")
+            lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
+            lineas.append("")
     for s in cfg.get("clip_dialogo", []):
         lineas.append("[[clip_dialogo]]")
         lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
