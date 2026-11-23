@@ -127,6 +127,17 @@ def main():
                                                            ("escena_vuelta", 3), ("nota_taiko", 41), ("seed", "OB-9"))),
                "ningún ajuste se pierde al guardar y volver a cargar")
 
+    from goa import forma
+    cfg = cargar(RAIZ / "config.ejemplo.toml")
+    cfg["obertura"].update(canal_cuernos=6, nota_golpe=57, caracter="frigia")
+    escena = forma.foto(normalizar(cfg))
+    vieja = copy.deepcopy(escena)
+    vieja["obertura"].update(canal_cuernos=2, nota_golpe=49)   # una escena guardada antes
+    cfg["obertura"].update(canal_cuernos=6)
+    mezcla = forma.mezclar(normalizar(cfg), {"datos": vieja})
+    todo &= ok("canal_cuernos" not in escena["obertura"] and mezcla["obertura"]["canal_cuernos"] == 6
+               and mezcla["obertura"]["nota_golpe"] == 57 and mezcla["obertura"]["caracter"] == "frigia",
+               "los canales y notas del kit son de ruteo: una escena o parte no los pisa (el carácter sí va con ella)")
     print("\nTodo bien" if todo else "\nHAY FALLAS")
     return todo
 

@@ -24,7 +24,7 @@ let motorSel = leerLocal("motor", "pads");
 // marcan qué motores cambiaron: editando, contra cómo estaba la escena al entrar; si no,
 // contra la última escena que lanzaste.
 let edicion = null;   // {escena, nombre, original (datos de la escena al entrar)}
-const RUTEO = new Set(["salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_resonancia", "cc_filtro", "filtro_reposo", "parar", "nivel"]);
+const RUTEO = new Set(["salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_resonancia", "cc_filtro", "filtro_reposo", "parar", "nivel", "canal_cuerdas", "canal_cuernos", "canal_coro", "canal_percusion", "canal_control", "nota_taiko", "nota_tambor", "nota_golpe"]);
 function referenciaEscena() {
   if (edicion) return edicion.original;
   const i = cfg && cfg.forma.escena;
@@ -1412,6 +1412,21 @@ const TEXTO_OBERTURA = {batalla: "Eólica, i – ♭VI – ♭VII – i: cuernos
   neon: "Ciudad de noche con lluvia: brass que se abre lento con séptimas y novenas, arpegio en corcheas, un lead que entra deslizándose y cae al final de la frase, caja con mucha reverb.",
   titulos: "Pulso de octavas en semicorcheas que empuja todo, timbales y una fanfarria en octavas: para un despegue grande.",
   cosmos: "Dórico y abierto: campanas en arpegio, lead en octavas, redobles de timbal hacia cada etapa y gong."};
+// Qué sonido cargar en cada pista de la escena, según el modo.
+const SONIDOS_OBERTURA = {
+  epico: ["chelos y contrabajos marcato", "cuernos o metales graves", "coro «aah»", "kit con taiko, tambor y golpe"],
+  chill: ["cuerdas lentas o string pad", "flauta, chelo o piano", "coro «aah/ooh» o pad de voces", "taiko suave, shaker y platillo"],
+  cine: ["brass polifónico de ataque lento (CS-80)", "lead de sierra con vibrato", "arpegio, pulso o campanas", "timbal, caja con reverb y gong"]};
+function canalCapa(x, k, i) {
+  const sel = el("select", {"aria-label": `Canal de la pista ${i + 1}`,
+    onchange: () => { x[k] = parseInt(sel.value); guardar(); renderMotores(); }},
+    [el("option", {value: "0", textContent: "No suena"}),
+     ...Array.from({length: 16}, (_, n) => el("option", {value: String(n + 1), textContent: `Canal ${n + 1}`}))]);
+  sel.value = String(x[k] || 0);
+  return el("label", {className: "campo", style: "display:flex;flex-direction:column;justify-content:space-between"}, [
+    el("span", {}, [el("b", {textContent: `${CAPAS_OBERTURA[x.modo][i]}`}), el("br"),
+      el("span", {className: "mut", textContent: SONIDOS_OBERTURA[x.modo][i]})]), sel]);
+}
 function panelObertura() {
   const x = cfg.obertura;
   const compases = 8 * x.frases;
@@ -1439,6 +1454,13 @@ function panelObertura() {
       numeroDe(x, "velocidad", "Fuerza del final (1-127)", 1, 127),
       casilla(x, "expresion", "Crescendo por CC 11", "Además de la fuerza de las notas, la expresión de cada pista va subiendo"),
     ]),
+    el("div", {className: "card"}, [
+      el("b", {textContent: "Instrumentos"}),
+      ayuda("En qué canal MIDI va cada instrumento. En la MC-101, pon cada pista de la escena en ese canal (o elige aquí el canal que ya tiene)."),
+      el("div", {className: "dos"}, [canalCapa(x, "canal_cuerdas", 0), canalCapa(x, "canal_cuernos", 1)]),
+      el("div", {className: "dos"}, [canalCapa(x, "canal_coro", 2), canalCapa(x, "canal_percusion", 3)]),
+      destinoDe(x, renderMotores),
+    ]),
     el("div", {className: "grupos"}, [
       grupo("g-ob-escenas", "Escenas de la MC-101", x.escena ? `orquesta ${x.escena} · vuelve a ${x.escena_vuelta || "—"}` : "no cambia de escena", [
         numeroDe(x, "escena", "Escena «orquesta» (1-128, 0 = no cambia)", 0, 128, () => renderMotores()),
@@ -1447,13 +1469,10 @@ function panelObertura() {
         casilla(x, "preparar", "Compás de preparación", "La MC-101 cambia de escena en el uno siguiente: la obertura manda el cambio y empieza un compás después", () => renderMotores()),
         ayuda("La MC-101 no cambia de sonido por Program Change: cambia de escena con un Program Change en su canal de control. La vuelta va en el silencio del final, así la escena psy entra justo con el drop."),
       ]),
-      grupo("g-ob-capas", "Capas y canales", `cuerdas ${x.canal_cuerdas || "—"} · cuernos ${x.canal_cuernos || "—"} · coro ${x.canal_coro || "—"} · percusión ${x.canal_percusion || "—"}`, [
-        el("div", {className: "dos"}, [numeroDe(x, "canal_cuerdas", `Pista 1 · ${CAPAS_OBERTURA[x.modo][0]} (0 = no)`, 0, 16), numeroDe(x, "canal_cuernos", `Pista 2 · ${CAPAS_OBERTURA[x.modo][1]} (0 = no)`, 0, 16)]),
-        el("div", {className: "dos"}, [numeroDe(x, "canal_coro", `Pista 3 · ${CAPAS_OBERTURA[x.modo][2]} (0 = no)`, 0, 16), numeroDe(x, "canal_percusion", `Pista 4 · ${CAPAS_OBERTURA[x.modo][3]} (0 = no)`, 0, 16)]),
-        el("div", {className: "dos"}, [numeroDe(x, "nota_taiko", "Nota del taiko", 0, 127), numeroDe(x, "nota_tambor", "Nota del tambor", 0, 127)]),
-        numeroDe(x, "nota_golpe", "Nota del golpe de orquesta", 0, 127),
-        ayuda("El canal de cada pista de la escena «orquesta» y las notas de los pads del kit de percusión (36 = C1)."),
-        destinoDe(x, renderMotores),
+      grupo("g-ob-capas", "Notas del kit de percusión", `${x.nota_taiko} · ${x.nota_tambor} · ${x.nota_golpe}`, [
+        el("div", {className: "dos"}, [numeroDe(x, "nota_taiko", x.modo === "cine" ? "Nota del timbal" : "Nota del taiko", 0, 127), numeroDe(x, "nota_tambor", x.modo === "cine" ? "Nota de la caja" : "Nota del tambor", 0, 127)]),
+        numeroDe(x, "nota_golpe", x.modo === "cine" ? "Nota del gong" : "Nota del golpe (gong, crash, orchestra hit)", 0, 127, () => renderMotores()),
+        ayuda("Qué nota toca cada golpe en el kit de la pista de percusión (36 = C1). Cámbialas si tu kit tiene esos sonidos en otros pads."),
       ]),
     ]),
   ];
