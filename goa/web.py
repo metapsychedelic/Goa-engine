@@ -1,6 +1,8 @@
 """App web: la Pi sirve una página para controlar el motor desde el celular."""
 
 import copy
+import gzip
+import hashlib
 import json
 import logging
 import os
@@ -13,12 +15,32 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import __version__, actualizar, copia, forma, fuentes, generador, generos, historia, plantillas
-from .config import (MAX_CLIPS, MAX_PARTES, MOTORES_FABRICA, ConfigError, a_toml, cargar, clip_de, clip_de_dialogo, fabrica_motor, fabrica_secuencia, guardar, normalizar, salidas,
+from .config import (MAX_CLIPS, MAX_PARTES, MOTORES_FABRICA, ConfigError, a_toml, cargar, clip_aplicado, clip_de, clip_de_dialogo, fabrica_motor, fabrica_secuencia, guardar, normalizar, salidas,
                      secciones_de_clip)
 from .motor import Motor
 
 log = logging.getLogger("goa")
 PAGINA = Path(__file__).parent / "web" / "index.html"
+
+
+def _marca(ruta):
+    """Cambia cada vez que cambia el archivo (para que el navegador pida el nuevo)."""
+    try:
+        return format(ruta.stat().st_mtime_ns // 1000, "x")
+    except OSError:
+        return "0"
+
+
+_GZIP = {}
+
+
+def _comprimido(cuerpo):
+    clave = hashlib.sha1(cuerpo).digest()
+    if clave not in _GZIP:
+        if len(_GZIP) > 32:
+            _GZIP.clear()
+        _GZIP[clave] = gzip.compress(cuerpo, 6)
+    return _GZIP[clave]
 MAX_CUERPO = 1024 * 1024  # la configuración trae las escenas
 
 
@@ -264,16 +286,30 @@ def crear_servidor(ctx, puerto):
             self.end_headers()
             self.wfile.write(cuerpo)
 
+        def _estatico(self, cuerpo, tipo, guardable):
+            """Manda un archivo de la app comprimido (si el navegador acepta gzip). guardable: con
+            ?v= en la dirección el navegador lo guarda; la marca cambia cuando cambia el archivo."""
+            if "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                cuerpo = _comprimido(cuerpo)
+                comprimido = True
+            else:
+                comprimido = False
+            self.send_response(200)
+            self.send_header("Content-Type", tipo)
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable" if guardable else "no-store")
+            if comprimido:
+                self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(cuerpo)))
+            self.end_headers()
+            self.wfile.write(cuerpo)
+
         def do_GET(self):
             hilo_secundario()
             if self.path in ("/", "/index.html"):
-                cuerpo = PAGINA.read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Content-Length", str(len(cuerpo)))
-                self.end_headers()
-                self.wfile.write(cuerpo)
+                # Cada archivo de la app va con ?v=<su fecha>: el teléfono lo guarda hasta que cambie.
+                html = PAGINA.read_text(encoding="utf-8")
+                html = re.sub(r'(href|src)="/app/([^"?]+)"', lambda m: f'{m[1]}="/app/{m[2]}?v={_marca(PAGINA.parent / m[2])}"', html)
+                self._estatico(html.encode(), "text/html; charset=utf-8", False)
             elif self.path.startswith("/app/"):
                 # Los archivos de la app (estilo.css y js/*.js), solo de goa/web y sin salir de ahí.
                 ruta = (PAGINA.parent / self.path[len("/app/"):].split("?")[0]).resolve()
@@ -281,13 +317,7 @@ def crear_servidor(ctx, puerto):
                 if PAGINA.parent.resolve() not in ruta.parents or ruta.suffix not in tipos or not ruta.is_file():
                     self.send_error(404)
                     return
-                cuerpo = ruta.read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", tipos[ruta.suffix])
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Content-Length", str(len(cuerpo)))
-                self.end_headers()
-                self.wfile.write(cuerpo)
+                self._estatico(ruta.read_bytes(), tipos[ruta.suffix], "?v=" in self.path)
             elif self.path.startswith("/fuentes/"):
                 datos = fuentes.leer(self.path[len("/fuentes/"):])
                 if datos is None:
@@ -384,6 +414,8 @@ def crear_servidor(ctx, puerto):
                 "/api/cc": self._cc,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
+                "/api/clip/renombrar": self._clip_renombrar,
+                "/api/clip/restaurar": self._clip_restaurar,
                 "/api/lanzar": self._lanzar,
                 "/api/detener": self._detener,
                 "/api/dialogo/clip/guardar": self._dialogo_clip_guardar,
@@ -628,12 +660,19 @@ def crear_servidor(ctx, puerto):
             ctx.config = dict(ctx.config, secuencia=filas)
 
         def _clip_guardar(self, datos):
+            """{fila, nombre, variante=true, indice?}: con indice guarda lo que suena encima de ese clip."""
             with ctx.candado:
                 fila = int(datos["fila"])
                 secuencia = ctx.config["secuencia"][fila]
-                if len(ctx.config["clip"]) >= MAX_CLIPS:
-                    raise ValueError(f"Máximo {MAX_CLIPS} clips")
-                ctx.config["clip"].append(clip_de(secuencia, str(datos.get("nombre", ""))))
+                clips = ctx.config["clip"]
+                if datos.get("indice") is not None:
+                    i = int(datos["indice"])
+                    nombre = str(datos.get("nombre") or clips[i]["nombre"])
+                    clips[i] = clip_de(secuencia, nombre, datos.get("variante", clips[i].get("con_variante", True)))
+                else:
+                    if len(clips) >= MAX_CLIPS:
+                        raise ValueError(f"Máximo {MAX_CLIPS} clips")
+                    clips.append(clip_de(secuencia, str(datos.get("nombre", "")), datos.get("variante", True)))
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
@@ -643,12 +682,30 @@ def crear_servidor(ctx, puerto):
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
+        def _clip_renombrar(self, datos):
+            with ctx.candado:
+                clip = ctx.config["clip"][int(datos["indice"])]
+                clip["nombre"] = str(datos.get("nombre", "")).strip()[:40] or clip["nombre"]
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _clip_restaurar(self, datos):
+            """Deshacer un borrado: vuelve a poner el clip en su lugar."""
+            with ctx.candado:
+                clips = ctx.config["clip"]
+                if len(clips) >= MAX_CLIPS:
+                    raise ValueError(f"Máximo {MAX_CLIPS} clips")
+                clip = normalizar(dict(ctx.config, clip=[datos["clip"]]))["clip"][0]
+                clips.insert(max(0, min(len(clips), int(datos.get("indice", len(clips))))), clip)
+                aviso = self._guardar_activa()
+            self._responder(aviso)
+
         def _lanzar(self, datos):
             with ctx.candado:
                 fila = int(datos["fila"])
                 clip = ctx.config["clip"][int(datos["clip"])]
                 fila_cfg = ctx.config["secuencia"][fila]
-                nueva = dict(fila_cfg, **{k: v for k, v in clip.items() if k != "nombre"}, activa=True)
+                nueva = clip_aplicado(fila_cfg, clip)
                 ctx.motor.lanzar(fila, nueva, clip["nombre"])
                 self._cambiar_fila(fila, nueva)
                 aviso = self._guardar_activa()

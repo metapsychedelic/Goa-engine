@@ -223,6 +223,12 @@ function numeroDe(obj, k, etiqueta, min, max, alCambiar) {
   return el("label", {className: "campo"}, [etiqueta, inp]);
 }
 
+function numeroDecimal(obj, k, etiqueta, min, max, paso, alCambiar) {
+  const inp = el("input", {type: "number", min, max, step: paso, value: obj[k], inputMode: "decimal",
+    onchange: () => { const n = parseFloat(String(inp.value).replace(",", ".")); obj[k] = isNaN(n) ? obj[k] : Math.max(min, Math.min(max, n)); inp.value = obj[k]; if (alCambiar) alCambiar(); guardar(); }});
+  return el("label", {className: "campo"}, [etiqueta, inp]);
+}
+
 function programaDe(obj) {
   return el("div", {style: "display:flex;flex-direction:column;gap:4px"}, [
     numeroDe(obj, "programa", "Parche (Program Change, 0 = no cambia)", 0, 128),

@@ -359,46 +359,242 @@ function panelBajo() {
 
 // --- Secuencias ---
 
+// --- Editor de secuencia, por intención: cada tarjeta junta lo que sirve para lo mismo y lo que
+// depende de un control aparece justo debajo de él, solo cuando ese control hace algo. Mismos
+// controles y rangos completos del motor (docs/rediseno-secuencia.md).
+const FAMILIAS = [["Rodantes", ["rolling","galope","arpegio3","acido"]], ["Con frase", ["clasico","psytrance"]],
+  ["Con aire", ["psy_chill","euclidiano"]], ["Lentos", ["largas","ambient"]]];
+const ORDEN_ESTILOS = FAMILIAS.flatMap((f) => f[1]);
+const POSICION_NECESARIA = {largas: "todos", ambient: "todos", clasico: "todos", psytrance: "todos"};  // = generos.POSICION_NECESARIA
+const nombreEstilo = (v) => (ESTILOS.find((x) => x[0] === v) || [, v])[1];
+const gateTexto = (v) => v < 0.3 ? "corto" : v < 0.7 ? "medio" : "largo";
+const octavaTexto = (v) => v === 0 ? "en su lugar" : (v > 0 ? "+" : "") + v + (Math.abs(v) === 1 ? " octava" : " octavas");
+
+function elegirEstilo(s, v) {
+  s.estilo = v;
+  if (POSICION_NECESARIA[v]) s.posicion = POSICION_NECESARIA[v];  // sin esto, sus notas en el tiempo no sonarían
+  renderMotores(); guardar();
+}
+
+function figuraTexto(s) {
+  const lista = s.estilo === "clasico" ? FIGURAS : s.estilo === "psytrance" ? FIGURAS_PSY : null;
+  if (!lista) return "";
+  const f = lista.find((x) => x[0] === s.figura) || lista[0];
+  return f[1].replace(" ✦", "");
+}
+
+function bloqueEstilo(s) {
+  const k = Math.max(0, ORDEN_ESTILOS.indexOf(s.estilo));
+  const mover = (d) => elegirEstilo(s, ORDEN_ESTILOS[(k + d + ORDEN_ESTILOS.length) % ORDEN_ESTILOS.length]);
+  const nav = (txt, d, etiqueta) => el("button", {type: "button", className: "nav-estilo", textContent: txt, "aria-label": etiqueta,
+    onclick: (e) => { e.preventDefault(); e.stopPropagation(); mover(d); }});
+  const fig = figuraTexto(s);
+  const opciones = s.estilo === "clasico" ? panelClasico(s) : s.estilo === "psytrance" ? panelPsy(s) : [];
+  return recordar(el("details", {className: "grupo estilo-sec"}, [
+    el("summary", {}, [
+      el("span", {className: "cab"}, [el("b", {textContent: "Estilo"}), el("span", {textContent: nombreEstilo(s.estilo) + (fig ? ` · ${fig}` : "")})]),
+      nav("‹", -1, "Estilo anterior"), nav("›", 1, "Estilo siguiente")]),
+    el("div", {className: "cuerpo"}, [
+      ...FAMILIAS.map(([familia, lista]) => el("div", {className: "familia"}, [
+        el("span", {className: "familia-nombre", textContent: familia}),
+        segmentado(lista.map((v) => [v, nombreEstilo(v)]), s.estilo, (v) => elegirEstilo(s, v), lista.length > 2 ? 4 : 2)])),
+      ayuda("Cambia el patrón; tus ajustes se quedan."),
+      opciones.length ? el("span", {className: "familia-nombre", textContent: `Opciones de ${nombreEstilo(s.estilo)}`}) : null,
+      ...opciones,
+    ].filter(Boolean)),
+  ]), "sec-estilo", true);
+}
+
+// --- Clips: una pestaña chica con lo que suena; abierta, la lista ---
+let clipsAbiertos = new Set();
+const nombreClipFila = (i) => {
+  const f = ultimoEstado && ultimoEstado.filas && ultimoEstado.filas[i];
+  return f && f.activa && f.clip ? f.clip : "";
+};
+
+function pestanaClip(i) {
+  const n = nombreClipFila(i);
+  return el("button", {type: "button", className: "pestana-clip" + (clipsAbiertos.has(i) ? " abierta" : ""), "data-pestana-clip": i,
+    "aria-expanded": clipsAbiertos.has(i) ? "true" : "false",
+    textContent: (n ? `Clip: ${n}` : "Sin clip") + " ▾",
+    onclick: () => { clipsAbiertos.has(i) ? clipsAbiertos.delete(i) : clipsAbiertos.add(i); renderMotores(); }});
+}
+
+function listaClips(i, s) {
+  const agrupar = leerLocal("clips_por_estilo", "0") === "1";
+  const fila = el("div", {className: "clips-lista", "data-fila": i});
+  const filaClip = (c, ci) => el("div", {className: "clip-fila"}, [
+    el("button", {type: "button", className: "clip", "data-clip": c.nombre,
+      onclick: async () => { try { await api("/api/lanzar", {fila: i, clip: ci}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }}, [
+      el("span", {className: "clip-nombre", textContent: c.nombre}),
+      el("span", {className: "mut", textContent: [agrupar ? "" : nombreEstilo(c.estilo), c.con_variante === false ? "sin variante" : c.seed].filter(Boolean).join(" · ")})]),
+    el("button", {type: "button", className: "clip-menu", textContent: "⋯", "aria-label": `Opciones de ${c.nombre}`, onclick: () => menuClip(i, s, c, ci)}),
+  ]);
+  const clips = cfg.clip.map((c, ci) => [c, ci]);
+  if (!clips.length) fila.append(el("p", {className: "mut", style: "margin:4px 0", textContent: "Todavía no hay clips."}));
+  else if (agrupar) {
+    for (const v of ORDEN_ESTILOS) {
+      const de = clips.filter(([c]) => c.estilo === v);
+      if (!de.length) continue;
+      fila.append(el("span", {className: "familia-nombre", textContent: nombreEstilo(v)}), ...de.map(([c, ci]) => filaClip(c, ci)));
+    }
+  } else fila.append(...clips.map(([c, ci]) => filaClip(c, ci)));
+  if (clips.length) fila.append(el("button", {type: "button", className: "clip parar", textContent: "■ Parar en el próximo compás", "data-parar": "1",
+    onclick: async () => { try { await api("/api/detener", {fila: i}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }}));
+  const caja = el("div", {className: "clips-caja"}, [
+    clips.length > 1 ? el("label", {className: "fila mut", style: "min-height:36px;font-size:13px"}, [el("span", {textContent: "Agrupar por estilo"}),
+      el("input", {type: "checkbox", checked: agrupar, onchange: (e) => { escribirLocal("clips_por_estilo", e.target.checked ? "1" : "0"); renderMotores(); }})]) : null,
+    fila,
+    el("button", {type: "button", textContent: "+ Guardar lo que suena", onclick: () => hojaGuardarClip(i, s)}),
+  ].filter(Boolean));
+  setTimeout(pintarClips);
+  return caja;
+}
+
+async function aplicarAntes() { clearTimeout(temporizador); await api("/api/config", cfg); }
+
+function hojaGuardarClip(i, s) {
+  const nombre = el("input", {type: "text", value: `${nombreEstilo(s.estilo)} ${s.seed}`, maxLength: 40, "aria-label": "Nombre del clip"});
+  const conSeed = el("input", {type: "checkbox", checked: true});
+  let d;
+  d = hoja("Guardar lo que suena", `Secuencia ${s.nombre} · ${nombreEstilo(s.estilo)}`, [
+    el("label", {className: "campo"}, ["Nombre", nombre]),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Incluir la variante", el("br"),
+      el("span", {className: "mut", textContent: `Con la seed ${s.seed}. Sin ella, al tocarlo la secuencia sigue con su variante`})]), conSeed]),
+    el("div", {className: "acciones"}, [
+      el("button", {type: "button", textContent: "Cancelar", onclick: () => d.close()}),
+      el("button", {type: "button", className: "prim", textContent: "Guardar", onclick: async () => {
+        try { await aplicarAntes(); await api("/api/clip/guardar", {fila: i, nombre: nombre.value, variante: conSeed.checked});
+          d.close(); clipsAbiertos.add(i); await recargar(); aviso("Clip guardado"); } catch (e) { aviso(e.message, true); } }})]),
+  ]);
+  nombre.focus(); nombre.select();
+}
+
+function menuClip(i, s, c, ci) {
+  const nombre = el("input", {type: "text", value: c.nombre, maxLength: 40, "aria-label": "Nombre del clip"});
+  let d;
+  d = hoja(c.nombre, `${nombreEstilo(c.estilo)} · ${c.con_variante === false ? "sin variante" : c.seed}`, [
+    el("label", {className: "campo"}, ["Renombrar", el("div", {style: "display:flex;gap:8px"}, [nombre,
+      el("button", {type: "button", textContent: "Listo", onclick: async () => {
+        try { await api("/api/clip/renombrar", {indice: ci, nombre: nombre.value}); d.close(); await recargar(); } catch (e) { aviso(e.message, true); } }})])]),
+    el("div", {className: "acciones", style: "margin-top:12px"}, [
+      el("button", {type: "button", className: "ancho", textContent: `Guardar lo que suena aquí (secuencia ${s.nombre})`, onclick: async () => {
+        const antes = JSON.parse(JSON.stringify(c));
+        try { await aplicarAntes(); await api("/api/clip/guardar", {fila: i, indice: ci}); d.close(); await recargar();
+          avisoDeshacer(`«${c.nombre}» ahora guarda lo que suena`, async () => {
+            await api("/api/clip/borrar", {indice: ci}); await api("/api/clip/restaurar", {indice: ci, clip: antes}); await recargar(); });
+        } catch (e) { aviso(e.message, true); } }}),
+      el("button", {type: "button", className: "ancho", style: "color:var(--bad);border-color:var(--badline)", textContent: "Borrar", onclick: async () => {
+        const antes = JSON.parse(JSON.stringify(c));
+        try { await api("/api/clip/borrar", {indice: ci}); d.close(); await recargar();
+          avisoDeshacer(`Clip «${c.nombre}» borrado`, async () => { await api("/api/clip/restaurar", {indice: ci, clip: antes}); await recargar(); });
+        } catch (e) { aviso(e.message, true); } }}),
+    ]),
+  ]);
+}
+
+function bloqueVariante(i, s) {
+  const seed = el("input", {type: "text", value: s.seed, style: "font-family:ui-monospace,Menlo,monospace", "aria-label": "Variante escrita a mano",
+    onchange: (e) => { const v = e.target.value.trim(); if (v && v !== s.seed) { s.seed = v; guardar(); renderMotores(); } }});
+  return el("div", {className: "card variante-card"}, [
+    el("div", {className: "fila", style: "gap:8px"}, [el("b", {textContent: "Variante"}), pestanaClip(i)]),
+    clipsAbiertos.has(i) ? listaClips(i, s) : null,
+    varianteAB(s, `sec-${s.nombre}`),
+    el("details", {className: "voz"}, [el("summary", {}, [el("span", {textContent: "Escrita a mano"}), el("span", {className: "der", textContent: s.seed})]),
+      el("div", {className: "cuerpo"}, [el("label", {className: "campo"}, ["Seed (cualquier texto)", seed])])]),
+  ].filter(Boolean));
+}
+
 function panelSecuencia(i) {
   const s = cfg.secuencia[i];
-  const estilos = [...new Set([...ESTILOS_POR_GENERO[s.genero], s.estilo])].map((v) => ESTILOS.find((x) => x[0] === v));
   const texto = (k, etiqueta, extra = {}) => {
     const inp = el("input", Object.assign({type: "text", value: s[k],
       onchange: () => { s[k] = inp.value.trim() || s[k]; inp.value = s[k]; renderMotores(); renderMutes(); guardar(); }}, extra));
     return el("label", {className: "campo"}, [etiqueta, inp]);
   };
+  const conFrase = FRASEADOS.includes(s.estilo);
+  const usaCada = s.mutacion > 0 || s.mutacion_ritmo > 0 || s.molde_muta > 0;
+  const pos = POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase();
+  const rel = RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase();
   return [
     cabMotor(`Secuencia ${s.nombre}`, `${s.salida} · canal ${s.canal} · ${armoniaTexto(s)}`, s, "activa", null, botonFabrica(i, s)),
     franjaPatron(i),
-    campo("Estilo · solo cambia el patrón, tus ajustes se quedan", segmentado(estilos, s.estilo, (v) => {
-      s.estilo = v;
-      if (FRASEADOS.includes(v)) s.posicion = "todos";  // suena en todas las semicorcheas, también con el bombo
-      renderMotores(); guardar(); }, 2)),
-    ...(s.estilo === "clasico" ? panelClasico(s) : s.estilo === "psytrance" ? panelPsy(s) : []),
-    campo("Variante · compara antes de quedarte con una", varianteAB(s, `sec-${s.nombre}`)),
-    el("div", {className: "card principales"}, [
-      deslizador(s, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas las notas" : porcentaje(v)),
-      deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, (v) => `${v < 0.3 ? "corto" : v < 0.7 ? "medio" : "largo"} (${porcentaje(v)})`),
-      deslizador(s, "octava", "Brillo (octava)", -3, 3, 1, (v) => v === 0 ? "en su lugar" : (v > 0 ? "+" : "") + v + (Math.abs(v) === 1 ? " octava" : " octavas")),
-    ]),
+    bloqueEstilo(s),
+    bloqueVariante(i, s),
     el("div", {className: "grupos"}, [
-      grupo(`g-sec-genero`, "Género", (GENEROS.find((g) => g[0] === s.genero) || ["", s.genero])[1], [
-        segmentado(GENEROS, s.genero, (v) => cambiarGenero(v, {parte: "secuencia", indice: i}), 3),
-        ayuda("Cambia los estilos que aparecen arriba y los valores de partida de este género."),
-      ]),
-      grupo(`g-sec-ritmo`, "Ritmo", `${POSICIONES.find((x) => x[0] === s.posicion)[1].toLowerCase()} · ${FRASEADOS.includes(s.estilo) ? `frase de ${s.frase || 2} compases` : `${s.largo} pasos`} · swing ${Math.round(s.swing * 200)} %`, [
+      grupo("sec-mas", "Más o menos notas", [porcentaje(s.densidad), pos, conFrase ? `frase de ${s.frase || 2}` : `${s.largo} pasos`, `largo ${gateTexto(s.gate)}`, s.filtro ? "con filtro" : ""].filter(Boolean).join(" · "), [
+        deslizador(s, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas las notas" : porcentaje(v)),
         campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; renderMotores(); guardar(); }, 2)),
         ayuda(POS_TEXTO[s.posicion]),
-        ...(FRASEADOS.includes(s.estilo) ? [] : [
-          campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); guardar(); }, 4)),
-          ayuda("16 da un compás. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
+        ...(conFrase ? [ayuda(`Con ${nombreEstilo(s.estilo)} el largo lo da la frase (en Estilo).`)] : [
+          campo("Largo del patrón · de 2 a 64 pasos", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); renderMotores(); guardar(); }, 4)),
+          numeroDe(s, "largo", "Pasos", 2, 64, renderMotores),
+          ayuda("16 da un compás; 32 o 64, dos o cuatro. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
         ]),
-        deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
-        deslizador(s, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
+        deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, (v) => `${gateTexto(v)} (${porcentaje(v)})`),
+        deslizador(s, "gate_random", "Variación del largo", 0, 1, 0.05, porcentaje),
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
+        el("span", {className: "familia-nombre", textContent: "Filtro y orden"}),
+        moldeEditor(s, "La seed arma las notas y el filtro decide cuáles pasan: ● = pasa, ? = a veces, vacío = bloqueado. Cambiar la seed cambia las notas que pasan.",
+          null, "Orden de los pasos", () => s.mutar_cada, () => renderMotores()),
       ]),
-      grupoMolde(`g-sec-molde`, s, "La seed arma las notas y el filtro decide cuáles pasan: ● = pasa, ? = a veces, vacío = bloqueado. Cambiar la seed cambia las notas que pasan.", "Orden de los pasos", () => s.mutar_cada),
-      grupo(`g-sec-lfo`, "Filtro del sinte", [s.subida_filtro ? `se abre en las subidas hasta ${Math.round(s.subida_hasta / 1.27)} %` : "", lfoResumen(s) === "apagado" ? "" : lfoResumen(s)].filter(Boolean).join(" · ") || "apagado", [
+      grupo("sec-mutar", "Que cambie solo", s.bloqueada ? "congelada" : !usaCada ? "fija" :
+        [s.mutacion ? `notas ${porcentaje(s.mutacion)}` : "", s.mutacion_ritmo ? `ritmo ${porcentaje(s.mutacion_ritmo)}` : "", s.molde_muta ? "filtro" : "", `cada ${s.mutar_cada}`].filter(Boolean).join(" · "), [
+        deslizador(s, "mutacion", "Mutación de notas", 0, 1, 0.05, (v) => s.bloqueada ? "congelada" : v === 0 ? "fija" : porcentaje(v), () => renderMotores()),
+        deslizador(s, "mutacion_ritmo", "Mutación de ritmo", 0, 1, 0.05, (v) => s.bloqueada ? "congelada" : v === 0 ? "apagada" : porcentaje(v), () => renderMotores()),
+        ayuda("Además de las notas, el ritmo cambia de a poco: mueve una nota a un lugar vecino, agrega o quita una, o vuelve al ritmo original. Respeta dónde caen las notas y la cantidad se mantiene cerca de la original."),
+        usaCada ? numeroDe(s, "mutar_cada", "Cada (compases, de 1 a 64)", 1, 64, () => renderMotores()) : null,
+        usaCada && s.molde_muta > 0 ? ayuda("También marca cada cuánto muta el filtro de notas.") : null,
+        casilla(s, "bloqueada", "Congelar el patrón", "La mutación no lo cambia (un clip guardado congelado entra congelado)", () => renderMotores()),
+      ]),
+      grupo("sec-groove", "Groove", [`swing ${Math.round(s.swing * 200)} %`, `acentos ${porcentaje(s.acentos)}`, s.repeticion ? `redobles ${porcentaje(s.repeticion)}` : "sin redobles",
+        i > 0 && (s.corrimiento || s.complementar || s.separar) ? "con la otra voz" : ""].filter(Boolean).join(" · "), [
+        deslizador(s, "swing", "Swing", 0, 0.5, 0.05, (v) => Math.round(v * 200) + " %"),
+        deslizador(s, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
+        ayuda("En Ácido 303, acentos y slides son la cantidad total; en los otros estilos se suman."),
+        el("div", {className: "dos"}, [numeroDe(s, "velocidad", "Fuerza normal (1-127)", 1, 127), numeroDe(s, "acento", "Fuerza del acento (1-127)", 1, 127)]),
+        deslizador(s, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
+        deslizador(s, "repeticion", "Redobles", 0, 1, 0.05, porcentaje),
+        ...(i > 0 ? [
+          el("span", {className: "familia-nombre", textContent: "Con la otra voz"}),
+          ayuda(`Para que dos secuencias no se pisen. Esta mira a la primera secuencia activa de la lista (la ${cfg.secuencia[0].nombre || "1"}, normalmente el lead). Todo es opcional: en cero toca libre.`),
+          deslizador(s, "corrimiento", "Corrimiento", 0, 15, 1, (v) => v === 0 ? "en su lugar" : `entra ${v} semicorchea${v > 1 ? "s" : ""} tarde`),
+          ayuda("Corre el patrón dentro de la rejilla. 1 o 3 suelen caer en los huecos del lead; 2 lo pone a contratiempo. Moverlo en vivo es un efecto en sí."),
+          deslizador(s, "complementar", "Complementar", 0, 1, 0.05, (v) => v === 0 ? "apagado" : v <= 0.5 ? `${porcentaje(v)} · cede en los tiempos y acentos del lead` : v < 1 ? `${porcentaje(v)} · cede también en el resto` : "100 % · hocket: solo en los huecos del lead"),
+          ayuda("Calla donde el lead ataca: hasta 50 % cede en sus tiempos fuertes y acentos, más arriba también en las demás notas. Al 100 % las dos voces arman una sola línea (hocket). Necesita un lead con huecos: con un pedal que toca todas las semicorcheas, esta voz se queda casi muda."),
+          casilla(s, "separar", "Separar las notas", "Arregla los choques con el lead. En las notas: si choca de cerca (segunda, séptima o tritono a menos de una octava, o la misma nota), va a la nota consonante más cercana, primero del acorde; la ♭9 del frigio (raíz abajo, ♭2 arriba) se respeta, y si el lead ataca encima de una nota larga que choca, esa nota se corta. En el ritmo: las notas corridas (tresillos, swing) que caerían pegadas a un golpe del lead se alinean con él, para que no suenen como flam", () => renderMotores()),
+        ] : []),
+      ]),
+      grupo("sec-altura", "Altura", [octavaTexto(s.octava), `desde ${rel}`, `slides ${porcentaje(s.slide)}`, s.raga ? `raga ${s.raga}` : "", s.escala_color ? "color" : ""].filter(Boolean).join(" · "), [
+        deslizador(s, "octava", "Octava (brillo)", -3, 3, 1, octavaTexto),
+        campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; renderMotores(); guardar(); }, 2)),
+        deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
+        deslizador(s, "slide", "Slides", 0, 1, 0.05, porcentaje),
+        ayuda("Para que los slides deslicen, pon el sinte en mono o legato con glide."),
+        deslizador(s, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
+        ayuda("Cuánto regresa a la nota base entre las demás: más alto, más hipnótico."),
+        deslizador(s, "deslices", "Deslices de notas", 0, 1, 0.05, (v) => v === 0 ? "apagado" : porcentaje(v)),
+        ayuda("Opcional. Notas que respiran (se sostienen sobre la raíz que sigue), notas llenas y aproximaciones por grado al adorno que viene, todo en la rejilla y sin pisarse. No cambia la escala."),
+        campo("Voz doble", segmentado([["","No"],["tercera","3.ª"],["cuarta","4.ª"],["quinta","5.ª"],["sexta","6.ª"],["octava","8.ª"]], s.doble || "", (v) => { s.doble = v; guardar(); }, 6)),
+        ayuda("Una segunda voz paralela por grados de la escala, un poco más suave (como los stabs de dos notas de los packs). Necesita un sinte polifónico."),
+        deslizador(s, "techo", "Techo (nota más alta)", 36, 127, 1, (v) => v >= 127 ? "sin techo" : `${nombreMidi(v)} · lo de arriba baja una octava`),
+        ayuda("Si una seed o el director la llevan muy aguda, lo que pasa del techo vuelve a sonar una octava abajo: misma nota, mismo ritmo."),
+        deslizador(s, "semitono", "♭2 (medio tono sobre la raíz)", 0, 1, 0.05, (v) => v === 0 ? "como sale" : porcentaje(v)),
+        ayuda("Cambia notas de los pasos débiles por el medio tono sobre la raíz: la tensión hipnótica del psytrance. Los tiempos fuertes quedan firmes."),
+        campo("Escala de color", segmentado(ESCALAS_COLOR, s.escala_color || "", (v) => { s.escala_color = v; renderMotores(); guardar(); }, 2)),
+        ayuda(COLOR_TEXTO[s.escala_color || ""]),
+        campo("Raga", segmentado(RAGAS, s.raga || "", (v) => { s.raga = v; renderMotores(); guardar(); }, 3)),
+        ayuda(RAGA_TEXTO[s.raga || ""]),
+        ...(s.raga ? [
+          deslizador(s, "ornamentos", "Ornamentos de la raga", 0, 1, 0.05, (v) => v === 0 ? "solo la escala" : v < 0.3 ? `${porcentaje(v)} · sin frase típica` : `${porcentaje(v)} · con frase típica`),
+          numeroDe(s, "bend_rango", "Rango de pitch bend del sinte (semitonos, 0 = sin bend)", 0, 24),
+          ayuda("Todo cae en la rejilla de semicorcheas, sin fusas ni notas pisadas: los ornamentos toman los pasos de nota fija (Sa o Pa) que rodean a la nota adornada. Kan: el paso antes lleva la gracia que manda la raga. Gamak: los pasos después de una nota que tiembla hacen el trino (vecina, nota). Meend: la nota llega deslizándose con el pitch bend (pon el rango de tu sinte; 0 = sin bend). Andolan: vaivén de un cuarto de tono en las notas que tiemblan cuando se sostienen. Desde 30 %, en Goa clásico la respuesta cierra con la frase típica de la raga."),
+        ] : []),
+        armoniaPropia(s, () => renderMotores()),
+      ]),
+      grupo("sec-sonido", "Sonido del sinte", [`filtro CC ${s.cc_filtro}`, s.subida_filtro ? "se abre en las subidas" : "", lfoResumen(s) === "apagado" ? "" : lfoResumen(s), s.fx ? "la interviene el FX" : ""].filter(Boolean).join(" · "), [
+        el("div", {className: "dos"}, [numeroDe(s, "cc_filtro", "CC del filtro (0-127)", 0, 127), numeroDe(s, "filtro_reposo", "Reposo (0-127)", 0, 127)]),
+        ayuda("El reposo es dónde vuelve el filtro después de una subida: ponlo donde tienes la perilla del sinte. CC 74 = corte en la MC-101 y en la FM-1 con Shrub; en la MicroFreak es el 23."),
         el("label", {className: "fila", style: "min-height:44px"}, [
           el("span", {}, ["Se abre en las subidas", el("br"), el("span", {className: "mut", textContent: "Durante el rise el filtro se va abriendo hasta el drop"})]),
           el("input", {type: "checkbox", className: "switch", checked: !!s.subida_filtro, "aria-label": "Se abre en las subidas",
@@ -407,72 +603,16 @@ function panelSecuencia(i) {
           deslizador(s, "subida_desde", "Parte en", 0, 127, 1, (x) => `${x} (${Math.round(x / 1.27)} %)`),
           deslizador(s, "subida_hasta", "Al final de la subida", 0, 127, 1, (x) => x >= 127 ? "abierto del todo (127)" : `${x} (${Math.round(x / 1.27)} %)`),
           campo("Después del drop", segmentado([["vuelve","Vuelve al reposo"],["queda","Se queda ahí"]], s.subida_despues || "vuelve", (v) => { s.subida_despues = v; guardar(); renderMotores(); }, 2)),
-          el("div", {className: "dos"}, [numeroDe(s, "cc_filtro", "CC del filtro", 0, 127), (s.subida_despues || "vuelve") === "vuelve" ? numeroDe(s, "filtro_reposo", "Reposo (0-127)", 0, 127) : el("span")]),
-          ayuda("Se abre cada vez más rápido y llega a «Al final de la subida» justo en el drop. El reposo es dónde vuelve después: ponlo donde tienes la perilla del sinte. CC 74 = corte en la MC-101 y en la FM-1 con Shrub. Mientras dura la subida, un LFO sobre el mismo CC espera."),
+          ayuda("Se abre cada vez más rápido y llega a «Al final de la subida» justo en el drop. Mientras dura la subida, un LFO sobre el mismo CC espera."),
         ] : []),
         ...editorLfo(s, "lfo", "LFO 1"),
         ...editorLfo(s, "lfo2", "LFO 2"),
         ayuda("Van sincronizados al compás y pueden mover cosas distintas a la vez (por ejemplo, corte y resonancia). Si el motor de FX interviene el mismo filtro en una subida, ese LFO espera y sigue después."),
-      ]),
-      i > 0 ? grupo(`g-sec-voces`, "Con la otra voz", [s.corrimiento ? `corrida ${s.corrimiento}` : "", s.complementar ? `complementa ${porcentaje(s.complementar)}` : "", s.separar ? "se separa" : ""].filter(Boolean).join(" · ") || "libre", [
-        ayuda(`Para que dos secuencias no se pisen. Esta mira a la primera secuencia activa de la lista (la ${cfg.secuencia[0].nombre || "1"}, normalmente el lead). Todo es opcional: en cero toca libre.`),
-        deslizador(s, "corrimiento", "Corrimiento", 0, 15, 1, (v) => v === 0 ? "en su lugar" : `entra ${v} semicorchea${v > 1 ? "s" : ""} tarde`),
-        ayuda("Corre el patrón dentro de la rejilla. 1 o 3 suelen caer en los huecos del lead; 2 lo pone a contratiempo. Moverlo en vivo es un efecto en sí."),
-        deslizador(s, "complementar", "Complementar", 0, 1, 0.05, (v) => v === 0 ? "apagado" : v <= 0.5 ? `${porcentaje(v)} · cede en los tiempos y acentos del lead` : v < 1 ? `${porcentaje(v)} · cede también en el resto` : "100 % · hocket: solo en los huecos del lead"),
-        ayuda("Calla donde el lead ataca: hasta 50 % cede en sus tiempos fuertes y acentos, más arriba también en las demás notas. Al 100 % las dos voces arman una sola línea (hocket). Necesita un lead con huecos: con un pedal que toca todas las semicorcheas, esta voz se queda casi muda."),
-        casilla(s, "separar", "Separar las notas", "Arregla los choques con el lead. En las notas: si choca de cerca (segunda, séptima o tritono a menos de una octava, o la misma nota), va a la nota consonante más cercana, primero del acorde; la ♭9 del frigio (raíz abajo, ♭2 arriba) se respeta, y si el lead ataca encima de una nota larga que choca, esa nota se corta. En el ritmo: las notas corridas (tresillos, swing) que caerían pegadas a un golpe del lead se alinean con él, para que no suenen como flam", () => renderMotores()),
-      ]) : null,
-      grupo(`g-sec-notas`, "Notas", `desde ${RELACIONES.find((x) => x[0] === s.relacion)[1].toLowerCase()}${s.raga ? ` · raga ${s.raga}` : ""} · slides ${porcentaje(s.slide)}`, [
-        campo("Parte desde", segmentado(RELACIONES, s.relacion, (v) => { s.relacion = v; guardar(); }, 2)),
-        campo("Voz doble", segmentado([["","No"],["tercera","3.ª"],["cuarta","4.ª"],["quinta","5.ª"],["sexta","6.ª"],["octava","8.ª"]], s.doble || "", (v) => { s.doble = v; guardar(); }, 6)),
-        ayuda("Una segunda voz paralela por grados de la escala, un poco más suave (como los stabs de dos notas de los packs). Necesita un sinte polifónico."),
-        deslizador(s, "techo", "Techo (nota más alta)", 60, 127, 1, (v) => v >= 127 ? "sin techo" : `${nombreMidi(v)} · lo de arriba baja una octava`),
-        ayuda("Si una seed o el director la llevan muy aguda, lo que pasa del techo vuelve a sonar una octava abajo: misma nota, mismo ritmo."),
-        deslizador(s, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
-        ayuda("Cuánto regresa a la nota base entre las demás: más alto, más hipnótico."),
-        deslizador(s, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
-        deslizador(s, "deslices", "Deslices de notas", 0, 1, 0.05, (v) => v === 0 ? "apagado" : porcentaje(v)),
-        ayuda("Opcional. Notas que respiran (se sostienen sobre la raíz que sigue), notas llenas y aproximaciones por grado al adorno que viene, todo en la rejilla y sin pisarse. No cambia la escala."),
-        campo("Raga", segmentado(RAGAS, s.raga || "", (v) => { s.raga = v; renderMotores(); guardar(); }, 3)),
-        ayuda(RAGA_TEXTO[s.raga || ""]),
-        ...(s.raga ? [
-          deslizador(s, "ornamentos", "Ornamentos de la raga", 0, 1, 0.05, (v) => v === 0 ? "solo la escala" : v < 0.3 ? `${porcentaje(v)} · sin frase típica` : `${porcentaje(v)} · con frase típica`),
-          numeroDe(s, "bend_rango", "Rango de pitch bend del sinte (semitonos, 0 = sin bend)", 0, 24),
-          ayuda("Todo cae en la rejilla de semicorcheas, sin fusas ni notas pisadas: los ornamentos toman los pasos de nota fija (Sa o Pa) que rodean a la nota adornada. Kan: el paso antes lleva la gracia que manda la raga. Gamak: los pasos después de una nota que tiembla hacen el trino (vecina, nota). Meend: la nota llega deslizándose con el pitch bend (pon el rango de tu sinte; 0 = sin bend). Andolan: vaivén de un cuarto de tono en las notas que tiemblan cuando se sostienen. Desde 30 %, en Goa clásico la respuesta cierra con la frase típica de la raga."),
-        ] : []),
-        campo("Escala de color", segmentado(ESCALAS_COLOR, s.escala_color || "", (v) => { s.escala_color = v; renderMotores(); guardar(); }, 2)),
-        ayuda(COLOR_TEXTO[s.escala_color || ""]),
-        deslizador(s, "semitono", "♭2 (medio tono sobre la raíz)", 0, 1, 0.05, (v) => v === 0 ? "como sale" : porcentaje(v)),
-        ayuda("Cambia notas de los pasos débiles por el medio tono sobre la raíz: la tensión hipnótica del psytrance. Los tiempos fuertes quedan firmes."),
-        deslizador(s, "slide", "Slides", 0, 1, 0.05, porcentaje),
-        deslizador(s, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
-        ayuda("En Ácido 303, acentos y slides son la cantidad total; en los otros estilos se suman. Para que los slides deslicen, pon el sinte en mono o legato con glide."),
-        el("div", {className: "dos"}, [numeroDe(s, "velocidad", "Fuerza normal", 1, 127), numeroDe(s, "acento", "Fuerza del acento", 1, 127)]),
-        deslizador(s, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
-        deslizador(s, "gate_random", "Variación del largo", 0, 1, 0.05, porcentaje),
-      ]),
-      grupo(`g-sec-var`, "Variación", `${s.bloqueada ? "congelada" : (s.mutacion === 0 && !s.mutacion_ritmo) ? "sin mutación" : `mutar cada ${s.mutar_cada}${s.mutacion_ritmo ? " · con ritmo" : ""}`} · ${armoniaTexto(s)} · ${cfg.clip.length} clips`, [
-        deslizador(s, "mutacion", "Mutación de notas", 0, 1, 0.05, (v) => s.bloqueada ? "congelada" : v === 0 ? "fija" : `${porcentaje(v)} cada ${s.mutar_cada}`, () => renderMotores()),
-        casilla(s, "bloqueada", "Congelar el patrón", "La mutación no lo cambia (un clip guardado congelado entra congelado)", () => renderMotores()),
-        el("label", {className: "campo"}, ["Variante escrita a mano (seed)", el("input", {type: "text", value: s.seed, style: "font-family:ui-monospace,Menlo,monospace",
-          onchange: (e) => { const v = e.target.value.trim(); if (v && v !== s.seed) { s.seed = v; guardar(); renderMotores(); } }})]),
-        numeroDe(s, "mutar_cada", "Mutar cada (compases)", 1, 64, () => renderMotores()),
-        deslizador(s, "mutacion_ritmo", "Mutación de ritmo", 0, 1, 0.05, (v) => s.bloqueada ? "congelada" : v === 0 ? "apagada" : `${porcentaje(v)} cada ${s.mutar_cada}`, () => renderMotores()),
-        ayuda("Además de las notas, el ritmo cambia de a poco: mueve una nota a un lugar vecino, agrega o quita una, o vuelve al ritmo original. Respeta dónde caen las notas y la cantidad se mantiene cerca de la original."),
-        armoniaPropia(s, () => renderMotores()),
-        h3("Clips"),
-        ayuda("Un clip guarda el carácter de la secuencia (estilo, variante y ajustes). Al tocarlo, entra en el próximo compás."),
-        clipsSecuencia(i),
-        el("button", {type: "button", textContent: "Guardar como clip", onclick: () => guardarClip(i, s)}),
-      ]),
-      grupo(`g-sec-fx`, "FX", s.fx ? `intervenida · filtro CC ${s.cc_filtro}` : "sin intervenir", [
         casilla(s, "fx", "La interviene el motor de FX",
           "En las subidas su filtro baja y se va abriendo hasta el drop, y suma redobles cada vez más seguidos. Fuera de las subidas, a veces el último tiempo de la frase se traba (stutter). Cuánto, lo decide la Locura del FX.", () => renderMotores()),
-        s.fx ? el("div", {className: "dos"}, [numeroDe(s, "cc_filtro", "CC del filtro de su sinte", 0, 127), numeroDe(s, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]) : null,
         s.fx && !s.subida_filtro ? deslizador(s, "subida_hasta", "Filtro al final de la subida", 0, 127, 1, (x) => x >= 127 ? "abierto del todo (127)" : `${x} (${Math.round(x / 1.27)} %)`) : null,
-        s.fx ? ayuda("El reposo es dónde vuelve el filtro después del drop: ponlo donde tienes la perilla del sinte. El CC del cutoff suele ser el 74; en la MicroFreak es el 23. Revisa la tabla MIDI de tu sinte (en la FM-1 con Shrub, la de su manual).") : null,
       ]),
-      grupo(`g-sec-midi`, "Salida MIDI", salidaTexto(s), [
+      grupo("sec-midi", "Salida MIDI", salidaTexto(s), [
         el("div", {className: "dos"}, [texto("nombre", "Nombre", {maxLength: 12}), destinoDe(s, renderMotores)]),
         el("div", {className: "dos"}, [numeroDe(s, "canal", "Canal MIDI", 1, 16, renderMotores), numeroDe(s, "disparo", "Canal de su nota larga (0 = general)", 0, 16, renderMotores)]),
         programaDe(s),
@@ -731,7 +871,7 @@ function moldeTexto(m, obj) {
   return partes.join(" · ");
 }
 
-function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
+function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada, alMutar) {
   // Filtro de notas: prendido y vacío no suena nada; tocas los pasos que quieres oír.
   // Tocar un paso abierto lo vuelve a cerrar. Los tiempos del bombo siempre se marcan.
   let pincel = "x";
@@ -780,7 +920,7 @@ function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
         caja.appendChild(ayuda("En cada compás, cada ? deja pasar la nota con esta probabilidad."));
       }
       caja.appendChild(deslizador(obj, "molde_muta", "El filtro muta solo", 0, 1, 0.05,
-        (v) => v === 0 ? "no" : `${porcentaje(v)} cada ${cada()} compases`, () => actualizar()));
+        (v) => v === 0 ? "no" : `${porcentaje(v)} cada ${cada()} compases`, () => { actualizar(); if (alMutar) alMutar(); }));
       caja.appendChild(ayuda(`Cada cierto número de compases abre o cierra uno o dos pasos, al estilo ${(obj.molde_estilo || "goa") === "psy" ? "psy" : "goa"} (el del último 🎲). La fila de arriba muestra el filtro de partida.`));
     }
     caja.appendChild(campo(textoOrden, segmentado(RECORRIDOS, obj.recorrido || "adelante", (v) => { obj.recorrido = v; pintar(); guardar(); actualizar(); }, 4)));
@@ -824,18 +964,11 @@ function editorLfo(s, p, titulo) {
       choca ? ayuda("Los dos LFO mueven lo mismo y se van a pisar: elige otra cosa para uno de ellos.") : null,
       campo("Forma", segmentado(LFO_FORMAS, s[k("_forma")] || "seno", (v) => { s[k("_forma")] = v; guardar(); renderMotores(); }, 3)),
       campo("Una vuelta dura", segmentado(LFO_CICLOS, String(s[k("_compases")]), (v) => { s[k("_compases")] = parseFloat(v); guardar(); renderMotores(); }, 4)),
+      numeroDecimal(s, k("_compases"), "Otra duración (compases, de 0,25 a 32)", 0.25, 32, 0.25, renderMotores),
       deslizador(s, k("_min"), "Abajo", 0, 127, 1, (x) => String(x)),
       deslizador(s, k("_max"), "Arriba", 0, 127, 1, (x) => String(x)),
     ] : []),
   ];
-}
-
-function grupoMolde(clave, obj, texto, textoOrden, cada) {
-  // «Molde y orden» como un grupo más (en las secuencias): su resumen se actualiza al tocar.
-  const g = grupo(clave, "Filtro y orden", moldeTexto(obj.molde, obj), []);
-  const resumen = g.querySelector(".cab span");
-  g.querySelector(".cuerpo").append(moldeEditor(obj, texto, resumen, textoOrden, cada));
-  return g;
 }
 
 function moldePlegable(obj, texto, textoOrden, cada) {
@@ -1328,20 +1461,6 @@ function botonBorrar() {
     el("input", {type: "checkbox", checked: borrarClips, onchange: (e) => { borrarClips = e.target.checked; renderMotores(); }})]);
 }
 
-function clipsSecuencia(fi) {
-  const fila = el("div", {className: "clips", "data-fila": fi});
-  if (!cfg.clip.length) return el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay clips."});
-  cfg.clip.forEach((c, ci) => fila.append(borrarClips
-    ? el("button", {className: "clip", textContent: "Borrar " + c.nombre, style: "color:var(--bad)", onclick: async () => {
-        try { await api("/api/clip/borrar", {indice: ci}); await recargar(); } catch (e) { aviso(e.message, true); } }})
-    : el("button", {className: "clip", textContent: c.nombre, "data-clip": c.nombre,
-        onclick: async () => { try { await api("/api/lanzar", {fila: fi, clip: ci}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }})));
-  if (!borrarClips) fila.append(el("button", {className: "clip parar", textContent: "■ Parar", "data-parar": "1",
-    onclick: async () => { try { await api("/api/detener", {fila: fi}); await recargar(); estado(); } catch (e) { aviso(e.message, true); } }}));
-  pintarClips();
-  return el("div", {style: "display:flex;flex-direction:column;gap:6px"}, [fila, botonBorrar()]);
-}
-
 function clipsDialogo() {
   const dialogos = cfg.clip_dialogo || [];
   if (!dialogos.length) return el("p", {className: "mut", style: "margin:0", textContent: "Todavía no hay clips."});
@@ -1368,22 +1487,17 @@ function pintarFila(fila, f) {
 
 function pintarClips() {
   if (!ultimoEstado || !ultimoEstado.filas) return;
+  document.querySelectorAll("[data-pestana-clip]").forEach((b) => {
+    const n = nombreClipFila(parseInt(b.dataset.pestanaClip));
+    const t = (n ? `Clip: ${n}` : "Sin clip") + " ▾";
+    if (b.textContent !== t) b.textContent = t;
+  });
   const fd = document.querySelector("[data-fila-dialogo]");
   if (fd && ultimoEstado.fila_dialogo) pintarFila(fd, ultimoEstado.fila_dialogo);
   document.querySelectorAll("[data-fila]").forEach((fila) => {
     const f = ultimoEstado.filas[parseInt(fila.dataset.fila)];
     if (f) pintarFila(fila, f);
   });
-}
-
-async function guardarClip(i, s) {
-  const nombre = prompt("Nombre del clip", `${s.estilo} ${s.seed}`);
-  if (nombre === null) return;
-  try {
-    clearTimeout(temporizador);
-    await api("/api/config", cfg);
-    await api("/api/clip/guardar", {fila: i, nombre}); await recargar(); aviso("Clip guardado");
-  } catch (e) { aviso(e.message, true); }
 }
 
 async function guardarClipDialogo() {

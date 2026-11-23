@@ -450,7 +450,8 @@ ESQUEMA_SECCIONES["tocado"]["largo_nota"] = (str, "tuyo", None, ("tuyo", "estilo
 # Un clip guarda el carácter musical de una secuencia; el destino lo pone la fila
 # del disparador donde se lanza.
 CLAVES_DESTINO = ("disparo", "activa", "salida", "canal", "cc_filtro", "filtro_reposo")
-ESQUEMA_CLIP = {k: v for k, v in ESQUEMA_SECUENCIA.items() if k not in CLAVES_DESTINO}
+ESQUEMA_CLIP = dict({k: v for k, v in ESQUEMA_SECUENCIA.items() if k not in CLAVES_DESTINO},
+                    con_variante=(bool, True, None, None))  # False: al tocarlo, la secuencia conserva su seed
 
 
 class ConfigError(ValueError):
@@ -592,11 +593,19 @@ def _escena(e):
     return limpia
 
 
-def clip_de(secuencia, nombre):
-    """El carácter musical de una secuencia, listo para guardarse como clip."""
+def clip_de(secuencia, nombre, variante=True):
+    """El carácter musical de una secuencia, listo para guardarse como clip.
+    variante=False: guarda todo menos la seed (al tocarlo, la secuencia sigue con la suya)."""
     clip = {k: secuencia[k] for k in ESQUEMA_CLIP if k in secuencia}
     clip["nombre"] = nombre.strip()[:40] or secuencia.get("nombre", "Clip")
+    clip["con_variante"] = bool(variante)
     return clip
+
+
+def clip_aplicado(fila, clip):
+    """La secuencia de la fila con el clip puesto (lo que suena al lanzarlo)."""
+    fuera = {"nombre", "con_variante"} | (set() if clip.get("con_variante", True) else {"seed"})
+    return dict(fila, **{k: v for k, v in clip.items() if k not in fuera}, activa=True)
 
 
 def clip_de_dialogo(cfg, nombre):
