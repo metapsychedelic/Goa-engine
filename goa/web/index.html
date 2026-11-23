@@ -2899,12 +2899,12 @@ function pintarVolver() {
     };
     const vecinas = i >= 0 && cfg.parte[i] ? el("div", {className: "der"}, [
       i > 0 ? el("button", {type: "button", className: "vecina", "aria-label": `Parte anterior: ${cfg.parte[i - 1].nombre}`, title: cfg.parte[i - 1].nombre,
-        onclick: () => ir(i - 1)}, [el("span", {textContent: "‹ " + cfg.parte[i - 1].nombre})]) : null,
+        onclick: () => ir(i - 1)}, [el("span", {textContent: `‹ ${i} · ${cfg.parte[i - 1].nombre}`})]) : null,
       i < cfg.parte.length - 1 ? el("button", {type: "button", className: "vecina sig", "aria-label": `Parte siguiente: ${cfg.parte[i + 1].nombre}`, title: cfg.parte[i + 1].nombre,
-        onclick: () => ir(i + 1)}, [el("span", {textContent: cfg.parte[i + 1].nombre + " ›"})]) : null,
+        onclick: () => ir(i + 1)}, [el("span", {textContent: `${i + 2} · ${cfg.parte[i + 1].nombre} ›`})]) : null,
     ].filter(Boolean)) : null;
     caja.replaceChildren(...[el("button", {type: "button", className: "atras", onclick: () => mostrar("parte")},
-      [el("span", {textContent: "‹", style: "font-size:22px;line-height:1"}), nombreVista()]), vecinas].filter(Boolean));
+      [el("span", {textContent: "‹", style: "font-size:22px;line-height:1"}), (i >= 0 && cfg.parte[i] ? `${i + 1} · ` : "") + nombreVista()]), vecinas].filter(Boolean));
   }
 }
 function editandoVista() { return parteVista >= 0 && !!edicion && cfg.parte[parteVista] && cfg.parte[parteVista].escena === edicion.escena; }
