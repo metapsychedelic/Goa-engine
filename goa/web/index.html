@@ -300,7 +300,11 @@ input[type=range]:focus-visible{outline:2px solid var(--acc);outline-offset:4px;
 .volver{display:flex;align-items:center;gap:8px}
 .volver button.atras{min-height:40px;padding:0 10px 0 4px;border:none;background:none;color:var(--acc);font-weight:600;display:flex;align-items:center;gap:2px}
 .volver .der{margin-left:auto;display:flex;gap:6px}
-.volver .der button{width:40px;padding:0}
+.volver .der{min-width:0}
+.volver .der button:not(.vecina){width:40px;padding:0}
+.volver .der button.vecina{min-height:36px;padding:0 10px;font-size:13px;max-width:42vw;min-width:0}
+.volver .der button.vecina span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.volver .der button.vecina:not(.sig){max-width:28vw;color:var(--mut)}
 .motores-lista{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .motores-lista button{flex:none;display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border:none;border-radius:0;background:none;text-align:left;width:100%}
 .motores-lista button + button{border-top:1px solid #22222E}
@@ -2855,8 +2859,21 @@ function nombreVista() { return parteVista >= 0 && cfg.parte[parteVista] ? cfg.p
 function pintarVolver() {
   for (const id of ["volver_motores", "volver_armonia"]) {
     const caja = $(id); if (!caja) continue;
-    caja.replaceChildren(el("button", {type: "button", className: "atras", onclick: () => mostrar("parte")},
-      [el("span", {textContent: "‹", style: "font-size:22px;line-height:1"}), nombreVista()]));
+    const i = parteVista;
+    const enArmonia = id === "volver_armonia";
+    const ir = async (j) => {
+      if (enArmonia) { await editarMotorEnParte(j, null); mostrar("armonia"); renderArmonia(); }
+      else await editarMotorEnParte(j, motorSel);
+      pintarVolver();
+    };
+    const vecinas = i >= 0 && cfg.parte[i] ? el("div", {className: "der"}, [
+      i > 0 ? el("button", {type: "button", className: "vecina", "aria-label": `Parte anterior: ${cfg.parte[i - 1].nombre}`, title: cfg.parte[i - 1].nombre,
+        onclick: () => ir(i - 1)}, [el("span", {textContent: "‹ " + cfg.parte[i - 1].nombre})]) : null,
+      i < cfg.parte.length - 1 ? el("button", {type: "button", className: "vecina sig", "aria-label": `Parte siguiente: ${cfg.parte[i + 1].nombre}`, title: cfg.parte[i + 1].nombre,
+        onclick: () => ir(i + 1)}, [el("span", {textContent: cfg.parte[i + 1].nombre + " ›"})]) : null,
+    ].filter(Boolean)) : null;
+    caja.replaceChildren(...[el("button", {type: "button", className: "atras", onclick: () => mostrar("parte")},
+      [el("span", {textContent: "‹", style: "font-size:22px;line-height:1"}), nombreVista()]), vecinas].filter(Boolean));
   }
 }
 function editandoVista() { return parteVista >= 0 && !!edicion && cfg.parte[parteVista] && cfg.parte[parteVista].escena === edicion.escena; }
