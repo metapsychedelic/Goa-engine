@@ -113,6 +113,36 @@ details.voz>.cuerpo{display:flex;flex-direction:column;gap:12px;padding:6px 0 10
 nav.tabs button{position:relative}
 nav.tabs button.cambiado::after{position:absolute;top:8px;right:calc(50% - 16px);margin:0}
 .selector button[aria-selected=true].cambiado::after{background:var(--sobre);box-shadow:none}
+/* Línea de tiempo del tema */
+.linea{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;position:relative;overflow-x:auto}
+.linea .lt-h{display:grid;gap:3px;min-width:640px;position:relative}
+.linea .lt-lab{font-size:12px;color:var(--txt2);display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.linea .lt-parte{border:1px solid var(--line);background:var(--card2);border-radius:8px;padding:5px 6px;min-width:0;text-align:left;min-height:40px;display:flex;flex-direction:column;justify-content:center;font:inherit;color:var(--txt);cursor:pointer}
+.linea .lt-parte b{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.linea .lt-parte span{font-size:10px;color:var(--mut);font-family:"Plex Mono Local",ui-monospace,monospace}
+.linea .lt-parte.golpe{border-left:3px solid var(--txt)}
+.linea .lt-parte.sel{border-color:var(--acc);background:var(--accbg)}
+.linea .lt-parte.suena{box-shadow:var(--glow)}
+.linea .lt-c{min-height:26px;border-radius:6px;border:1px solid #22222E;background:transparent;padding:0;cursor:pointer;font-size:9px;color:var(--sobre)}
+.linea .lt-c.on{background:#5A5F96;border-color:transparent}
+.linea .lt-c.cambia{background:#9AA2E6}
+.linea .lt-c.sin{background:repeating-linear-gradient(45deg,transparent 0 4px,#1B1B26 4px 8px)}
+.linea .lt-c.editando{outline:2px solid var(--txt);outline-offset:1px}
+.linea .lt-c:focus-visible,.linea .lt-parte:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.linea .lt-apoyo{font-size:10px;color:var(--acc);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.linea .lt-cab{position:absolute;width:2px;background:var(--txt);box-shadow:0 0 10px rgba(191,198,255,.85);border-radius:2px;pointer-events:none;transition:left .3s linear,top .3s linear}
+.linea .lt-v{display:flex;flex-direction:column;gap:3px;position:relative}
+.linea .lt-fila{display:grid;gap:3px;border-radius:8px}
+.linea .lt-fila.sel{background:var(--accbg);outline:1px solid var(--acc)}
+.linea .lt-fila .lt-parte{min-height:0;border:none;background:transparent;padding:0 0 0 6px}
+.linea .lt-fila .lt-c{min-height:0}
+.linea .lt-fila .lt-parte.golpe{border-left:3px solid var(--txt);border-radius:0;padding-left:5px}
+.linea .lt-en{display:flex;align-items:center;justify-content:flex-end;padding-right:2px}
+.linea .lt-en i{width:6px;border-radius:3px;background:var(--acc)}
+details.grupo.elegida{outline:2px solid var(--acc);outline-offset:2px}
+.linea-ley{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:var(--mut)}
+.linea-ley span{display:flex;align-items:center;gap:5px}
+.linea-ley i{display:inline-block;width:12px;height:9px;border-radius:3px}
 .edicion-caja{position:sticky;top:var(--alto-cab,72px);z-index:4;padding:8px 16px 0}
 .edicion-caja[hidden]{display:none}
 .edicion{max-width:560px;margin:0 auto;background:var(--accbg);border:1px solid var(--acc);border-radius:12px;padding:8px 10px;display:flex;align-items:center;gap:8px;box-shadow:var(--glow)}
@@ -275,7 +305,7 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
     <div class="card" id="puente_caja"></div>
   </section>
 
-  <section class="vista" id="v-cancion" aria-label="Canción" hidden>
+  <section class="vista" id="v-cancion" aria-label="Tema" hidden>
     <div id="cancion_caja" style="display:flex;flex-direction:column;gap:16px"></div>
   </section>
 
@@ -339,10 +369,10 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
 </main>
 
 <nav class="tabs" aria-label="Secciones"><div class="in" role="tablist">
+  <button type="button" role="tab" data-vista="cancion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5H9.5V2H14.5V3.5H20.5V9.5H22V14.5H20.5V20.5H14.5V22H9.5V20.5H3.5V14.5H2V9.5H3.5Z"/><line x1="7" y1="15" x2="7" y2="13"/><line x1="10" y1="15" x2="10" y2="11"/><line x1="13.5" y1="15" x2="13.5" y2="9"/><line x1="17" y1="15" x2="17" y2="12"/><circle class="bindu" cx="13.5" cy="7" r="1.4" fill="currentColor" stroke="none"/></svg>Tema</button>
   <button type="button" role="tab" data-vista="tocar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><polygon points="9.2 7 17.2 12 9.2 17"/><circle class="bindu" cx="11.9" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>Tocar</button>
   <button type="button" role="tab" data-vista="motores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 5 18.4 16 5.6 16" stroke-dasharray="2 2"/><circle cx="12" cy="5" r="2.6"/><circle cx="18.4" cy="16" r="2.6"/><circle cx="5.6" cy="16" r="2.6"/><circle class="bindu" cx="12" cy="12.3" r="1.5" fill="currentColor" stroke="none"/></svg>Motores</button>
   <button type="button" role="tab" data-vista="armonia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 20 17 4 17"/><polygon points="12 21 20 7 4 7"/><circle class="bindu" cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>Armonía</button>
-  <button type="button" role="tab" data-vista="cancion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5H9.5V2H14.5V3.5H20.5V9.5H22V14.5H20.5V20.5H14.5V22H9.5V20.5H3.5V14.5H2V9.5H3.5Z"/><line x1="7" y1="15" x2="7" y2="13"/><line x1="10" y1="15" x2="10" y2="11"/><line x1="13.5" y1="15" x2="13.5" y2="9"/><line x1="17" y1="15" x2="17" y2="12"/><circle class="bindu" cx="13.5" cy="7" r="1.4" fill="currentColor" stroke="none"/></svg>Canción</button>
   <button type="button" role="tab" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(0.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(45.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(90.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(135.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(180.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(225.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(270.0)"/><path d="M0 -3.2 Q2.5 -5.7 0 -7.8 Q-2.5 -5.7 0 -3.2Z" transform="translate(12 12) rotate(315.0)"/><circle class="bindu" cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>Ajustes</button>
 </div></nav>
 <div class="guardado" id="aviso" role="status" aria-live="polite"></div>
@@ -646,7 +676,9 @@ async function cambiarGenero(genero, motor = {}) {
 
 // --- Navegación ---
 
-let vista = leerLocal("vista", "tocar");
+// La app nueva parte en Tema (la línea de tiempo); una sola vez, también para quien ya tenía otra guardada.
+let vista = leerLocal("vista_v2", null) === null ? "cancion" : leerLocal("vista", "cancion");
+escribirLocal("vista_v2", 1);
 // Tablet horizontal (pantalla ancha): Tocar queda siempre a la izquierda y las pestañas eligen
 // lo de la derecha. Se elige solo por el ancho; en el teléfono todo sigue igual.
 const ancha = window.matchMedia("(min-width: 1000px)");
@@ -2302,6 +2334,8 @@ function bloqueParte(p, i) {
     ]),
   ]);
   g.dataset.parte = i;
+  g.id = `g-parte-${i}`;
+  if (i === parteSel) g.classList.add("elegida");
   return g;
 }
 
@@ -2351,6 +2385,155 @@ async function nuevaParte() {
   accionParte("/api/parte/nueva", {nombre, compases}, `${nombre} agregada`);
 }
 
+// --- Tema: la línea de tiempo ---
+// Partes × motores: qué suena en cada parte (de la escena de cada parte), dónde cambia de
+// estilo o variante, la energía y los apoyos. Tocar un casillero entra a editar ese motor
+// en esa parte; tocar el nombre de una parte la elige (su tarjeta, abajo).
+let parteSel = null;
+const cacheDatos = new Map();
+function datosEscena(i) {
+  const e = cfg.escena[i];
+  if (!e) return null;
+  if (!cacheDatos.has(e.datos)) { try { cacheDatos.set(e.datos, JSON.parse(e.datos)); } catch (x) { cacheDatos.set(e.datos, null); } }
+  return cacheDatos.get(e.datos);
+}
+function seccionDe(datos, clave) {
+  if (!datos) return null;
+  if (clave.startsWith("sec")) return (datos.secuencia || [])[parseInt(clave.slice(3))] || null;
+  return datos[clave] || null;
+}
+function suenaEn(datos, clave, k) { const s = seccionDe(datos, clave); return !!(s && s[k]); }
+const SIGLAS = {pads: "Pa", bajo: "Ba", dialogo: "Di", fx: "FX", texturas: "Tx", looper: "Lp", tocado: "To"};
+const sigla = (clave, nombre) => SIGLAS[clave] || (nombre || "").slice(0, 2);
+function apoyosDe(p) {
+  return [p.riser && "riser", p.roll && "roll", p.corte_bajo && "corte", p.tension && "tensión", p.hueco && "hueco", p.pads_suben && "pads"].filter(Boolean);
+}
+function parteSonando() {
+  const c = ultimoEstado && ultimoEstado.cancion;
+  if (c && c.parte !== null && c.parte !== undefined) return c.parte;
+  const e = cfg.forma.escena;
+  return e >= 0 ? cfg.parte.findIndex((p) => p.escena === e) : -1;
+}
+function celdasLinea() {
+  // [{clave, nombre, k, celdas: [{estado: "sin"|"off"|"on"|"cambia"}]}]
+  const ms = motores();
+  const datos = cfg.parte.map((p) => p.escena >= 0 ? datosEscena(p.escena) : null);
+  return ms.map(([clave, nombre, , k]) => ({clave, nombre, k, celdas: cfg.parte.map((p, i) => {
+    if (!datos[i]) return "sin";
+    if (!suenaEn(datos[i], clave, k)) return "off";
+    const antes = i > 0 && datos[i - 1] && suenaEn(datos[i - 1], clave, k) ? seccionDe(datos[i - 1], clave) : null;
+    return antes && difiere(seccionDe(datos[i], clave), antes) ? "cambia" : "on";
+  })}));
+}
+async function editarMotorEnParte(i, clave) {
+  const p = cfg.parte[i];
+  try {
+    if (cfg.cancion.activa) {
+      if (!confirm(`Para editar ${p.nombre}, Yantra pasa a modo libre (deja de seguir la canción). ¿Seguir?`)) return;
+      await api("/api/cancion", {activa: false});
+    }
+    const yaEdito = edicion && p.escena >= 0 && edicion.escena === p.escena;
+    if (!yaEdito) { await api("/api/editar", {parte: i}); await recargar(); await estado(); }
+    if (clave) { motorSel = clave; escribirLocal("motor", clave); mostrar("motores"); renderMotores(); }
+    aviso(`Editando ${p.nombre}${clave ? " · " + (motores().find((m) => m[0] === clave) || [, ""])[1] : ""}`);
+  } catch (e) { aviso(e.message, true); }
+}
+function elegirParte(i) {
+  parteSel = parteSel === i ? null : i;
+  renderCancion();
+  if (parteSel !== null) { const g = document.getElementById(`g-parte-${i}`); if (g) { g.open = true; g.scrollIntoView({behavior: "smooth", block: "start"}); } }
+}
+function lineaVertical() { return !window.matchMedia("(min-width: 700px)").matches; }
+function renderLinea() {
+  if (!cfg.parte.length) return null;
+  const pistas = celdasLinea();
+  const sonando = parteSonando();
+  const editando = edicion ? cfg.parte.findIndex((p) => p.escena === edicion.escena) : -1;
+  const celda = (m, est, i) => el("button", {type: "button",
+    className: `lt-c ${est === "on" ? "on" : est === "cambia" ? "on cambia" : est}${i === editando ? " editando" : ""}`,
+    textContent: est === "cambia" ? "◆" : "",
+    "aria-label": `${m.nombre} en ${cfg.parte[i].nombre}: ${est === "sin" ? "parte sin escena" : est === "off" ? "no suena" : est === "cambia" ? "suena, cambia" : "suena"} · editar`,
+    onclick: () => editarMotorEnParte(i, m.clave)});
+  const total = cfg.parte.reduce((s, p) => s + p.compases, 0);
+  let caja;
+  if (lineaVertical()) {
+    const cols = `84px repeat(${pistas.length}, minmax(0, 1fr)) 22px`;
+    const altura = (p) => Math.max(32, Math.round(p.compases * 1.6 + 8));
+    const filas = cfg.parte.map((p, i) => el("div", {className: "lt-fila" + (i === parteSel ? " sel" : ""), style: `grid-template-columns:${cols};height:${altura(p)}px`}, [
+      el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === sonando ? " suena" : ""), onclick: () => elegirParte(i),
+        "aria-label": `${p.nombre}, ${p.compases} compases: elegir`},
+        [el("b", {textContent: p.nombre}), el("span", {textContent: `${p.compases}${apoyosDe(p).length ? " · " + apoyosDe(p).join(" ") : ""}`})]),
+      ...pistas.map((m) => celda(m, m.celdas[i], i)),
+      el("div", {className: "lt-en", "aria-hidden": "true"}, [el("i", {style: `height:${Math.max(3, Math.round((altura(p) - 6) * (p.energia + p.energia_fin) / 2))}px;opacity:${0.35 + 0.65 * (p.energia + p.energia_fin) / 2}`})]),
+    ]));
+    const cab = el("div", {className: "lt-v"}, [
+      el("div", {className: "lt-fila", style: `grid-template-columns:${cols}`}, [el("span", {className: "lt-lab", textContent: "Parte"}),
+        ...pistas.map((m) => el("span", {className: "lt-lab", style: "justify-content:center;font-family:'Plex Mono Local',monospace;font-size:10px", title: m.nombre, textContent: sigla(m.clave, m.nombre)})),
+        el("span", {className: "lt-lab", style: "font-size:9px", textContent: "en."})]),
+      ...filas,
+      el("div", {className: "lt-cab", id: "lt_cab", style: "display:none;left:0;right:0;width:auto;height:2px"})]);
+    caja = el("div", {className: "linea", id: "linea"}, [cab]);
+    caja.dataset.vertical = "1";
+    caja._alturas = cfg.parte.map(altura);
+  } else {
+    const cols = `104px ${cfg.parte.map((p) => p.compases + "fr").join(" ")}`;
+    const fila = (lab, hijos) => [lab, ...hijos];
+    let x = 0; const pts = [];
+    cfg.parte.forEach((p) => { pts.push(`${x},${(40 - p.energia * 36).toFixed(1)}`); x += p.compases; pts.push(`${x},${(40 - p.energia_fin * 36).toFixed(1)}`); });
+    const svg = `<svg viewBox="0 0 ${total} 40" preserveAspectRatio="none" width="100%" height="34" role="img" aria-label="Energía de cada parte"><polyline points="0,40 ${pts.join(" ")} ${total},40" fill="rgba(191,198,255,.14)" stroke="none"/><polyline points="${pts.join(" ")}" fill="none" stroke="#BFC6FF" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+    const energia = el("div", {style: "grid-column:2 / -1;background:var(--card2);border-radius:8px;padding:3px 0"}); energia.innerHTML = svg;
+    let desde = 1;
+    const grid = el("div", {className: "lt-h", style: `grid-template-columns:${cols}`}, [
+      ...fila(el("span", {className: "lt-lab", textContent: "Partes"}), cfg.parte.map((p, i) => { const d = desde; desde += p.compases;
+        return el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === parteSel ? " sel" : "") + (i === sonando ? " suena" : ""),
+          onclick: () => elegirParte(i), title: p.nombre, "aria-label": `${p.nombre}, compás ${d}, ${p.compases} compases: elegir`}, [el("b", {textContent: p.nombre}), el("span", {textContent: String(d)})]); })),
+      el("span", {className: "lt-lab", textContent: "Energía"}), energia,
+      ...pistas.flatMap((m) => fila(el("span", {className: "lt-lab", textContent: m.nombre}), m.celdas.map((est, i) => celda(m, est, i)))),
+      ...fila(el("span", {className: "lt-lab", textContent: "Apoyos"}), cfg.parte.map((p) => el("span", {className: "lt-apoyo", textContent: apoyosDe(p).join(" · ")}))),
+      el("div", {className: "lt-cab", id: "lt_cab", style: "display:none;top:0;bottom:0"}),
+    ]);
+    caja = el("div", {className: "linea", id: "linea"}, [grid]);
+  }
+  const ley = el("div", {className: "linea-ley"}, [
+    el("span", {}, [el("i", {style: "background:#5A5F96"}), "suena"]),
+    el("span", {}, [el("i", {style: "background:#9AA2E6"}), "cambia de estilo o variante ◆"]),
+    el("span", {}, [el("i", {style: "background:repeating-linear-gradient(45deg,transparent 0 3px,#33334a 3px 6px)"}), "parte sin escena"]),
+    el("span", {}, [el("i", {style: "width:3px;background:var(--txt)"}), "entra de golpe"]),
+  ]);
+  const nota = el("p", {className: "ayuda", style: "margin:0", textContent: "Toca un casillero para editar ese motor en esa parte. Toca el nombre de una parte para ver sus ajustes."});
+  setTimeout(() => moverCabezal(), 0);
+  return el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [caja, ley, nota]);
+}
+let claveLinea = "";
+function refrescarLinea() {
+  // Lo que cambia solo (la parte que suena, la que editas): se vuelve a dibujar si cambió
+  // y no estás escribiendo en una tarjeta de parte.
+  if (!cfg || vista !== "cancion") return;
+  const editando = edicion ? edicion.escena : -1;
+  const clave = `${parteSonando()}|${editando}|${lineaVertical()}`;
+  const escribiendo = document.activeElement && $("cancion_caja").contains(document.activeElement) && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+  if (clave !== claveLinea && !escribiendo) { claveLinea = clave; renderCancion(); }
+  else moverCabezal();
+}
+window.matchMedia("(min-width: 700px)").addEventListener("change", () => refrescarLinea());
+function moverCabezal() {
+  const cab = $("lt_cab"), caja = $("linea");
+  if (!cab || !caja || !cfg) return;
+  const c = ultimoEstado && ultimoEstado.cancion;
+  if (!c || !c.posicion || !c.total) { cab.style.display = "none"; return; }
+  cab.style.display = "block";
+  const f = (c.posicion - 1) / c.total;
+  if (caja.dataset.vertical) {
+    // por filas: la parte y dónde va dentro de ella
+    let y = 22 + 3, i = 0;   // cabecera
+    for (; i < c.parte; i++) y += caja._alturas[i] + 3;
+    y += Math.round(caja._alturas[c.parte] * (c.compas - 1) / Math.max(1, c.largo));
+    cab.style.top = y + "px";
+  } else {
+    cab.style.left = `calc(104px + 3px + (100% - 107px) * ${f.toFixed(4)})`;
+  }
+}
+
 function renderCancion() {
   const caja = $("cancion_caja");
   if (!caja || !cfg) return;
@@ -2363,6 +2546,7 @@ function renderCancion() {
   for (const [k, t] of [["repetir", "repite"], ["quedarse", "se queda en la última"]]) fin.append(el("button", {type: "button", textContent: t, "aria-pressed": c.al_final === k ? "true" : "false",
     onclick: async () => { c.al_final = k; renderCancion(); try { await api("/api/cancion", {al_final: k}); } catch (e) { aviso(e.message, true); } }}));
   caja.replaceChildren(
+    ...[renderLinea()].filter(Boolean),
     el("div", {className: "energia"}, [
       el("div", {className: "fila"}, [
         el("div", {style: "display:flex;flex-direction:column;gap:2px;min-width:0"}, [
@@ -2701,6 +2885,7 @@ async function estado() {
     pintarProyecto(d.proyecto_al_dia);
     pintarEdicion(d.editando);
     marcarCambios();
+    refrescarLinea();
     $("acorde").textContent = d.acorde ? "Acorde: " + d.acorde : "Sin acorde";
     const azar = document.getElementById("prog_azar");
     if (azar) azar.textContent = d.progresion || "";
@@ -2743,7 +2928,7 @@ $("panico").onclick = async () => {
   try { await fetch("/api/panico", {method: "POST"}); aviso("Notas apagadas"); } catch (e) { aviso("Sin conexión con la Pi", true); }
 };
 
-mostrar(["tocar", "motores", "armonia", "ajustes"].includes(vista) ? vista : "tocar");
+mostrar(["tocar", "motores", "armonia", "cancion", "ajustes"].includes(vista) ? vista : "cancion");
 (async () => {
   try { cfg = await (await fetch("/api/config")).json(); render(); }
   catch (e) { aviso("No pude cargar la configuración", true); }

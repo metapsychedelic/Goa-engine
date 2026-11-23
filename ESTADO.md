@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.76.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.77.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -304,3 +304,8 @@ Propuesta de pantallas: https://claude.ai/artifact/QgXAzQJS2tbR9DQXztgZP8 (lienz
 - Inicio = Tema: línea de tiempo del proyecto (partes × motores, energía, apoyos, dónde va sonando). Escritorio: horizontal tipo DAW con inspector de la parte; celular: vertical (partes = filas, motores = columnas). Tocar un casillero abre ese motor en esa parte, ya editando; mantener apretado: Editar / Copiar / Pegar (solo ese motor) / Igual en la siguiente / Que no suene aquí, y para la parte entera Copiar / Duplicar / Mover (al pegar una parte, elegir qué motores).
 - Parte (entra en modo edición), Motor (editor de secuencia: patrón visible, estilo, variante A/B + historial, 3 controles principales, «Copiar a…», biblioteca), Vivo separado («Quedarse 16 más», «<parte siguiente> ya», «Ir a otra parte…», subida «últimos 4/8/16»), barra con Tema · Vivo · Ajustes. Cabecera: nombre del proyecto abre la lista de temas; primera vez: plantillas.
 - Scatter de la MC-101 en «Apoyo a la subida»: notas 60–75 (pads de Scatter 1–16) en el canal de control 16 (el del usuario); en la MC-101 RX Scatter = ON. Por etapas en los últimos compases antes del cambio (suave → intenso en los 2 últimos → extremo en el último tiempo), pad elegible por etapa, note off justo en el uno de la parte siguiente. Probar si el Scatter se apaga con el note off.
+
+## 0.77 — App nueva, etapa 1: Tema (línea de tiempo) como inicio
+- La pestaña «Canción» pasa a ser «Tema», primera de la barra y vista de inicio (localStorage vista_v2 la fija una vez). Arriba, renderLinea(): partes × motores (motores()), cada casillero según la escena de la parte: suena / cambia de estilo o variante (◆, difiere() contra la parte anterior) / no suena / parte sin escena. Pantalla ≥ 700 px: horizontal (columnas proporcionales a los compases, curva de energía, fila de apoyos); celular: vertical (partes = filas con alto según compases, motores = columnas, barra de energía).
+- Tocar un casillero: editarMotorEnParte (si el modo canción está prendido pide pasar a modo libre) → /api/editar {parte}, elige ese motor y abre Motores. Tocar el nombre: elige la parte y abre su tarjeta.
+- Cabezal: en modo canción, la posición de /api/estado.cancion (moverCabezal en cada estado); la parte que suena brilla y la que editas lleva borde. refrescarLinea redibuja si cambian (no mientras escribes en una tarjeta).
