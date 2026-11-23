@@ -247,8 +247,12 @@ ESQUEMA_SECCIONES["texturas"] = {
 ESQUEMA_SECCIONES["obertura"] = {
     "activo": (bool, False, None, None),
     "salida": (str, "MC-101", None, None),
-    "modo": (str, "epico", None, ("epico", "chill")),
-    "caracter": (str, "batalla", None, ("batalla", "frigia", "tragica", "etereo", "lamento", "ritual")),
+    "modo": (str, "epico", None, ("epico", "chill", "cine")),
+    "caracter": (str, "batalla", None, ("batalla", "frigia", "tragica", "etereo", "lamento", "ritual",
+                                        "neon", "titulos", "cosmos")),
+    "forma": (str, "crece", None, ("crece", "golpe", "ola", "respiro")),
+    "tema_track": (bool, False, None, None),  # llamada, tema y melodía siguen el motivo de la 1.ª secuencia
+    "bend_rango": (int, 2, 0, 24),            # cine: semitonos del pitch bend del lead (0 = sin bends)
     "repetir": (bool, False, None, None),     # en loop (sin final): vuelve a la etapa 2 cada vez distinta
     "frases": (int, 4, 1, 8),                 # frases de 8 compases (4 = 32 compases)
     "velocidad": (int, 115, 1, 127),          # la fuerza del final (crece hasta ahí)

@@ -43,8 +43,9 @@ del final de la obertura, así la escena psy entra justo con el primer bombo del
 
 ## En Yantra
 
-1. Motores › **Obertura**: modo (Épico o Chill), carácter (batalla, frigia o trágica en el
-   épico; etéreo, lamento o ritual en el chill), «En loop» si quieres que no termine, largo (frases de 8
+1. Motores › **Obertura**: modo (Épico, Chill o Cine), carácter (batalla, frigia o trágica
+   en el épico; etéreo, lamento o ritual en el chill; neón, títulos o cosmos en el cine),
+   forma, «Tema del track», «En loop» si quieres que no termine, largo (frases de 8
    compases), la escena «orquesta» y la escena de vuelta.
 2. En el modo canción, una parte para la obertura (con sus otros motores callados) que dure
    **8 × frases + 1** compases (el +1 es el compás de preparación para cambiar de escena),
@@ -66,6 +67,26 @@ pero con sonidos tranquilos. Pon su número en «Escena «orquesta»» cuando us
 
 La melodía va por la pista de los cuernos: en una escena épica suena con metales, en la
 chill con lo que pongas ahí.
+
+## Escena cine (modo Cine, sintes a lo Vangelis)
+
+Otra escena con la misma disposición. Las melodías las inventa el motor (no copia ningún
+tema); el carácter viene de los sonidos y de cómo se tocan.
+
+| Pista | Canal | Capa en el cine | Qué sonido buscar | Ajustes |
+|---|---|---|---|---|
+| 1 | 1 | **Brass de sinte** | Un brass analógico polifónico (estilo CS-80 / «Synth Brass», «Poly Brass»). | Ataque lento (0,3-0,5 s) y filtro que se abre con la envolvente. Release largo. Reverb larga. |
+| 2 | 2 | **Lead** | Un lead de sierra con vibrato que entra solo (delayed vibrato), o un brass solo. | **Rango de bend igual al de Yantra** (por defecto 2 semitonos): el motor hace entradas deslizadas y caídas con el bend. Delay y reverb largas. |
+| 3 | 3 | **Arpegio / pulso** | Neón: un pluck o arpeggio synth suave. Títulos: un bajo o sinte de pulso seco (las octavas en semicorcheas). Cosmos: campanas (bell, FM). | Release corto en el pulso, más largo en el arpegio. |
+| 4 | 4 | **Timbal, caja y gong** | Timbal o tom grande (36), una caja con mucha reverb (38) y un gong o crash enorme (49). | Reverb larga en la caja. |
+
+## Formas y tema del track
+
+- **Forma**: Crece (de a poco), Golpe (entra con todo, baja y vuelve), Ola (crece, falso
+  final a la mitad con golpe y silencio en el épico, y vuelve más fuerte) o Respiro (se
+  vacía antes del remate).
+- **Tema del track**: la llamada, el tema y la melodía usan las primeras notas de la 1.ª
+  secuencia, así la intro anuncia lo que viene en el drop.
 
 ## Rango de las capas
 

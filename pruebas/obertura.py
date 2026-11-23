@@ -113,6 +113,8 @@ def main():
     todo &= ok(max(e[1] for e in out if e[2] == "note_on") < 32 * 96, "no se repite sola")
 
     todo &= chill()
+    todo &= cine()
+    todo &= formas_y_tema()
     todo &= robustez()
 
     print("\nSe guarda (como en la app)")
@@ -138,7 +140,7 @@ def colgadas(out):
 
 
 def sanas(out):
-    return all(0 <= e[4] <= 127 and 0 <= e[5] <= 127 and 0 <= e[3] <= 15 for e in out) and \
+    return all(0 <= e[4] <= 127 and 0 <= e[5] <= 127 and 0 <= e[3] <= 15 for e in out if e[2] != "pitchwheel") and \
         all(e[5] >= 1 for e in out if e[2] == "note_on")
 
 
@@ -174,10 +176,74 @@ def chill():
     return todo
 
 
+def bend_al_centro(out):
+    ult = {}
+    for e in out:
+        if e[2] == "pitchwheel":
+            ult[e[3]] = e[4]
+    return all(v == 0 for v in ult.values())
+
+
+def cine():
+    todo = True
+    print("\nCine")
+    for car in ("neon", "titulos", "cosmos"):
+        out, _ = correr(modo="cine", caracter=car, seed="CI-1")
+        ons = [e for e in out if e[2] == "note_on"]
+        fin = max(e[1] for e in out if e[2] in ("note_off", "pitchwheel"))
+        todo &= ok(fin <= 31 * 96 + 72 and not colgadas(out), f"{car}: termina en el tiempo 3 y deja silencio")
+        todo &= ok(all(len([e for e in ons if e[3] == k]) > 10 for k in range(4)), f"{car}: suenan las cuatro pistas")
+        pw = [e for e in out if e[2] == "pitchwheel"]
+        todo &= ok(pw and all(e[3] == 1 for e in pw) and all(-8192 <= e[4] <= 8191 for e in pw) and bend_al_centro(out),
+                   f"{car}: el lead lleva bends ({len(pw)}) y siempre vuelve al centro")
+        acorde = [e for e in ons if e[3] == 0 and e[1] == 0]
+        todo &= ok(len(acorde) == 4, f"{car}: acordes de cuatro notas (con color)")
+    tit, _ = correr(modo="cine", caracter="titulos")
+    pulso = [e for e in tit if e[2] == "note_on" and e[3] == 2 and 16 * 96 <= e[1] < 17 * 96]
+    todo &= ok(len(pulso) == 16, "títulos: pulso en semicorcheas")
+    neon, _ = correr(modo="cine", caracter="neon")
+    cae = [e[4] for e in neon if e[2] == "pitchwheel" and e[4] < -8191 / 2 * 1.5]
+    todo &= ok(bool(cae), "neón: el lead cae un tono al final de la frase")
+    out, _ = correr(modo="cine", caracter="neon", bend_rango=0)
+    todo &= ok(not [e for e in out if e[2] == "pitchwheel"], "rango de bend 0: sin bends")
+    out, _ = correr(compases=20, cambios={13: {"activo": False}}, modo="cine", caracter="neon")
+    todo &= ok(bend_al_centro(out) and not colgadas(out), "apagada a medio camino: el bend vuelve al centro")
+    return todo
+
+
+def formas_y_tema():
+    todo = True
+    print("\nFormas")
+    for forma in ("golpe", "ola", "respiro"):
+        out, _ = correr(forma=forma)
+        ons = [e for e in out if e[2] == "note_on"]
+        n = lambda a, b: len([e for e in ons if a * 96 <= e[1] < b * 96])  # noqa: E731
+        todo &= ok(not colgadas(out) and max(e[1] for e in ons) < 32 * 96, f"{forma}: limpia y del mismo largo")
+        if forma == "golpe":
+            todo &= ok(n(0, 4) > n(4, 8), "golpe: empieza lleno y después baja")
+        if forma == "ola":
+            todo &= ok(n(12, 16) > 2 * n(16, 20), "ola: falso final a la mitad")
+            falso = [e for e in ons if e[1] == 15 * 96 + 48 and e[3] == 3 and e[4] == 49]
+            todo &= ok(bool(falso) and not [e for e in ons if 15 * 96 + 48 < e[1] < 16 * 96], "ola: golpe y silencio antes de volver")
+        if forma == "respiro":
+            todo &= ok(n(16, 20) < n(12, 16) and n(28, 32) > n(16, 20), "respiro: se vacía y remata")
+    print("\nTema del track")
+    from goa import generador
+    ob = Obertura({"tema_track": True}, Tonalidad("E", "menor"))
+    mot = ob.motivo_de(generador.generar("A-1", "clasico", 16, False, None))
+    todo &= ok(mot and len(mot) >= 3 and max(mot) - min(mot) <= 24, f"toma el motivo de la secuencia ({mot})")
+    todo &= ok(ob.motivo_de([{"suena": True, "grado": 0}] * 16) is None, "un pedal no da motivo")
+    a, _ = correr(tema_track=True)
+    b, _ = correr()
+    llamada = lambda o: [e[4] for e in o if e[2] == "note_on" and e[3] == 1 and 8 * 96 <= e[1] < 9 * 96]  # noqa: E731
+    todo &= ok(llamada(a) != llamada(b), "con tema del track la llamada cambia")
+    return todo
+
+
 def robustez():
     todo = True
     print("\nEn loop")
-    for modo, car in (("chill", "etereo"), ("chill", "ritual"), ("epico", "batalla")):
+    for modo, car in (("chill", "etereo"), ("chill", "ritual"), ("epico", "batalla"), ("cine", "titulos")):
         out, m = correr(compases=8 * 4 * 3, modo=modo, caracter=car, repetir=True)
         ons = [e for e in out if e[2] == "note_on"]
         todo &= ok(max(e[1] for e in ons) >= 94 * 96 and not m.obertura.terminada, f"{modo}/{car}: sigue sonando tres vueltas después")
@@ -201,14 +267,19 @@ def robustez():
 
     print("\nTodas las combinaciones")
     malas = []
-    for modo, cars in (("epico", ("batalla", "frigia", "tragica")), ("chill", ("etereo", "lamento", "ritual"))):
+    cuantas = 0
+    for modo, cars in (("epico", ("batalla", "frigia", "tragica")), ("chill", ("etereo", "lamento", "ritual")),
+                       ("cine", ("neon", "titulos", "cosmos"))):
         for car in cars:
             for frases in (1, 2, 3, 8):
-                for ton in ("C", "F#", "B"):
-                    out, _ = correr(compases=8 * frases + 3, modo=modo, caracter=car, frases=frases, tonica=ton, seed=f"{car}{frases}{ton}")
-                    if colgadas(out) or not sanas(out) or max(e[1] for e in out if e[2] == "note_off") > 8 * frases * 96:
-                        malas.append((modo, car, frases, ton))
-    todo &= ok(not malas, f"72 oberturas (2 modos × 3 caracteres × 4 largos × 3 tónicas) limpias{'' if not malas else ': ' + str(malas[:4])}")
+                for forma, ton in (("crece", "C"), ("golpe", "F#"), ("ola", "B"), ("respiro", "E")):
+                    cuantas += 1
+                    out, _ = correr(compases=8 * frases + 3, modo=modo, caracter=car, frases=frases, tonica=ton, forma=forma,
+                                    tema_track=frases % 2 == 1, seed=f"{car}{frases}{ton}")
+                    if colgadas(out) or not sanas(out) or not bend_al_centro(out) or \
+                            max(e[1] for e in out if e[2] == "note_off") > 8 * frases * 96:
+                        malas.append((modo, car, frases, forma))
+    todo &= ok(not malas, f"{cuantas} oberturas (3 modos × 3 caracteres × 4 largos × 4 formas) limpias{'' if not malas else ': ' + str(malas[:4])}")
     return todo
 
 

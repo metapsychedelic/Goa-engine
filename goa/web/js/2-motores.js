@@ -1395,15 +1395,23 @@ function panelTexturas() {
 }
 
 // --- Obertura: preludio orquestal de batalla que desemboca en el drop (goa/obertura.py) ---
-const MODOS_OBERTURA = [["epico","Épico","batalla vikinga"],["chill","Chill","colchón y melodía"]];
+const MODOS_OBERTURA = [["epico","Épico","batalla vikinga"],["chill","Chill","colchón y melodía"],["cine","Cine","sintes a lo Vangelis"]];
+const FORMAS_OBERTURA = [["crece","Crece","de a poco"],["golpe","Golpe","entra con todo"],["ola","Ola","falso final"],["respiro","Respiro","se vacía y remata"]];
+const CAPAS_OBERTURA = {epico: ["Cuerdas graves", "Cuernos / metales", "Coro", "Percusión"],
+  chill: ["Colchón de cuerdas", "Melodía", "Coro", "Percusión suave"],
+  cine: ["Brass de sinte", "Lead (con bends)", "Arpegio / pulso", "Timbal, caja y gong"]};
 const CARACTERES_OBERTURA = {epico: [["batalla","Batalla"],["frigia","Frigia"],["tragica","Trágica"]],
-  chill: [["etereo","Etéreo"],["lamento","Lamento"],["ritual","Ritual"]]};
+  chill: [["etereo","Etéreo"],["lamento","Lamento"],["ritual","Ritual"]],
+  cine: [["neon","Neón"],["titulos","Títulos"],["cosmos","Cosmos"]]};
 const TEXTO_OBERTURA = {batalla: "Eólica, i – ♭VI – ♭VII – i: cuernos en quintas, la más guerrera.",
   frigia: "i – ♭II: más oscura y amenazante; el tema cae al ♭2.",
   tragica: "i – iv – ♭VI – ♭VII con tercera menor en los cuernos: lamento antes de la batalla.",
   etereo: "Dórico, i – ♭VII – IV con novena: cuerdas que flotan, coro abierto y una melodía alta.",
   lamento: "Eólico, i – iv – ♭VI – v: la melodía grave (chelo) entra sola y el coro llega al final.",
-  ritual: "Frigio casi en drone, quintas abiertas, taikos suaves y tambor fantasma: tribal y lento."};
+  ritual: "Frigio casi en drone, quintas abiertas, taikos suaves y tambor fantasma: tribal y lento.",
+  neon: "Ciudad de noche con lluvia: brass que se abre lento con séptimas y novenas, arpegio en corcheas, un lead que entra deslizándose y cae al final de la frase, caja con mucha reverb.",
+  titulos: "Pulso de octavas en semicorcheas que empuja todo, timbales y una fanfarria en octavas: para un despegue grande.",
+  cosmos: "Dórico y abierto: campanas en arpegio, lead en octavas, redobles de timbal hacia cada etapa y gong."};
 function panelObertura() {
   const x = cfg.obertura;
   const compases = 8 * x.frases;
@@ -1419,7 +1427,11 @@ function panelObertura() {
       campo("Carácter", segmentado(CARACTERES_OBERTURA[x.modo], x.caracter, (v) => { x.caracter = v; guardar(); renderMotores(); }, 3)),
       ayuda((TEXTO_OBERTURA[x.caracter] || "") + (x.modo === "chill"
         ? " En la pista de los cuernos va la melodía: pon ahí una flauta, un chelo o un piano en tu escena chill. La seed elige la progresión, la melodía y la percusión."
+        : x.modo === "cine" ? " Arma una escena con un brass polifónico de ataque lento (estilo CS-80), un lead con vibrato y su rango de bend igual al de abajo, un arpegiador o pluck y un kit con timbal, caja con reverb y gong. Melodías propias, no copia ningún tema."
         : " La seed elige la variante de la progresión, el galope, la llamada de cuerno, el tema y los taikos.")),
+      campo("Forma", segmentado(FORMAS_OBERTURA, x.forma, (v) => { x.forma = v; guardar(); renderMotores(); }, 4)),
+      casilla(x, "tema_track", "Tema del track", "La llamada, el tema y la melodía usan las notas de la 1.ª secuencia: la intro anuncia lo que viene en el drop (si la secuencia es un pedal, usa su propia melodía)"),
+      x.modo === "cine" ? numeroDe(x, "bend_rango", "Rango del bend del lead (semitonos, 0 = sin bends)", 0, 24) : null,
       casilla(x, "repetir", "En loop", "No termina: después de la intro vuelve a la etapa 2 y sigue, cada vuelta con otra melodía. Para acompañar un tema chill", () => renderMotores()),
       deslizador(x, "frases", "Largo", 1, 8, 1, (v) => `${v} frase${v > 1 ? "s" : ""} · ${8 * v} compases`, () => renderMotores()),
       ayuda(x.repetir ? "En loop no termina: suena mientras dure su parte (al apagarla vuelve a la escena de vuelta, si hay)."
@@ -1436,8 +1448,8 @@ function panelObertura() {
         ayuda("La MC-101 no cambia de sonido por Program Change: cambia de escena con un Program Change en su canal de control. La vuelta va en el silencio del final, así la escena psy entra justo con el drop."),
       ]),
       grupo("g-ob-capas", "Capas y canales", `cuerdas ${x.canal_cuerdas || "—"} · cuernos ${x.canal_cuernos || "—"} · coro ${x.canal_coro || "—"} · percusión ${x.canal_percusion || "—"}`, [
-        el("div", {className: "dos"}, [numeroDe(x, "canal_cuerdas", "Cuerdas graves (0 = no)", 0, 16), numeroDe(x, "canal_cuernos", "Cuernos / metales (0 = no)", 0, 16)]),
-        el("div", {className: "dos"}, [numeroDe(x, "canal_coro", "Coro (0 = no)", 0, 16), numeroDe(x, "canal_percusion", "Percusión (0 = no)", 0, 16)]),
+        el("div", {className: "dos"}, [numeroDe(x, "canal_cuerdas", `Pista 1 · ${CAPAS_OBERTURA[x.modo][0]} (0 = no)`, 0, 16), numeroDe(x, "canal_cuernos", `Pista 2 · ${CAPAS_OBERTURA[x.modo][1]} (0 = no)`, 0, 16)]),
+        el("div", {className: "dos"}, [numeroDe(x, "canal_coro", `Pista 3 · ${CAPAS_OBERTURA[x.modo][2]} (0 = no)`, 0, 16), numeroDe(x, "canal_percusion", `Pista 4 · ${CAPAS_OBERTURA[x.modo][3]} (0 = no)`, 0, 16)]),
         el("div", {className: "dos"}, [numeroDe(x, "nota_taiko", "Nota del taiko", 0, 127), numeroDe(x, "nota_tambor", "Nota del tambor", 0, 127)]),
         numeroDe(x, "nota_golpe", "Nota del golpe de orquesta", 0, 127),
         ayuda("El canal de cada pista de la escena «orquesta» y las notas de los pads del kit de percusión (36 = C1)."),
