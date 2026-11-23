@@ -20,6 +20,7 @@ import random
 from .armonia import Momento
 from .azar import azar as azar_fijo
 from .escalas import ESCALAS, nombre_midi
+from .secuencia import PREFIJOS_LFO, Lfo
 
 TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
@@ -238,6 +239,7 @@ class Pads:
         self.base = cfg.get("base", "nota")
         self.aleatoria = cfg.get("progresion", "i_bII") == "aleatoria"
         self.seed = str(cfg.get("seed", "pads"))
+        self.lfos = [Lfo(cfg, p, self.seed + ":pads") for p in PREFIJOS_LFO]   # CC del sinte de los pads (opcional)
         if self.aleatoria:
             self.progresion = progresion_aleatoria(tonalidad.intervalos, self.seed)
         else:

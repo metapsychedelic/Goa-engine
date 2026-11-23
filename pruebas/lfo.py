@@ -90,6 +90,34 @@ def main():
     todo &= ok(queda[-1][1] == 100, f"con «se queda ahí» el filtro sigue en 100 después del drop ({queda[-1]})")
     todo &= ok(not subida(), "sin la opción, la subida no toca el filtro")
     todo &= ok(curva_filtro(1.0, 100) == 127 and curva_filtro(1.0, 100, 90) == 90, "con el FX, el final de la subida también se elige (127 por defecto)")
+    print("\nLFO de los pads (MicroFreak o MC-101)")
+    from goa.motor import Motor
+    from pruebas.dialogo import base
+    c = normalizar(base())
+    c["pads"].update(activo=True, salida="MicroFreak", canal=5, lfo=True, lfo_cc=23, lfo_forma="sube", lfo_compases=1,
+                     lfo_min=10, lfo_max=90, lfo2=True, lfo2_cc=83, lfo2_compases=2)
+    c = normalizar(c)
+    evs, ref = [], {}
+    m = Motor(c, lambda sal, tipo, canal, n, v: "m" in ref and tipo == "control_change" and evs.append((max(ref["m"].tick, 0), sal, canal, n, v)))
+    ref["m"] = m
+    m.start()
+    for tick in range(2 * 96):
+        m.reloj()
+        if tick == 1:
+            m.nota_on(m.canal_disparo, 41)
+    corte = [(tk, v) for tk, sal, canal, n, v in evs if n == 23]
+    todo &= ok(corte and all(sal == "MicroFreak" and canal == 4 for _, sal, canal, n, _ in evs if n in (23, 83)),
+               "manda los CC por la salida y el canal de los pads")
+    primera = [v for tk, v in corte if tk < 96]
+    todo &= ok(primera[0] <= 12 and max(primera) >= 85 and primera == sorted(primera), f"«sube» en un compás de 10 a 90 ({primera[0]} → {max(primera)})")
+    todo &= ok(any(n == 83 for _, _, _, n, _ in evs), "el segundo LFO mueve la resonancia (83)")
+    c2 = normalizar(dict(c, pads=dict(c["pads"], lfo=False, lfo2=False)))
+    evs.clear()
+    m.aplicar_config(c2)
+    desde = m.tick + 96
+    for _ in range(2 * 96):
+        m.reloj()
+    todo &= ok(not any(n in (23, 83) and tk >= desde for tk, _, _, n, _ in evs), "apagados (desde el compás siguiente), no mandan nada")
     print("\nTodo bien" if todo else "\nHay errores")
     raise SystemExit(0 if todo else 1)
 

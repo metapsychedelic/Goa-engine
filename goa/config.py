@@ -435,6 +435,10 @@ TOCADO_EXTRA = ("armonia", "techo", "doble", "slide", "mutacion", "mutar_cada", 
                 "lfo2", "lfo2_cc", "lfo2_forma", "lfo2_compases", "lfo2_min", "lfo2_max")
 for _clave in TOCADO_PATRON + TOCADO_EXTRA:
     ESQUEMA_SECCIONES["tocado"][_clave] = ESQUEMA_SECUENCIA[_clave]
+# Los pads también tienen los dos LFO por CC (filtro u otro parámetro de su sinte).
+for _clave in ("lfo", "lfo_cc", "lfo_forma", "lfo_compases", "lfo_min", "lfo_max",
+               "lfo2", "lfo2_cc", "lfo2_forma", "lfo2_compases", "lfo2_min", "lfo2_max"):
+    ESQUEMA_SECCIONES["pads"][_clave] = ESQUEMA_SECUENCIA[_clave]
 # Largo de cada nota del loop: el tuyo (como lo tocaste) o el del estilo (su gate).
 ESQUEMA_SECCIONES["tocado"]["largo_nota"] = (str, "tuyo", None, ("tuyo", "estilo"))
 

@@ -272,6 +272,10 @@ class Motor(FormaMotor):
             self._callar(vieja)
         self._soltar_filtros(secuencias)
         self.secuencias = secuencias
+        if self.pads is not None:
+            viejos = {l.prefijo: l.ultimo for l in self.pads.lfos}
+            for l in pads.lfos:
+                l.ultimo = viejos.get(l.prefijo)
         self.pads = pads
         self.dialogo = dialogo
         if self.bajo is not None and bajo is not (self.cola_bajo or self.bajo):
@@ -651,6 +655,14 @@ class Motor(FormaMotor):
                 if valor != lfo.ultimo:
                     self.enviar(s.salida, "control_change", s.canal, lfo.cc, valor)
                     lfo.ultimo = valor
+        p = self.pads
+        if p is not None and p.activo and p.suenan:
+            for lfo in p.lfos:
+                if lfo.activo:
+                    valor = lfo.valor(self.tick)
+                    if valor != lfo.ultimo:
+                        self.enviar(p.salida, "control_change", p.canal, lfo.cc, valor)
+                        lfo.ultimo = valor
         t = self.tocado
         if t.activo and t.salida:
             for lfo in t.lfos:

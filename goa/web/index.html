@@ -1035,6 +1035,11 @@ function panelPads() {
         campo("La progresión parte desde", segmentado([["nota","La nota larga"],["tonica","La tónica fija"]], p.base, (v) => { p.base = v; guardar(); }, 2)),
         ayuda("Con la nota larga, si cambias de nota en la Circuit la progresión se mueve con ella."),
       ]),
+      grupo("g-pads-lfo", "Filtro y sonido del sinte", lfoResumen(p) === "apagado" ? "sin modular" : lfoResumen(p), [
+        ayuda("Opcional: dos LFO que mueven por CC el filtro u otro control del sinte de los pads, sincronizados al compás. Sirve con la MicroFreak, la MC-101 o la FM-1."),
+        ...editorLfo(p, "lfo", "LFO 1"),
+        ...editorLfo(p, "lfo2", "LFO 2"),
+      ]),
       grupo("g-pads-midi", "Salida MIDI", salidaTexto(p), [
         el("div", {className: "dos"}, [destinoDe(p, renderMotores), numeroDe(p, "canal", "Canal MIDI", 1, 16, renderMotores)]),
         numeroDe(p, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
@@ -1576,8 +1581,14 @@ function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada) {
 }
 
 // --- LFO de filtro de las secuencias (dos por secuencia) ---
-const LFO_DESTINOS = [["74","Corte (CC 74)"],["71","Resonancia (CC 71)"],["20","Wavetable A (CC 20)"],["21","Wavetable B (CC 21)"]];
-const LFO_NOMBRE_CC = {74: "corte", 71: "resonancia", 20: "wavetable A", 21: "wavetable B"};
+// Qué puede mover un LFO, por sinte (de sus tablas MIDI). «Otro CC» deja poner cualquier número.
+const LFO_SINTES = [
+  ["MC-101 / FM-1", [["74","Corte"],["71","Resonancia"],["73","Ataque"],["72","Release"],["20","Wavetable A (FM-1)"],["21","Wavetable B (FM-1)"]]],
+  ["MicroFreak", [["23","Corte"],["83","Resonancia"],["10","Wave"],["12","Timbre"],["13","Shape"]]],
+];
+const LFO_DESTINOS = LFO_SINTES.flatMap(([, l]) => l);
+const LFO_NOMBRE_CC = {74: "corte", 71: "resonancia", 73: "ataque", 72: "release", 20: "wavetable A", 21: "wavetable B",
+  23: "corte (MicroFreak)", 83: "resonancia (MicroFreak)", 10: "wave (MicroFreak)", 12: "timbre (MicroFreak)", 13: "shape (MicroFreak)"};
 
 function lfoResumen(s) {
   const activos = [["lfo", s.lfo], ["lfo2", s.lfo2]].filter(([, a]) => a).map(([p]) => {
@@ -1598,7 +1609,8 @@ function editorLfo(s, p, titulo) {
       el("input", {type: "checkbox", className: "switch", checked: !!s[p], "aria-label": titulo,
         onchange: (e) => { s[p] = e.target.checked; guardar(); renderMotores(); }})]),
     ...(s[p] ? [
-      campo("Qué mueve", segmentado(LFO_DESTINOS, String(cc), (v) => { s[k("_cc")] = parseInt(v); guardar(); renderMotores(); }, 2)),
+      ...LFO_SINTES.map(([sinte, lista]) => campo(`Qué mueve · ${sinte}`, segmentado(lista, String(cc), (v) => { s[k("_cc")] = parseInt(v); guardar(); renderMotores(); }, sinte === "MicroFreak" ? 3 : 2))),
+      numeroDe(s, k("_cc"), "Otro CC (número)", 0, 127, renderMotores),
       [20, 21].includes(cc) ? ayuda("Posición de wavetable de la FM-1 con Shrub: el timbre va cambiando. La MC-101 no tiene este control.") : null,
       choca ? ayuda("Los dos LFO mueven lo mismo y se van a pisar: elige otra cosa para uno de ellos.") : null,
       campo("Forma", segmentado(LFO_FORMAS, s[k("_forma")] || "seno", (v) => { s[k("_forma")] = v; guardar(); renderMotores(); }, 3)),
