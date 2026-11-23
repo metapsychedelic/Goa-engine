@@ -52,9 +52,6 @@ function desplTexto(x) {
 }
 const ESTILOS = [["rolling","Rolling"],["galope","Galope"],["arpegio3","Arpegio 3"],["acido","Ácido 303"],
   ["psy_chill","Psy chill"],["euclidiano","Euclidiano"],["largas","Notas largas"],["ambient","Ambient"],["clasico","Goa clásico"],["psytrance","Psytrance"]];
-const ESTILOS_POR_GENERO = {goa: ["rolling","galope","arpegio3","acido","clasico","psytrance"],
-  psytrance: ["psytrance","rolling","galope","acido"], psy_chill: ["psy_chill","galope","arpegio3"],
-  chillgressive: ["rolling","euclidiano","acido"], chillout: ["largas","euclidiano","arpegio3"], ambient: ["ambient","largas","arpegio3"]};
 const POSICIONES = [["onbeat","Con el bombo"],["offbeat","Entre bombos"],["todos","Todas"],["desplazado","Corrida"]];
 const POS_TEXTO = {onbeat: "Las notas caen junto al bombo.", offbeat: "Entre bombo y bombo: el clásico del psytrance.",
   todos: "Todas las semicorcheas.", desplazado: "Corrida una semicorchea: sensación de tropiezo."};
@@ -65,10 +62,6 @@ const FORMAS_TEXTO = {entrelazado: "La respuesta toca solo en los huecos que dej
 const ESTILOS_BAJO = [["sincopado","Sincopado","· · B B · · B ·"],["rolling","Rolling","K B B B"],["fullon","Full-on","K B B B ♪"],["tresillo","Tresillo","K ³B B"],
   ["galope","Galope","K · B B"],["saltado","Saltado","K B · B"],["offbeat","Offbeat","K · B ·"],
   ["chillgressive","Chillgressive","K B b B"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
-const ESTILOS_BAJO_POR_GENERO = {goa: ["rolling","fullon","tresillo","galope","saltado","offbeat"],
-  psytrance: ["rolling","fullon","galope","saltado","tresillo","sincopado"],
-  psy_chill: ["galope","offbeat","saltado","dub"], chillgressive: ["chillgressive","rolling","offbeat","galope","sincopado"],
-  chillout: ["dub","offbeat","sub"], ambient: ["sub","dub"]};
 const LFO_FORMAS = [["seno","Seno"],["triangulo","Triángulo"],["azar","Al azar"],["sube","Sube"],["baja","Baja"]];
 const LFO_CICLOS = [["0.25","1 tiempo"],["0.5","2 tiempos"],["1","1 compás"],["2","2 compases"],["4","4 compases"],["8","8 compases"],["16","16 compases"],["32","32 compases"]];
 const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa y el full-on.",

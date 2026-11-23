@@ -113,6 +113,13 @@ function renderMotores() {
   else if (motorSel === "looper") panel.append(...panelLooper());
   else if (motorSel === "tocado") panel.append(...panelTocado());
   else panel.append(...panelSecuencia(parseInt(motorSel.slice(3))));
+  // «Copiar a otras partes…» igual en todos los motores, al final.
+  if (cfg.parte && cfg.parte.length) {
+    const m = motores().find((x) => x[0] === motorSel);
+    const nombre = motorSel.startsWith("sec") ? `la secuencia ${m[1]}` : `el motor ${m[1]}`;
+    panel.append(el("div", {style: "display:flex;flex-direction:column"}, [
+      el("button", {type: "button", textContent: "Copiar a otras partes…", onclick: () => copiarMotorA(motorSel, nombre)})]));
+  }
 }
 // Nombres de antes: cualquier cambio vuelve a dibujar el motor que está a la vista.
 const renderPads = () => renderMotores(), renderBajo = () => renderMotores(), renderDialogo = () => renderMotores(), renderSecuencias = () => renderMotores();
@@ -195,7 +202,6 @@ function panelPads() {
   pulso.querySelector("input").addEventListener("change", () => renderMotores());
   return [
     cabMotor("Pads y drones", `${p.salida} · canal ${p.canal} · ${p.suenan ? "guían la armonía" : "callados, solo guían"}`, p, "activo", null, botonFabricaMotor("pads")),
-    campo("Género", segmentado(GENEROS, p.genero, (v) => cambiarGenero(v, {parte: "pads"}), 3)),
     campo("Textura", segmentado([["acordes","Acordes"],["nota","Nota sola"],["raiz_acorde","Raíz + acorde"]], p.textura || "acordes",
       (v) => { p.textura = v; renderMotores(); guardar(); }, 3)),
     ayuda(p.textura === "nota" ? "Solo la raíz de cada acorde, grave: una guía clara de la progresión para programar encima."
@@ -235,8 +241,8 @@ function panelPads() {
         casilla(p, "suenan", "Suenan", "Apagado: callados, solo guían la armonía de los demás", () => renderMotores()),
         casilla(p, "drone", "Drone en la raíz", "Una nota grave sostenida bajo los acordes"),
         campo("Separación de las voces", segmentado([["cerrada","Juntas"],["abierta","Abiertas"],["amplia","Muy abiertas"]], p.apertura, (v) => { p.apertura = v; guardar(); }, 3)),
-        el("div", {className: "dos"}, [numeroDe(p, "voces", "Notas por acorde (MicroFreak: 4)", 2, 6), numeroDe(p, "octava", "Octava", -2, 2)]),
-        numeroDe(p, "velocidad", "Fuerza", 1, 127),
+        el("div", {className: "dos"}, [numeroDe(p, "voces", "Notas por acorde (MicroFreak: 4)", 2, 6), deslizador(p, "octava", "Octava", -2, 2, 1, octavaTexto)]),
+        numeroDe(p, "velocidad", "Fuerza (1-127)", 1, 127),
       ]),
       grupo("g-pads-var", "Variación", `sorpresas ${porcentaje(p.variacion)} · parte desde ${p.base === "nota" ? "la nota larga" : "la tónica"}`, [
         deslizador(p, "variacion", "Sorpresas en la progresión", 0, 1, 0.05, porcentaje),
@@ -262,15 +268,12 @@ function panelPads() {
 
 function panelBajo() {
   const b = cfg.bajo;
-  const estilos = [...new Set([...ESTILOS_BAJO_POR_GENERO[b.genero], b.estilo])].map((v) => ESTILOS_BAJO.find((x) => x[0] === v));
   return [
     cabMotor("Bajo", `${b.salida} · canal ${b.canal} · ${armoniaTexto(b)}`, b, "activo", null, botonFabricaMotor("bajo")),
-    campo("Género", segmentado(GENEROS, b.genero, (v) => cambiarGenero(v, {parte: "bajo"}), 3)),
-    campo("Estilo · solo cambia el ritmo, tus ajustes se quedan", segmentado(estilos, b.estilo, (v) => {
-      b.estilo = v; renderMotores(); guardar();
-      if (ultimoEstado && ultimoEstado.corriendo && b.activo) aviso("El bajo cambia en el próximo compás");
-    }, 3)),
-    ayuda(TEXTO_BAJO[b.estilo]),
+    bloqueEstilo(b, {familias: FAMILIAS_BAJO, nombre: nombreBajo, clave: "bajo-estilo", dibujo: (v) => (ESTILOS_BAJO.find((x) => x[0] === v) || [])[2],
+      ayuda: TEXTO_BAJO[b.estilo] + " Solo cambia el ritmo; tus ajustes se quedan.", elegir: (v) => {
+        b.estilo = v; renderMotores(); guardar();
+        if (ultimoEstado && ultimoEstado.corriendo && b.activo) aviso("El bajo cambia en el próximo compás"); }}),
     bloqueVariante(b, "bajo", "bajo"),
     el("div", {className: "card principales"}, [
       deslizador(b, "movimiento", "Movimiento", 0, 1, 0.05,
@@ -333,7 +336,8 @@ function panelBajo() {
         ayuda("Golpes suaves en los huecos (nunca en el bombo)."),
       ]),
       grupo("g-bajo-notas", "Notas", `octava ${b.octava} · largo ${porcentaje(b.gate)} · slide ${porcentaje(b.slide)}`, [
-        el("div", {className: "dos"}, [numeroDe(b, "octava", "Octava", -2, 2), numeroDe(b, "velocidad", "Fuerza", 1, 127)]),
+        deslizador(b, "octava", "Octava", -2, 2, 1, octavaTexto),
+        numeroDe(b, "velocidad", "Fuerza (1-127)", 1, 127),
         deslizador(b, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
         deslizador(b, "slide", "Slide", 0, 1, 0.05, (x) => x === 0 ? "nunca" : `${porcentaje(x)} de las notas`),
         ayuda("Las notas con slide se pisan un instante con la siguiente: en un sinte en legato con glide, se deslizan."),
@@ -341,7 +345,7 @@ function panelBajo() {
         deslizador(b, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
       ]),
       grupo("g-bajo-var", "Variación", `mutar cada ${b.mutar_cada} · ${armoniaTexto(b)}`, [
-        campo("Mutar cada (compases)", segmentado([["1","1"],["2","2"],["4","4"],["8","8"],["16","16"]], String(b.mutar_cada), (v) => { b.mutar_cada = parseInt(v); guardar(); }, 5)),
+        numeroDe(b, "mutar_cada", "Cada (compases, de 1 a 64)", 1, 64, () => renderMotores()),
         ayuda("Cada vez puede cambiar un golpe (otra nota, un silencio, uno nuevo o corrido) y los cambios se acumulan. A veces uno vuelve a como era."),
         armoniaPropia(b, () => renderMotores()),
         ayuda(guiadaDe(b)
@@ -383,27 +387,36 @@ function figuraTexto(s) {
   return f[1].replace(" ✦", "");
 }
 
-function bloqueEstilo(s) {
-  const k = Math.max(0, ORDEN_ESTILOS.indexOf(s.estilo));
-  const mover = (d) => elegirEstilo(s, ORDEN_ESTILOS[(k + d + ORDEN_ESTILOS.length) % ORDEN_ESTILOS.length]);
+// La sección Estilo, igual en la secuencia, el tocado y el bajo: abierta y plegable, los estilos
+// por familia, ‹ › para pasar de uno a otro y, debajo, las opciones del estilo elegido.
+function bloqueEstilo(obj, o) {
+  const orden = o.familias.flatMap((f) => f[1]);
+  const k = Math.max(0, orden.indexOf(obj.estilo));
+  const mover = (d) => o.elegir(orden[(k + d + orden.length) % orden.length]);
   const nav = (txt, d, etiqueta) => el("button", {type: "button", className: "nav-estilo", textContent: txt, "aria-label": etiqueta,
     onclick: (e) => { e.preventDefault(); e.stopPropagation(); mover(d); }});
-  const fig = figuraTexto(s);
-  const opciones = s.estilo === "clasico" ? panelClasico(s) : s.estilo === "psytrance" ? panelPsy(s) : [];
+  const opciones = o.opciones || [];
   return recordar(el("details", {className: "grupo estilo-sec"}, [
     el("summary", {}, [
-      el("span", {className: "cab"}, [el("b", {textContent: "Estilo"}), el("span", {textContent: nombreEstilo(s.estilo) + (fig ? ` · ${fig}` : "")})]),
+      el("span", {className: "cab"}, [el("b", {textContent: "Estilo"}), el("span", {textContent: o.nombre(obj.estilo) + (o.detalle ? ` · ${o.detalle}` : "")})]),
       nav("‹", -1, "Estilo anterior"), nav("›", 1, "Estilo siguiente")]),
     el("div", {className: "cuerpo"}, [
-      ...FAMILIAS.map(([familia, lista]) => el("div", {className: "familia"}, [
+      ...o.familias.map(([familia, lista]) => el("div", {className: "familia"}, [
         el("span", {className: "familia-nombre", textContent: familia}),
-        segmentado(lista.map((v) => [v, nombreEstilo(v)]), s.estilo, (v) => elegirEstilo(s, v), lista.length > 2 ? 4 : 2)])),
-      ayuda("Cambia el patrón; tus ajustes se quedan."),
-      opciones.length ? el("span", {className: "familia-nombre", textContent: `Opciones de ${nombreEstilo(s.estilo)}`}) : null,
+        segmentado(lista.map((v) => [v, o.nombre(v), o.dibujo ? o.dibujo(v) : undefined]), obj.estilo, (v) => o.elegir(v), lista.length > 2 ? 4 : 2)])),
+      ayuda(o.ayuda || "Cambia el patrón; tus ajustes se quedan."),
+      opciones.length ? el("span", {className: "familia-nombre", textContent: `Opciones de ${o.nombre(obj.estilo)}`}) : null,
       ...opciones,
     ].filter(Boolean)),
-  ]), "sec-estilo", true);
+  ]), o.clave, true);
 }
+// Estilos de secuencia (también los del tocado).
+function estiloDeSecuencia(s, clave) {
+  return bloqueEstilo(s, {familias: FAMILIAS, nombre: nombreEstilo, clave, detalle: figuraTexto(s), elegir: (v) => elegirEstilo(s, v),
+    opciones: s.estilo === "clasico" ? panelClasico(s) : s.estilo === "psytrance" ? panelPsy(s) : []});
+}
+const FAMILIAS_BAJO = [["Rodantes", ["rolling","fullon","galope","tresillo"]], ["Con aire", ["offbeat","saltado","sincopado","chillgressive"]],
+  ["Lentos", ["dub","sub"]]];
 
 // --- Variante y clips: un solo componente para todos los motores ---
 // Variante plegable: cerrada, la seed que suena, el clip y «Otra»; abierta, A/B, favoritas, la
@@ -605,6 +618,16 @@ function pintarFila(caja, f) {
   if (parar) parar.classList.toggle("cola", f.cola === "detener");
 }
 
+// Largo del patrón (secuencia y tocado): atajos y cualquier número de 2 a 64.
+function campoLargo(s) {
+  if (FRASEADOS.includes(s.estilo)) return [ayuda(`Con ${nombreEstilo(s.estilo)} el largo lo da la frase (en Estilo).`)];
+  return [
+    campo("Largo del patrón · de 2 a 64 pasos", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); renderMotores(); guardar(); }, 4)),
+    numeroDe(s, "largo", "Pasos", 2, 64, renderMotores),
+    ayuda("16 da un compás; 32 o 64, dos o cuatro. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
+  ];
+}
+
 function panelSecuencia(i) {
   const s = cfg.secuencia[i];
   const texto = (k, etiqueta, extra = {}) => {
@@ -619,18 +642,14 @@ function panelSecuencia(i) {
   return [
     cabMotor(`Secuencia ${s.nombre}`, `${s.salida} · canal ${s.canal} · ${armoniaTexto(s)}`, s, "activa", null, botonFabrica(i, s)),
     franjaPatron(i),
-    bloqueEstilo(s),
+    estiloDeSecuencia(s, "sec-estilo"),
     bloqueVariante(s, `sec-${s.nombre}`, `sec${i}`),
     el("div", {className: "grupos"}, [
       grupo("sec-mas", "Más o menos notas", [porcentaje(s.densidad), pos, conFrase ? `frase de ${s.frase || 2}` : `${s.largo} pasos`, `largo ${gateTexto(s.gate)}`, s.filtro ? "con filtro" : ""].filter(Boolean).join(" · "), [
         deslizador(s, "densidad", "Densidad", 0, 1, 0.05, (v) => v === 1 ? "todas las notas" : porcentaje(v)),
         campo("Dónde caen las notas", segmentado(POSICIONES, s.posicion, (v) => { s.posicion = v; renderMotores(); guardar(); }, 2)),
         ayuda(POS_TEXTO[s.posicion]),
-        ...(conFrase ? [ayuda(`Con ${nombreEstilo(s.estilo)} el largo lo da la frase (en Estilo).`)] : [
-          campo("Largo del patrón · de 2 a 64 pasos", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(s.largo), (v) => { s.largo = parseInt(v); renderMotores(); guardar(); }, 4)),
-          numeroDe(s, "largo", "Pasos", 2, 64, renderMotores),
-          ayuda("16 da un compás; 32 o 64, dos o cuatro. 13, 11 o 7 se desfasan contra el compás y el patrón va girando (polirritmia)."),
-        ]),
+        ...campoLargo(s),
         deslizador(s, "gate", "Largo de las notas", 0.05, 1, 0.05, (v) => `${gateTexto(v)} (${porcentaje(v)})`),
         deslizador(s, "gate_random", "Variación del largo", 0, 1, 0.05, porcentaje),
         deslizador(s, "largas", "Notas sostenidas sobre los silencios", 0, 1, 0.05, porcentaje),
@@ -720,9 +739,6 @@ function panelSecuencia(i) {
           onclick: async () => { cfg.secuencia.splice(i, 1); motorSel = "pads"; render(); await enviarConfig(); avisoDeshacer(`Secuencia ${s.nombre} eliminada`, deshacerUltimo); }}),
       ]),
     ]),
-    cfg.parte && cfg.parte.length ? el("div", {style: "display:flex;flex-direction:column"}, [
-      el("button", {type: "button", textContent: "Copiar a otras partes…", onclick: () => copiarMotorA(`sec${i}`, `la secuencia ${s.nombre}`)}),
-    ]) : null,
   ].filter(Boolean);
 }
 
@@ -841,7 +857,7 @@ function copiarMotorA(clave, nombre) {
         let r = null;
         try { r = await api("/api/parte/copiar", {desde, hacia, motores: [clave]}); } catch (e) { aviso(e.message, true); }
         d.close();
-        if (r) { aviso(`${nombre[0].toUpperCase() + nombre.slice(1)} copiada a ${hacia.length} parte${hacia.length > 1 ? "s" : ""}`); await recargar(); }
+        if (r) { aviso(`Copiado a ${hacia.length} parte${hacia.length > 1 ? "s" : ""}: ${nombre}`); await recargar(); }
       }}),
     ]),
   ]);
@@ -1125,7 +1141,8 @@ function bloqueVoz(v, titulo, papel, extra = []) {
       ...extra.filter(Boolean),
       el("div", {className: "dos"}, [destinoDe(v, renderMotores), numeroDe(v, "canal", "Canal MIDI", 1, 16, renderMotores)]),
       numeroDe(v, "programa", "Parche (Program Change, 0 = no cambia)", 0, 128),
-      el("div", {className: "dos"}, [numeroDe(v, "octava", "Octava", -3, 3), numeroDe(v, "velocidad", "Fuerza", 1, 127)]),
+      deslizador(v, "octava", "Octava", -3, 3, 1, octavaTexto),
+      numeroDe(v, "velocidad", "Fuerza (1-127)", 1, 127),
       deslizador(v, "gate", "Largo de las notas", 0.05, 1, 0.05, porcentaje),
       ayuda("Nunca pisa a la nota siguiente, de ninguna de las dos voces."),
       deslizador(v, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
@@ -1179,7 +1196,6 @@ function panelDialogo() {
   const sub = vivo ? "Llamas tú · responde en tus huecos" : `${d.forma === "entrelazado" ? "Entrelazado" : "Por turnos"} · ${d.rejilla} · ${armoniaTexto(d)}`;
   return [
     cabMotor("Llamada y respuesta", sub, d, "activo", fase, botonFabricaMotor("dialogo")),
-    campo("Género", segmentado(GENEROS, d.genero, (v) => cambiarGenero(v, {parte: "dialogo"}), 3)),
     campo("Quién llama", segmentado([["motor","El motor"],["en_vivo","Yo, en vivo"]], d.modo, (x) => { d.modo = x; rehacer(); }, 2)),
     vivo ? ayuda("El motor escucha dónde tocas en cada compás y en el siguiente responde en tus huecos.")
       : campo("Cómo conversan", segmentado([["entrelazado","Entrelazado"],["turnos","Por turnos"]], d.forma, (x) => { d.forma = x; rehacer(); }, 2)),
@@ -1242,7 +1258,7 @@ function panelFx() {
   return [
     cabMotor("FX", `${x.salida} · canal ${x.canal} · ${gestos.join(", ") || "sin gestos"}`, x, "activo",
       el("span", {className: "pill", id: "fx_gesto", textContent: "En silencio"}), botonFabricaMotor("fx")),
-    campo("Género", segmentado(GENEROS, x.genero, (v) => cambiarGenero(v, {parte: "fx"}), 3)),
+    campo("Carácter de los gestos · qué gestos aparecen y cuántos", segmentado(GENEROS, x.genero, (v) => cambiarGenero(v, {parte: "fx"}), 3)),
     ayuda({goa: "Goa: zaps, ácido y glitches, todos a la mano.", psytrance: "Psytrance: zaps y glitches, algo de ácido.", psy_chill: "Psy chill: sobre todo burbujas, pocos zaps.",
       chillgressive: "Chillgressive: de todo, un poco menos seguido.", chillout: "Chillout: burbujas y algún zap, espaciados.",
       ambient: "Ambient: solo burbujas, muy de vez en cuando."}[x.genero]),
@@ -1269,7 +1285,8 @@ function panelFx() {
         ...(x.fondo ? [
           campo("Qué notas", segmentado([["raiz", "Raíz"], ["acorde", "Del acorde", "va cambiando"], ["quinta", "Raíz + quinta"], ["octavas", "Octavas", "alterna"]], x.fondo_notas, (v) => { x.fondo_notas = v; guardar(); renderMotores(); }, 2)),
           campo("Se vuelven a atacar cada", segmentado([["1","1 comp."],["2","2 comp."],["4","4 comp."],["8","8 comp."]], String(x.fondo_largo), (v) => { x.fondo_largo = parseInt(v); guardar(); renderMotores(); }, 4)),
-          el("div", {className: "dos"}, [numeroDe(x, "fondo_octava", "Octava", -2, 2), numeroDe(x, "fondo_fuerza", "Fuerza", 1, 127)]),
+          deslizador(x, "fondo_octava", "Octava", -2, 2, 1, octavaTexto),
+          numeroDe(x, "fondo_fuerza", "Fuerza (1-127)", 1, 127),
           ayuda("Si cambia el acorde, la nota cambia en el tiempo siguiente. En la MC-101 usa un sonido polifónico con sustain (pad, drone, bajo largo): los gestos suenan encima."),
         ] : []),
       ]),
@@ -1304,7 +1321,8 @@ function panelFx() {
         ayuda("Las subidas se lanzan en Tocar (8, 16 o 32 compases), con «Riser» en una parte de la canción, y solas en el build y el break del piloto. Para que el riser suba una octava entera, pon el rango de pitch bend del sinte en 12."),
       ]),
       grupo("g-fx-notas", "Notas", `octava ${x.octava} · fuerza ${x.velocidad}`, [
-        el("div", {className: "dos"}, [numeroDe(x, "octava", "Octava", -2, 3), numeroDe(x, "velocidad", "Fuerza", 1, 127)]),
+        deslizador(x, "octava", "Octava", -2, 3, 1, octavaTexto),
+        numeroDe(x, "velocidad", "Fuerza (1-127)", 1, 127),
       ]),
       grupo("g-fx-midi", "Salida MIDI", `${salidaTexto(x)} · filtro CC ${x.cc_corte}`, [
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
@@ -1340,7 +1358,8 @@ function panelTexturas() {
       ]),
       grupo("g-tx-notas", "Notas", `${x.registro || 2} octava${(x.registro || 2) > 1 ? "s" : ""} desde la ${x.octava} · fuerza ${x.velocidad}`, [
         campo("Se reparten en", segmentado([["1","1 octava"],["2","2 octavas"],["3","3 octavas"]], String(x.registro || 2), (v) => { x.registro = parseInt(v); guardar(); renderMotores(); }, 3)),
-        el("div", {className: "dos"}, [numeroDe(x, "octava", "Octava más baja", -2, 3), numeroDe(x, "velocidad", "Fuerza", 1, 127)]),
+        deslizador(x, "octava", "Octava más baja", -2, 3, 1, octavaTexto),
+        numeroDe(x, "velocidad", "Fuerza (1-127)", 1, 127),
         ayuda("Graves y agudas mezcladas al azar dentro de esas octavas (las largas prefieren abajo). Octava 0 parte en C3. Las cortas siguen una figura rítmica que cambia cada 4 compases, con un motivo de 2 compases que se repite, nunca en el tiempo del bombo."),
       ]),
       grupo("g-tx-midi", "Salida MIDI", salidaTexto(x), [
@@ -1361,7 +1380,6 @@ function pasosTexto(n) {
 
 function panelTocado() {
   const x = cfg.tocado;
-  const nombreEstilo = Object.fromEntries(ESTILOS)[x.estilo] || x.estilo;
   const accion = (a) => async () => { try { const d = await api("/api/tocado", {accion: a}); pintarTocado({tocado: d.tocado}); } catch (e) { aviso(e.message, true); } };
   const largoLoop = () => {
     // Acortar o alargar el loop ya grabado (no borra nada: volver al largo original lo deja igual).
@@ -1378,7 +1396,7 @@ function panelTocado() {
     ]);
   };
   return [
-    cabMotor("Tocado", `${x.salida} · canal ${x.canal} · ${x.modo === "contorno" ? "contorno" : "una tecla"} · ${nombreEstilo}`, x, "activo",
+    cabMotor("Tocado", `${x.salida} · canal ${x.canal} · ${x.modo === "contorno" ? "contorno" : "una tecla"} · ${nombreEstilo(x.estilo)}`, x, "activo",
       null, botonFabricaMotor("tocado")),
     ayuda("Tocas en el teclado de la MicroFreak: tú pones el ritmo (cortas, largas, fuertes, suaves) y el motor pone las notas, siempre en la escala y el acorde que suena. Nunca desafina."),
     cfg.teclado && cfg.teclado.activo ? null : el("p", {className: "ayuda", style: "color:var(--bad)", textContent: "Activa el teclado de la MicroFreak en Ajustes para tocar."}),
@@ -1386,17 +1404,12 @@ function panelTocado() {
     ayuda(x.modo === "contorno" ? "La tecla cuenta: más agudo, la nota sube. Cae siempre en la escala, y en los tiempos fuertes en una nota del acorde."
       : "Da lo mismo qué tecla aprietes: cada nota que tocas toma la nota siguiente de una secuencia del estilo (la de la variante). Tú pones el ritmo; el estilo, la melodía."),
     ...(x.modo === "contorno" ? [] : [
-      campo("Género", segmentado(GENEROS, x.genero, (v) => {
-        x.genero = v;
-        if (!ESTILOS_POR_GENERO[v].includes(x.estilo)) x.estilo = ESTILOS_POR_GENERO[v][0];
-        guardar(); renderMotores(); }, 3)),
-      campo("Estilo · el mismo de las secuencias, con sus ajustes", segmentado(
-        [...new Set([...ESTILOS_POR_GENERO[x.genero], x.estilo])].map((v) => ESTILOS.find((e) => e[0] === v)),
-        x.estilo, (v) => { x.estilo = v; guardar(); renderMotores(); }, 2)),
-      ...(x.estilo === "clasico" ? panelClasico(x) : x.estilo === "psytrance" ? panelPsy(x) : []),
+      bloqueEstilo(x, {familias: FAMILIAS, nombre: nombreEstilo, clave: "tocado-estilo", detalle: figuraTexto(x),
+        ayuda: "El mismo de las secuencias, con sus ajustes.", elegir: (v) => { x.estilo = v; guardar(); renderMotores(); },
+        opciones: x.estilo === "clasico" ? panelClasico(x) : x.estilo === "psytrance" ? panelPsy(x) : []}),
     ]),
     el("div", {className: "card principales"}, [
-      campo("Octava", segmentado([["-2", "−2"], ["-1", "−1"], ["0", "0"], ["1", "+1"], ["2", "+2"]], String(x.octava), (v) => { x.octava = parseInt(v); guardar(); renderMotores(); }, 5)),
+      deslizador(x, "octava", "Octava", -2, 2, 1, octavaTexto, () => renderMotores()),
       x.modo === "contorno" ? null : bloqueVariante(x, "tocado", null, "Variante de notas"),
       x.modo === "contorno" ? null : ayuda("La variante cambia qué notas elige el estilo, sin tocar tu ritmo (también el del loop)."),
     ].filter(Boolean)),
@@ -1423,9 +1436,7 @@ function panelTocado() {
       x.modo === "contorno" ? null : grupo("g-tc-notas", "Notas del estilo", `desde ${RELACIONES.find((r) => r[0] === x.relacion)[1].toLowerCase()}${x.raga ? " · raga " + x.raga : ""} · acentos ${porcentaje(x.acentos)}`, [
         ayuda("Los mismos ajustes de nota que una secuencia: cambian qué notas elige el estilo para lo que tocas (y para el loop, en la vuelta siguiente)."),
         campo("Parte desde", segmentado(RELACIONES, x.relacion, (v) => { x.relacion = v; guardar(); renderMotores(); }, 2)),
-        ...(FRASEADOS.includes(x.estilo) ? [] : [
-          campo("Largo del patrón (pasos)", segmentado([["16","16"],["13","13"],["11","11"],["7","7"]], String(x.largo), (v) => { x.largo = parseInt(v); guardar(); }, 4)),
-        ]),
+        ...campoLargo(x),
         deslizador(x, "pedal", "Vuelve a la nota larga", 0, 1, 0.05, porcentaje),
         deslizador(x, "saltos", "Saltos de octava", 0, 1, 0.05, porcentaje),
         deslizador(x, "semitono", "♭2 (medio tono sobre la raíz)", 0, 1, 0.05, (v) => v === 0 ? "como sale" : porcentaje(v)),
@@ -1440,7 +1451,7 @@ function panelTocado() {
         ayuda("En qué orden recorre la melodía del estilo: tu primera nota toma la primera, la segunda la siguiente…"),
         campo("Voz doble", segmentado([["","No"],["tercera","3.ª"],["cuarta","4.ª"],["quinta","5.ª"],["sexta","6.ª"],["octava","8.ª"]], x.doble || "", (v) => { x.doble = v; guardar(); }, 6)),
         ayuda("Una segunda voz paralela por grados de la escala, un poco más suave. Necesita un sinte polifónico."),
-        deslizador(x, "techo", "Techo (nota más alta)", 60, 127, 1, (v) => v >= 127 ? "sin techo" : `${nombreMidi(v)} · lo de arriba baja una octava`),
+        deslizador(x, "techo", "Techo (nota más alta)", 36, 127, 1, (v) => v >= 127 ? "sin techo" : `${nombreMidi(v)} · lo de arriba baja una octava`),
         deslizador(x, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
       ]),
       x.modo === "contorno" ? null : grupo("g-tc-var", "Variación", `${x.bloqueada ? "congelada" : x.mutacion === 0 ? "sin mutación" : `${porcentaje(x.mutacion)} cada ${x.mutar_cada}`} · ${armoniaTexto(x)}`, [
