@@ -225,10 +225,12 @@ def listar_proyectos(ctx):
     archivos = [r for r in _carpeta_proyectos(ctx).glob("*.toml") if not r.name.startswith(".")]   # sin temporales
     for ruta in sorted(archivos, key=lambda r: r.stat().st_mtime, reverse=True):
         try:
-            nombre = cargar(ruta)["app"]["proyecto"] or ruta.stem
+            cfg = cargar(ruta)
+            nombre = cfg["app"]["proyecto"] or ruta.stem
         except (ConfigError, OSError, ValueError):
             continue
-        proyectos.append({"nombre": nombre, "archivo": ruta.stem})
+        proyectos.append({"nombre": nombre, "archivo": ruta.stem, "partes": len(cfg.get("parte", [])),
+                          "compases": sum(p.get("compases", 0) for p in cfg.get("parte", []))})
     return proyectos
 
 
@@ -818,17 +820,30 @@ def crear_servidor(ctx, puerto):
                 ctx.motor.aplicar_config(ctx.config)
                 if datos.get("saltar") is not None:
                     ctx.motor.saltar_parte(int(datos["saltar"]))
+                if datos.get("quedarse"):
+                    ctx.motor.quedarse_parte(int(datos["quedarse"]))
                 aviso = self._guardar_activa()
             self._responder(aviso)
 
         def _cancion_plantilla(self, datos):
             """Reemplaza las partes de la canción por las de una plantilla (sin escenas: las eliges tú)."""
             clave = str(datos.get("clave", ""))
-            if clave not in plantillas.PLANTILLAS:
+            if clave != "blanco" and clave not in plantillas.PLANTILLAS:
                 raise ValueError("Esa plantilla no existe")
             with ctx.candado:
-                ctx.config["parte"] = plantillas.partes_de(clave)
-                ctx.config["cancion"]["nombre"] = plantillas.PLANTILLAS[clave]["nombre"]
+                if clave == "blanco":
+                    ctx.config["parte"] = [{"nombre": "Parte 1", "compases": 16, "escena": -1, "energia": 0.5, "energia_fin": 0.5, "entrada": "suave"}]
+                    ctx.config["cancion"]["nombre"] = "Tema nuevo"
+                else:
+                    ctx.config["parte"] = plantillas.partes_de(clave)
+                    ctx.config["cancion"]["nombre"] = plantillas.PLANTILLAS[clave]["nombre"]
+                if datos.get("nuevo"):
+                    # Tema nuevo: sin las escenas del tema anterior y con el modo canción prendido.
+                    ctx.editando = None
+                    ctx.config["escena"] = []
+                    ctx.config["forma"]["escena"] = -1
+                    ctx.config["cancion"]["activa"] = True
+                    ctx.config["forma"]["piloto"] = False
                 ctx.config = normalizar(ctx.config)
                 ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
@@ -1001,7 +1016,10 @@ def crear_servidor(ctx, puerto):
         def _subida(self, datos):
             """Subida de FX: riser, filtros y stutter durante `compases`, desde el próximo compás (0 = cancelar)."""
             with ctx.candado:
-                ctx.motor.pedir_subida(int(datos.get("compases", 0)))
+                if datos.get("final"):
+                    ctx.motor.pedir_subida_final(int(datos.get("compases", 0)))
+                else:
+                    ctx.motor.pedir_subida(int(datos.get("compases", 0)))
             self._responder()
 
         def _piloto(self, datos):

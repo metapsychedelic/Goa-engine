@@ -418,6 +418,15 @@ class Conductor:
         if not cancion_activa(base) or self.cancion is None:
             return None
         pos = compas - self.cancion["origen"]
+        extra = self.cancion.get("extra")
+        if extra is not None:
+            # «Quedarse N más»: la parte que sonaba dura N compases más y lo que viene se corre.
+            if extra["inicio"] <= compas < extra["fin"]:
+                largo = extra["fin"] - extra["inicio"]
+                dentro = compas - extra["inicio"]
+                return {"i": extra["i"], "dentro": dentro, "largo": largo, "avance": dentro / max(1, largo - 1), "vuelta": extra["vuelta"]}
+            if compas >= extra["fin"]:
+                pos -= extra["n"]
         if pos < 0:
             return None
         donde = ubicar(base["parte"], pos, base["cancion"].get("al_final", "repetir"))

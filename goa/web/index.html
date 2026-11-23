@@ -198,6 +198,17 @@ input.switch:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .ab-hist button{font-family:ui-monospace,Menlo,monospace}
 .panel{display:flex;flex-direction:column;gap:14px}
 /* tocar */
+.tema-cab{display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:none;background:none;color:var(--txt);font-size:14px;font-weight:600;max-width:100%;text-align:left}
+.tema-cab span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tema-cab span:last-child{color:var(--acc);font-size:11px}
+.plantilla-mini{width:64px;height:28px;flex:none;border-radius:6px;display:flex;gap:1px;align-items:flex-end;overflow:hidden;background:#0E0E16}
+.plantilla-mini i{display:block;background:var(--acc);border-radius:1px 1px 0 0}
+.bienvenida p.lema{color:var(--txt2);margin:4px 0 14px}
+.vivo-acciones{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vivo-accion{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;min-height:64px;padding:8px 12px;text-align:left}
+.vivo-accion b{font-size:15px;font-weight:650}
+.vivo-accion span{font-size:12px;color:var(--mut)}
+.vivo-accion.prim span{color:var(--sobre);opacity:.75}
 .mutes{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px}
 .mute{min-height:64px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--mut);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px}
 .mute b{font-size:12.5px;font-weight:650}
@@ -291,7 +302,7 @@ input[type=range]:focus-visible{outline:2px solid var(--acc);outline-offset:4px;
 .volver .der{margin-left:auto;display:flex;gap:6px}
 .volver .der button{width:40px;padding:0}
 .motores-lista{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.motores-lista button{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border:none;border-radius:0;background:none;text-align:left;width:100%}
+.motores-lista button{flex:none;display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border:none;border-radius:0;background:none;text-align:left;width:100%}
 .motores-lista button + button{border-top:1px solid #22222E}
 .motores-lista .punto{width:10px;height:10px;border-radius:50%;flex:none;border:1.5px solid var(--line2)}
 .motores-lista .punto.si{background:var(--acc);border-color:var(--acc)}
@@ -312,6 +323,7 @@ input[type=checkbox]:not(.switch):focus-visible{outline:2px solid var(--acc);out
 <header class="top"><div class="in">
   <div style="min-width:0">
     <h1 class="logo">yantra</h1>
+    <button type="button" class="tema-cab" id="tema_cab" aria-label="Cambiar de tema"><span id="tema_cab_nombre">Sin tema</span><span aria-hidden="true">▾</span></button>
     <div class="sub" id="sub">Conectando…</div>
   </div>
   <div class="der">
@@ -2352,13 +2364,111 @@ function render() {
   renderAjustes();
 }
 
+const modoCancion = () => !!(cfg.cancion && cfg.cancion.activa && cfg.parte && cfg.parte.length);
 function renderTocar() {
-  $("tocar_escenas").replaceChildren(bloqueEscenas());
+  const conCancion = modoCancion();
+  ahoraFirma = "";
+  $("tocar_escenas").replaceChildren(...(conCancion ? [bloqueAhora(),
+    recordar(el("details", {className: "grupo"}, [el("summary", {}, [el("span", {className: "cab"}, [el("b", {textContent: "Escenas sueltas"}),
+      el("span", {textContent: "lanzar una escena a mano (sale del orden del tema)"})])]), el("div", {className: "cuerpo"}, [bloqueEscenas()])]), "g-vivo-escenas", false)]
+    : [bloqueEscenas()]));
   const caja = $("tocar_extra"); caja.innerHTML = "";
-  caja.append(...[bloqueEnergia(), bloqueSubida(), bloqueFrases(), bloquePiloto()].filter(Boolean));
+  caja.append(...[bloqueEnergia(), conCancion ? null : bloqueSubida(), bloqueFrases(), conCancion ? null : bloquePiloto()].filter(Boolean));
   $("tocar_forma").replaceChildren(bloqueForma());
   renderMutes();
   if (ultimoEstado) pintarTocar(ultimoEstado);
+}
+
+// --- Vivo con el tema: qué suena, qué viene y qué hacer después ---
+let ahoraFirma = "";
+function bloqueAhora() {
+  const caja = el("div", {id: "ahora", style: "display:flex;flex-direction:column;gap:14px"});
+  pintarAhoraCaja(caja, ultimoEstado && ultimoEstado.cancion);
+  return caja;
+}
+function pedirCancion(datos, mensaje) {
+  return (async () => { try { await api("/api/cancion", datos); aviso(mensaje); estado(); } catch (e) { aviso(e.message, true); } })();
+}
+function pedirSubidaFinal(n) {
+  return (async () => { try { await api("/api/subida", {compases: n, final: true}); aviso(`Subida en los últimos ${n} compases de la parte`); estado(); } catch (e) { aviso(e.message, true); } })();
+}
+function irAOtraParte() {
+  let d;
+  d = hoja("Ir a otra parte", "Entra en el próximo compás y el tema sigue desde ahí.", [
+    el("div", {className: "motores-lista", style: "max-height:60vh;overflow:auto;margin-bottom:12px"}, cfg.parte.map((p, j) =>
+      el("button", {type: "button", onclick: () => { d.close(); pedirCancion({saltar: j}, `${p.nombre} en el próximo compás`); }}, [
+        el("span", {className: "punto" + (ultimoEstado && ultimoEstado.cancion && ultimoEstado.cancion.parte === j ? " si" : "")}),
+        el("span", {style: "flex:1;min-width:0"}, [p.nombre, el("br"), el("span", {className: "mut", style: "font-size:12px", textContent: `${p.compases} compases · ${p.entrada === "golpe" ? "de golpe" : "suave"}`})]),
+        el("span", {className: "mut", textContent: "›"})]))),
+    el("div", {className: "acciones"}, [el("button", {type: "button", className: "ancho", textContent: "Cancelar", onclick: () => d.close()})]),
+  ]);
+}
+function pintarAhoraCaja(caja, c) {
+  const sonando = c && c.parte !== null && c.parte !== undefined;
+  const firma = sonando ? `${c.parte}|${c.siguiente}|${c.largo}|${c.pedida}` : `quieto|${c && c.pedida}`;
+  if (firma === ahoraFirma && caja.childElementCount) {
+    if (sonando) {
+      $("ahora_compas").textContent = `${c.compas} / ${c.largo}`;
+      const faltan = c.largo - c.compas + 1;
+      const sig = cfg.parte[c.siguiente];
+      $("ahora_sigue").textContent = c.pedida !== null && c.pedida !== undefined ? `Pediste ${cfg.parte[c.pedida].nombre}: entra en el próximo compás`
+        : sig ? `Sigue: ${sig.nombre} en ${faltan} compás${faltan === 1 ? "" : "es"} · ${sig.entrada === "golpe" ? "de golpe" : "suave"}` : "Es la última parte";
+      const inicio = cfg.parte.slice(0, c.parte).reduce((n, p) => n + p.compases, 0);
+      document.querySelectorAll("#ahora_mapa i").forEach((x, k) => {
+        x.classList.toggle("hecho", k < c.parte); x.classList.toggle("actual", k === c.parte); });
+      $("ahora_tiempo").textContent = `${duracionTexto(inicio + c.compas - 1, bpmCancion())} / ${duracionTexto(c.total, bpmCancion())}`;
+    }
+    return;
+  }
+  ahoraFirma = firma;
+  const mapa = el("div", {className: "cbarra", id: "ahora_mapa", style: "height:12px"}, cfg.parte.map((p) => el("i", {style: `flex:${p.compases} 1 0`, title: p.nombre})));
+  if (!sonando) {
+    const primera = c && c.pedida !== null && c.pedida !== undefined ? cfg.parte[c.pedida] : cfg.parte[0];
+    caja.replaceChildren(el("div", {className: "energia"}, [
+      el("span", {className: "mut", style: "font-size:12px;letter-spacing:.06em", textContent: "TEMA · " + (cfg.cancion.nombre || "")}),
+      mapa,
+      el("b", {style: "font-size:20px", textContent: "Dale Play en la Circuit"}),
+      el("span", {className: "mut", textContent: `Parte en ${primera ? primera.nombre : "la primera parte"}, en el uno.`}),
+    ]));
+    return;
+  }
+  const p = cfg.parte[c.parte] || {nombre: "?"};
+  const sig = cfg.parte[c.siguiente];
+  const accion = (titulo, sub, fn, prim) => el("button", {type: "button", className: "vivo-accion" + (prim ? " prim" : ""), onclick: fn}, [
+    el("b", {textContent: titulo}), el("span", {textContent: sub})]);
+  caja.replaceChildren(
+    el("div", {className: "energia ahora"}, [
+      el("div", {className: "fila"}, [el("span", {className: "mut", style: "font-size:12px;letter-spacing:.06em", textContent: "AHORA"}),
+        el("span", {className: "mut", id: "ahora_tiempo", style: "font-size:12px"})]),
+      mapa,
+      el("div", {className: "fila", style: "align-items:baseline"}, [
+        el("b", {style: "font-size:24px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", textContent: p.nombre}),
+        el("span", {className: "n", id: "ahora_compas", style: "font-size:22px"})]),
+      el("span", {className: "mut", id: "ahora_sigue"}),
+    ]),
+    el("div", {style: "display:flex;flex-direction:column;gap:8px"}, [
+      h3(`Después de ${p.nombre}`),
+      el("div", {className: "vivo-acciones"}, [
+        accion("Quedarse 16 más", sig ? `${sig.nombre} espera` : "la parte sigue", () => pedirCancion({quedarse: 16}, `${p.nombre} sigue 16 compases más`)),
+        sig ? accion(`${sig.nombre} ya`, "en el próximo compás", () => pedirCancion({saltar: c.siguiente}, `${sig.nombre} en el próximo compás`), true) : null,
+      ].filter(Boolean)),
+      el("button", {type: "button", textContent: "Ir a otra parte…", onclick: irAOtraParte}),
+    ]),
+    el("div", {className: "energia"}, [
+      el("div", {className: "fila"}, [
+        el("div", {style: "display:flex;flex-direction:column;gap:2px;min-width:0"}, [
+          el("span", {style: "font-size:13px;font-weight:650;color:var(--txt2)", textContent: sig ? `Subida hacia ${sig.nombre}` : "Subida"}),
+          el("span", {className: "mut", id: "subida_linea", style: "font-size:12px", textContent: "Riser, filtros y redobles hasta el drop"})]),
+      ]),
+      el("div", {className: "chips", role: "group", "aria-label": "Subida al final de la parte"}, [
+        ...[4, 8, 16].map((n) => el("button", {type: "button", textContent: `últimos ${n}`, style: "flex:1", onclick: () => pedirSubidaFinal(n)})),
+        el("button", {type: "button", textContent: "✕", "aria-label": "Cancelar la subida", id: "subida_cancelar", style: "display:none",
+          onclick: async () => { try { await api("/api/subida", {compases: 0}); aviso("La subida para en el próximo compás"); estado(); } catch (e) { aviso(e.message, true); } }}),
+      ]),
+      el("div", {className: "cbarra", id: "subida_barra", style: "display:none"}, [el("i", {style: "flex:0;background:var(--acc)"}), el("i", {style: "flex:1"})]),
+    ]),
+  );
+  pintarAhoraCaja(caja, c);   // completa compás, mapa y «sigue»
 }
 
 // --- Escenas ---
@@ -2984,7 +3094,7 @@ function bloqueEnergia() {
   return el("div", {className: "energia"}, [
     el("div", {className: "fila"}, [el("label", {htmlFor: "energia", style: "font-size:13px;font-weight:650;color:var(--txt2)"}, ["Energía ", el("span", {className: "mut", id: "energia_t", textContent: "· " + textoEnergia(f.energia)})]), numero]),
     r,
-    r.disabled ? ayuda("En modo canción la energía la maneja cada parte (pestaña Canción).") : null,
+    r.disabled ? ayuda("En modo canción la energía la maneja cada parte (en Tema, cada parte tiene la suya).") : null,
     el("div", {className: "ley"}, [el("span", {textContent: "calma"}), el("span", {textContent: "50 = tus ajustes", style: "text-align:center"}), el("span", {textContent: "clímax"})]),
   ]);
 }
@@ -3017,7 +3127,7 @@ function pintarSubida(d) {
   if (barra) barra.style.display = s && s.largo ? "" : "none";
   if (!s) { const hay = cfg.fx.activo || cfg.secuencia.some((x) => x.fx);
     linea.textContent = hay ? "Riser, filtros y redobles hasta el drop" : "Prende el FX o marca FX en una secuencia"; return; }
-  if (s.pedida !== undefined) { linea.textContent = s.pedida ? `Empieza en el próximo compás (${s.pedida})` : "Para en el próximo compás"; return; }
+  if (s.pedida !== undefined) { linea.textContent = s.final ? `En los últimos ${s.pedida} compases de la parte` : s.pedida ? `Empieza en el próximo compás (${s.pedida})` : "Para en el próximo compás"; return; }
   linea.textContent = `Subiendo${origen} · compás ${s.compas} de ${s.largo} · drop en ${s.largo - s.compas + 1}`;
   const [a, b] = barra.children;
   a.style.flex = String(s.compas); b.style.flex = String(Math.max(0, s.largo - s.compas));
@@ -3064,6 +3174,9 @@ function bloqueForma() {
 }
 
 function pintarTocar(d) {
+  if (modoCancion() !== !!$("ahora") && vista === "tocar") { renderTocar(); return; }
+  const ahora = $("ahora");
+  if (ahora) pintarAhoraCaja(ahora, d.cancion);
   const pl = d.forma && d.forma.piloto;
   if (!!pl !== !!cfg.forma.piloto && Date.now() - energiaTocando > 1500) { cfg.forma.piloto = !!pl; renderTocar(); return; }
   const linea = $("piloto_linea");
@@ -3239,6 +3352,88 @@ $("proyecto_abrir").onclick = async () => {
   lista.style.display = "flex";
 };
 
+// --- Temas: la lista al tocar el nombre en la cabecera, y la bienvenida ---
+function nombreTema() { return (cfg && (cfg.app.proyecto || "")) || ""; }
+function pintarTemaCab() {
+  const n = $("tema_cab_nombre");
+  if (n && cfg) n.textContent = nombreTema() || "Sin guardar · toca para elegir";
+}
+async function abrirTema(p) {
+  if (!cfg.app.proyecto && !confirm(`Lo que suena ahora no está guardado en ningún tema. ¿Abrir ${p.nombre} igual?`)) return false;
+  await enviarPendiente();
+  try { await api("/api/proyecto/abrir", {nombre: p.archivo}); await recargar(); aviso(`${p.nombre} abierto`); return true; }
+  catch (e) { aviso(e.message, true); return false; }
+}
+async function hojaTemas() {
+  let lista = [];
+  try { lista = (await (await fetch("/api/proyectos")).json()).proyectos; } catch (e) {}
+  const actual = nombreTema();
+  const bpm = bpmCancion();
+  let d;
+  d = hoja("Tus temas", actual ? `Abierto: ${actual}` : "Lo que suena ahora no está guardado", [
+    lista.length ? el("div", {className: "motores-lista", style: "max-height:50vh;overflow:auto;margin-bottom:12px"}, lista.map((p) => {
+      const abierto = p.nombre === actual;
+      return el("button", {type: "button", style: abierto ? "background:var(--accbg)" : "", onclick: async () => { if (abierto) { d.close(); return; } if (await abrirTema(p)) d.close(); }}, [
+        el("span", {style: "flex:1;min-width:0"}, [p.nombre, el("br"), el("span", {className: "mut", style: "font-size:12px",
+          textContent: p.partes ? `${p.partes} parte${p.partes === 1 ? "" : "s"} · ${duracionTexto(p.compases, bpm)}` : "sin partes"})]),
+        abierto ? el("span", {className: "pill ok", textContent: "abierto"}) : el("span", {className: "mut", textContent: "›"})]);
+    })) : el("p", {className: "mut", textContent: "Todavía no hay temas guardados."}),
+    el("p", {className: "ayuda", style: "margin:0 0 12px", textContent: "Cada tema se guarda solo mientras lo editas. Al abrir otro, lo último que cambiaste queda en el que cierras."}),
+    el("div", {className: "acciones"}, [
+      el("button", {type: "button", className: "prim", textContent: "+ Nuevo tema", onclick: () => { d.close(); bienvenida(false); }}),
+      el("button", {type: "button", textContent: "Duplicar este", disabled: !actual, onclick: async () => {
+        const nombre = prompt("Nombre de la copia", `Copia de ${actual}`); if (!nombre) return;
+        d.close(); await guardarProyecto(nombre.trim(), true); }}),
+    ]),
+  ]);
+}
+async function nuevoTema(clave, nombreSugerido) {
+  const nombre = prompt("Nombre del tema nuevo", nombreSugerido);
+  if (!nombre || !nombre.trim()) return false;
+  await enviarPendiente();
+  // Primero el tema nuevo con su nombre (el de antes queda con su último cambio), después las partes.
+  try {
+    let r;
+    try { r = await api("/api/proyecto/guardar", {nombre: nombre.trim(), nuevo: true}); }
+    catch (e) {
+      if (!/Ya hay un proyecto/.test(e.message)) throw e;
+      if (!confirm(`Ya hay un tema «${nombre.trim()}». ¿Reemplazarlo?`)) return false;
+      r = await api("/api/proyecto/guardar", {nombre: nombre.trim(), nuevo: true, sobrescribir: true});
+    }
+    await api("/api/cancion/plantilla", {clave, nuevo: true});
+    await recargar(); escribirLocal("bienvenida", 1);
+    mostrar("cancion"); aviso(`${nombre.trim()}: listo para armar`);
+    return true;
+  } catch (e) { aviso(e.message, true); return false; }
+}
+async function bienvenida(primeraVez) {
+  let plantillas = [];
+  try { plantillas = (await (await fetch("/api/plantillas")).json()).plantillas; } catch (e) {}
+  const mini = (energias) => {
+    const total = energias.reduce((n, x) => n + x[0], 0) || 1;
+    return el("span", {className: "plantilla-mini", "aria-hidden": "true"}, energias.map(([c, e]) =>
+      el("i", {style: `flex:${c} 1 0;height:${Math.round(15 + 85 * e)}%;opacity:${(0.35 + 0.65 * e).toFixed(2)}`})));
+  };
+  const opcion = (nombre, info, extra, fn) => el("button", {type: "button", onclick: fn}, [extra || el("span", {className: "plantilla-mini", style: "background:none;border:1px dashed var(--line2)"}),
+    el("span", {style: "flex:1;min-width:0"}, [nombre, el("br"), el("span", {className: "mut", style: "font-size:12px", textContent: info})])]);
+  let d;
+  const limpio = (n) => n.split(" · slot")[0];
+  d = hoja(primeraVez ? "Bienvenido a Yantra" : "Nuevo tema", null, [
+    el("div", {className: "bienvenida"}, [el("p", {className: "lema", textContent: "Arma un tema por partes. Yantra lo toca con tus máquinas, siguiendo a la Circuit."})]),
+    h3("Empezar desde"),
+    el("div", {className: "motores-lista", style: "max-height:52vh;overflow:auto;margin-bottom:12px"}, [
+      ...plantillas.map((p) => opcion(limpio(p.nombre), `${p.bpm} BPM · ${p.partes} partes · ${duracionTexto(p.compases, p.bpm)}`, mini(p.energias || []),
+        async () => { if (await nuevoTema(p.clave, limpio(p.nombre))) d.close(); })),
+      opcion("En blanco", "Una parte de 16 compases y lo que suena ahora", null, async () => { if (await nuevoTema("blanco", "Tema nuevo")) d.close(); }),
+    ]),
+    el("div", {className: "acciones"}, [
+      el("button", {type: "button", textContent: "Abrir un tema guardado", onclick: () => { d.close(); escribirLocal("bienvenida", 1); hojaTemas(); }}),
+      el("button", {type: "button", textContent: primeraVez ? "Ahora no" : "Cancelar", onclick: () => { escribirLocal("bienvenida", 1); d.close(); }}),
+    ]),
+  ]);
+}
+$("tema_cab").onclick = () => hojaTemas();
+
 async function estado() {
   try {
     const d = await (await fetch("/api/estado")).json();
@@ -3254,6 +3449,7 @@ async function estado() {
     $("ver").textContent = "Yantra v" + d.version;
     $("deshacer").disabled = !d.deshacer;
     pintarProyecto(d.proyecto_al_dia);
+    pintarTemaCab();
     pintarEdicion(d.editando);
     marcarCambios();
     refrescarLinea();
@@ -3301,7 +3497,8 @@ $("panico").onclick = async () => {
 
 mostrar(["tocar", "cancion", "ajustes"].includes(vista) ? vista : "cancion");
 (async () => {
-  try { cfg = await (await fetch("/api/config")).json(); render(); }
+  try { cfg = await (await fetch("/api/config")).json(); render(); pintarTemaCab();
+    if (!cfg.app.proyecto && leerLocal("bienvenida", null) === null) bienvenida(true); }
   catch (e) { aviso("No pude cargar la configuración", true); }
   estado(); setInterval(estado, 1000);
 })();

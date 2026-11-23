@@ -69,6 +69,8 @@ class Motor(FormaMotor):
         # Subida de FX: {"desde": paso, "hasta": paso del drop, "origen": manual, cancion o piloto}
         self.subida = None
         self.subida_pedida = None   # compases de la subida pedida desde la app (0 = cancelar)
+        self.subida_final = None    # subida pedida para los últimos N compases de la parte
+        self.relanzar_parte = False  # «quedarse» cuando la parte siguiente ya entraba
         self.cc_secuencias = {}     # (salida, canal, cc) -> (valor mandado, reposo): filtros intervenidos
         self.aplicar_config(config)
 
@@ -565,7 +567,7 @@ class Motor(FormaMotor):
         if self.cola_bajo is not None:
             self.bajo, self.cola_bajo = self.cola_bajo, None
         self.bajo.reiniciar()
-        self.subida, self.subida_pedida = None, None
+        self.subida, self.subida_pedida, self.subida_final = None, None, None
         self.corriendo = True
         self.looper_pendiente = None
         self._looper(self.config, ya=True)   # antes del primer pulso: la MC-101 arranca con él

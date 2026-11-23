@@ -32,6 +32,28 @@ class FormaMotor:
             raise ValueError("Esa parte no existe")
         self.saltar_parte_a = indice
 
+    def quedarse_parte(self, compases=16):
+        """Canción: la parte que suena dura `compases` más (lo que viene espera). Si la
+        siguiente ya venía entrando, la actual vuelve en el próximo compás."""
+        c = self.conductor
+        compas = self._compas_actual()
+        ahora = c.parte(self.base, compas) if self.corriendo else None
+        if ahora is None:
+            raise ValueError("La canción no está sonando")
+        compases = max(1, min(64, int(compases)))
+        inicio = compas - ahora["dentro"]
+        fin = inicio + ahora["largo"]
+        extra = c.cancion.get("extra")
+        if extra is not None and extra["inicio"] == inicio:
+            extra["n"] += compases
+            extra["fin"] += compases
+        else:
+            c.cancion["extra"] = {"inicio": inicio, "fin": fin + compases, "n": compases, "i": ahora["i"], "vuelta": ahora["vuelta"]}
+        if c.cancion.get("lanzada") == fin:
+            c.cancion["lanzada"] = None
+            self.relanzar_parte = True
+        log.info("Canción: %s se queda %d compases más", self.base["parte"][ahora["i"]]["nombre"], compases)
+
     def _config_parte(self, indice):
         """La configuración de la parte `indice`: lo que suena ahora con el carácter de su escena."""
         from .config import normalizar  # aquí para no importar en círculo
@@ -76,12 +98,19 @@ class FormaMotor:
             self.saltar_parte_a = None
         if c.cancion is None:
             c.cancion = {"origen": compas, "lanzada": None}  # la canción parte aquí (en el Start, compás 0)
+        extra = c.cancion.get("extra")
+        if extra is not None and compas >= extra["fin"]:
+            c.cancion["origen"] += extra["n"]   # la parte alargada ya terminó: la canción queda corrida
+            del c.cancion["extra"]
         ahora = c.parte(self.base, compas)
         if ahora is None:
             return
         inicio_actual = compas - ahora["dentro"]
         objetivo = None
-        if ahora["dentro"] == 0 and c.cancion["lanzada"] != compas:
+        if getattr(self, "relanzar_parte", False):
+            self.relanzar_parte = False
+            objetivo = (ahora["i"], compas)   # «quedarse» cuando la siguiente ya entraba: vuelve la actual
+        elif ahora["dentro"] == 0 and c.cancion["lanzada"] != compas:
             objetivo = (ahora["i"], compas)  # la parte empieza ya y nadie la lanzó (inicio o salto)
         else:
             fin = inicio_actual + ahora["largo"]  # primer compás de la parte siguiente
@@ -127,6 +156,8 @@ class FormaMotor:
         """La subida de FX en curso (o pedida), para la app."""
         if self.subida_pedida is not None:
             return {"pedida": self.subida_pedida}
+        if getattr(self, "subida_final", None):
+            return {"pedida": self.subida_final, "final": True}
         if self.subida is None or not self.corriendo:
             return None
         paso = max(self.tick, 0) // TICKS_POR_PASO
@@ -146,8 +177,10 @@ class FormaMotor:
                     "pedida": self.saltar_parte_a}
         siguiente = self.conductor.parte(self.base, compas + ahora["largo"] - ahora["dentro"])
         pos = sum(p["compases"] for p in partes[:ahora["i"]]) + ahora["dentro"]
-        return {"parte": ahora["i"], "compas": ahora["dentro"] + 1, "largo": ahora["largo"],
-                "vuelta": ahora["vuelta"] + 1, "posicion": pos + 1, "total": forma.total_cancion(partes),
+        extra = (self.conductor.cancion or {}).get("extra")
+        mas = extra["n"] if extra is not None else 0
+        return {"parte": ahora["i"], "compas": ahora["dentro"] + 1, "largo": ahora["largo"], "extra": mas,
+                "vuelta": ahora["vuelta"] + 1, "posicion": pos + 1, "total": forma.total_cancion(partes) + mas,
                 "siguiente": siguiente["i"] if siguiente else None, "pedida": self.saltar_parte_a}
 
     def _forma_estado(self):
@@ -185,7 +218,17 @@ class FormaMotor:
         compases = int(compases)
         if compases not in (0, 4, 8, 16, 32):
             raise ValueError("La subida dura 4, 8, 16 o 32 compases")
+        self.subida_final = None
         self.subida_pedida = compases
+
+    def pedir_subida_final(self, compases):
+        """Subida que termina justo al final de la parte que suena (sus últimos `compases`):
+        espera hasta que falten esos compases. Sin canción, empieza en el próximo compás."""
+        compases = int(compases)
+        if compases not in (4, 8, 16, 32):
+            raise ValueError("La subida dura 4, 8, 16 o 32 compases")
+        self.subida_pedida = None
+        self.subida_final = compases
 
     def _subida_auto(self, compas):
         """La subida que piden la canción (parte con riser) o el piloto (build y break)."""
@@ -211,6 +254,17 @@ class FormaMotor:
         if self.subida is not None and paso >= self.subida["hasta"]:
             self._drop(paso)
         pedida, self.subida_pedida = self.subida_pedida, None
+        final = getattr(self, "subida_final", None)
+        if final:
+            parte = self.conductor.parte(self.base, compas)
+            if parte is None:
+                pedida, self.subida_final = final, None
+            else:
+                fin = compas - parte["dentro"] + parte["largo"]
+                if compas >= fin - final:
+                    self.subida_final = None
+                    self.subida = {"desde": paso, "hasta": fin * PASOS_POR_COMPAS, "origen": "manual"}
+                    log.info("Subida hasta el final de la parte (%d compases)", fin - compas)
         if pedida == 0:
             if self.subida is not None:
                 self._drop(paso, caida=False)

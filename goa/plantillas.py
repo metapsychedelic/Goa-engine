@@ -283,4 +283,5 @@ def clave_de(nombre):
 def lista():
     """Para la app: clave, nombre, descripción, partes y compases totales."""
     return [{"clave": k, "nombre": p["nombre"], "descripcion": p["descripcion"], "partes": len(p["partes"]),
-             "compases": sum(x[1] for x in p["partes"]), "bpm": p["bpm"]} for k, p in PLANTILLAS.items()]
+             "compases": sum(x[1] for x in p["partes"]), "bpm": p["bpm"],
+             "energias": [[x[1], round((x[2] + x[3]) / 2, 2)] for x in p["partes"]]} for k, p in PLANTILLAS.items()]

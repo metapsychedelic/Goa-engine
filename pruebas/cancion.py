@@ -89,6 +89,29 @@ if __name__ == "__main__":
     todo &= ok(v[4]["parte"] == 2 and v[4]["activas"] == [True, True] and v[8]["parte"] == 0,
                "«Saltar aquí» pasa a esa parte en el próximo compás y la canción sigue desde ahí")
 
+    print("\nVivo: quedarse más y subida al final de la parte")
+    m, v, _ = correr(armar(), 30, en_compas={3: lambda m: m.quedarse_parte(4)})
+    todo &= ok([x["parte"] for x in v][:24] == [0] * 12 + [1] * 8 + [2] * 4 and v[12]["activas"] == [False, True],
+               "«Quedarse 4 más» en la intro: dura 12 y el resto entra corrido, cada parte completa")
+    m, v, _ = correr(armar(), 30, en_compas={3: lambda m: m.quedarse_parte(4), 5: lambda m: m.quedarse_parte(4)})
+    todo &= ok([x["parte"] for x in v][:17] == [0] * 16 + [1], "apretarlo dos veces suma")
+    m, v, _ = correr(armar(), 30, en_compas={7: lambda m: m.quedarse_parte(8)})
+    todo &= ok([x["parte"] for x in v][:17] == [0] * 16 + [1] and v[8]["activas"] == [True, False] and v[15]["activas"] == [True, False]
+               and v[16]["activas"] == [False, True],
+               "en el último compás, cuando el Groove ya entraba: la intro vuelve y el Groove espera")
+    vistos = []
+    m, v, _ = correr(armar(), 14, en_compas={4: lambda m: m.quedarse_parte(4), 6: lambda m: vistos.append(m.estado()["cancion"]),
+                                             13: lambda m: vistos.append(m.estado()["cancion"])})
+    todo &= ok(vistos[0]["largo"] == 12 and vistos[0]["extra"] == 4 and vistos[0]["total"] == 24 and vistos[0]["siguiente"] == 1
+               and vistos[1]["parte"] == 1 and vistos[1]["extra"] == 0 and vistos[1]["total"] == 20,
+               f"la app ve la parte alargada y el total mientras dura; después vuelve a lo de siempre")
+    subidas = []
+    m, v, _ = correr(armar(), 20, en_compas={k: (lambda m: subidas.append((m._compas_actual(), m.subida and dict(m.subida))))
+                                           for k in range(9, 17)} | {9: lambda m: (m.pedir_subida_final(4), subidas.append(m.estado()["subida"]))})
+    empieza = next((c for c, s in subidas[1:] if isinstance(c, int) and s), None)
+    todo &= ok(subidas[0] == {"pedida": 4, "final": True}, f"la app ve la subida pedida para el final {subidas[0]}")
+    todo &= ok(empieza == 12 and m.subida is None, f"«últimos 4» en el Groove (compases 8-15): parte en el 12 y cae en el drop ({empieza})")
+
     def reiniciar(m):
         m.stop()
         m.start()

@@ -140,6 +140,19 @@ def main():
     todo &= ok(p["corriendo"] is False and p["ahora"] is None and p["largo"] >= 7, f"con el motor quieto no marca paso {p}")
     todo &= ok(get("/api/patron?sec=99")["activa"] is False, "una secuencia que no existe no se cae")
 
+    print("\nTema nuevo desde la bienvenida")
+    codigo, r = post("/api/proyecto/guardar", {"nombre": "Viejo", "nuevo": True})
+    codigo, r = post("/api/proyecto/guardar", {"nombre": "Nuevo", "nuevo": True})
+    codigo, r = post("/api/cancion/plantilla", {"clave": "template1", "nuevo": True})
+    cfg = get("/api/config")
+    todo &= ok(codigo == 200 and len(cfg["parte"]) == 16 and cfg["escena"] == [] and cfg["cancion"]["activa"] and cfg["app"]["proyecto"] == "Nuevo",
+               "plantilla en un tema nuevo: sus partes, sin las escenas del anterior y con el modo canción")
+    post("/api/cancion/plantilla", {"clave": "blanco", "nuevo": True})
+    cfg = get("/api/config")
+    todo &= ok([p["nombre"] for p in cfg["parte"]] == ["Parte 1"] and cfg["parte"][0]["compases"] == 16, "en blanco: una parte de 16")
+    lista = {p["nombre"]: p for p in get("/api/proyectos")["proyectos"]}
+    todo &= ok(lista["Viejo"]["partes"] == 4 and lista["Viejo"]["compases"] == 64, f"la lista de temas trae partes y compases {lista.get('Viejo')}")
+
     print("\n" + ("Todo bien" if todo else "HAY FALLAS"))
     shutil.rmtree(carpeta, ignore_errors=True)
     raise SystemExit(0 if todo else 1)
