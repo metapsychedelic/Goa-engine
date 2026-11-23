@@ -161,8 +161,8 @@ class Contexto:
         if i >= len(escenas) or self.config["cancion"]["activa"]:
             self.editando = None
             return
-        nueva = forma.escena_de(self.config, escenas[i]["nombre"])
-        if nueva["datos"] == escenas[i]["datos"] and nueva["energia"] == escenas[i]["energia"]:
+        nueva = forma.escena_de(self.config, escenas[i]["nombre"], escenas[i])
+        if nueva["datos"] == escenas[i]["datos"] and nueva["energia"] == escenas[i]["energia"] and nueva["armonia_propia"] == escenas[i]["armonia_propia"]:
             return
         lista = list(escenas)
         lista[i] = nueva
@@ -421,6 +421,7 @@ def crear_servidor(ctx, puerto):
                 "/api/cc": self._cc,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
+                "/api/escena/armonia": self._escena_armonia,
                 "/api/clip/renombrar": self._clip_renombrar,
                 "/api/clip/restaurar": self._clip_restaurar,
                 "/api/motor/clip/guardar": self._mclip_guardar,
@@ -555,7 +556,10 @@ def crear_servidor(ctx, puerto):
             """Aplica un perfil de género: a todo, o a un motor (parte = pads, dialogo o secuencia + indice)."""
             genero = str(datos.get("genero", ""))
             with ctx.candado:
-                nueva = normalizar(generos.aplicar(ctx.config, genero, datos.get("parte"), datos.get("indice")))
+                nueva = generos.aplicar(ctx.config, genero, datos.get("parte"), datos.get("indice"))
+                if datos.get("base"):   # desde la pestaña Armonía: también es la armonía del tema
+                    nueva["armonia_tema"] = dict(nueva["musica"])
+                nueva = normalizar(nueva)
                 Motor(nueva, lambda *a: None)  # valida antes de tocar nada
                 aviso = self._aplicar(nueva, "genero")
             self._responder(aviso, genero=genero)
@@ -687,6 +691,25 @@ def crear_servidor(ctx, puerto):
                         raise ValueError(f"Máximo {MAX_CLIPS} clips")
                     clips.append(clip_de(secuencia, str(datos.get("nombre", "")), datos.get("variante", True)))
                 aviso = self._guardar_activa()
+            self._responder(aviso)
+
+        def _escena_armonia(self, datos):
+            """{escena, propia}: la escena (parte) sigue la armonía del tema o tiene la suya. Si es la
+            que suena y pasa a seguir el tema, suena la del tema desde el próximo compás."""
+            with ctx.candado:
+                i = int(datos["escena"])
+                lista = [dict(e) for e in ctx.config["escena"]]
+                lista[i]["armonia_propia"] = bool(datos.get("propia"))
+                ctx.config["escena"] = lista
+                ctx.motor.base["escena"] = copy.deepcopy(lista)
+                if ctx.editando is not None and ctx.editando["escena"] == i:
+                    ctx.editando["original"] = dict(ctx.editando["original"], armonia_propia=lista[i]["armonia_propia"])
+                if not lista[i]["armonia_propia"] and ctx.config["forma"]["escena"] == i and ctx.config["musica"] != ctx.config["armonia_tema"]:
+                    nueva = copia.config(ctx.config)
+                    nueva["musica"] = dict(ctx.config["armonia_tema"])
+                    aviso = self._aplicar(normalizar(nueva))
+                else:
+                    aviso = self._guardar_activa()
             self._responder(aviso)
 
         def _clip_borrar(self, datos):
@@ -864,7 +887,7 @@ def crear_servidor(ctx, puerto):
                     indice = len(escenas) - 1
                 else:
                     indice = int(indice)
-                    escena["nombre"] = str(datos.get("nombre") or escenas[indice]["nombre"])[:24]
+                    escena = forma.escena_de(ctx.config, str(datos.get("nombre") or escenas[indice]["nombre"]), escenas[indice])
                     escenas[indice] = escena
                 ctx.config["forma"]["escena"] = indice
                 ctx.motor.base["forma"]["escena"] = indice
@@ -1111,7 +1134,7 @@ def crear_servidor(ctx, puerto):
                     ctx.config["escena"].append(escena)
                     p["escena"] = len(ctx.config["escena"]) - 1
                 else:
-                    ctx.config["escena"][p["escena"]] = escena
+                    ctx.config["escena"][p["escena"]] = forma.escena_de(ctx.config, p["nombre"], ctx.config["escena"][p["escena"]])
                 ctx.motor.aplicar_config(ctx.config)
                 aviso = self._guardar_activa()
             self._responder(aviso)

@@ -249,6 +249,10 @@ ESQUEMA_SECCIONES["looper"] = {
 # Scatter de la MC-101 en las subidas: cada pad de Scatter (1-16) es una nota 60-75 en el
 # canal de control de la MC-101 (RX Scatter en ON). Suena mientras la nota está apretada.
 # Es de la máquina, no de la escena: cada parte elige si lo usa y qué pads.
+# Armonía del tema: la base que siguen las escenas (partes) que no tienen armonía propia.
+# Cambiarla cambia todas esas partes; una parte con armonía propia (otra tonalidad) no se mueve.
+ESQUEMA_SECCIONES["armonia_tema"] = dict(ESQUEMA_SECCIONES["musica"])
+
 ESQUEMA_SECCIONES["scatter"] = {
     "salida": (str, "MC-101", None, None),
     "canal": (int, 16, 1, 16),               # canal de control de la MC-101
@@ -331,6 +335,9 @@ MAX_PARTES = 32
 ESQUEMA_ESCENA = {
     "nombre": (str, "Escena", None, None),
     "energia": (float, 0.5, 0.0, 1.0),
+    # False: su armonía es la del tema (armonia_tema). True: tiene la suya (la de sus datos).
+    # Sin la clave (escenas de antes) es True: suena igual que siempre.
+    "armonia_propia": (bool, True, None, None),
 }
 MAX_DATOS_ESCENA = 60000
 
@@ -556,7 +563,33 @@ def normalizar(cfg):
     for p in limpia["parte"]:
         if p["escena"] >= len(limpia["escena"]):
             p["escena"] = -1
+    if not isinstance(cfg.get("armonia_tema"), dict):
+        _migrar_armonia_tema(limpia)
     return limpia
+
+
+def _musica_de_escena(escena):
+    datos = escena["datos"]
+    datos = json.loads(datos) if isinstance(datos, str) else datos
+    return {k: v for k, v in (datos.get("musica") or {}).items() if k in ESQUEMA_SECCIONES["musica"]}
+
+
+def _migrar_armonia_tema(limpia):
+    """Tema de antes de la armonía del tema (0.91): la base es la armonía que más se repite
+    entre las escenas de sus partes (o la que suena, si no hay); las escenas con esa misma
+    armonía la siguen y las demás quedan con la suya. Todo suena igual que antes."""
+    usadas = [p["escena"] for p in limpia["parte"] if p["escena"] >= 0] or list(range(len(limpia["escena"])))
+    completas = []
+    for i in usadas:
+        m = dict(limpia["musica"], **_musica_de_escena(limpia["escena"][i]))
+        completas.append(json.dumps(m, sort_keys=True))
+    if completas:
+        base = json.loads(max(set(completas), key=lambda x: (completas.count(x), -completas.index(x))))
+    else:
+        base = dict(limpia["musica"])
+    limpia["armonia_tema"] = {k: base[k] for k in ESQUEMA_SECCIONES["armonia_tema"]}
+    for e in limpia["escena"]:
+        e["armonia_propia"] = dict(limpia["musica"], **_musica_de_escena(e)) != limpia["armonia_tema"]
 
 
 ESTILOS_BAJO_RETIRADOS = {"deepnotic": "offbeat"}

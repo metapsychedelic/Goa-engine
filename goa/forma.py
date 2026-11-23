@@ -50,9 +50,19 @@ def foto(cfg):
     return datos
 
 
-def escena_de(cfg, nombre):
+def escena_de(cfg, nombre, antes=None):
+    """Una escena con lo que suena. Sigue la armonía del tema si suena esa misma armonía; al
+    guardar encima de `antes`, una escena con armonía propia la conserva."""
+    base = cfg.get("armonia_tema")
+    propia = base is None or cfg["musica"] != base or bool(antes and antes.get("armonia_propia", True))
     return {"nombre": nombre.strip()[:24] or "Escena", "energia": cfg["forma"]["energia"],
+            "armonia_propia": propia,
             "datos": json.dumps(foto(cfg), ensure_ascii=False, separators=(",", ":"))}
+
+
+def sigue_tema(cfg, escena):
+    """¿Esta escena usa la armonía del tema?"""
+    return "armonia_tema" in cfg and not escena.get("armonia_propia", True)
 
 
 def mezclar(cfg, escena):
@@ -61,6 +71,8 @@ def mezclar(cfg, escena):
     nueva = copia.config(cfg)
     for s in SECCIONES:
         nueva[s].update({k: v for k, v in (datos.get(s) or {}).items() if k not in ENRUTAMIENTO})
+    if sigue_tema(cfg, escena):
+        nueva["musica"].update(cfg["armonia_tema"])
     secuencias = datos.get("secuencia") or []
     for i, s in enumerate(secuencias):
         if i < len(nueva["secuencia"]):

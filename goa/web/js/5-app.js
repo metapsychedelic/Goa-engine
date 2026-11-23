@@ -265,7 +265,7 @@ $("panico").onclick = async () => {
   try { await fetch("/api/panico", {method: "POST"}); aviso("Notas apagadas"); } catch (e) { aviso("Sin conexión con la Pi", true); }
 };
 
-mostrar(["tocar", "cancion", "ajustes"].includes(vista) ? vista : "cancion");
+mostrar(["tocar", "cancion", "armonia", "ajustes"].includes(vista) ? vista : "cancion");
 (async () => {
   try { cfg = await (await fetch("/api/config")).json(); render(); pintarTemaCab();
     if (!cfg.app.proyecto && leerLocal("bienvenida", null) === null) bienvenida(true); }

@@ -380,10 +380,12 @@ function nombreVista() { return parteVista >= 0 && cfg.parte[parteVista] ? cfg.p
 function pintarVolver() {
   for (const id of ["volver_motores", "volver_armonia"]) {
     const caja = $(id); if (!caja) continue;
+    if (id === "volver_armonia" && !armoniaDesdeParte) { caja.replaceChildren(); caja.hidden = true; continue; }
+    caja.hidden = false;
     const i = parteVista;
     const enArmonia = id === "volver_armonia";
     const ir = async (j) => {
-      if (enArmonia) { await editarMotorEnParte(j, null); mostrar("armonia"); renderArmonia(); }
+      if (enArmonia) { await editarMotorEnParte(j, null); armoniaDesdeParte = true; mostrar("armonia"); renderArmonia(); }
       else await editarMotorEnParte(j, motorSel);
       pintarVolver();
     };
@@ -405,9 +407,9 @@ function textoArmonia(m) {
 }
 async function abrirMotor(clave) {
   if (parteVista >= 0) {
-    if (clave === "armonia") { await editarMotorEnParte(parteVista, null); mostrar("armonia"); renderArmonia(); }
+    if (clave === "armonia") { await editarMotorEnParte(parteVista, null); armoniaDesdeParte = true; mostrar("armonia"); renderArmonia(); }
     else await editarMotorEnParte(parteVista, clave);
-  } else if (clave === "armonia") { mostrar("armonia"); renderArmonia(); }
+  } else if (clave === "armonia") { armoniaDesdeParte = parteVista >= 0; mostrar("armonia"); renderArmonia(); }
   else { motorSel = clave; escribirLocal("motor", clave); mostrar("motores"); renderMotores(); }
 }
 function renderParte() {
@@ -423,7 +425,8 @@ function renderParte() {
   const filas = [["armonia", "Armonía", null]].concat(ms.map(([c, n, , k]) => [c, n, k])).map(([clave, nombre, k]) => {
     const s = clave === "armonia" ? (vivo ? cfg.musica : datos && datos.musica) : fuente(clave);
     const suena = clave === "armonia" ? true : !!(s && s[k]);
-    const resumen = clave === "armonia" ? textoArmonia(s) : !s ? "Sin escena todavía" : suena ? (resumenMotor({x: s}, "x") || "suena") : "no suena aquí";
+    const resumen = clave === "armonia" ? (p && p.escena >= 0 && cfg.escena[p.escena] && !cfg.escena[p.escena].armonia_propia
+        ? `la del tema · ${textoArmonia(cfg.armonia_tema)}` : textoArmonia(s) + (p && p.escena >= 0 ? " · propia" : "")) : !s ? "Sin escena todavía" : suena ? (resumenMotor({x: s}, "x") || "suena") : "no suena aquí";
     const cambio = editandoVista() && (clave === "armonia" ? edicion.original && difiere(cfg.musica, edicion.original.musica) : motorCambiado(clave));
     return el("button", {type: "button", onclick: () => abrirMotor(clave), "aria-label": `${nombre}: ${resumen}. Abrir`}, [
       el("span", {className: "punto" + (suena ? " si" : "")}),
@@ -462,6 +465,13 @@ function renderParte() {
 }
 
 function lineaVertical() { return !window.matchMedia("(min-width: 700px)").matches; }
+// Parte con armonía propia: su tonalidad, para ver de un vistazo dónde cambia el tono.
+function tonoPropio(p) {
+  const e = p.escena >= 0 && cfg.escena[p.escena];
+  if (!e || !e.armonia_propia) return "";
+  const m = musicaDeEscena(p.escena);
+  return m.tonica && (m.tonica !== cfg.armonia_tema.tonica || m.escala !== cfg.armonia_tema.escala) ? `♪ ${m.tonica}${m.escala !== cfg.armonia_tema.escala ? " " + ((ESCALAS.find((x) => x[0] === m.escala) || ["", m.escala])[1] || "").toLowerCase().slice(0, 5) : ""}` : "♪";
+}
 function renderLinea() {
   if (!cfg.parte.length) return null;
   const pistas = celdasLinea();
@@ -485,7 +495,7 @@ function renderLinea() {
     const filas = cfg.parte.map((p, i) => el("div", {className: "lt-fila" + (i === parteSel ? " sel" : "") + enLoop(i), style: `grid-template-columns:${cols};height:${altura(p)}px`}, [
       el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === sonando ? " suena" : "") + enLoop(i), onclick: () => tocarNombreParte(i),
         "aria-label": `${p.nombre}, ${p.compases} compases: elegir`},
-        [el("b", {textContent: p.nombre}), el("span", {textContent: `${p.compases}${apoyosDe(p).length ? " · " + apoyosDe(p).join(" ") : ""}`})]),
+        [el("b", {textContent: p.nombre}), el("span", {textContent: `${p.compases}${tonoPropio(p) ? " · " + tonoPropio(p) : ""}${apoyosDe(p).length ? " · " + apoyosDe(p).join(" ") : ""}`})]),
       ...pistas.map((m) => celda(m, m.celdas[i], i)),
       el("div", {className: "lt-en", "aria-hidden": "true"}, [el("i", {style: `height:${Math.max(3, Math.round((altura(p) - 6) * (p.energia + p.energia_fin) / 2))}px;opacity:${0.35 + 0.65 * (p.energia + p.energia_fin) / 2}`})]),
     ]));
@@ -509,7 +519,7 @@ function renderLinea() {
     const grid = el("div", {className: "lt-h", style: `grid-template-columns:${cols}`}, [
       ...fila(el("span", {className: "lt-lab", textContent: "Partes"}), cfg.parte.map((p, i) => { const d = desde; desde += p.compases;
         return el("button", {type: "button", className: "lt-parte" + (p.entrada === "golpe" ? " golpe" : "") + (i === parteSel ? " sel" : "") + (i === sonando ? " suena" : "") + enLoop(i),
-          onclick: () => tocarNombreParte(i), title: p.nombre, "aria-label": `${p.nombre}, compás ${d}, ${p.compases} compases: elegir`}, [el("b", {textContent: p.nombre}), el("span", {textContent: String(d)})]); })),
+          onclick: () => tocarNombreParte(i), title: p.nombre, "aria-label": `${p.nombre}, compás ${d}, ${p.compases} compases: elegir`}, [el("b", {textContent: p.nombre}), el("span", {textContent: String(d) + (tonoPropio(p) ? " · " + tonoPropio(p) : "")})]); })),
       el("span", {className: "lt-lab", textContent: "Energía"}), energia,
       ...pistas.flatMap((m) => fila(el("span", {className: "lt-lab", textContent: m.nombre}), m.celdas.map((est, i) => celda(m, est, i)))),
       ...fila(el("span", {className: "lt-lab", textContent: "Apoyos"}), cfg.parte.map((p) => el("span", {className: "lt-apoyo", textContent: apoyosDe(p).join(" · ")}))),
@@ -522,6 +532,7 @@ function renderLinea() {
     el("span", {}, [el("i", {style: "background:#9AA2E6"}), "cambia de estilo o variante ◆"]),
     el("span", {}, [el("i", {style: "background:repeating-linear-gradient(45deg,transparent 0 3px,#33334a 3px 6px)"}), "parte sin escena"]),
     el("span", {}, [el("i", {style: "width:3px;background:var(--txt)"}), "entra de golpe"]),
+    ...(cfg.parte.some((p) => tonoPropio(p)) ? [el("span", {textContent: "♪ armonía propia (otra tonalidad)"})] : []),
   ]);
   const nota = el("p", {className: "ayuda", style: "margin:0", textContent: "Toca un casillero para editar ese motor en esa parte; mantenlo apretado (o clic derecho) para copiar, pegar y más. Toca el nombre de una parte para ver sus ajustes."});
   setTimeout(() => moverCabezal(), 0);

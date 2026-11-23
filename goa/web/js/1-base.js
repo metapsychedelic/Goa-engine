@@ -310,13 +310,18 @@ function mostrar(v) {
   vista = v; escribirLocal("vista", v);
   const derecha = dosColumnas() && v === "tocar" ? "motores" : v;
   for (const s of document.querySelectorAll(".vista")) s.hidden = s.id !== "v-" + derecha;
-  const pestana = ["parte", "motores", "armonia"].includes(derecha) ? "cancion" : derecha;   // Parte y sus motores son parte de Tema
+  // Parte y sus motores son parte de Tema. Armonía es su propia pestaña, salvo si la abriste desde una parte.
+  const pestana = ["parte", "motores"].includes(derecha) || (derecha === "armonia" && armoniaDesdeParte) ? "cancion" : derecha;
   for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.vista === pestana ? "true" : "false");
   if (cfg && (derecha === "motores" || derecha === "armonia")) pintarVolver();
   if (cfg && derecha === "parte") renderParte();
   if (dosColumnas() && cfg) { renderTocar(); if (derecha === "motores") renderMotores(); }
   window.scrollTo(0, 0);
 }
-document.querySelectorAll("nav.tabs button").forEach((b) => b.onclick = () => mostrar(b.dataset.vista));
+let armoniaDesdeParte = false;   // true: se abrió desde una parte (edita esa parte, con «‹ volver»)
+document.querySelectorAll("nav.tabs button").forEach((b) => b.onclick = () => {
+  if (b.dataset.vista === "armonia") { armoniaDesdeParte = false; mostrar("armonia"); renderArmonia(); }
+  else mostrar(b.dataset.vista);
+});
 ancha.addEventListener("change", () => mostrar(vista));
 

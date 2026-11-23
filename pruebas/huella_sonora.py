@@ -63,6 +63,20 @@ def escenarios():
     can["parte"] = plantillas.partes_de("template1")
     can["cancion"]["activa"] = True
     e["cancion_template1"] = (normalizar(can), 96)
+    # Una canción con escenas en dos tonalidades (como un tema guardado de antes).
+    from goa import forma
+    raw = ejemplo(True)
+    escenas = []
+    for nombre, tonica, escala in (("Intro", "F", "frigio"), ("Drop", "F", "frigio"), ("Break", "G", "menor")):
+        c = normalizar(dict(raw, musica=dict(raw["musica"], tonica=tonica, escala=escala)))
+        esc = forma.escena_de({k: v for k, v in c.items() if k != "armonia_tema"}, nombre)
+        esc.pop("armonia_propia", None)
+        escenas.append(esc)
+    raw = {k: v for k, v in raw.items() if k != "armonia_tema"}
+    raw["escena"] = escenas
+    raw["parte"] = [{"nombre": n, "escena": i, "compases": 8} for i, n in enumerate(("Intro", "Drop", "Break"))] + [{"nombre": "Drop 2", "escena": 1, "compases": 8}]
+    raw["cancion"]["activa"] = True
+    e["cancion_tonalidades"] = (normalizar(raw), 40)
     for estilo in ("rolling", "galope", "arpegio3", "acido", "psy_chill", "euclidiano", "largas", "ambient", "clasico", "psytrance"):
         figuras = {"clasico": ("auto", "pedal", "ciclo", "acordes"),
                    "psytrance": ("auto", "riff", "rafaga", "octavas", "arpegio", "pulsos", "espacio", "mantra",

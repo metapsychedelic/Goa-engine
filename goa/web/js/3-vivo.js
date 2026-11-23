@@ -27,34 +27,68 @@ function pintarMutes() {
 
 // --- Armonía ---
 
-function escalaCircuitTexto() {
+function escalaCircuitTexto(m = cfg.musica) {
   const nombres = TONICAS.map((t) => t[0]);
-  const i = nombres.indexOf(String(cfg.musica.tonica).toUpperCase());
-  const [escala, salto] = ESCALA_CIRCUIT[cfg.musica.escala] || ["Chromatic", 0];
-  const tonica = i < 0 ? cfg.musica.tonica : nombres[(i + salto) % 12];
+  const i = nombres.indexOf(String(m.tonica).toUpperCase());
+  const [escala, salto] = ESCALA_CIRCUIT[m.escala] || ["Chromatic", 0];
+  const tonica = i < 0 ? m.tonica : nombres[(i + salto) % 12];
   return `En la Circuit (botón Scales): tónica ${tonica}, escala ${escala}. Así todo lo que toques queda dentro de la escala del motor`
     + (salto ? " (son las mismas notas, con otra tónica)." : ".");
 }
 
+// Armonía. Desde la pestaña: la armonía del tema (la base que siguen las partes sin armonía
+// propia). Desde una parte: «Sigue la del tema» (lo que cambies cambia la base) o «Propia».
+function escenaDeArmonia() {
+  if (!armoniaDesdeParte || parteVista < 0 || !cfg.parte[parteVista]) return -1;
+  return cfg.parte[parteVista].escena;
+}
+function sigueTema(i) { return i >= 0 && cfg.escena[i] && !cfg.escena[i].armonia_propia; }
+// La armonía guardada en una escena (la que editas ahora: la que suena, que es la más nueva).
+function musicaDeEscena(i) {
+  if (edicion && edicion.escena === i) return cfg.musica;
+  try { return JSON.parse(cfg.escena[i].datos).musica || {}; } catch (x) { return {}; }
+}
+function tonoTexto(m) {
+  const esc = (ESCALAS.find((e) => e[0] === m.escala) || ["", m.escala || ""])[1];
+  return `${m.tonica || ""} ${(esc || "").toLowerCase()}`.trim();
+}
 function renderArmonia() {
-  const m = cfg.musica, caja = $("armonia_caja");
+  const caja = $("armonia_caja");
+  if (!cfg.armonia_tema) cfg.armonia_tema = Object.assign({}, cfg.musica);
+  const ie = escenaDeArmonia();
+  const desdeParte = armoniaDesdeParte && parteVista >= 0;
+  const propia = desdeParte && ie >= 0 && cfg.escena[ie] && cfg.escena[ie].armonia_propia;
+  const base = !propia;   // se edita la armonía del tema
+  const m = base ? cfg.armonia_tema : cfg.musica;
+  // ¿Lo que suena ahora sigue la armonía del tema? Entonces cambiar la base también lo cambia ya.
+  const sonando = cfg.forma ? cfg.forma.escena : -1;
+  const reflejar = () => { if (base && (sonando < 0 || sigueTema(sonando) || (desdeParte && ie === sonando))) Object.assign(cfg.musica, cfg.armonia_tema); };
   const ES = {DO: "C", RE: "D", MI: "E", FA: "F", SOL: "G", LA: "A", SI: "B"};
   m.tonica = m.tonica.toUpperCase().replace(/^(DO|RE|MI|FA|SOL|LA|SI)/, (x) => ES[x]);
   const select = (opciones, k) => {
-    const s = el("select", {onchange: () => { m[k] = s.value; renderArmonia(); guardar(); }});
+    const s = el("select", {onchange: () => { m[k] = s.value; reflejar(); renderArmonia(); guardar(); }});
     for (const [v, t] of opciones) s.append(el("option", {value: v, textContent: t, selected: v === m[k]}));
     return s;
   };
+  const conPropia = cfg.parte.map((p, i) => [p, i]).filter(([p]) => p.escena >= 0 && cfg.escena[p.escena] && cfg.escena[p.escena].armonia_propia);
   const guiada = m.armonia === "guiada";
   caja.innerHTML = "";
   caja.append(...[
-    el("h2", {textContent: "Armonía"}),
-    campo("Género para todo", segmentado(GENEROS, m.genero, (v) => cambiarGenero(v), 3)),
-    ayuda(GENERO_TEXTO[m.genero] + " Pone la escala y este género en todos los motores. Después cada motor tiene su propio selector."),
+    el("h2", {textContent: desdeParte ? "Armonía de la parte" : "Armonía del tema"}),
+    desdeParte && ie >= 0 ? campo("Esta parte", segmentado([["tema", "Sigue la del tema"], ["propia", "Propia"]], propia ? "propia" : "tema", async (v) => {
+      try { clearTimeout(temporizador); await api("/api/config", cfg); await api("/api/escena/armonia", {escena: ie, propia: v === "propia"}); await recargar(); renderArmonia(); }
+      catch (e) { aviso(e.message, true); } }, 2)) : null,
+    ayuda(desdeParte && ie < 0 ? "Esta parte no tiene escena: suena lo que esté sonando."
+      : propia ? `Esta parte tiene su propia armonía (${tonoTexto(cfg.musica)}). Si cambias la del tema, esta no se mueve.`
+      : desdeParte ? `Usa la armonía del tema (${tonoTexto(cfg.armonia_tema)}): lo que cambies aquí cambia todas las partes que la siguen.`
+      : cfg.parte.length ? `La siguen todas las partes sin armonía propia.${conPropia.length ? " Con la suya: " + conPropia.map(([p, i]) => `${i + 1} · ${p.nombre} (${tonoTexto(musicaDeEscena(p.escena))})`).join(", ") + "." : ""}`
+      : "La armonía del tema. Las partes que armes la siguen, salvo las que tengan armonía propia."),
+    campo("Género para todo", segmentado(GENEROS, m.genero, (v) => cambiarGenero(v, base ? {base: true} : {}), 3)),
+    ayuda(GENERO_TEXTO[m.genero] + " Pone la escala y los ajustes de este género en todos los motores (lo mismo que sus clips de fábrica)."),
     el("div", {className: "dos"}, [el("label", {className: "campo"}, ["Tónica", select(TONICAS, "tonica")]),
       el("label", {className: "campo"}, ["Escala", select(ESCALAS, "escala")])]),
-    ayuda(escalaCircuitTexto()),
-    campo("Armonía", segmentado([["guiada","Guiada"],["libre","Libre"]], m.armonia, (v) => { m.armonia = v; renderArmonia(); guardar(); }, 2)),
+    ayuda(escalaCircuitTexto(m)),
+    campo("Armonía", segmentado([["guiada","Guiada"],["libre","Libre"]], m.armonia, (v) => { m.armonia = v; reflejar(); renderArmonia(); guardar(); }, 2)),
     ayuda(guiada
       ? "Los pads guían: las secuencias, el bajo y el diálogo saben qué acorde suena y cuál viene. Sin pads activos, siguen el acorde de tu nota larga."
       : "Cada motor cuenta sus notas desde su raíz, sin mirar el acorde."),
@@ -66,6 +100,8 @@ function renderArmonia() {
     deslizador(m, "desplazamiento", "Pegado ↔ Desplazado", 0, 1, 0.05, desplTexto),
     ayuda("Corre las notas de la llamada, la respuesta y el pulso de los pads. Las secuencias y el bajo no se mueven."),
   ].filter(Boolean));
+  // Los deslizadores y casillas cambian `m` y guardan: aquí se refleja en lo que suena antes de enviar.
+  caja.oninput = reflejar; caja.onchange = reflejar;
 }
 
 const ESCALAS_COLOR = [["","La de Música"],["doble_armonica","Doble armónica"],["persa","Persa"],["enigmatica","Enigmática"]];
