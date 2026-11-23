@@ -86,6 +86,25 @@ def main():
     todo &= ok(not any(t == "pitchwheel" for _, _, t, _, _ in sin_caida), "con caída 0 no manda pitch bend")
     todo &= ok(all(ns[i][1] <= ns[i + 1][0] for i in range(len(ns) - 1)), "no se pisa con la siguiente")
 
+    print("\nBajo zenon: notas largas, a veces sincopadas")
+    from goa.bajo import MASCARAS_ZENON
+    vistos, en_bombo = set(), []
+    for i in range(40):
+        comp = por_compas(bajo_notas(2, estilo="zenon", seed=f"Z-{i}", remates=False, movimiento=0, gate=0.95))
+        vistos.add(tuple(l for l, _ in comp[0]))
+        en_bombo += [i] if {l for l, _ in comp[0]} & {0, 4, 8, 12} else []
+    todo &= ok(not en_bombo, f"ninguna figura empieza en el bombo (40 variantes) {en_bombo or ''}")
+    todo &= ok(len(vistos) == len(MASCARAS_ZENON), f"la variante recorre las {len(MASCARAS_ZENON)} figuras ({len(vistos)})")
+    ns = bajo_notas(2, estilo="zenon", seed="Z-2", remates=False, movimiento=0, gate=0.95)
+    largos = [b - a for a, b, _, _ in ns]
+    todo &= ok(sum(largos) / len(largos) >= 10, f"notas largas (promedio {sum(largos) / len(largos):.1f} ticks, un paso = 6)")
+    out = correr(lambda c: c["bajo"].update(activo=True, salida="BAJO", disparo=0, estilo="zenon", seed="Z-2",
+                                            remates=False, movimiento=0, gate=0.95, arco=1.0, arco_alto=12), 4)
+    pw = [v for sal, t, tipo, v, _ in out if sal == "BAJO" and tipo == "pitchwheel"]
+    todo &= ok(bool(pw) and max(pw) > 8000 and pw[-1] == 0, "arco: el bend sube una octava y vuelve al centro")
+    todo &= ok(not any(t == "pitchwheel" for _, _, t, _, _ in correr(lambda c: c["bajo"].update(
+        activo=True, salida="BAJO", disparo=0, estilo="zenon", seed="Z-2", arco=0.0), 4)), "sin arco no hay bend")
+
     print("\nProgresiones nuevas")
     nuevas = ("i_v_bVI_bVII", "iv_bIII_iv_i", "iv_bVII_i_bVII", "i_bIII_bVII_iv", "i_bIII_iv_bVII", "i_ii_bIII_iv")
     todo &= ok(all(k in pads.PROGRESIONES for k in nuevas), "están en pads.PROGRESIONES")
@@ -100,10 +119,10 @@ def main():
 
     print("\nLos ajustes nuevos se guardan")
     cfg = cargar(RAIZ / "config.ejemplo.toml")
-    cfg["bajo"].update(estilo="trote", remates_pack=0.6, ciclo=5, zenon=0.5, caida=5, bend_rango=2)
+    cfg["bajo"].update(estilo="zenon", remates_pack=0.6, ciclo=5, zenon=0.5, caida=5, bend_rango=2, arco=0.4, arco_alto=7)
     cfg["pads"].update(progresion="iv_bIII_iv_i")
     vuelta = normalizar(tomllib.loads(a_toml(normalizar(cfg))))
-    perdidos = [k for k, v in (("estilo", "trote"), ("remates_pack", 0.6), ("ciclo", 5), ("zenon", 0.5), ("caida", 5), ("bend_rango", 2)) if vuelta["bajo"].get(k) != v]
+    perdidos = [k for k, v in (("estilo", "zenon"), ("arco", 0.4), ("arco_alto", 7), ("remates_pack", 0.6), ("ciclo", 5), ("zenon", 0.5), ("caida", 5), ("bend_rango", 2)) if vuelta["bajo"].get(k) != v]
     perdidos += [] if vuelta["pads"]["progresion"] == "iv_bIII_iv_i" else ["progresion"]
     todo &= ok(not perdidos, f"ninguno se pierde al guardar y volver a cargar {perdidos or ''}")
 

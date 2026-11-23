@@ -67,7 +67,7 @@ const FORMAS_TEXTO = {entrelazado: "La respuesta toca solo en los huecos que dej
   turnos: "La llamada toca unos compases y después contesta la respuesta."};
 const ESTILOS_BAJO = [["sincopado","Sincopado","· · B B · · B ·"],["rolling","Rolling","K B B B"],["fullon","Full-on","K B B B ♪"],["tresillo","Tresillo","K ³B B"],
   ["galope","Galope","K · B B"],["saltado","Saltado","K B · B"],["offbeat","Offbeat","K · B ·"],
-  ["chillgressive","Chillgressive","K B b B"],["trote","Trote 3-3-2","· B · B · · B ·"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
+  ["chillgressive","Chillgressive","K B b B"],["trote","Trote 3-3-2","· B · B · · B ·"],["zenon","Zenon / swampy","· B— · B——"],["dub","Dub","B · · b"],["sub","Sub","B — —"]];
 const LFO_FORMAS = [["seno","Seno"],["triangulo","Triángulo"],["azar","Al azar"],["sube","Sube"],["baja","Baja"]];
 const LFO_CICLOS = [["0.25","1 tiempo"],["0.5","2 tiempos"],["1","1 compás"],["2","2 compases"],["4","4 compases"],["8","8 compases"],["16","16 compases"],["32","32 compases"]];
 const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del Goa y el full-on.",
@@ -79,6 +79,7 @@ const TEXTO_BAJO = {rolling: "Bombo, bajo, bajo, bajo: el rolling clásico del G
   chillgressive: "Rolling oscuro, notas cortas y un acento que se mueve por la frase.",
   sincopado: "Progresivo: lejos del bombo, notas largas en la «y» y la «a» del tiempo, cambia de nota con el acorde.",
   trote: "Grupos de 3+3+2 entre los bombos (packs Progressive y Apex): una síncopa que avanza y nunca cae en el bombo.",
+  zenon: "Zenonesque y swampy: notas largas, a veces sincopadas (entran en la «y» o la «a» y se quedan por encima del bombo). La variante elige la figura; con slide y portamento se arrastran.",
   dub: "En el uno, antes del tres y en el tres: notas largas y mucho silencio.",
   sub: "Una nota grave por acorde, ligada: casi un drone."};
 

@@ -350,14 +350,16 @@ function panelBajo() {
         deslizador(b, "acentos", "Acentos", 0, 1, 0.05, porcentaje),
         deslizador(b, "vel_random", "Variación de fuerza", 0, 1, 0.05, porcentaje),
       ]),
-      ["dub", "sub"].includes(b.estilo) ? null : grupo("g-bajo-zenon", "Nota larga zenon", b.zenon > 0 ? `en ${porcentaje(b.zenon)} de las frases${b.caida ? ` · cae ${b.caida} st` : ""}` : "apagada", [
+      ["dub", "sub"].includes(b.estilo) ? null : grupo("g-bajo-zenon", "Zenon: nota larga, caída y arco",
+        [b.zenon > 0 ? `nota larga ${porcentaje(b.zenon)}${b.caida ? ` · cae ${b.caida} st` : ""}` : "", b.arco > 0 ? `arco ${porcentaje(b.arco)} · ${b.arco_alto} st` : ""].filter(Boolean).join(" · ") || "apagado", [
         deslizador(b, "zenon", "Frases con nota larga", 0, 1, 0.05, (x) => x === 0 ? "nunca" : `en ${porcentaje(x)} de las frases`, () => renderMotores()),
-        ayuda("Zenonesque: en el compás antes del que cierra la frase, la segunda mitad pasa a ser una sola nota larga que entra justo después del bombo (no en el contratiempo como un bajo con glide) y cae de altura."),
-        ...(b.zenon > 0 ? [
-          deslizador(b, "caida", "Cuánto cae", 0, 24, 1, (x) => x === 0 ? "no cae" : `${x} semitono${x > 1 ? "s" : ""}${x === 12 ? " (una octava)" : ""}`, () => renderMotores()),
-          b.caida > 0 ? numeroDe(b, "bend_rango", "Rango de pitch bend del sinte (semitonos)", 1, 24) : null,
-          b.caida > 0 ? ayuda("La caída va por pitch bend: pon aquí el rango que tiene el sinte del bajo (en la MC-101 se ajusta por tono; si no coincide, cae más o menos de lo pedido). Vuelve al centro al terminar la nota.") : null,
-        ] : []),
+        ayuda("En el compás antes del que cierra la frase, la segunda mitad pasa a ser una sola nota larga que entra justo después del bombo (no en el contratiempo como un bajo con glide)."),
+        b.zenon > 0 ? deslizador(b, "caida", "Cuánto cae la nota larga", 0, 24, 1, (x) => x === 0 ? "no cae" : `${x} semitono${x > 1 ? "s" : ""}${x === 12 ? " (una octava)" : ""}`, () => renderMotores()) : null,
+        deslizador(b, "arco", "Arco de altura", 0, 1, 0.05, (x) => x === 0 ? "nunca" : `en ${porcentaje(x)} de las notas largas`, () => renderMotores()),
+        b.arco > 0 ? deslizador(b, "arco_alto", "Cuánto sube el arco", 1, 24, 1, (x) => `${x} semitono${x > 1 ? "s" : ""}${x === 12 ? " (una octava)" : x === 7 ? " (la quinta)" : ""}`) : null,
+        ayuda("Medido en «Sons of Earth» (Dekel & Ilan Or): las notas largas suben con el pitch bend y vuelven mientras suenan. Se aplica a las notas de 2 pasos o más; brilla con el estilo Zenon."),
+        (b.caida > 0 && b.zenon > 0) || b.arco > 0 ? numeroDe(b, "bend_rango", "Rango de pitch bend del sinte (semitonos)", 1, 24) : null,
+        (b.caida > 0 && b.zenon > 0) || b.arco > 0 ? ayuda("La caída y el arco van por pitch bend: pon aquí el rango que tiene el sinte del bajo (si no coincide, se mueve más o menos de lo pedido). Siempre vuelve al centro al terminar la nota.") : null,
       ]),
       grupo("g-bajo-var", "Variación", `mutar cada ${b.mutar_cada} · ${armoniaTexto(b)}`, [
         numeroDe(b, "mutar_cada", "Cada (compases, de 1 a 64)", 1, 64, () => renderMotores()),
@@ -430,7 +432,7 @@ function estiloDeSecuencia(s, clave) {
   return bloqueEstilo(s, {familias: FAMILIAS, nombre: nombreEstilo, clave, detalle: figuraTexto(s), elegir: (v) => elegirEstilo(s, v),
     opciones: s.estilo === "clasico" ? panelClasico(s) : s.estilo === "psytrance" ? panelPsy(s) : []});
 }
-const FAMILIAS_BAJO = [["Rodantes", ["rolling","fullon","galope","tresillo"]], ["Con aire", ["offbeat","saltado","sincopado","trote","chillgressive"]],
+const FAMILIAS_BAJO = [["Rodantes", ["rolling","fullon","galope","tresillo"]], ["Con aire", ["offbeat","saltado","sincopado","trote","chillgressive"]], ["Largas", ["zenon"]],
   ["Lentos", ["dub","sub"]]];
 
 // --- Variante y clips: un solo componente para todos los motores ---

@@ -23,35 +23,26 @@ from pruebas.simular import RAIZ
 SR = 44100
 
 # nombre, BPM, nota larga, escala, ajustes del bajo, sonido (ver SONIDOS), batería ("4x4" o "halftime")
-# Zenonesque: 126-134 BPM, bajo de una nota a contratiempo, corto, semicorcheas con swing y el filtro
-# moviéndose lento en frases largas; la nota larga entra justo después del bombo y cae.
-# Swampy (swamp / psybass): la contraparte lenta del forest, groove en halftime, notas largas
-# que se deslizan y un filtro «squelchy» que se abre en cada nota.
+# Zenonesque y swampy: estilo «zenon» del bajo (notas largas, a veces sincopadas). El 04 imita lo
+# medido en «Sons of Earth» (Dekel & Ilan Or, 140 BPM): una nota larga por tiempo después del
+# bombo, con un arco de altura (sube una octava y vuelve) en algunas. Swampy: en halftime, con
+# slide y un filtro «squelchy» que se abre en cada nota.
 EJEMPLOS = [
     ("01_rolling_de_base", 140, 42, "frigio", dict(estilo="rolling", frase=4), "psy", "4x4"),
     ("02_rolling_remates_de_los_packs", 140, 42, "frigio", dict(estilo="rolling", frase=2, remates_pack=1.0), "psy", "4x4"),
     ("03_trote_332", 138, 42, "frigio", dict(estilo="trote", frase=4), "psy", "4x4"),
-    ("04_zenon_offbeat_seco", 132, 41, "frigio", dict(estilo="offbeat", frase=4, remates=False, gate=0.35, swing=0.12,
-                                                       movimiento=0.0, filtro=True, filtro_min=30, filtro_max=85,
-                                                       filtro_ciclo=16, filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
-    ("05_zenon_offbeat_nota_larga", 132, 41, "frigio", dict(estilo="offbeat", frase=4, remates=False, gate=0.35,
-                                                             swing=0.12, movimiento=0.0, zenon=1.0, caida=7, filtro=True,
-                                                             filtro_min=30, filtro_max=85, filtro_ciclo=16,
-                                                             filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
-    ("06_zenon_offbeat_ciclo_de_5", 132, 41, "dorico", dict(estilo="offbeat", frase=4, remates=False, gate=0.35,
-                                                             swing=0.12, movimiento=0.0, ciclo=5, filtro=True,
-                                                             filtro_min=30, filtro_max=85, filtro_ciclo=32,
-                                                             filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
-    ("07_zenon_trote_con_swing", 132, 41, "frigio", dict(estilo="trote", frase=4, gate=0.45, swing=0.15, zenon=0.6,
-                                                          caida=5, filtro=True, filtro_min=30, filtro_max=80,
-                                                          filtro_ciclo=16, filtro_forma="ola", filtro_nota=0.3), "zenon", "4x4"),
-    ("08_swampy_halftime", 140, 43, "frigio", dict(estilo="dub", frase=4, slide=0.6, swing=0.1, movimiento=0.6,
-                                                    filtro=True, filtro_min=20, filtro_max=75, filtro_ciclo=8,
-                                                    filtro_forma="ola", filtro_nota=1.0), "swampy", "halftime"),
-    ("09_swampy_halftime_que_evoluciona", 140, 43, "frigio", dict(estilo="dub", frase=2, slide=0.5, swing=0.15,
-                                                              movimiento=0.7, evolucion=0.6, mutar_cada=2,
-                                                              filtro=True, filtro_min=15, filtro_max=80, filtro_ciclo=4,
-                                                              filtro_forma="ola", filtro_nota=1.0), "swampy", "halftime"),
+    ("04_zenon_largas_sons_of_earth", 140, 46, "menor", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-2", frase=4, remates=False, arco=0.7), "zenon", "4x4"),
+    ("05_zenon_largas_sincopadas", 136, 46, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-5", frase=4, arco=0.3, swing=0.08), "zenon", "4x4"),
+    ("06_zenon_largas_anticipadas", 136, 46, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-7", frase=4, arco=0.3), "zenon", "4x4"),
+    ("07_zenon_largas_nota_que_cae", 136, 46, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-2", frase=4, remates=False, arco=0.4,
+                                                              zenon=1.0, caida=7), "zenon", "4x4"),
+    ("08_swampy_largas_halftime", 140, 43, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-1", frase=4, slide=0.5, arco=0.5, arco_alto=7,
+                                                           swing=0.1, filtro=True, filtro_min=20, filtro_max=75,
+                                                           filtro_ciclo=8, filtro_forma="ola", filtro_nota=1.0), "swampy", "halftime"),
+    ("09_swampy_largas_que_evolucionan", 140, 43, "frigio", dict(estilo="zenon", gate=0.95, movimiento=0.0, bend_rango=12, seed="Z-12", frase=2, slide=0.4, arco=0.4,
+                                                                  arco_alto=12, evolucion=0.6, mutar_cada=2, filtro=True,
+                                                                  filtro_min=15, filtro_max=80, filtro_ciclo=4,
+                                                                  filtro_forma="ola", filtro_nota=1.0), "swampy", "halftime"),
 ]
 
 # corte base (Hz) sin CC, octavas que abre la envolvente, decaimiento (s), resonancia (0-1), FM, sub
@@ -177,7 +168,7 @@ def bateria(n, bpm, forma="4x4"):
     th = np.arange(int(0.06 * SR)) / SR
     ruido = np.random.default_rng(1).uniform(-1, 1, len(th))
     hat = np.diff(ruido, prepend=0) * np.exp(-th * 60)
-    caida = np.concatenate([np.linspace(0.0, 1, int(0.1 * SR)), np.ones(1)])
+    caida = np.concatenate([np.linspace(0.35, 1, int(0.08 * SR)), np.ones(1)])
     tp = np.arange(int(0.2 * SR)) / SR
     caja = (np.random.default_rng(4).uniform(-1, 1, len(tp)) * np.exp(-tp * 25) * 0.6
             + np.sin(2 * np.pi * 190 * tp) * np.exp(-tp * 30) * 0.5)
@@ -202,7 +193,7 @@ def render(ejemplo, carpeta, compases):
     n = int((compases * 4 * 60 / bpm + 0.5) * SR)
     b = sinte_bajo(evs, n, bpm, sonido)
     bat, duck = bateria(n, bpm, forma)
-    mezcla = b * duck * 0.55 + bat * 0.5
+    mezcla = b * duck * 0.85 + bat * 0.45
     mezcla /= max(1e-9, np.max(np.abs(mezcla))) / 0.9
     wav = Path(carpeta) / f"{nombre}.wav"
     with wave.open(str(wav), "wb") as w:

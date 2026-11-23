@@ -491,6 +491,11 @@ y cae con el pitch bend; pon el rango de bend de tu sinte). Progresiones nuevas 
 breakdowns: i–v–♭VI–♭VII, i–♭III–iv–♭VII, i–♭III–♭VII–iv, i–ii–♭III–iv, iv–♭III–iv–i e
 iv–♭VII–i–♭VII.
 
+El estilo de bajo **Zenon** (0.93) son notas largas, a veces sincopadas, para zenonesque y
+swampy: la variante elige la figura (una sacada de «Sons of Earth» de Dekel & Ilan Or). Con
+el **Arco de altura** las notas largas suben (una octava por defecto) y vuelven con el pitch
+bend; pon el rango de bend de tu sinte.
+
 En Notas, cualquier secuencia tiene además: **Deslices de notas** (opcional; en 0
 no cambia nada): notas de gracia, ligados y notas que respiran en vez de la raíz
 martillada y aproximaciones al adorno que viene, sin cambiar la escala. **Raga**: Bhairav, Bhairavi, Todi, Marwa o Hijaz

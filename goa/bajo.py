@@ -29,9 +29,9 @@ TICKS_POR_PASO = 6
 PASOS_POR_COMPAS = 16
 TICKS_POR_COMPAS = TICKS_POR_PASO * PASOS_POR_COMPAS
 
-ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "trote", "dub", "sub")
+ESTILOS = ("rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "trote", "zenon", "dub", "sub")
 ALIAS = {"psy_chill": "galope", "deepnotic": "offbeat"}  # nombres que tuvo (0.18) o estilos que se sacaron (0.45)
-PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "trote"}
+PSY = {"rolling", "fullon", "galope", "offbeat", "saltado", "tresillo", "chillgressive", "sincopado", "trote", "zenon"}
 
 
 @dataclass(frozen=True)
@@ -63,6 +63,7 @@ BASES = {
     # Trote 3-3-2 (Progressive 001 y 019, Apex 019): ·B·B··B··B·B··B· — grupos de 3+3+2
     # entre los bombos, nunca en el tiempo.
     "trote": {l: Golpe(6) for l in (1, 3, 6, 9, 11, 14)},
+    "zenon": None,  # sale de MASCARAS_ZENON según la variante (ver _base)
     "dub": {0: Golpe(30), 7: Golpe(12), 10: Golpe(24)},    # en el uno, antes del tres y en el tres
     "sub": {0: Golpe(TICKS_POR_COMPAS)},                   # una nota por compás, ligada: casi un drone
 }
@@ -83,9 +84,28 @@ REMATES = {
     "chillgressive": ({13: 0, 14: 7, 15: 6}, {13: 4, 14: 6, 15: 7}),
     "sincopado": ({11: 4, 14: 7}, {10: 6, 11: 4, 14: 1}),
     "trote": ({14: 0, 15: 6}, {11: 4, 14: 7, 15: 6}),   # Progressive 001: cierra en la ♭7
+    "zenon": ({13: 7, 15: 6}, {11: 1, 14: 0}),          # octava que cae a la ♭7 · ♭2 que vuelve
     "dub": ({14: 4}, {13: 6, 15: 4}),
     "sub": ({}, {}),
 }
+# Zenonesque / swampy: notas largas, a veces sincopadas (empiezan en la «y» o la «a» y se
+# sostienen por encima del bombo). Nunca empiezan en el bombo. (lugar, largo en pasos);
+# la variante elige una.
+MASCARAS_ZENON = (
+    # Dekel & Ilan Or, «Sons of Earth» (140 BPM, medido en el audio): cada tiempo una nota
+    # larga que entra después del bombo y dura hasta el siguiente; en el 4 se parte (la de
+    # la «a» anticipa el uno). Las del 1 y el 3 hacen un arco de altura (ver `arco`).
+    ((1, 3), (6, 2), (9, 3), (13, 1), (15, 1)),
+    ((1, 3), (5, 3), (9, 3), (13, 3)),            # larga después de cada bombo
+    ((1, 3), (6, 5), (13, 3)),                     # la del medio entra en la «y» y cruza el bombo
+    ((2, 2), (5, 3), (10, 5), (15, 1)),
+    ((1, 6), (9, 3), (14, 2)),                     # la primera se queda por encima del 2
+    ((3, 4), (7, 2), (11, 4), (15, 1)),            # anticipadas: entran en la «a» y cruzan el bombo
+    ((1, 2), (3, 3), (9, 2), (11, 4)),
+    ((1, 7), (10, 3), (14, 2)),                    # medio compás largo y respuesta sincopada
+    ((2, 3), (6, 2), (9, 4), (14, 2)),
+)
+
 # Remates sacados de los bajos de la carpeta de MIDIs (Zenhiser Apex, 0.92): siempre en
 # la segunda mitad del compás, sobre el rolling (lugar -> grado). Con «remates de los
 # packs», en esa proporción de frases el remate es uno de estos en vez del clásico.
@@ -129,6 +149,7 @@ MOVIMIENTOS = {
     "chillgressive": [(lambda l: l % 4 == 3, 7, 0.4), (lambda l: l % 4 == 1, 4, 0.2)],
     "sincopado": [(lambda l: l in (6, 14), 4, 0.4), (lambda l: l == 11, 7, 0.3)],
     "trote": [(lambda l: l in (6, 14), 4, 0.3), (lambda l: l == 11, 7, 0.3)],
+    "zenon": [(lambda l: l >= 10, 1, 0.25), (lambda l: 5 <= l < 10, 7, 0.25)],
     "dub": [(lambda l: l == 7, 7, 0.6), (lambda l: l == 10, 4, 0.6)],
     "sub": [],
 }
@@ -179,6 +200,10 @@ class Bajo:
         self.bend_rango = max(1, min(24, int(cfg.get("bend_rango", 12))))
         self.bends = []          # (tick, valor) pendientes
         self.bend_movido = False
+        # Arco de altura (medido en «Sons of Earth»): en esa proporción de las notas largas
+        # (2 pasos o más) el pitch bend sube `arco_alto` semitonos y vuelve mientras suena.
+        self.arco = _fraccion(cfg.get("arco", 0.0))
+        self.arco_alto = max(1, min(24, int(cfg.get("arco_alto", 12))))
         ciclo = int(cfg.get("ciclo", 0) or 0)
         self.ciclo = ciclo if ciclo in CICLOS else 0
         # Filtro automático por CC (opcional): se abre de a poco y vuelve a cerrarse.
@@ -215,7 +240,7 @@ class Bajo:
 
     def _base(self):
         """Compás base del estilo con el movimiento aplicado (fijo para una variante)."""
-        base = dict(BASES[self.estilo])
+        base = dict(BASES[self.estilo] or self._mascara_zenon())
         if self.estilo == "fullon":
             celdas = [CELDAS[int(self._azar("celda", t) * len(CELDAS))] for t in range(4)]
             base = {l: replace(g, grado=celdas[l // 4][l % 4 - 1]) for l, g in base.items()}
@@ -225,6 +250,10 @@ class Bajo:
                     base[lugar] = replace(golpe, grado=grado)
                     break
         return base
+
+    def _mascara_zenon(self):
+        mascara = MASCARAS_ZENON[int(self._azar("zenon-mascara") * len(MASCARAS_ZENON))]
+        return {l: Golpe(largo * TICKS_POR_PASO) for l, largo in mascara}
 
     def reiniciar(self):
         self.patron = dict(self.base)
@@ -303,7 +332,7 @@ class Bajo:
             desde = min(remate) // 4 * 4
             golpes = {l: g for l, g in golpes.items() if l < desde or g.dur > 4 * TICKS_POR_PASO}
             for lugar, grado in remate.items():
-                molde = BASES[self.estilo].get(lugar, Golpe(12 if self.estilo == "dub" else 6))
+                molde = (BASES[self.estilo] or self.base).get(lugar, Golpe(12 if self.estilo == "dub" else 6))
                 golpes[lugar] = replace(molde, grado=grado)
         return self._fusas(golpes, compas)
 
@@ -537,6 +566,14 @@ class Bajo:
             fin = min(fin, inicio + mitad - 1)
             segunda = self._nota(raiz, golpe.fusa, momento, False, False)
             self.pendientes.append((inicio + mitad, segunda, max(1, vel - 12), inicio + 2 * mitad - 1))
+        if (self.arco and not golpe.caida and fin - inicio >= 2 * TICKS_POR_PASO
+                and self._azar("arco", compas % max(1, self.frase), lugar) < self.arco):
+            # Arco: sube y vuelve (seno), sin pasar del rango de bend del sinte.
+            tope = min(8191, round(8192 * self.arco_alto / self.bend_rango))
+            largo = fin - inicio
+            for t in range(2, largo, 2):
+                self.bends.append((inicio + t, round(tope * math.sin(math.pi * t / largo) ** 1.5)))
+            self.bends.append((fin, 0))
         if golpe.caida and self.caida:
             # La caída: el bend baja con una curva (rápido al principio) mientras suena y
             # vuelve al centro cuando termina, antes de la nota siguiente.
