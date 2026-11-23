@@ -247,7 +247,9 @@ ESQUEMA_SECCIONES["texturas"] = {
 ESQUEMA_SECCIONES["obertura"] = {
     "activo": (bool, False, None, None),
     "salida": (str, "MC-101", None, None),
-    "caracter": (str, "batalla", None, ("batalla", "frigia", "tragica")),
+    "modo": (str, "epico", None, ("epico", "chill")),
+    "caracter": (str, "batalla", None, ("batalla", "frigia", "tragica", "etereo", "lamento", "ritual")),
+    "repetir": (bool, False, None, None),     # en loop (sin final): vuelve a la etapa 2 cada vez distinta
     "frases": (int, 4, 1, 8),                 # frases de 8 compases (4 = 32 compases)
     "velocidad": (int, 115, 1, 127),          # la fuerza del final (crece hasta ahí)
     "expresion": (bool, True, None, None),    # crescendo también por CC 11

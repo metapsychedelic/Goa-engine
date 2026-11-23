@@ -43,13 +43,29 @@ del final de la obertura, así la escena psy entra justo con el primer bombo del
 
 ## En Yantra
 
-1. Motores › **Obertura**: carácter (batalla, frigia o trágica), largo (frases de 8
+1. Motores › **Obertura**: modo (Épico o Chill), carácter (batalla, frigia o trágica en el
+   épico; etéreo, lamento o ritual en el chill), «En loop» si quieres que no termine, largo (frases de 8
    compases), la escena «orquesta» y la escena de vuelta.
 2. En el modo canción, una parte para la obertura (con sus otros motores callados) que dure
    **8 × frases + 1** compases (el +1 es el compás de preparación para cambiar de escena),
    y después la parte del drop.
 3. «Otra» en la Variante cambia la obertura (progresión, galope, llamada de cuerno, tema y
    taikos) sin cambiar el carácter.
+
+## Escena chill (modo Chill)
+
+Para el modo **Chill** arma otra escena con la misma disposición de pistas y canales,
+pero con sonidos tranquilos. Pon su número en «Escena «orquesta»» cuando uses el chill.
+
+| Pista | Canal | Capa en el chill | Qué sonido buscar |
+|---|---|---|---|
+| 1 | 1 | **Colchón** | Cuerdas lentas o un string pad (ataque y release largos). Acordes de 3 a 5 notas. |
+| 2 | 2 | **Melodía** | Una voz sola: flauta, chelo, piano o un lead suave. Etéreo pide algo alto (flauta, violín), lamento algo grave (chelo), ritual algo percutido (piano, kalimba, marimba). Monofónico sirve. |
+| 3 | 3 | **Coro** | El mismo coro «aah/ooh» o un pad de voces aireado. |
+| 4 | 4 | **Percusión suave** | Taiko o tom grave suave (36), un shaker, rim o tambor de mano para el fantasma (38) y un platillo en swell o un reverse cymbal (49). |
+
+La melodía va por la pista de los cuernos: en una escena épica suena con metales, en la
+chill con lo que pongas ahí.
 
 ## Rango de las capas
 

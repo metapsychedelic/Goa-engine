@@ -4,6 +4,8 @@ la MC-101 por Program Change en el canal de control, seed y caracteres.
   python3 -m pruebas.obertura
 """
 
+import copy
+
 from goa.config import cargar, normalizar
 from goa.motor import Motor
 from goa.obertura import Obertura
@@ -16,21 +18,25 @@ def ok(cond, texto):
     return cond
 
 
-def correr(compases=40, **ob):
+def correr(compases=40, cambios=None, tonica="E", **ob):
     cfg = cargar(RAIZ / "config.ejemplo.toml")
     cfg["entrada"].update(canal_disparo=2, nota_maxima=0)
     for s in cfg["secuencia"]:
         s["activa"] = False
     cfg["bajo"]["activo"] = False
     cfg["pads"]["activo"] = False
-    cfg["musica"].update(tonica="E", escala="menor")
+    cfg["musica"].update(tonica=tonica, escala="menor")
     cfg["obertura"].update(dict(activo=True, salida="MC", frases=4), **ob)
     cfg = normalizar(cfg)
     out = []
     m = Motor(cfg, lambda sal, tipo, canal, a, b: out.append((sal, m.tick, tipo, canal, a, b)))
     m.start()
     m.nota_on(1, 40)
-    for _ in range(compases * 96):
+    for t in range(compases * 96):
+        if cambios and t % 96 == 40 and t // 96 in cambios:
+            nuevo = copy.deepcopy(cfg)
+            nuevo["obertura"].update(cambios[t // 96])
+            m.aplicar_config(normalizar(nuevo))
         m.reloj()
     m.stop()
     return [e for e in out if e[0] == "MC"], m
@@ -106,6 +112,9 @@ def main():
     out, _ = correr(compases=70)
     todo &= ok(max(e[1] for e in out if e[2] == "note_on") < 32 * 96, "no se repite sola")
 
+    todo &= chill()
+    todo &= robustez()
+
     print("\nSe guarda (como en la app)")
     import tomllib
     from goa.config import a_toml
@@ -117,6 +126,89 @@ def main():
                "ningún ajuste se pierde al guardar y volver a cargar")
 
     print("\nTodo bien" if todo else "\nHAY FALLAS")
+    return todo
+
+
+def colgadas(out):
+    abiertas = {}
+    for e in out:
+        if e[2] in ("note_on", "note_off"):
+            abiertas[(e[3], e[4])] = abiertas.get((e[3], e[4]), 0) + (1 if e[2] == "note_on" else -1)
+    return [k for k, v in abiertas.items() if v > 0]
+
+
+def sanas(out):
+    return all(0 <= e[4] <= 127 and 0 <= e[5] <= 127 and 0 <= e[3] <= 15 for e in out) and \
+        all(e[5] >= 1 for e in out if e[2] == "note_on")
+
+
+def chill():
+    todo = True
+    print("\nChill")
+    for car in ("etereo", "lamento", "ritual"):
+        out, _ = correr(modo="chill", caracter=car, seed="CH-1")
+        ons = [e for e in out if e[2] == "note_on"]
+        fin = max(e[1] for e in out if e[2] == "note_off")
+        todo &= ok(fin <= 31 * 96 + 72 and not colgadas(out), f"{car}: termina en el tiempo 3 del último compás y deja silencio")
+        todo &= ok(1 in {e[3] for e in ons} and len([e for e in ons if e[3] == 1]) >= 20, f"{car}: hay melodía en la pista 2 ({len([e for e in ons if e[3] == 1])} notas)")
+        todo &= ok(49 not in {e[4] for e in ons if e[3] == 3 and e[1] > 30 * 96}, f"{car}: sin golpe al final")
+        cc = [e[5] for e in out if e[2] == "control_change" and e[4] == 11 and e[3] == 0]
+        todo &= ok(max(cc) > cc[0] and cc[-1] < max(cc) / 2, f"{car}: la expresión sube y al final se apaga ({cc[0]} → {max(cc)} → {cc[-1]})")
+        todo &= ok(max(e[5] for e in ons) < 110, f"{car}: suave (fuerza máxima {max(e[5] for e in ons)})")
+    lam, _ = correr(modo="chill", caracter="lamento")
+    todo &= ok(not [e for e in lam if e[2] == "note_on" and e[3] == 2 and e[1] < 16 * 96], "lamento: el coro llega en la segunda mitad")
+    rit, _ = correr(modo="chill", caracter="ritual")
+    acordes = [e for e in rit if e[2] == "note_on" and e[3] == 0 and e[1] == 0]
+    todo &= ok(len(acordes) == 2, "ritual: quintas abiertas (sin tercera)")
+    ete, _ = correr(modo="chill", caracter="etereo")
+    todo &= ok(len([e for e in ete if e[2] == "note_on" and e[3] == 0 and e[1] == 0]) == 4, "etéreo: acorde con novena")
+    a, _ = correr(modo="chill", caracter="etereo", seed="S1")
+    b, _ = correr(modo="chill", caracter="etereo", seed="S2")
+    mel = lambda o: [(e[1], e[4]) for e in o if e[2] == "note_on" and e[3] == 1]  # noqa: E731
+    todo &= ok(mel(a) != mel(b), "otra seed, otra melodía")
+    todo &= ok(correr(modo="chill", caracter="batalla")[0] == correr(modo="chill", caracter="etereo")[0],
+               "un carácter que no es del modo usa el primero del modo")
+    out, _ = correr(modo="chill", caracter="etereo", escena=7, escena_vuelta=3)
+    pcs = [e for e in out if e[2] == "program_change"]
+    todo &= ok(len(pcs) == 2 and pcs[1][4] == 2 and 32 * 96 + 48 < pcs[1][1] < 33 * 96, "chill con escenas: la vuelta sale en el silencio del final")
+    return todo
+
+
+def robustez():
+    todo = True
+    print("\nEn loop")
+    for modo, car in (("chill", "etereo"), ("chill", "ritual"), ("epico", "batalla")):
+        out, m = correr(compases=8 * 4 * 3, modo=modo, caracter=car, repetir=True)
+        ons = [e for e in out if e[2] == "note_on"]
+        todo &= ok(max(e[1] for e in ons) >= 94 * 96 and not m.obertura.terminada, f"{modo}/{car}: sigue sonando tres vueltas después")
+        todo &= ok(not [e for e in out if e[2] == "program_change"], f"{modo}/{car}: sin escena no cambia nada")
+        todo &= ok(not colgadas(out), f"{modo}/{car}: al parar no queda nada colgado")
+    out, _ = correr(compases=8 * 4 * 3, modo="chill", caracter="etereo", repetir=True)
+    vuelta = lambda k: [(e[1] - k * 24 * 96, e[4]) for e in out if e[2] == "note_on" and e[3] == 1 and 32 * 96 + k * 24 * 96 <= e[1] < 56 * 96 + k * 24 * 96]  # noqa: E731
+    todo &= ok(vuelta(0) != vuelta(1), "cada vuelta trae otra melodía")
+
+    print("\nApagar y cambiar en vivo")
+    out, _ = correr(compases=20, cambios={12: {"activo": False}}, escena=5, escena_vuelta=2)
+    pcs = [e for e in out if e[2] == "program_change"]
+    todo &= ok(len(pcs) == 2 and pcs[1][4] == 1, "apagada a medio camino vuelve a la escena psy")
+    todo &= ok(not colgadas(out) and not [e for e in out if e[2] == "note_on" and e[1] > 13 * 96], "y se calla sin dejar notas")
+    out, _ = correr(compases=36, cambios={10: {"caracter": "frigia"}, 20: {"modo": "chill", "caracter": "lamento"}})
+    todo &= ok(not colgadas(out) and max(e[1] for e in out if e[2] == "note_on") > 25 * 96,
+               "cambiar carácter y modo en vivo sigue sin cortar ni colgar")
+    out, _ = correr(compases=36, cambios={10: {"canal_cuernos": 6}})
+    todo &= ok(not colgadas(out) and 5 in {e[3] for e in out if e[2] == "note_on" and e[1] > 11 * 96},
+               "cambiar un canal en vivo: lo viejo se apaga y sigue por el nuevo")
+
+    print("\nTodas las combinaciones")
+    malas = []
+    for modo, cars in (("epico", ("batalla", "frigia", "tragica")), ("chill", ("etereo", "lamento", "ritual"))):
+        for car in cars:
+            for frases in (1, 2, 3, 8):
+                for ton in ("C", "F#", "B"):
+                    out, _ = correr(compases=8 * frases + 3, modo=modo, caracter=car, frases=frases, tonica=ton, seed=f"{car}{frases}{ton}")
+                    if colgadas(out) or not sanas(out) or max(e[1] for e in out if e[2] == "note_off") > 8 * frases * 96:
+                        malas.append((modo, car, frases, ton))
+    todo &= ok(not malas, f"72 oberturas (2 modos × 3 caracteres × 4 largos × 3 tónicas) limpias{'' if not malas else ': ' + str(malas[:4])}")
     return todo
 
 

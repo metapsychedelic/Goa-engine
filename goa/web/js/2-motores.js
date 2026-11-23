@@ -1395,23 +1395,35 @@ function panelTexturas() {
 }
 
 // --- Obertura: preludio orquestal de batalla que desemboca en el drop (goa/obertura.py) ---
-const CARACTERES_OBERTURA = [["batalla","Batalla"],["frigia","Frigia"],["tragica","Trágica"]];
+const MODOS_OBERTURA = [["epico","Épico","batalla vikinga"],["chill","Chill","colchón y melodía"]];
+const CARACTERES_OBERTURA = {epico: [["batalla","Batalla"],["frigia","Frigia"],["tragica","Trágica"]],
+  chill: [["etereo","Etéreo"],["lamento","Lamento"],["ritual","Ritual"]]};
 const TEXTO_OBERTURA = {batalla: "Eólica, i – ♭VI – ♭VII – i: cuernos en quintas, la más guerrera.",
   frigia: "i – ♭II: más oscura y amenazante; el tema cae al ♭2.",
-  tragica: "i – iv – ♭VI – ♭VII con tercera menor en los cuernos: lamento antes de la batalla."};
+  tragica: "i – iv – ♭VI – ♭VII con tercera menor en los cuernos: lamento antes de la batalla.",
+  etereo: "Dórico, i – ♭VII – IV con novena: cuerdas que flotan, coro abierto y una melodía alta.",
+  lamento: "Eólico, i – iv – ♭VI – v: la melodía grave (chelo) entra sola y el coro llega al final.",
+  ritual: "Frigio casi en drone, quintas abiertas, taikos suaves y tambor fantasma: tribal y lento."};
 function panelObertura() {
   const x = cfg.obertura;
   const compases = 8 * x.frases;
   const total = compases + (x.escena && x.preparar ? 1 : 0);
   return [
-    cabMotor("Obertura", `${x.salida} · ${compases} compases${x.escena ? ` · escena ${x.escena}` : ""}`, x, "activo", null, botonFabricaMotor("obertura")),
-    ayuda("Un preludio orquestal de batalla que crece por capas (coro en drone, cuerdas graves al galope, cuernos, tambores de guerra) y termina con un golpe y un silencio: la parte siguiente entra en el uno. Suena una vez desde el compás en que la prendes. Arma la escena «orquesta» de la MC-101 con el molde (docs/molde-obertura.md)."),
+    cabMotor("Obertura", `${x.salida} · ${x.modo === "chill" ? "chill" : "épica"} · ${x.repetir ? "en loop" : `${compases} compases`}${x.escena ? ` · escena ${x.escena}` : ""}`, x, "activo", null, botonFabricaMotor("obertura")),
+    ayuda(x.modo === "chill"
+      ? "Una capa orquestal tranquila: colchón de cuerdas, coro que respira, una melodía larga y percusión suave. Crece por etapas y al final se apaga sola (o sigue en loop). Arma una escena chill en la MC-101 con el molde (docs/molde-obertura.md)."
+      : "Un preludio orquestal de batalla que crece por capas (coro en drone, cuerdas graves al galope, cuernos, tambores de guerra) y termina con un golpe y un silencio: la parte siguiente entra en el uno. Suena una vez desde el compás en que la prendes. Arma la escena «orquesta» de la MC-101 con el molde (docs/molde-obertura.md)."),
     bloqueVariante(x, "obertura", null),
     el("div", {className: "card principales"}, [
-      campo("Carácter", segmentado(CARACTERES_OBERTURA, x.caracter, (v) => { x.caracter = v; guardar(); renderMotores(); }, 3)),
-      ayuda(TEXTO_OBERTURA[x.caracter] + " La seed elige la variante de la progresión, el galope, la llamada de cuerno, el tema y los taikos."),
+      campo("Modo", segmentado(MODOS_OBERTURA, x.modo, (v) => { x.modo = v; x.caracter = CARACTERES_OBERTURA[v][0][0]; guardar(); renderMotores(); }, 2)),
+      campo("Carácter", segmentado(CARACTERES_OBERTURA[x.modo], x.caracter, (v) => { x.caracter = v; guardar(); renderMotores(); }, 3)),
+      ayuda((TEXTO_OBERTURA[x.caracter] || "") + (x.modo === "chill"
+        ? " En la pista de los cuernos va la melodía: pon ahí una flauta, un chelo o un piano en tu escena chill. La seed elige la progresión, la melodía y la percusión."
+        : " La seed elige la variante de la progresión, el galope, la llamada de cuerno, el tema y los taikos.")),
+      casilla(x, "repetir", "En loop", "No termina: después de la intro vuelve a la etapa 2 y sigue, cada vuelta con otra melodía. Para acompañar un tema chill", () => renderMotores()),
       deslizador(x, "frases", "Largo", 1, 8, 1, (v) => `${v} frase${v > 1 ? "s" : ""} · ${8 * v} compases`, () => renderMotores()),
-      ayuda(`En el modo canción, haz que su parte dure ${total} compases${total > compases ? " (uno de preparación para que la MC cambie de escena)" : ""}; la parte siguiente es el drop.`),
+      ayuda(x.repetir ? "En loop no termina: suena mientras dure su parte (al apagarla vuelve a la escena de vuelta, si hay)."
+        : `En el modo canción, haz que su parte dure ${total} compases${total > compases ? " (uno de preparación para que la MC cambie de escena)" : ""}; la parte siguiente es el drop.`),
       numeroDe(x, "velocidad", "Fuerza del final (1-127)", 1, 127),
       casilla(x, "expresion", "Crescendo por CC 11", "Además de la fuerza de las notas, la expresión de cada pista va subiendo"),
     ]),
