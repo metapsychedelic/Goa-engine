@@ -100,6 +100,9 @@ MASCARAS_ZENON = (
     # 1 y 3 una nota en la «y» que sube a la 4.ª y una corta en la «a»; en el 2 y el 4 la raíz
     # larga desde justo después del bombo hasta el siguiente. (lugar, largo, grado)
     ((2, 1, 3), (3, 1), (5, 3), (10, 1, 3), (11, 1), (13, 3)),
+    # Dekel, «Primordial Black Hole» (142 BPM, A, medido en el audio): una sola nota (la raíz);
+    # entra en la «y» y empuja hasta el bombo siguiente; en el tiempo 3 es más corta (deja aire).
+    ((2, 2), (6, 2), (10, 1), (14, 2)),
     ((1, 3), (5, 3), (9, 3), (13, 3)),            # larga después de cada bombo
     ((1, 3), (6, 5), (13, 3)),                     # la del medio entra en la «y» y cruza el bombo
     ((2, 2), (5, 3), (10, 5), (15, 1)),
