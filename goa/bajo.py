@@ -89,13 +89,17 @@ REMATES = {
     "sub": ({}, {}),
 }
 # Zenonesque / swampy: notas largas, a veces sincopadas (empiezan en la «y» o la «a» y se
-# sostienen por encima del bombo). Nunca empiezan en el bombo. (lugar, largo en pasos);
+# sostienen por encima del bombo). Nunca empiezan en el bombo. (lugar, largo en pasos[, grado]);
 # la variante elige una.
 MASCARAS_ZENON = (
     # Dekel & Ilan Or, «Sons of Earth» (140 BPM, medido en el audio): cada tiempo una nota
     # larga que entra después del bombo y dura hasta el siguiente; en el 4 se parte (la de
     # la «a» anticipa el uno). Las del 1 y el 3 hacen un arco de altura (ver `arco`).
     ((1, 3), (6, 2), (9, 3), (13, 1), (15, 1)),
+    # Dekel & Satcha, «Free Diving» (136 BPM, G# frigio, medido en el audio): en los tiempos
+    # 1 y 3 una nota en la «y» que sube a la 4.ª y una corta en la «a»; en el 2 y el 4 la raíz
+    # larga desde justo después del bombo hasta el siguiente. (lugar, largo, grado)
+    ((2, 1, 3), (3, 1), (5, 3), (10, 1, 3), (11, 1), (13, 3)),
     ((1, 3), (5, 3), (9, 3), (13, 3)),            # larga después de cada bombo
     ((1, 3), (6, 5), (13, 3)),                     # la del medio entra en la «y» y cruza el bombo
     ((2, 2), (5, 3), (10, 5), (15, 1)),
@@ -254,7 +258,7 @@ class Bajo:
 
     def _mascara_zenon(self):
         mascara = MASCARAS_ZENON[int(self._azar("zenon-mascara") * len(MASCARAS_ZENON))]
-        return {l: Golpe(largo * TICKS_POR_PASO) for l, largo in mascara}
+        return {l: Golpe(largo * TICKS_POR_PASO, 0, grado[0] if grado else 0) for l, largo, *grado in mascara}
 
     def reiniciar(self):
         self.patron = dict(self.base)
