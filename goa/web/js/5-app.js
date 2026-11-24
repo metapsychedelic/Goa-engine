@@ -67,9 +67,13 @@ $("act_anterior").onclick = () => cambiarVersion("/api/actualizar/anterior",
   "¿Volver a la versión anterior? El motor se reinicia y el sonido se corta unos segundos.");
 buscarActualizacion(false);
 
-async function recargar() {
+let externaVista = null;   // version_externa que se vio en la última lectura (para esperar que el nano quede quieto)
+async function recargar(quieta) {
   cfg = await (await fetch("/api/config")).json();
+  // Un cambio desde el nano no mueve la pantalla: queda en el mismo lugar después de redibujar.
+  const y = quieta ? window.scrollY : null;
   render();
+  if (y !== null) window.scrollTo(0, y);
 }
 
 async function guardarProyecto(nombre, nuevo) {
@@ -240,7 +244,12 @@ async function estado() {
     const escribiendo = document.activeElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName) && document.activeElement.type !== "range";
     if (cfg && d.version_base !== undefined && d.version_base !== cfg.version_base && !escribiendo) { await recargar(); }
     // Algo cambió desde el nanoKONTROL2: la app muestra cómo quedó (salvo un cambio tuyo esperando).
-    else if (cfg && d.version_externa !== undefined && d.version_externa !== cfg.version_externa && !escribiendo && !temporizador) { await recargar(); }
+    // Espera a que el nano quede quieto (el mismo número en dos lecturas seguidas): mientras
+    // mueves un fader la app no se redibuja a cada rato, solo una vez al soltarlo.
+    else if (cfg && d.version_externa !== undefined && d.version_externa !== cfg.version_externa && !escribiendo && !temporizador) {
+      if (d.version_externa === externaVista) { externaVista = null; await recargar(true); }
+      else externaVista = d.version_externa;
+    }
     pintarControl(d);
     pintarTeclado(d);
     pintarTocado(d);
