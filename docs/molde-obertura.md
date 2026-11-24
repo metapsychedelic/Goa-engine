@@ -88,6 +88,30 @@ tema); el carácter viene de los sonidos y de cómo se tocan.
 - **Tema del track**: la llamada, el tema y la melodía usan las primeras notas de la 1.ª
   secuencia, así la intro anuncia lo que viene en el drop.
 
+## Escena espacial (modo Espacial)
+
+| Pista | Canal | Capa | Qué sonido buscar |
+|---|---|---|---|
+| 1 | 1 | **Pad** | String machine o pad analógico con ataque lento (en interestelar, un órgano). |
+| 2 | 2 | **Lead** | Lead con portamento o vibrato, o un silbido (sine/whistle). En galaxia usa bends: rango de bend igual al de Yantra. |
+| 3 | 3 | **Secuencia / ostinato** | Galaxia: sinte de secuencia (pluck de sierra con filtro). Interestelar: órgano. Nebulosa: campanas. |
+| 4 | 4 | **Ritmo y barridos** | Galaxia: caja de ritmos suave (bombo 36, caja 38). Interestelar: un tic seco de reloj (38) y un golpe grave (36). Barrido: crash o reverse cymbal (49). |
+
+## Escena fantasía (modo Fantasía)
+
+| Pista | Canal | Capa | Qué sonido buscar |
+|---|---|---|---|
+| 1 | 1 | **Fondo** | Órgano, cuerdas graves o un pad oscuro. Mazmorra: algo lo-fi y simple. |
+| 2 | 2 | **Melodía** | Flauta o cuerno (bosque, mazmorra); en castillo un lead o cuerno en octavas. |
+| 3 | 3 | **Clavecín, arpa o coro** | Castillo: clavecín. Bosque: arpa. Mazmorra: coro «aah» o un drone. |
+| 4 | 4 | **Timbal, campana y tambor** | Timbal (36), caja o pandereta (38) y una campana grave o gong (49). |
+
+## Enlazar partes (0.101)
+
+Con «Largo: el de la parte» y «Enlazar partes», varias partes seguidas con la obertura son un
+solo arco: la siguiente no vuelve a la intro y la anterior no se apaga. Usa la misma escena de
+la MC-101 en las partes enlazadas; si la cambias, hay un compás de preparación sin obertura.
+
 ## Como backtrack (0.100)
 
 - **Largo: el de la parte**: en el modo canción la obertura dura lo que su parte (por ejemplo

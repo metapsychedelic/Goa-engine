@@ -59,7 +59,7 @@ TICKS_POR_COMPAS = TICKS_POR_PASO * PASOS_POR_COMPAS
 NEGRA = 4 * TICKS_POR_PASO
 SEMI = TICKS_POR_PASO
 
-MODOS = ("epico", "chill", "cine")
+MODOS = ("epico", "chill", "cine", "espacial", "fantasia")
 # Formas: la etapa (0 a 3) de cada octavo del largo.
 FORMAS = {
     "crece": (0, 0, 1, 1, 2, 2, 3, 3),     # crece de a poco hasta el final
@@ -68,15 +68,19 @@ FORMAS = {
     "respiro": (0, 1, 1, 2, 0, 2, 3, 3),   # crece, se vacía (solo coro) y remata
 }
 CARACTERES_MODO = {"epico": ("batalla", "frigia", "tragica"), "chill": ("etereo", "lamento", "ritual"),
-                   "cine": ("neon", "titulos", "cosmos")}
-CARACTERES = CARACTERES_MODO["epico"] + CARACTERES_MODO["chill"] + CARACTERES_MODO["cine"]
+                   "cine": ("neon", "titulos", "cosmos"),
+                   "espacial": ("galaxia", "interestelar", "nebulosa"),
+                   "fantasia": ("mazmorra", "castillo", "bosque")}
+CARACTERES = sum(CARACTERES_MODO.values(), ())
 NOMBRES = {"batalla": "Batalla", "frigia": "Frigia", "tragica": "Trágica",
            "etereo": "Etéreo", "lamento": "Lamento", "ritual": "Ritual",
-           "neon": "Neón", "titulos": "Títulos", "cosmos": "Cosmos"}
+           "neon": "Neón", "titulos": "Títulos", "cosmos": "Cosmos",
+           "galaxia": "Galaxia", "interestelar": "Interestelar", "nebulosa": "Nebulosa",
+           "mazmorra": "Mazmorra", "castillo": "Castillo", "bosque": "Bosque"}
 
 # Acordes: raíz en semitonos desde la tónica.
-RAIZ = {"i": 0, "bII": 1, "bIII": 3, "iv": 5, "IV": 5, "v": 7, "bVI": -4, "bVII": -2}
-TERCERA = {"i": 3, "bII": 4, "bIII": 4, "iv": 3, "IV": 4, "v": 3, "bVI": 4, "bVII": 4}
+RAIZ = {"i": 0, "bII": 1, "bIII": 3, "iv": 5, "IV": 5, "v": 7, "V": 7, "bVI": -4, "bVII": -2}
+TERCERA = {"i": 3, "bII": 4, "bIII": 4, "iv": 3, "IV": 4, "v": 3, "V": 4, "bVI": 4, "bVII": 4}
 # Dos variantes de progresión por carácter (cada acorde dura 2 compases de la frase de 8).
 PLANES = {
     "batalla": (("i", "bVI", "bVII", "i"), ("i", "bVII", "bVI", "bVII")),
@@ -106,6 +110,35 @@ ESCALAS_CINE = {"neon": (0, 2, 3, 5, 7, 8, 10), "titulos": (0, 2, 3, 5, 7, 8, 10
 RITMOS_CINE = (((0, 4),), ((0, 3), (3, 1)), ((0, 1.5), (1.5, 2.5)), ((0, 2), (2, 2)), ((0.5, 3.5),), ((0, 2.5), (2.5, 1.5)))
 ARPEGIOS = ((0, 1, 2, 3, 2, 1, 2, 3), (0, 2, 1, 3, 0, 2, 1, 3), (0, 1, 2, 3, 3, 2, 1, 0), (3, 2, 1, 0, 1, 2, 3, 2))
 PULSOS = ((0, 12) * 8, (0, 0, 12, 0) * 4, (0, 12, 0, 0) * 4)
+# Espacial y fantasía: cada carácter es un perfil (datos), tocado por _compas_paleta.
+#   plan: dos progresiones (un acorde cada 2 compases de la frase de 8)
+#   color: qué notas lleva el acorde de la pista 1 ("add9", "sept", "quintas", "triada")
+#   cada: cada cuántos compases ataca el fondo; escala y ritmos de la melodía; lead: desde
+#   qué etapa, registro, si dobla a la octava al final y con qué probabilidad entra con bend
+#   motor (pista 3): secuencia, ostinato, campanas, clavecin, arpa, drone
+#   perc (pista 4): electro, tictac, barrido, campana, marcha, folk
+EOLIA = (0, 2, 3, 5, 7, 8, 10)
+DORICA = (0, 2, 3, 5, 7, 9, 10)
+ARMONICA = (0, 2, 3, 5, 7, 8, 11)
+RITMOS_MEDIEVAL = (((0, 1), (1, 1), (2, 2)), ((0, 2), (2, 1), (3, 1)), ((0, 1.5), (1.5, 0.5), (2, 2)), ((0, 4),), ((0, 1), (1, 1), (2, 1), (3, 1)))
+RITMOS_FOLK = (((0, 1.5), (1.5, 0.5), (2, 1), (3, 1)), ((0, 1), (1, 0.5), (1.5, 0.5), (2, 2)), ((0, 3), (3, 1)), ((0, 2), (2, 2)))
+PERFILES = {
+    "galaxia": {"plan": (("i", "bVI", "bVII", "i"), ("i", "iv", "bVII", "bIII")), "color": "add9", "cada": 2,
+                "escala": EOLIA, "ritmos": RITMOS_CINE, "lead": (2, 24, True, 0.5), "motor": "secuencia", "perc": "electro"},
+    "interestelar": {"plan": (("i", "bVI", "bIII", "bVII"), ("i", "bVI", "iv", "i")), "color": "add9", "cada": 2,
+                     "escala": EOLIA, "ritmos": RITMOS_CINE, "lead": (2, 24, False, 0.0), "motor": "ostinato", "perc": "tictac"},
+    "nebulosa": {"plan": (("i", "bVI", "i", "bVII"), ("i", "bIII", "bVI", "bVII")), "color": "sept", "cada": 4,
+                 "escala": DORICA, "ritmos": RITMOS_CINE, "lead": (2, 24, False, 0.3), "motor": "campanas", "perc": "barrido"},
+    "mazmorra": {"plan": (("i", "bVII", "bVI", "bVII"), ("i", "v", "bVI", "bVII")), "color": "quintas", "cada": 2,
+                 "escala": EOLIA, "ritmos": RITMOS_MEDIEVAL, "lead": (1, 12, False, 0.0), "motor": "drone", "perc": "campana"},
+    "castillo": {"plan": (("i", "iv", "V", "i"), ("i", "bVI", "iv", "V")), "color": "triada", "cada": 2,
+                 "escala": ARMONICA, "ritmos": RITMOS_MEDIEVAL, "lead": (2, 24, True, 0.0), "motor": "clavecin", "perc": "marcha"},
+    "bosque": {"plan": (("i", "bIII", "bVII", "i"), ("i", "IV", "bVII", "i")), "color": "triada", "cada": 2,
+               "escala": DORICA, "ritmos": RITMOS_FOLK, "lead": (1, 24, False, 0.0), "motor": "arpa", "perc": "folk"},
+}
+SECUENCIAS = ((0, 12, 7, 12, 3, 12, 7, 12, 0, 12, 7, 12, 3, 12, 10, 12), (0, 7, 12, 7, 0, 7, 15, 7, 0, 7, 12, 7, 14, 12, 7, 3),
+              (0, 0, 12, 0, 7, 0, 12, 10, 0, 0, 12, 0, 15, 0, 14, 12), (0, 3, 7, 12, 15, 12, 7, 3, 0, 3, 7, 12, 14, 12, 10, 7))
+OSTINATOS = ((7, 3), (12, 7), (7, 10), (3, 7, 12, 7))
 CAPAS = ("cuerdas", "cuernos", "coro", "percusion")
 # Qué capa usa cada sorteo (para la seed propia de cada instrumento).
 CAPA_DE_CLAVE = {"galope": "cuerdas", "llamada": "cuernos", "tema": "cuernos", "melodia": "cuernos", "bend": "cuernos",
@@ -115,7 +148,7 @@ CAPA_DE_CLAVE = {"galope": "cuerdas", "llamada": "cuernos", "tema": "cuernos", "
 # carácter), C (la de A un tono arriba: el clímax). En loop, cada vuelta es una sección.
 PATRONES_SECCION = ("AABA", "ABAB", "AABC", "ABAC", "ABCA")
 TRANSPORTE_SECCION = {"A": 0, "B": 0, "C": 2}
-FONDO = {"epico": "coro", "chill": "cuerdas", "cine": "cuerdas"}   # la capa que la orquestación viva casi nunca saca
+FONDO = {"epico": "coro", "chill": "cuerdas", "cine": "cuerdas", "espacial": "cuerdas", "fantasia": "cuerdas"}   # la capa que la orquestación viva casi nunca saca
 TAIKOS_RITUAL = ((0, 2.5), (0, 1.5, 2.5), (0, 0.75, 2, 2.5), (0, 1, 2.5, 3.5))
 # Galope de batalla (semicorcheas del compás) y su versión llena para la última etapa.
 GALOPES = ((0, 3, 6, 8, 11, 14), (0, 3, 6, 10, 12, 14), (0, 2, 3, 6, 8, 10, 11, 14), (0, 3, 4, 8, 11, 12))
@@ -157,6 +190,7 @@ class Obertura:
         self.repetir = bool(cfg.get("repetir", False))   # en loop: después de la intro vuelve a la etapa 2, sin final
         # Forma larga (0.100)
         self.largo_parte = bool(cfg.get("largo_parte", False))   # en canción: el arco dura lo que su parte
+        self.enlazar = bool(cfg.get("enlazar", False))           # entre partes seguidas: sin final ni intro
         self.secciones = bool(cfg.get("secciones", True))       # más de 32 compases (o en loop): secciones A/B/C
         self.viva = _f(cfg.get("viva", 0.0))                     # orquestación viva: capas que entran y salen
         # Respiración por CC (relativo en la MC-101: 64 = sin cambio)
@@ -198,9 +232,18 @@ class Obertura:
         self._mudas = frozenset()
         self._t0 = 0              # tick del compás que se está agendando
         self._escena_enviada = None
+        self._sin_final = False   # enlazada con la parte siguiente
+        self._ultimo = None       # el último compás que agendó (para saber si viene sonando)
+        self._off = 0             # enlazada con la anterior: compases de intro que se salta
+        self._prep = 0
         self._bend_usado = False
 
     # --- Forma ---
+
+    @property
+    def continua(self):
+        """Sin final: en loop, o enlazada con la parte siguiente."""
+        return self.repetir or self._sin_final
 
     @property
     def largo(self):
@@ -213,7 +256,8 @@ class Obertura:
     def plan(self, seccion="A"):
         """Los acordes de la frase de 8 compases (uno cada 2). La sección B usa la otra
         progresión del carácter."""
-        variantes = PLANES_CINE[self.caracter] if self.modo == "cine" else PLANES[self.caracter]
+        variantes = (PLANES_CINE[self.caracter] if self.modo == "cine" else
+                     PERFILES[self.caracter]["plan"] if self.caracter in PERFILES else PLANES[self.caracter])
         i = int(self._rng("plan").random() * len(variantes))
         if seccion == "B":
             i = (i + 1) % len(variantes)
@@ -264,6 +308,7 @@ class Obertura:
             self._bend_usado = viejo._bend_usado
             self._escena_enviada = viejo._escena_enviada
             self._prep = getattr(viejo, "_prep", 0)
+            self._sin_final, self._ultimo, self._off = viejo._sin_final, viejo._ultimo, viejo._off
             self.pendientes, self.sonando = viejo.pendientes, viejo.sonando
             viejo.pendientes, viejo.sonando = [], {}
         else:
@@ -322,6 +367,7 @@ class Obertura:
             vuelta = self.largo - i1
             ciclo = 1 + (c - self.largo) // vuelta
             c = i1 + (c - self.largo) % vuelta
+        self._ultimo = compas
         self._agendar(c, tick, ciclo, compas)
         self.tick(tick, enviar)
 
@@ -330,9 +376,20 @@ class Obertura:
         dentro, largo = int(parte["dentro"]), int(parte["largo"])
         cambia = self.escena and self.escena != self._escena_enviada
         prep = 1 if cambia and self.preparar and largo > 1 else 0
+        self._sin_final = bool(self.enlazar and parte.get("sigue"))
         if dentro == 0 or self.inicio is None:
             self.terminada = False
-            self.motivo = self.motivo_de(patron) if self.tema_track else None
+            enlazada = self.enlazar and self._ultimo is not None and self._ultimo == compas - 1
+            if not (enlazada and self.motivo):
+                self.motivo = self.motivo_de(patron) if self.tema_track else None
+            # Enlazada con la anterior: el arco no vuelve al comienzo, se salta la intro
+            # (los primeros tramos en la etapa 0 de la forma) y sigue creciendo desde ahí.
+            self._off = 0
+            if enlazada:
+                ceros = next((i for i, e in enumerate(FORMAS[self.forma]) if e), 8)
+                if ceros < 8:
+                    off = -(-(largo - prep) * 8 // (8 - ceros)) - (largo - prep)
+                    self._off = -(-off // 4) * 4   # en frase: el acorde y el coro atacan en el uno
             if cambia:
                 if prep and dentro == 0:
                     self.pendientes.append((tick + TICKS_POR_COMPAS // 2, "program_change", self.canal_control, self.escena - 1, 0))
@@ -341,12 +398,13 @@ class Obertura:
                     enviar(self.salida, "program_change", self.canal_control, self.escena - 1, 0)
                 self._escena_enviada = self.escena
             self._prep = prep
-        prep = getattr(self, "_prep", 0)
-        self._largo = max(1, largo - prep)
-        c = dentro - prep
+        prep = self._prep
+        self._largo = max(1, largo - prep + self._off)
+        c = dentro - prep + self._off
         self.inicio = compas - c
-        if c < 0 or c >= self._largo:
+        if c < self._off or c >= self._largo:
             return
+        self._ultimo = compas
         self._agendar(c, tick, int(parte.get("vuelta", 0) or 0), compas, en_parte=True)
         self.tick(tick, enviar)
 
@@ -360,6 +418,8 @@ class Obertura:
             self._compas_chill(c, tick, ciclo)
         elif self.modo == "cine":
             self._compas_cine(c, tick, ciclo)
+        elif self.modo in ("espacial", "fantasia"):
+            self._compas_paleta(c, tick, ciclo)
         else:
             self._corte = None
             self._compas(c, tick)
@@ -388,7 +448,7 @@ class Obertura:
         if not self.viva or self.etapa(c) == 0:
             return frozenset()
         ventana = c // 16 + 1000 * ciclo
-        if ventana == 0 or (not self.repetir and c >= self.largo - 8):
+        if ventana == 0 or (not self.continua and c >= self.largo - 8):
             return frozenset()   # el comienzo y el cierre van completos
         rng = self._rng("viva", ventana)
         fondo = FONDO[self.modo]
@@ -401,7 +461,7 @@ class Obertura:
     def _fantasmas(self, c, t0):
         """Densidad alta de la percusión: golpes suaves de tambor en las corcheas a contratiempo."""
         d = self.densidades["percusion"]
-        if d <= 0.5 or self.etapa(c) == 0 or (c == self.largo - 1 and not self.repetir):
+        if d <= 0.5 or self.etapa(c) == 0 or (c == self.largo - 1 and not self.continua):
             return
         rng = self._rng("fantasmas", c, self._t0)
         for pos in (12, 36, 60, 84):
@@ -472,7 +532,7 @@ class Obertura:
         plan = self.plan(self._seccion)
         nombre = plan[c % 8]
         raiz = ton + RAIZ[nombre]
-        final = c == self.largo - 1 and not self.repetir
+        final = c == self.largo - 1 and not self.continua
         falso = self.falso_final(c)
         hasta = 2 * NEGRA if final or falso else TICKS_POR_COMPAS   # el último compás corta en el golpe (tiempo 3)
         if self.expresion:
@@ -480,7 +540,7 @@ class Obertura:
                 self.pendientes.append((t0, "control_change", canal, 11, round(45 + 82 * crece)))
         # Coro: drone de raíz y quinta, cada 4 compases (o lo que quede).
         if c % 4 == 0:
-            largo = min(4, self.largo - c) * TICKS_POR_COMPAS - (TICKS_POR_COMPAS - 2 * NEGRA if c + 4 >= self.largo and not self.repetir else 0) - 2
+            largo = min(4, self.largo - c) * TICKS_POR_COMPAS - (TICKS_POR_COMPAS - 2 * NEGRA if c + 4 >= self.largo and not self.continua else 0) - 2
             for n in self._coro_notas((ton + 12, ton + 19), ton):
                 self._nota("coro", t0, largo, n, v(0.45 + 0.5 * crece))
         # Cuerdas graves al galope desde la etapa 2 (o el 2.º compás si la obertura es corta).
@@ -580,9 +640,9 @@ class Obertura:
         tiempo de silencio antes de la parte siguiente."""
         etapa = self.etapa(c)
         crece = self.crece(c)
-        final = c == self.largo - 1 and not self.repetir
+        final = c == self.largo - 1 and not self.continua
         hasta = 3 * NEGRA if final else TICKS_POR_COMPAS
-        self._corte = None if self.repetir else t0 + (self.largo - 1 - c) * TICKS_POR_COMPAS + 3 * NEGRA
+        self._corte = None if self.continua else t0 + (self.largo - 1 - c) * TICKS_POR_COMPAS + 3 * NEGRA
         v = lambda x: self.velocidad * x  # noqa: E731
         ton = self.tonica_grave()
         car = self.caracter
@@ -591,7 +651,7 @@ class Obertura:
         i1 = self._inicio_etapa(1)
         if self.expresion:
             nivel = lambda k: 40 + 70 * min(1.0, self.crece(k) * 4 / 3)  # noqa: E731
-            cola = not self.repetir and c >= self.largo - 2
+            cola = not self.continua and c >= self.largo - 2
             for b in range(4 if cola else 1):
                 if cola:
                     paso_fade = (c - (self.largo - 2)) * 4 + b
@@ -660,9 +720,9 @@ class Obertura:
         semicorcheas y fanfarria. Cosmos: campanas, lead en octavas y redobles de timbal."""
         etapa = self.etapa(c)
         crece = self.crece(c)
-        final = c == self.largo - 1 and not self.repetir
+        final = c == self.largo - 1 and not self.continua
         hasta = 3 * NEGRA if final else TICKS_POR_COMPAS
-        self._corte = None if self.repetir else t0 + (self.largo - 1 - c) * TICKS_POR_COMPAS + 3 * NEGRA
+        self._corte = None if self.continua else t0 + (self.largo - 1 - c) * TICKS_POR_COMPAS + 3 * NEGRA
         v = lambda x: self.velocidad * x  # noqa: E731
         ton = self.tonica_grave()
         car = self.caracter
@@ -671,7 +731,7 @@ class Obertura:
         color = COLOR_CINE[nombre]
         i1 = self._inicio_etapa(1)
         if self.expresion:
-            cola = not self.repetir and c >= self.largo - 2 and car != "titulos"
+            cola = not self.continua and c >= self.largo - 2 and car != "titulos"
             for b in range(4 if cola else 1):
                 if cola:
                     val = (40 + 70 * min(1.0, self.crece(self.largo - 3) * 4 / 3)) * (1 - ((c - (self.largo - 2)) * 4 + b + 1) / 9)
@@ -798,6 +858,163 @@ class Obertura:
             for n in notas:
                 self._nota("cuernos", *n)
         return notas
+
+    # --- Espacial y fantasía (perfiles) ---
+
+    def _acorde_color(self, raiz, nombre, color):
+        t = TERCERA[nombre]
+        if color == "quintas":
+            return [raiz, raiz + 7, raiz + 12]
+        if color == "add9":
+            return [raiz, raiz + t, raiz + 7, raiz + 14]
+        if color == "sept":
+            return [raiz, raiz + t, raiz + 7, raiz + (11 if t == 4 else 10)]
+        return [raiz, raiz + t, raiz + 7]
+
+    def _compas_paleta(self, c, t0, ciclo):
+        """Un compás de un perfil de PERFILES: fondo (pista 1), lead (2), motor (3), percusión (4)."""
+        pf = PERFILES[self.caracter]
+        etapa = self.etapa(c)
+        crece = self.crece(c)
+        final = c == self.largo - 1 and not self.continua
+        hasta = 3 * NEGRA if final else TICKS_POR_COMPAS
+        self._corte = None if self.continua else t0 + (self.largo - 1 - c) * TICKS_POR_COMPAS + 3 * NEGRA
+        v = lambda x: self.velocidad * min(1.0, x)  # noqa: E731
+        ton = self.tonica_grave()
+        car = self.caracter
+        nombre = self.plan(self._seccion)[(c // (pf["cada"] // 2)) % 8] if pf["cada"] > 2 else self.plan(self._seccion)[c % 8]
+        raiz = ton + 12 + RAIZ[nombre]
+        if raiz > ton + 18:
+            raiz -= 12
+        acorde = self._acorde_color(raiz, nombre, pf["color"])
+        if self.expresion:
+            cola = not self.continua and c >= self.largo - 2
+            for b in range(4 if cola else 1):
+                if cola:
+                    val = (40 + 70 * min(1.0, self.crece(self.largo - 3) * 4 / 3)) * (1 - ((c - (self.largo - 2)) * 4 + b + 1) / 9)
+                else:
+                    val = 40 + 70 * min(1.0, crece * 4 / 3)
+                for canal in set(self.canales.values()) - {-1, self.canales["percusion"]}:
+                    self.pendientes.append((t0 + b * NEGRA, "control_change", canal, 11, max(0, min(127, round(val)))))
+        # Pista 1: el fondo (pad, string machine, órgano o cuerdas oscuras).
+        cada = min(pf["cada"], self._cada_acorde()) if self.densidades["cuerdas"] > 0.66 else pf["cada"]
+        if c % cada == 0:
+            notas = self._voicing(acorde, ton) + ([raiz - 12] if etapa >= 2 else [])
+            for n in notas:
+                self._nota("cuerdas", t0, cada * TICKS_POR_COMPAS - 3, n, v(0.32 + 0.4 * crece))
+        # Pista 3: el motor.
+        self._motor_paleta(pf["motor"], c, t0, etapa, crece, hasta, raiz, acorde, ton, ciclo, v)
+        # Pista 2: el lead en frases de 4 compases.
+        desde, registro, octava, bend = pf["lead"]
+        if etapa >= desde:
+            frase, k = divmod(c - self._inicio_etapa(desde), 4)
+            notas = self._melodia(t0, k, frase % 2, (ciclo, frase), ton + registro, v(0.55 + 0.35 * crece),
+                                  escala=pf["escala"], ritmos_de=pf["ritmos"], tocar=False)
+            for j, (ini, dur, nota, fuerza) in enumerate(notas):
+                if ini >= t0 + hasta:
+                    continue
+                self._nota("cuernos", ini, dur, nota, fuerza)
+                if octava and etapa == 3:
+                    self._nota("cuernos", ini, dur, nota + 12, fuerza * 0.8)
+                if bend:
+                    self._bends(ini, dur, entra=self._rng("bend", c, j, ciclo).random() < bend, cae=False)
+        # Pista 4: percusión.
+        self._perc_paleta(pf["perc"], c, t0, etapa, crece, hasta, final, v)
+        if final and self.escena_vuelta:
+            self.pendientes.append((t0 + hasta + 1, "program_change", self.canal_control, self.escena_vuelta - 1, 0))
+
+    def _motor_paleta(self, tipo, c, t0, etapa, crece, hasta, raiz, acorde, ton, ciclo, v):
+        d = self.densidades["coro"]
+        poner = lambda pos, dur, nota, f: pos * SEMI < hasta and self._nota("coro", t0 + pos * SEMI, dur, nota, v(f))  # noqa: E731
+        if tipo == "secuencia":
+            # Secuencia de sinte en semicorcheas con saltos de octava (desde la etapa 2; corcheas antes).
+            if etapa == 0 and d < 0.66:
+                return
+            fig = SECUENCIAS[int(self._rng("pulso", ciclo, c // 8).random() * len(SECUENCIAS))]
+            paso = 1 if (etapa >= 2 and d >= 0.34) or d > 0.66 else 2
+            for k in range(0, 16, paso):
+                poner(k, paso * SEMI - 2, raiz - 12 + fig[k], (0.38 + 0.3 * crece) * (1 if k % 4 == 0 else 0.72))
+        elif tipo == "ostinato":
+            # Dos o tres notas que se alternan en corcheas, parejas y quietas (como un órgano que late).
+            fig = OSTINATOS[int(self._rng("pulso", ciclo).random() * len(OSTINATOS))]
+            paso = 4 if d < 0.34 else 1 if d > 0.66 and etapa >= 2 else 2
+            for j, k in enumerate(range(0, 16, paso)):
+                poner(k, paso * SEMI - 2, raiz + 12 + fig[j % len(fig)], 0.3 + 0.35 * crece)
+        elif tipo == "campanas":
+            # Notas sueltas y largas del acorde, arriba, en lugares al azar (sin pulso).
+            rng = self._rng("arpegio", c, ciclo)
+            n = rng.choice((0, 1, 1, 2)) + (1 if d > 0.66 else 0) - (1 if d < 0.34 else 0) + (1 if etapa >= 2 else 0)
+            for _ in range(max(0, n)):
+                poner(rng.choice(range(0, 16, 2)), 3 * NEGRA, rng.choice(acorde) + 24, 0.25 + 0.3 * crece)
+        elif tipo == "clavecin":
+            # Acorde quebrado en semicorcheas (desde la etapa 2; corcheas en la etapa 1).
+            if etapa == 0:
+                return
+            fig = ARPEGIOS[int(self._rng("arpegio", etapa, ciclo).random() * len(ARPEGIOS))]
+            paso = 1 if (etapa >= 2 and d >= 0.34) or d > 0.66 else 2
+            tonos = sorted(acorde)[:3] + [sorted(acorde)[0] + 12]
+            for j, k in enumerate(range(0, 16, paso)):
+                poner(k, paso * SEMI - 1, tonos[fig[j % 8]] + 12, (0.35 + 0.3 * crece) * (1 if k % 4 == 0 else 0.8))
+        elif tipo == "arpa":
+            # Arpa que sube por el acorde en corcheas y se deja sonar.
+            if etapa == 0:
+                return
+            paso = 4 if d < 0.34 else 1 if d > 0.66 else 2
+            tonos = sorted(acorde)[:3]
+            for j, k in enumerate(range(0, 16, paso)):
+                poner(k, 3 * NEGRA, tonos[j % 3] + 12 * (1 + j // 3 % 2), 0.3 + 0.3 * crece)
+        elif tipo == "drone":
+            # Coro o drone de raíz y quinta cada 4 compases (con la octava si hay densidad).
+            if c % 4 == 0:
+                largo = min(4, self.largo - c) * TICKS_POR_COMPAS - 2
+                for n in self._coro_notas((ton + 12, ton + 19), ton):
+                    self._nota("coro", t0, largo, n, v(0.35 + 0.4 * crece))
+
+    def _perc_paleta(self, tipo, c, t0, etapa, crece, hasta, final, v):
+        golpes = []
+        inicio_tramo = c == self.inicio_tramo(c) and etapa > 0
+        if tipo == "electro":
+            if inicio_tramo:
+                golpes.append((0, self.nota_golpe, 0.4 + 0.3 * crece))
+            if etapa >= 2:
+                golpes += [(0, self.nota_taiko, 0.55 + 0.3 * crece), (2, self.nota_taiko, 0.5 + 0.3 * crece)]
+                golpes += [(1, self.nota_tambor, 0.4 + 0.3 * crece), (3, self.nota_tambor, 0.4 + 0.3 * crece)]
+            elif etapa == 1:
+                golpes.append((0, self.nota_taiko, 0.4))
+        elif tipo == "tictac":
+            # Tic-tac de reloj en negras desde el comienzo; un golpe grave cada 4 compases.
+            golpes += [(b, self.nota_tambor, 0.22 + 0.15 * crece) for b in range(4)]
+            if etapa >= 2 and c % 4 == 0:
+                golpes.append((0, self.nota_taiko, 0.55 + 0.35 * crece))
+            if inicio_tramo:
+                golpes.append((0, self.nota_golpe, 0.45 + 0.35 * crece))
+        elif tipo == "barrido":
+            if inicio_tramo or (etapa >= 2 and c % 8 == 0):
+                golpes.append((0, self.nota_golpe, 0.3 + 0.3 * crece))
+        elif tipo == "campana":
+            # Una campana que dobla cada 4 compases; timbal en la última etapa.
+            if c % 4 == 0 and etapa >= 1:
+                golpes.append((0, self.nota_golpe, 0.35 + 0.3 * crece))
+            if etapa == 3 and c % 2 == 0:
+                golpes.append((0, self.nota_taiko, 0.45 + 0.3 * crece))
+        elif tipo == "marcha":
+            # Marcha oscura: timbal en 1 y 3, redoble de caja al cierre de cada frase de 4.
+            if etapa >= 2:
+                golpes += [(0, self.nota_taiko, 0.55 + 0.35 * crece), (2, self.nota_taiko, 0.45 + 0.3 * crece)]
+                if c % 4 == 3:
+                    golpes += [(3 + k / 4, self.nota_tambor, 0.3 + 0.08 * k) for k in range(4)]
+            if inicio_tramo:
+                golpes.append((0, self.nota_golpe, 0.5 + 0.35 * crece))
+            if final:
+                golpes += [(0, self.nota_golpe, 1.0), (0, self.nota_taiko, 1.0)]
+        elif tipo == "folk":
+            if etapa >= 1:
+                golpes += [(0, self.nota_taiko, 0.45 + 0.3 * crece), (1.5, self.nota_taiko, 0.35 + 0.2 * crece), (2, self.nota_taiko, 0.4 + 0.3 * crece)]
+            if etapa >= 2:
+                golpes += [(b + 0.5, self.nota_tambor, 0.25 + 0.2 * crece) for b in range(4)]
+        for b, nota, f in golpes:
+            if b * NEGRA < hasta:
+                self._nota("percusion", t0 + round(b * NEGRA), SEMI, nota, v(f))
 
     # --- Por instrumento ---
 

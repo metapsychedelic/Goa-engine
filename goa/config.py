@@ -247,14 +247,16 @@ ESQUEMA_SECCIONES["texturas"] = {
 ESQUEMA_SECCIONES["obertura"] = {
     "activo": (bool, False, None, None),
     "salida": (str, "MC-101", None, None),
-    "modo": (str, "epico", None, ("epico", "chill", "cine")),
+    "modo": (str, "epico", None, ("epico", "chill", "cine", "espacial", "fantasia")),
     "caracter": (str, "batalla", None, ("batalla", "frigia", "tragica", "etereo", "lamento", "ritual",
-                                        "neon", "titulos", "cosmos")),
+                                        "neon", "titulos", "cosmos", "galaxia", "interestelar", "nebulosa",
+                                        "mazmorra", "castillo", "bosque")),
     "forma": (str, "crece", None, ("crece", "golpe", "ola", "respiro")),
     "tema_track": (bool, False, None, None),  # llamada, tema y melodía siguen el motivo de la 1.ª secuencia
     "bend_rango": (int, 2, 0, 24),            # cine: semitonos del pitch bend del lead (0 = sin bends)
     # Forma larga
     "largo_parte": (bool, False, None, None), # en canción: el arco dura lo que su parte
+    "enlazar": (bool, False, None, None),     # partes seguidas con la obertura: un solo arco, sin final ni intro entre ellas
     "secciones": (bool, True, None, None),    # más de 32 compases o en loop: secciones A/B/C
     "viva": (float, 0.0, 0.0, 1.0),           # orquestación viva: capas que entran y salen cada 16 compases
     # Respiración por CC (en la MC-101 74 = cutoff, 71 = resonancia; relativos: 64 = sin cambio)

@@ -117,6 +117,8 @@ def main():
     todo &= formas_y_tema()
     todo &= robustez()
     todo &= forma_larga()
+    todo &= enlazar()
+    todo &= paletas()
     todo &= esculpir()
 
     print("\nSe guarda (como en la app)")
@@ -260,7 +262,8 @@ def directo(ob_cfg, compases, largo_parte=None, partes=None, tonica="E"):
     enviar = lambda sal, tipo, canal, a, b: out.append((sal, t, tipo, canal, a, b))  # noqa: E731
     lista = []
     for largo in partes or ([largo_parte] if largo_parte else []):
-        lista += [{"dentro": d, "largo": largo, "vuelta": 0} for d in range(largo)]
+        ultima = len(lista) + largo >= sum(partes or [largo_parte])
+        lista += [{"dentro": d, "largo": largo, "vuelta": 0, "sigue": not ultima} for d in range(largo)]
     for t in range(compases * 96):
         if t % 6 == 0:
             c = t // 96
@@ -304,6 +307,83 @@ def forma_larga():
     quieto, _ = directo({"modo": "chill", "caracter": "etereo", "largo_parte": True, "viva": 0.0, "seed": "V-2"}, 128, largo_parte=128)
     q = [{e[3] for e in quieto if e[2] == "note_on" and v * 16 * 96 <= e[1] < (v + 1) * 16 * 96} for v in range(8)]
     todo &= ok(all(len(x) >= 2 for x in por) and por[0] == q[0] and por[7] == q[7], "nunca menos de dos; el comienzo y el cierre completos")
+    return todo
+
+
+def enlazar():
+    todo = True
+    print("\nEnlazar partes")
+    cfg = {"modo": "chill", "caracter": "etereo", "largo_parte": True, "enlazar": True, "seed": "E-1"}
+    out, _ = directo(cfg, 100, partes=[32, 32, 32])
+    ons = [e for e in out if e[2] == "note_on"]
+    capas = lambda c: {e[3] for e in ons if c * 96 <= e[1] < (c + 1) * 96}  # noqa: E731
+    sonando_al_cambio = lambda c: [e for e in out if e[2] == "note_off" and c * 96 - 24 < e[1] <= c * 96 + 2]  # noqa: E731
+    todo &= ok(len(capas(32)) > len(capas(0)) and len(capas(64)) > len(capas(0)), f"la parte siguiente no vuelve a la intro ({len(capas(0))} capas al empezar, {len(capas(32))} y {len(capas(64))} al enlazar)")
+    todo &= ok(all(sonando_al_cambio(c) or [e for e in ons if c * 96 - 24 <= e[1] < c * 96] for c in (32, 64)), "sin silencio entre partes")
+    todo &= ok(max(e[1] for e in out if e[2] == "note_off") <= 95 * 96 + 72, "la última parte sí termina (se apaga y deja silencio)")
+    todo &= ok(not colgadas(out) and bend_al_centro(out), "sin notas colgadas")
+    suelto, _ = directo(dict(cfg, enlazar=False), 66, partes=[32, 32])
+    todo &= ok(not [e for e in suelto if e[2] == "note_on" and 31 * 96 + 72 <= e[1] < 32 * 96] and len({e[3] for e in suelto if e[2] == "note_on" and 32 * 96 <= e[1] < 33 * 96}) <= 2,
+               "sin enlazar: cada parte termina y vuelve a empezar")
+    print("\nEnlazar en el modo canción del motor")
+    from goa import forma as fm
+    base = cargar(RAIZ / "config.ejemplo.toml")
+    base["entrada"].update(canal_disparo=2, nota_maxima=0)
+    for sq in base["secuencia"]:
+        sq["activa"] = False
+    base["bajo"]["activo"] = base["pads"]["activo"] = False
+    base["obertura"].update(activo=True, salida="MC", modo="chill", caracter="etereo", largo_parte=True, enlazar=True)
+    a = fm.escena_de(normalizar(base), "A")
+    b2 = copy.deepcopy(base)
+    b2["obertura"]["caracter"] = "lamento"
+    b = fm.escena_de(normalizar(b2), "B")
+    c2 = copy.deepcopy(base)
+    c2["obertura"]["activo"] = False
+    cc = fm.escena_de(normalizar(c2), "C")
+    base["escena"] = [a, b, cc]
+    base["parte"] = [dict(nombre="A", compases=32, escena=0), dict(nombre="B", compases=32, escena=1), dict(nombre="C", compases=8, escena=2)]
+    base["cancion"]["activa"] = True
+    cfg_m = normalizar(base)
+    out = []
+    m = Motor(cfg_m, lambda sal, tipo, canal, x, y: out.append((sal, m.tick, tipo, canal, x, y)))
+    m.start()
+    m.nota_on(1, 40)
+    for _ in range(74 * 96):
+        m.reloj()
+    m.stop()
+    out = [e for e in out if e[0] == "MC"]
+    ons = [e for e in out if e[2] == "note_on"]
+    todo &= ok(bool([e for e in ons if 31 * 96 + 60 <= e[1] < 32 * 96 + 12]) or bool([e for e in out if e[2] == "note_off" and 31 * 96 + 72 < e[1] <= 32 * 96 + 2]),
+               "de la parte A a la B sigue sonando")
+    todo &= ok(not [e for e in ons if 63 * 96 + 72 <= e[1] < 72 * 96] and bool([e for e in ons if e[1] >= 72 * 96]),
+               "antes de la parte C (sin obertura) se apaga y queda callada; al volver la canción a la A, suena de nuevo")
+    todo &= ok(not colgadas(out), "sin notas colgadas")
+    return todo
+
+
+def paletas():
+    todo = True
+    print("\nEspacial y fantasía")
+    for modo, cars in (("espacial", ("galaxia", "interestelar", "nebulosa")), ("fantasia", ("mazmorra", "castillo", "bosque"))):
+        for car in cars:
+            out, _ = directo({"modo": modo, "caracter": car, "seed": "N-1"}, 34)
+            ons = [e for e in out if e[2] == "note_on"]
+            fin = max(e[1] for e in out if e[2] in ("note_off", "pitchwheel"))
+            todo &= ok(all([e for e in ons if e[3] == k] for k in range(4)) and fin <= 31 * 96 + 72 and not colgadas(out) and bend_al_centro(out),
+                       f"{car}: cuatro pistas, termina en el tiempo 3, limpia")
+    gal, _ = directo({"modo": "espacial", "caracter": "galaxia"}, 34)
+    todo &= ok(len([e for e in gal if e[2] == "note_on" and e[3] == 2 and 20 * 96 <= e[1] < 21 * 96]) == 16, "galaxia: secuencia en semicorcheas")
+    inter, _ = directo({"modo": "espacial", "caracter": "interestelar"}, 34)
+    tic = [e[1] % 96 for e in inter if e[2] == "note_on" and e[3] == 3 and e[4] == 38 and e[1] < 96]
+    todo &= ok(tic == [0, 24, 48, 72], "interestelar: tic-tac en negras desde el primer compás")
+    neb, _ = directo({"modo": "espacial", "caracter": "nebulosa"}, 34)
+    acordes = sorted({e[1] // 96 for e in neb if e[2] == "note_on" and e[3] == 0})
+    todo &= ok(all(c % 4 == 0 for c in acordes), "nebulosa: el fondo cambia cada 4 compases")
+    cas, _ = directo({"modo": "fantasia", "caracter": "castillo"}, 34)
+    todo &= ok(any((e[4] - 40) % 12 == 11 for e in cas if e[2] == "note_on" and e[3] in (0, 1)), "castillo: menor armónica (la sensible del V mayor)")
+    maz, _ = directo({"modo": "fantasia", "caracter": "mazmorra"}, 2)
+    fondo = sorted(e[4] for e in maz if e[2] == "note_on" and e[3] == 0 and e[1] == 0)
+    todo &= ok(fondo and all((x - fondo[0]) % 12 in (0, 7) for x in fondo), "mazmorra: quintas paralelas (sin tercera)")
     return todo
 
 
@@ -360,7 +440,7 @@ def esculpir():
     malas = []
     for i in range(40):
         r = _r.Random(i)
-        cfg = {"modo": r.choice(("epico", "chill", "cine")), "seed": f"M{i}", "forma": r.choice(("crece", "golpe", "ola", "respiro")),
+        cfg = {"modo": r.choice(("epico", "chill", "cine", "espacial", "fantasia")), "seed": f"M{i}", "enlazar": r.random() < 0.5, "forma": r.choice(("crece", "golpe", "ola", "respiro")),
                "repetir": r.random() < 0.4, "frases": r.choice((1, 2, 4, 8)), "viva": r.random(), "respira_cc": r.choice((0, 74, 71)),
                "voces": r.randint(0, 5), "abierto": r.random() < 0.5, "inversion": r.randint(0, 2), "pedal": r.random() < 0.5,
                "swing": r.random() / 2, "humanizar": r.random(), "tema_track": r.random() < 0.5}
@@ -368,10 +448,10 @@ def esculpir():
             cfg.update({f"densidad_{capa}": r.random(), f"nivel_{capa}": r.random() * 1.5, f"legato_{capa}": 0.2 + r.random() * 1.3})
             if capa != "percusion":
                 cfg[f"octava_{capa}"] = r.randint(-2, 2)
-        partes = [r.choice((16, 32, 48, 96))] if r.random() < 0.5 else None
+        partes = [r.choice((16, 32, 48, 96)) for _ in range(r.randint(1, 3))] if r.random() < 0.5 else None
         if partes:
             cfg["largo_parte"] = True
-        out, _ = directo(cfg, (partes[0] if partes else 8 * cfg["frases"]) + 6, partes=partes, tonica=r.choice("CDEFGAB"))
+        out, _ = directo(cfg, (sum(partes) if partes else 8 * cfg["frases"]) + 6, partes=partes, tonica=r.choice("CDEFGAB"))
         if colgadas(out) or not sanas(out) or not bend_al_centro(out):
             malas.append(i)
     todo &= ok(not malas, f"40 configuraciones al azar con todo movido: limpias{'' if not malas else ' ' + str(malas)}")
@@ -407,7 +487,8 @@ def robustez():
     malas = []
     cuantas = 0
     for modo, cars in (("epico", ("batalla", "frigia", "tragica")), ("chill", ("etereo", "lamento", "ritual")),
-                       ("cine", ("neon", "titulos", "cosmos"))):
+                       ("cine", ("neon", "titulos", "cosmos")), ("espacial", ("galaxia", "interestelar", "nebulosa")),
+                       ("fantasia", ("mazmorra", "castillo", "bosque"))):
         for car in cars:
             for frases in (1, 2, 3, 8):
                 for forma, ton in (("crece", "C"), ("golpe", "F#"), ("ola", "B"), ("respiro", "E")):
@@ -417,7 +498,7 @@ def robustez():
                     if colgadas(out) or not sanas(out) or not bend_al_centro(out) or \
                             max(e[1] for e in out if e[2] == "note_off") > 8 * frases * 96:
                         malas.append((modo, car, frases, forma))
-    todo &= ok(not malas, f"{cuantas} oberturas (3 modos × 3 caracteres × 4 largos × 4 formas) limpias{'' if not malas else ': ' + str(malas[:4])}")
+    todo &= ok(not malas, f"{cuantas} oberturas (5 modos × 3 caracteres × 4 largos × 4 formas) limpias{'' if not malas else ': ' + str(malas[:4])}")
     return todo
 
 

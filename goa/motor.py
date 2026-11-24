@@ -780,6 +780,8 @@ class Motor(FormaMotor):
         ob = self.obertura
         if ob.activo and paso % PASOS_POR_COMPAS == 0:
             parte = self.conductor.parte(self.base, paso // PASOS_POR_COMPAS) if ob.largo_parte else None
+            if parte is not None and ob.enlazar:
+                parte = dict(parte, sigue=self._obertura_sigue(paso // PASOS_POR_COMPAS, parte))
             ob.paso(paso, self.tick, self.enviar,
                     next((s.patron for s in self.secuencias if s.activa), self.secuencias[0].patron if self.secuencias else None),
                     parte)
@@ -1176,6 +1178,19 @@ class Motor(FormaMotor):
                 s.pendientes = [p for p in s.pendientes if p[0] > self.tick]
                 for _, nota, velocidad, duracion in listas:
                     self._encender(s, nota, velocidad, self.tick + duracion)
+
+    def _obertura_sigue(self, compas, parte):
+        """¿La parte siguiente también tiene la obertura enlazada? (una vez por parte)"""
+        clave = (compas - parte["dentro"], parte["i"])
+        if getattr(self, "_ob_sigue", (None, False))[0] != clave:
+            sigue = False
+            prox = self.conductor.parte(self.base, compas - parte["dentro"] + parte["largo"])
+            if prox is not None:
+                cfg = self._config_parte(prox["i"]) or self.config or {}
+                o = cfg.get("obertura", {})
+                sigue = bool(o.get("activo") and o.get("largo_parte") and o.get("enlazar"))
+            self._ob_sigue = (clave, sigue)
+        return self._ob_sigue[1]
 
     def apagar_todo(self, pads=True):
         for s in self.secuencias:
