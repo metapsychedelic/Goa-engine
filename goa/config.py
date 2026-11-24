@@ -253,6 +253,41 @@ ESQUEMA_SECCIONES["obertura"] = {
     "forma": (str, "crece", None, ("crece", "golpe", "ola", "respiro")),
     "tema_track": (bool, False, None, None),  # llamada, tema y melodía siguen el motivo de la 1.ª secuencia
     "bend_rango": (int, 2, 0, 24),            # cine: semitonos del pitch bend del lead (0 = sin bends)
+    # Forma larga
+    "largo_parte": (bool, False, None, None), # en canción: el arco dura lo que su parte
+    "secciones": (bool, True, None, None),    # más de 32 compases o en loop: secciones A/B/C
+    "viva": (float, 0.0, 0.0, 1.0),           # orquestación viva: capas que entran y salen cada 16 compases
+    # Respiración por CC (en la MC-101 74 = cutoff, 71 = resonancia; relativos: 64 = sin cambio)
+    "respira_cc": (int, 0, 0, 119),           # 0 = no respira
+    "respira_compases": (int, 16, 2, 64),
+    "respira_rango": (float, 0.4, 0.0, 1.0),
+    # Acordes del colchón o brass (chill y cine)
+    "voces": (int, 0, 0, 5),                  # 0 = las del carácter
+    "abierto": (bool, False, None, None),
+    "inversion": (int, 0, 0, 2),
+    "pedal": (bool, False, None, None),
+    # Feel
+    "swing": (float, 0.0, 0.0, 0.5),
+    "humanizar": (float, 0.0, 0.0, 1.0),
+    "seed_cuerdas": (str, "", None, None),     # vacía = la seed general
+    "nivel_cuerdas": (float, 1.0, 0.0, 1.5),
+    "densidad_cuerdas": (float, 0.5, 0.0, 1.0),
+    "legato_cuerdas": (float, 1.0, 0.2, 1.5),
+    "octava_cuerdas": (int, 0, -2, 2),
+    "seed_cuernos": (str, "", None, None),     # vacía = la seed general
+    "nivel_cuernos": (float, 1.0, 0.0, 1.5),
+    "densidad_cuernos": (float, 0.5, 0.0, 1.0),
+    "legato_cuernos": (float, 1.0, 0.2, 1.5),
+    "octava_cuernos": (int, 0, -2, 2),
+    "seed_coro": (str, "", None, None),     # vacía = la seed general
+    "nivel_coro": (float, 1.0, 0.0, 1.5),
+    "densidad_coro": (float, 0.5, 0.0, 1.0),
+    "legato_coro": (float, 1.0, 0.2, 1.5),
+    "octava_coro": (int, 0, -2, 2),
+    "seed_percusion": (str, "", None, None),     # vacía = la seed general
+    "nivel_percusion": (float, 1.0, 0.0, 1.5),
+    "densidad_percusion": (float, 0.5, 0.0, 1.0),
+    "legato_percusion": (float, 1.0, 0.2, 1.5),
     "repetir": (bool, False, None, None),     # en loop (sin final): vuelve a la etapa 2 cada vez distinta
     "frases": (int, 4, 1, 8),                 # frases de 8 compases (4 = 32 compases)
     "velocidad": (int, 115, 1, 127),          # la fuerza del final (crece hasta ahí)

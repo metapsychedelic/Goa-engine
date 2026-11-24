@@ -777,8 +777,12 @@ class Motor(FormaMotor):
         self._paso_bajo(paso)
         self._paso_fx(paso)
         self._paso_texturas(paso)
-        self.obertura.paso(paso, self.tick, self.enviar,
-                           next((s.patron for s in self.secuencias if s.activa), self.secuencias[0].patron if self.secuencias else None))
+        ob = self.obertura
+        if ob.activo and paso % PASOS_POR_COMPAS == 0:
+            parte = self.conductor.parte(self.base, paso // PASOS_POR_COMPAS) if ob.largo_parte else None
+            ob.paso(paso, self.tick, self.enviar,
+                    next((s.patron for s in self.secuencias if s.activa), self.secuencias[0].patron if self.secuencias else None),
+                    parte)
         self._filtro_secuencias(paso)
 
     # --- FX: subidas, riser, filtros y glitches ---

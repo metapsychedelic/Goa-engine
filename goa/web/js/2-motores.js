@@ -1427,6 +1427,38 @@ function canalCapa(x, k, i) {
     el("span", {}, [el("b", {textContent: `${CAPAS_OBERTURA[x.modo][i]}`}), el("br"),
       el("span", {className: "mut", textContent: SONIDOS_OBERTURA[x.modo][i]})]), sel]);
 }
+const CAPAS_OB = ["cuerdas", "cuernos", "coro", "percusion"];
+const pct = (v) => `${Math.round(v * 100)} %`;
+const textoDensidad = (v) => v < 0.34 ? `poca (${pct(v)})` : v > 0.66 ? `mucha (${pct(v)})` : `normal (${pct(v)})`;
+function seedCapa(x, capa) {
+  const k = `seed_${capa}`;
+  const inp = el("input", {type: "text", value: x[k] || "", placeholder: `la general (${x.seed})`, "aria-label": "Seed propia",
+    style: "font-family:ui-monospace,Menlo,monospace;flex:1;min-width:0",
+    onchange: () => { x[k] = inp.value.trim(); guardar(); renderMotores(); }});
+  const otra = el("button", {type: "button", textContent: "Otra", onclick: () => {
+    x[k] = "OB-" + Math.random().toString(36).slice(2, 6).toUpperCase(); guardar(); renderMotores(); }});
+  const general = el("button", {type: "button", textContent: "General", title: "Vuelve a usar la seed general", disabled: !x[k],
+    onclick: () => { x[k] = ""; guardar(); renderMotores(); }});
+  return campo("Seed propia (vacía = la general)", el("div", {style: "display:flex;gap:6px"}, [inp, otra, general]));
+}
+function grupoCapa(x, capa, i) {
+  const nombre = CAPAS_OBERTURA[x.modo][i];
+  const oct = x[`octava_${capa}`];
+  const resumen = x[`canal_${capa}`] ? [`nivel ${pct(x[`nivel_${capa}`])}`, oct ? `octava ${oct > 0 ? "+" : ""}${oct}` : "",
+    `densidad ${textoDensidad(x[`densidad_${capa}`]).split(" ")[0]}`, x[`seed_${capa}`] ? `seed ${x[`seed_${capa}`]}` : ""].filter(Boolean).join(" · ") : "no suena";
+  return grupo(`g-ob-${capa}`, nombre, resumen, [
+    deslizador(x, `nivel_${capa}`, "Nivel", 0, 1.5, 0.05, pct, renderMotores),
+    capa === "percusion" ? null : campo("Octava", segmentado([[-2, "−2"], [-1, "−1"], [0, "0"], [1, "+1"], [2, "+2"]], oct,
+      (v) => { x[`octava_${capa}`] = v; guardar(); renderMotores(); }, 5)),
+    deslizador(x, `densidad_${capa}`, "Densidad", 0, 1, 0.05, textoDensidad, renderMotores),
+    ayuda({cuerdas: "Poca: solo raíz y quinta (en el épico, el galope en los tiempos fuertes). Mucha: el acorde ataca en cada compás (en el épico, galope lleno).",
+      cuernos: "Poca: a veces una sola nota larga por compás. Mucha: las notas largas se parten en dos, la segunda a un paso de escala.",
+      coro: x.modo === "cine" ? "Poca: el arpegio en negras (el pulso en corcheas). Mucha: el arpegio al doble." : "Poca: solo la raíz. Mucha: suma la octava de arriba.",
+      percusion: "Poca: quita golpes fuera de los tiempos. Mucha: suma golpes suaves de tambor a contratiempo."}[capa]),
+    deslizador(x, `legato_${capa}`, "Largo de las notas", 0.2, 1.5, 0.05, (v) => v < 0.7 ? `staccato (${pct(v)})` : v > 1.05 ? `ligado (${pct(v)})` : pct(v)),
+    seedCapa(x, capa),
+  ]);
+}
 function panelObertura() {
   const x = cfg.obertura;
   const compases = 8 * x.frases;
@@ -1448,8 +1480,9 @@ function panelObertura() {
       casilla(x, "tema_track", "Tema del track", "La llamada, el tema y la melodía usan las notas de la 1.ª secuencia: la intro anuncia lo que viene en el drop (si la secuencia es un pedal, usa su propia melodía)"),
       x.modo === "cine" ? numeroDe(x, "bend_rango", "Rango del bend del lead (semitonos, 0 = sin bends)", 0, 24) : null,
       casilla(x, "repetir", "En loop", "No termina: después de la intro vuelve a la etapa 2 y sigue, cada vuelta con otra melodía. Para acompañar un tema chill", () => renderMotores()),
-      deslizador(x, "frases", "Largo", 1, 8, 1, (v) => `${v} frase${v > 1 ? "s" : ""} · ${8 * v} compases`, () => renderMotores()),
-      ayuda(x.repetir ? "En loop no termina: suena mientras dure su parte (al apagarla vuelve a la escena de vuelta, si hay)."
+      casilla(x, "largo_parte", "Largo: el de la parte", "En el modo canción el arco (y las secciones) duran lo que dura su parte; sin canción usa el largo de abajo", () => renderMotores()),
+      deslizador(x, "frases", x.largo_parte ? "Largo sin canción" : "Largo", 1, 8, 1, (v) => `${v} frase${v > 1 ? "s" : ""} · ${8 * v} compases`, () => renderMotores()),
+      x.largo_parte ? ayuda(x.repetir ? "Con «En loop» no se calla al final de la parte: sigue en la próxima." : "Cada parte es un arco completo que se apaga con ella; si la escena de la MC-101 no cambia entre partes, no usa compás de preparación.") : ayuda(x.repetir ? "En loop no termina: suena mientras dure su parte (al apagarla vuelve a la escena de vuelta, si hay)."
         : `En el modo canción, haz que su parte dure ${total} compases${total > compases ? " (uno de preparación para que la MC cambie de escena)" : ""}; la parte siguiente es el drop.`),
       numeroDe(x, "velocidad", "Fuerza del final (1-127)", 1, 127),
       casilla(x, "expresion", "Crescendo por CC 11", "Además de la fuerza de las notas, la expresión de cada pista va subiendo"),
@@ -1462,6 +1495,33 @@ function panelObertura() {
       destinoDe(x, renderMotores),
     ]),
     el("div", {className: "grupos"}, [
+      ...CAPAS_OB.map((capa, i) => grupoCapa(x, capa, i)),
+    ]),
+    el("div", {className: "grupos"}, [
+      grupo("g-ob-larga", "Forma larga", `${x.secciones ? "secciones A/B/C" : "una sola progresión"}${x.viva ? ` · viva ${pct(x.viva)}` : ""}`, [
+        casilla(x, "secciones", "Secciones", "Pasados los 32 compases (o en cada vuelta del loop) la armonía cambia: A, B (la otra progresión) y C (un tono arriba, el clímax); termina en A", () => renderMotores()),
+        deslizador(x, "viva", "Orquestación viva", 0, 1, 0.05, (v) => v ? pct(v) : "apagada", renderMotores),
+        ayuda("Cada 16 compases algunas capas salen y otras vuelven (el colchón casi nunca). Nunca quedan menos de dos, y el comienzo y el cierre suenan completos."),
+      ]),
+      x.modo === "epico" ? null : grupo("g-ob-acordes", "Acordes", `${x.voces ? `${x.voces} voces` : "voces del carácter"}${x.inversion ? ` · inversión ${x.inversion}` : ""}${x.abierto ? " · abierto" : ""}${x.pedal ? " · pedal" : ""}`, [
+        campo("Voces", segmentado([[0, "Auto"], [2, "2"], [3, "3"], [4, "4"], [5, "5"]], x.voces, (v) => { x.voces = v; guardar(); renderMotores(); }, 5)),
+        campo("Inversión", segmentado([[0, "Fundamental"], [1, "1.ª"], [2, "2.ª"]], x.inversion, (v) => { x.inversion = v; guardar(); renderMotores(); }, 3)),
+        casilla(x, "abierto", "Abierto", "Una nota de cada dos sube una octava: el acorde se separa y suena más grande", renderMotores),
+        casilla(x, "pedal", "Pedal de tónica", "La tónica grave queda abajo todo el rato, aunque cambie el acorde", renderMotores),
+      ]),
+      grupo("g-ob-respira", "Respiración por CC", x.respira_cc ? `CC ${x.respira_cc} · cada ${x.respira_compases} compases · ${pct(x.respira_rango)}` : "apagada", [
+        campo("Qué respira", segmentado([[0, "Nada"], [74, "Filtro", "CC 74"], [71, "Resonancia", "CC 71"], [73, "Ataque", "CC 73"]], [0, 74, 71, 73].includes(x.respira_cc) ? x.respira_cc : null,
+          (v) => { x.respira_cc = v; guardar(); renderMotores(); }, 4)),
+        numeroDe(x, "respira_cc", "Otro CC (0 = nada)", 0, 119, renderMotores),
+        deslizador(x, "respira_compases", "Ciclo", 2, 64, 1, (v) => `${v} compases`),
+        deslizador(x, "respira_rango", "Cuánto", 0, 1, 0.05, pct),
+        ayuda("Un barrido lento y continuo en el colchón, la melodía y el coro, desfasado entre ellos. En la MC-101 estos CC son relativos: 64 es el sonido tal como lo guardaste, y al terminar vuelve a 64."),
+      ]),
+      grupo("g-ob-feel", "Feel", `${x.swing ? `swing ${pct(x.swing * 2)}` : "recto"}${x.humanizar ? ` · humano ${pct(x.humanizar)}` : ""}`, [
+        deslizador(x, "swing", "Swing", 0, 0.5, 0.05, (v) => v ? pct(v * 2) : "recto", renderMotores),
+        deslizador(x, "humanizar", "Humanizar", 0, 1, 0.05, (v) => v ? pct(v) : "exacto", renderMotores),
+        ayuda("Swing atrasa las corcheas y semicorcheas a contratiempo. Humanizar mueve un poco el tiempo (siempre hacia atrás) y la fuerza de cada nota."),
+      ]),
       grupo("g-ob-escenas", "Escenas de la MC-101", x.escena ? `orquesta ${x.escena} · vuelve a ${x.escena_vuelta || "—"}` : "no cambia de escena", [
         numeroDe(x, "escena", "Escena «orquesta» (1-128, 0 = no cambia)", 0, 128, () => renderMotores()),
         numeroDe(x, "escena_vuelta", "Escena a la que vuelve para el drop (0 = no cambia)", 0, 128, () => renderMotores()),

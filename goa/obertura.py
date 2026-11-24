@@ -50,6 +50,7 @@ Empieza en el primer compás en que está activa (con el reloj andando) y suena 
 vez; para repetirla hay que apagarla y volver a prenderla (o volver a lanzar su parte).
 """
 
+import math
 import random
 
 TICKS_POR_PASO = 6
@@ -105,6 +106,16 @@ ESCALAS_CINE = {"neon": (0, 2, 3, 5, 7, 8, 10), "titulos": (0, 2, 3, 5, 7, 8, 10
 RITMOS_CINE = (((0, 4),), ((0, 3), (3, 1)), ((0, 1.5), (1.5, 2.5)), ((0, 2), (2, 2)), ((0.5, 3.5),), ((0, 2.5), (2.5, 1.5)))
 ARPEGIOS = ((0, 1, 2, 3, 2, 1, 2, 3), (0, 2, 1, 3, 0, 2, 1, 3), (0, 1, 2, 3, 3, 2, 1, 0), (3, 2, 1, 0, 1, 2, 3, 2))
 PULSOS = ((0, 12) * 8, (0, 0, 12, 0) * 4, (0, 12, 0, 0) * 4)
+CAPAS = ("cuerdas", "cuernos", "coro", "percusion")
+# Qué capa usa cada sorteo (para la seed propia de cada instrumento).
+CAPA_DE_CLAVE = {"galope": "cuerdas", "llamada": "cuernos", "tema": "cuernos", "melodia": "cuernos", "bend": "cuernos",
+                 "arpegio": "coro", "pulso": "coro", "taiko": "percusion", "tambor": "percusion",
+                 "ritual": "percusion", "fantasma": "percusion", "fantasmas": "percusion", "densidad": "cuernos"}
+# Secciones de la forma larga: A (la progresión de la seed), B (la otra progresión del
+# carácter), C (la de A un tono arriba: el clímax). En loop, cada vuelta es una sección.
+PATRONES_SECCION = ("AABA", "ABAB", "AABC", "ABAC", "ABCA")
+TRANSPORTE_SECCION = {"A": 0, "B": 0, "C": 2}
+FONDO = {"epico": "coro", "chill": "cuerdas", "cine": "cuerdas"}   # la capa que la orquestación viva casi nunca saca
 TAIKOS_RITUAL = ((0, 2.5), (0, 1.5, 2.5), (0, 0.75, 2, 2.5), (0, 1, 2.5, 3.5))
 # Galope de batalla (semicorcheas del compás) y su versión llena para la última etapa.
 GALOPES = ((0, 3, 6, 8, 11, 14), (0, 3, 6, 10, 12, 14), (0, 2, 3, 6, 8, 10, 11, 14), (0, 3, 4, 8, 11, 12))
@@ -144,6 +155,28 @@ class Obertura:
         self.bend_rango = max(0, min(24, int(cfg.get("bend_rango", 2))))   # semitonos del bend del lead (cine)
         self.motivo = None        # semitonos sobre la tónica, tomados del patrón al empezar
         self.repetir = bool(cfg.get("repetir", False))   # en loop: después de la intro vuelve a la etapa 2, sin final
+        # Forma larga (0.100)
+        self.largo_parte = bool(cfg.get("largo_parte", False))   # en canción: el arco dura lo que su parte
+        self.secciones = bool(cfg.get("secciones", True))       # más de 32 compases (o en loop): secciones A/B/C
+        self.viva = _f(cfg.get("viva", 0.0))                     # orquestación viva: capas que entran y salen
+        # Respiración por CC (relativo en la MC-101: 64 = sin cambio)
+        self.respira_cc = max(0, min(119, int(cfg.get("respira_cc", 0))))
+        self.respira_compases = max(2, min(64, int(cfg.get("respira_compases", 16))))
+        self.respira_rango = _f(cfg.get("respira_rango", 0.4))
+        # Por instrumento
+        self.seeds = {k: str(cfg.get(f"seed_{k}", "") or "").strip() for k in CAPAS}
+        self.niveles = {k: max(0.0, min(1.5, float(cfg.get(f"nivel_{k}", 1.0)))) for k in CAPAS}
+        self.octavas = {k: max(-2, min(2, int(cfg.get(f"octava_{k}", 0)))) for k in CAPAS if k != "percusion"}
+        self.densidades = {k: _f(cfg.get(f"densidad_{k}", 0.5)) for k in CAPAS}
+        self.legatos = {k: max(0.2, min(1.5, float(cfg.get(f"legato_{k}", 1.0)))) for k in CAPAS}
+        # Acordes del colchón o brass (chill y cine)
+        self.voces = max(0, min(5, int(cfg.get("voces", 0))))   # 0 = las del carácter
+        self.abierto = bool(cfg.get("abierto", False))
+        self.inversion = max(0, min(2, int(cfg.get("inversion", 0))))
+        self.pedal = bool(cfg.get("pedal", False))
+        # Feel
+        self.swing = max(0.0, min(0.5, float(cfg.get("swing", 0.0))))
+        self.humanizar = _f(cfg.get("humanizar", 0.0))
         self.frases = max(1, min(8, int(cfg.get("frases", 4))))
         self.velocidad = max(1, min(127, int(cfg.get("velocidad", 115))))
         self.expresion = bool(cfg.get("expresion", True))
@@ -159,21 +192,32 @@ class Obertura:
         self.pendientes = []      # (tick, tipo, canal, a, b)
         self.sonando = {}         # (canal, nota) -> tick en que termina
         self._corte = None        # chill y cine: tick absoluto en que todo debe estar callado
+        self._largo = None        # con largo_parte: el de la parte (si no, 8 × frases)
+        self._seccion = "A"
+        self._transp = 0
+        self._mudas = frozenset()
+        self._t0 = 0              # tick del compás que se está agendando
+        self._escena_enviada = None
         self._bend_usado = False
 
     # --- Forma ---
 
     @property
     def largo(self):
-        return 8 * self.frases
+        return self._largo or 8 * self.frases
 
     def _rng(self, *clave):
-        return random.Random(":".join(["obertura", self.seed, *map(str, clave)]))
+        seed = self.seeds.get(CAPA_DE_CLAVE.get(str(clave[0]) if clave else ""), "") or self.seed
+        return random.Random(":".join(["obertura", seed, *map(str, clave)]))
 
-    def plan(self):
-        """Los acordes de la frase de 8 compases (uno cada 2)."""
+    def plan(self, seccion="A"):
+        """Los acordes de la frase de 8 compases (uno cada 2). La sección B usa la otra
+        progresión del carácter."""
         variantes = PLANES_CINE[self.caracter] if self.modo == "cine" else PLANES[self.caracter]
-        cuatro = variantes[int(self._rng("plan").random() * len(variantes))]
+        i = int(self._rng("plan").random() * len(variantes))
+        if seccion == "B":
+            i = (i + 1) % len(variantes)
+        cuatro = variantes[i]
         return [a for a in cuatro for _ in (0, 1)]
 
     def tonica_grave(self):
@@ -218,6 +262,8 @@ class Obertura:
             if self.tema_track == viejo.tema_track:
                 self.motivo = viejo.motivo
             self._bend_usado = viejo._bend_usado
+            self._escena_enviada = viejo._escena_enviada
+            self._prep = getattr(viejo, "_prep", 0)
             self.pendientes, self.sonando = viejo.pendientes, viejo.sonando
             viejo.pendientes, viejo.sonando = [], {}
         else:
@@ -236,12 +282,20 @@ class Obertura:
 
     # --- Tiempo ---
 
-    def paso(self, paso, tick, enviar, patron=None):
-        if not self.activo or self.terminada:
+    def paso(self, paso, tick, enviar, patron=None, parte=None):
+        """Agenda un compás en su uno. `parte` (en canción): {"dentro", "largo", "vuelta"} de
+        la parte que suena; con largo_parte la obertura sigue esa parte."""
+        if not self.activo:
             return
         compas, lugar = divmod(paso, PASOS_POR_COMPAS)
         if lugar:
             return
+        if self.largo_parte and parte is not None:
+            self._paso_parte(compas, tick, enviar, patron, parte)
+            return
+        if self.terminada:
+            return
+        self._largo = None
         if self.inicio is None:
             self.inicio = compas
             self.motivo = self.motivo_de(patron) if self.tema_track else None
@@ -253,6 +307,7 @@ class Obertura:
                                             self.escena - 1, 0))
                 else:
                     enviar(self.salida, "program_change", self.canal_control, self.escena - 1, 0)
+                self._escena_enviada = self.escena
         c = compas - self.inicio
         if c < 0:
             return  # compás de preparación
@@ -260,12 +315,47 @@ class Obertura:
         if c >= self.largo:
             if not self.repetir:
                 self.terminada = True
+                self._soltar_respiracion(enviar)
                 return
             # En loop: vuelve a la etapa 2 (sin la intro de coro solo), cada vuelta distinta.
             i1 = self._inicio_etapa(1)
             vuelta = self.largo - i1
             ciclo = 1 + (c - self.largo) // vuelta
             c = i1 + (c - self.largo) % vuelta
+        self._agendar(c, tick, ciclo, compas)
+        self.tick(tick, enviar)
+
+    def _paso_parte(self, compas, tick, enviar, patron, parte):
+        """Largo de la parte: el compás de la obertura es el de la parte (cada parte es un arco)."""
+        dentro, largo = int(parte["dentro"]), int(parte["largo"])
+        cambia = self.escena and self.escena != self._escena_enviada
+        prep = 1 if cambia and self.preparar and largo > 1 else 0
+        if dentro == 0 or self.inicio is None:
+            self.terminada = False
+            self.motivo = self.motivo_de(patron) if self.tema_track else None
+            if cambia:
+                if prep and dentro == 0:
+                    self.pendientes.append((tick + TICKS_POR_COMPAS // 2, "program_change", self.canal_control, self.escena - 1, 0))
+                else:
+                    prep = 0
+                    enviar(self.salida, "program_change", self.canal_control, self.escena - 1, 0)
+                self._escena_enviada = self.escena
+            self._prep = prep
+        prep = getattr(self, "_prep", 0)
+        self._largo = max(1, largo - prep)
+        c = dentro - prep
+        self.inicio = compas - c
+        if c < 0 or c >= self._largo:
+            return
+        self._agendar(c, tick, int(parte.get("vuelta", 0) or 0), compas, en_parte=True)
+        self.tick(tick, enviar)
+
+    def _agendar(self, c, tick, ciclo, compas, en_parte=False):
+        """Prepara el compás (sección, transporte, capas que callan) y lo agenda."""
+        self._t0 = tick
+        self._seccion = self.seccion(c, 0 if en_parte else ciclo)
+        self._transp = TRANSPORTE_SECCION[self._seccion]
+        self._mudas = self._mudas_de(c, ciclo)
         if self.modo == "chill":
             self._compas_chill(c, tick, ciclo)
         elif self.modo == "cine":
@@ -273,13 +363,97 @@ class Obertura:
         else:
             self._corte = None
             self._compas(c, tick)
-        self.tick(tick, enviar)
+        self._fantasmas(c, tick)
+        self._respirar(compas, tick)
+
+    # --- Forma larga ---
+
+    def seccion(self, c, ciclo=0):
+        """La sección (A, B o C) del compás c; en loop, la de la vuelta."""
+        if not self.secciones:
+            return "A"
+        patron = PATRONES_SECCION[int(self._rng("secciones").random() * len(PATRONES_SECCION))]
+        if ciclo:
+            return patron[ciclo % len(patron)]
+        if self.largo <= 32:
+            return "A"
+        n = max(2, self.largo // 16)
+        letras = (patron * n)[:n]
+        if n >= 3:
+            letras = letras[:-1] + "A"   # termina en casa
+        return letras[min(n - 1, c // 16)]
+
+    def _mudas_de(self, c, ciclo):
+        """Orquestación viva: las capas que callan en este tramo de 16 compases."""
+        if not self.viva or self.etapa(c) == 0:
+            return frozenset()
+        ventana = c // 16 + 1000 * ciclo
+        if ventana == 0 or (not self.repetir and c >= self.largo - 8):
+            return frozenset()   # el comienzo y el cierre van completos
+        rng = self._rng("viva", ventana)
+        fondo = FONDO[self.modo]
+        fuera = {k for k in CAPAS if rng.random() < self.viva * (0.2 if k == fondo else 0.6)}
+        activas = [k for k in CAPAS if self.canales[k] >= 0]
+        if len([k for k in activas if k not in fuera]) < 2:
+            fuera -= {fondo, "cuernos"}
+        return frozenset(fuera)
+
+    def _fantasmas(self, c, t0):
+        """Densidad alta de la percusión: golpes suaves de tambor en las corcheas a contratiempo."""
+        d = self.densidades["percusion"]
+        if d <= 0.5 or self.etapa(c) == 0 or (c == self.largo - 1 and not self.repetir):
+            return
+        rng = self._rng("fantasmas", c, self._t0)
+        for pos in (12, 36, 60, 84):
+            if rng.random() < (d - 0.5) * 2:
+                self._nota("percusion", t0 + pos, SEMI, self.nota_tambor, self.velocidad * (0.2 + 0.15 * self.crece(c)))
+
+    # --- Respiración ---
+
+    def _respirar(self, compas, t0):
+        if not self.respira_cc:
+            return
+        for k, capa in enumerate(("cuerdas", "cuernos", "coro")):
+            canal = self.canales[capa]
+            if canal < 0:
+                continue
+            for b in range(4):
+                fase = 2 * math.pi * ((compas + b / 4) / self.respira_compases + k / 3)
+                val = 64 + self.respira_rango * 63 * math.sin(fase)
+                self.pendientes.append((t0 + b * NEGRA, "control_change", canal, self.respira_cc, max(0, min(127, round(val)))))
+
+    def _soltar_respiracion(self, enviar):
+        if not self.respira_cc:
+            return
+        for capa in ("cuerdas", "cuernos", "coro"):
+            if self.canales[capa] >= 0:
+                enviar(self.salida, "control_change", self.canales[capa], self.respira_cc, 64)
 
     def _nota(self, capa, inicio, largo, nota, vel):
         canal = self.canales[capa]
-        if canal < 0 or not 0 <= nota <= 127:
+        if canal < 0 or capa in self._mudas:
             return
-        vel = max(1, min(127, round(vel)))
+        pos = (inicio - self._t0) % TICKS_POR_COMPAS
+        if capa == "percusion":
+            d = self.densidades["percusion"]
+            if d < 0.5 and pos % NEGRA and nota != self.nota_golpe and \
+                    random.Random(f"{self.seed}:dp:{inicio}:{nota}").random() < (0.5 - d) * 2:
+                return
+        else:
+            nota += 12 * self.octavas[capa] + self._transp
+        if not 0 <= nota <= 127:
+            return
+        if self.swing:
+            if pos % NEGRA == 12:
+                inicio += round(self.swing * 8)
+            elif pos % 12 == 6:
+                inicio += round(self.swing * 4)
+        if self.humanizar:
+            h = random.Random(f"{self.seed}:h:{inicio}:{nota}:{canal}")
+            inicio += h.randint(0, round(2 * self.humanizar))
+            vel += h.uniform(-1, 1) * 15 * self.humanizar
+        vel = max(1, min(127, round(vel * self.niveles[capa])))
+        largo = largo * self.legatos[capa]
         fin = inicio + max(1, round(largo))
         if self._corte is not None:
             if inicio >= self._corte:
@@ -295,7 +469,7 @@ class Obertura:
         tope = self.velocidad
         v = lambda x: tope * x  # noqa: E731
         ton = self.tonica_grave()
-        plan = self.plan()
+        plan = self.plan(self._seccion)
         nombre = plan[c % 8]
         raiz = ton + RAIZ[nombre]
         final = c == self.largo - 1 and not self.repetir
@@ -307,12 +481,15 @@ class Obertura:
         # Coro: drone de raíz y quinta, cada 4 compases (o lo que quede).
         if c % 4 == 0:
             largo = min(4, self.largo - c) * TICKS_POR_COMPAS - (TICKS_POR_COMPAS - 2 * NEGRA if c + 4 >= self.largo and not self.repetir else 0) - 2
-            for n in (ton + 12, ton + 19):
+            for n in self._coro_notas((ton + 12, ton + 19), ton):
                 self._nota("coro", t0, largo, n, v(0.45 + 0.5 * crece))
         # Cuerdas graves al galope desde la etapa 2 (o el 2.º compás si la obertura es corta).
         if etapa >= 1 or (self.largo <= 8 and c >= 2):
-            figuras = LLENOS if etapa == 3 else GALOPES
+            d = self.densidades["cuerdas"]
+            figuras = LLENOS if etapa == 3 or (d > 0.66 and etapa >= 1) else GALOPES
             figura = figuras[int(self._rng("galope", etapa).random() * len(figuras))]
+            if d < 0.34:
+                figura = [k for k in figura if k in (0, 6, 8, 14)] or [0]
             grave = raiz - 12 if raiz - 12 >= 28 else raiz
             for k in figura:
                 if k * SEMI >= hasta:
@@ -409,7 +586,7 @@ class Obertura:
         v = lambda x: self.velocidad * x  # noqa: E731
         ton = self.tonica_grave()
         car = self.caracter
-        nombre = self.plan()[c % 8]
+        nombre = self.plan(self._seccion)[c % 8]
         r = RAIZ[nombre]
         i1 = self._inicio_etapa(1)
         if self.expresion:
@@ -425,21 +602,21 @@ class Obertura:
                     self.pendientes.append((t0 + b * NEGRA, "control_change", canal, 11, max(0, min(127, round(val)))))
         dos = 2 * TICKS_POR_COMPAS - 3
         # Cuerdas: el acorde cada 2 compases (quintas abiertas en el ritual, novena en el etéreo).
-        if c % 2 == 0:
+        cada = self._cada_acorde()
+        if c % cada == 0:
             raiz = ton + 12 + r
             if raiz > ton + 18:
                 raiz -= 12
-            notas = [raiz, raiz + 7] if car == "ritual" else [raiz, raiz + TERCERA[nombre], raiz + 7]
+            acorde = [raiz, raiz + 7] if car == "ritual" else [raiz, raiz + TERCERA[nombre], raiz + 7]
             if car == "etereo":
-                notas.append(raiz + 14)
-            if etapa >= 2:
-                notas.append(raiz - 12)
+                acorde.append(raiz + 14)
+            notas = self._voicing(acorde, ton) + ([raiz - 12] if etapa >= 2 else [])
             for n in notas:
-                self._nota("cuerdas", t0, dos, n, v(0.3 + 0.35 * crece))
+                self._nota("cuerdas", t0, cada * TICKS_POR_COMPAS - 3, n, v(0.3 + 0.35 * crece))
         # Coro: raíz y quinta (y la octava en el etéreo lleno), desde el comienzo salvo en el
         # lamento, que lo deja para la etapa 3.
         if c % 2 == 0 and (car != "lamento" or etapa >= 2):
-            notas = [ton + 12, ton + 19] + ([ton + 24] if car == "etereo" and etapa >= 2 else [])
+            notas = self._coro_notas([ton + 12, ton + 19] + ([ton + 24] if car == "etereo" and etapa >= 2 else []), ton)
             for n in notas:
                 self._nota("coro", t0, dos, n, v(0.3 + 0.4 * crece))
         # Melodía en frases de 4 compases desde la etapa 2: A termina en la quinta, B en la tónica.
@@ -489,7 +666,7 @@ class Obertura:
         v = lambda x: self.velocidad * x  # noqa: E731
         ton = self.tonica_grave()
         car = self.caracter
-        nombre = self.plan()[c % 8]
+        nombre = self.plan(self._seccion)[c % 8]
         r = RAIZ[nombre]
         color = COLOR_CINE[nombre]
         i1 = self._inicio_etapa(1)
@@ -506,16 +683,17 @@ class Obertura:
         if raiz > ton + 18:
             raiz -= 12
         # Pista 1: el brass, un acorde cada 2 compases (la octava grave desde la etapa 3).
-        if c % 2 == 0:
-            notas = [raiz + x for x in color] + ([raiz - 12] if etapa >= 2 else [])
+        cada = self._cada_acorde()
+        if c % cada == 0:
+            notas = self._voicing([raiz + x for x in color], ton) + ([raiz - 12] if etapa >= 2 else [])
             for n in notas:
-                self._nota("cuerdas", t0, 2 * TICKS_POR_COMPAS - 3, n, v((0.45 if car == "titulos" else 0.35) + 0.4 * crece))
+                self._nota("cuerdas", t0, cada * TICKS_POR_COMPAS - 3, n, v((0.45 if car == "titulos" else 0.35) + 0.4 * crece))
         # Pista 3: arpegio (neón, cosmos) o pulso (títulos).
         rng = self._rng("arpegio", etapa, ciclo)
         if car == "titulos":
             grave = ton + r if ton + r >= 36 else ton + r + 12
             figura = PULSOS[int(self._rng("pulso", ciclo).random() * len(PULSOS))]
-            for k in range(0, 16, 1 if etapa >= 1 else 2):
+            for k in range(0, 16, 1 if etapa >= 1 and self.densidades["coro"] >= 0.34 else 2):
                 if k * SEMI < hasta:
                     self._nota("coro", t0 + k * SEMI, SEMI - 1, grave + figura[k],
                                v((0.45 + 0.4 * crece) * (1 if k % 4 == 0 else 0.7)))
@@ -523,6 +701,10 @@ class Obertura:
             figura = ARPEGIOS[int(rng.random() * len(ARPEGIOS))]
             alto = 24 if car == "cosmos" else 12
             paso = 2 if car == "neon" or etapa == 3 else 4   # corcheas o negras (en semicorcheas)
+            if self.densidades["coro"] < 0.34:
+                paso = 4
+            elif self.densidades["coro"] > 0.66:
+                paso = max(1, paso // 2)
             for j, k in enumerate(range(0, 16, paso)):
                 if k * SEMI < hasta:
                     self._nota("coro", t0 + k * SEMI, paso * SEMI - 1, raiz + alto + color[figura[j % 8]],
@@ -611,9 +793,77 @@ class Obertura:
             if self.motivo and i + j < len(grados) - 1:
                 semis = self.motivo[(i + j) % len(self.motivo)]
             notas.append((t0 + round(ini * NEGRA), dur * NEGRA - 3, base + semis, vel * (1 if j == 0 else 0.85)))
+        notas = self._densificar(notas, t0, base, escala, (cual, *clave, k))
         if tocar:
             for n in notas:
                 self._nota("cuernos", *n)
+        return notas
+
+    # --- Por instrumento ---
+
+    def _densificar(self, notas, t0, base, escala, clave):
+        """Densidad de la melodía: baja = a veces una sola nota larga en el compás; alta =
+        las notas largas se parten en dos (la segunda a un paso de escala)."""
+        d = self.densidades["cuernos"]
+        if d == 0.5 or not notas:
+            return notas
+        rng = self._rng("densidad", *clave)
+        if d < 0.5:
+            if rng.random() < (0.5 - d) * 2:
+                ini, dur, nota, f = notas[0]
+                return [(ini, max(dur, t0 + TICKS_POR_COMPAS - 3 - ini), nota, f)]
+            return notas
+        sal = []
+        for ini, dur, nota, f in notas:
+            if dur >= 2 * NEGRA - 3 and rng.random() < (d - 0.5) * 2:
+                mitad = (dur + 3) // 2
+                sal.append((ini, mitad - 3, nota, f))
+                sal.append((ini + mitad, dur - mitad, self._vecina(nota, base, escala, rng.choice((-1, 1, 1))), f * 0.9))
+            else:
+                sal.append((ini, dur, nota, f))
+        return sal
+
+    @staticmethod
+    def _vecina(nota, base, escala, paso):
+        octava, r = divmod(nota - base, 12)
+        if r not in escala:
+            return nota
+        o2, j = divmod(escala.index(r) + paso, len(escala))
+        return base + 12 * (octava + o2) + escala[j]
+
+    def _cada_acorde(self):
+        """Cada cuántos compases ataca el colchón: 2 (como siempre) o 1 con densidad alta."""
+        return 1 if self.densidades["cuerdas"] > 0.66 else 2
+
+    def _voicing(self, acorde, ton):
+        """Acordes: voces (2-5), inversión, abierto y pedal de tónica. Densidad baja del
+        colchón: solo raíz y quinta."""
+        tonos = sorted(acorde)
+        if self.densidades["cuerdas"] < 0.34 and not self.voces:
+            tonos = [tonos[0]] + [x for x in tonos if (x - tonos[0]) % 12 == 7][:1]
+        if self.voces:
+            base = list(tonos)
+            k = 0
+            while len(tonos) < self.voces:
+                tonos.append(base[k % len(base)] + 12 * (1 + k // len(base)))
+                k += 1
+            tonos = sorted(tonos)[:self.voces]
+        for _ in range(self.inversion):
+            tonos = sorted(tonos[1:] + [tonos[0] + 12])
+        if self.abierto and len(tonos) >= 3:
+            tonos = sorted(tonos[::2] + [x + 12 for x in tonos[1::2]])
+        if self.pedal:
+            tonos = [ton] + tonos
+        return tonos
+
+    def _coro_notas(self, notas, ton):
+        """Densidad del coro: baja = solo la raíz; alta = suma la octava de arriba."""
+        d = self.densidades["coro"]
+        notas = list(notas)
+        if d < 0.34:
+            return notas[:1]
+        if d > 0.66 and ton + 24 not in notas:
+            notas.append(ton + 24)
         return notas
 
     # --- Tema del track ---
@@ -672,6 +922,7 @@ class Obertura:
     def apagar(self, enviar):
         for canal, nota in list(self.sonando):
             enviar(self.salida, "note_off", canal, nota, 0)
+        self._soltar_respiracion(enviar)
         if self._bend_usado and self.canales["cuernos"] >= 0:
             enviar(self.salida, "pitchwheel", self.canales["cuernos"], 0, 0)
             self._bend_usado = False

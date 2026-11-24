@@ -88,6 +88,17 @@ tema); el carácter viene de los sonidos y de cómo se tocan.
 - **Tema del track**: la llamada, el tema y la melodía usan las primeras notas de la 1.ª
   secuencia, así la intro anuncia lo que viene en el drop.
 
+## Como backtrack (0.100)
+
+- **Largo: el de la parte**: en el modo canción la obertura dura lo que su parte (por ejemplo
+  128 compases) y las **secciones** cambian la armonía cada 16 (A, B, C un tono arriba, y
+  vuelta a A). Con «En loop» no se calla al final de la parte.
+- **Orquestación viva**: cada 16 compases salen y vuelven capas.
+- **Respiración por CC**: la MC-101 recibe CC 74 (cutoff), 71 (resonancia), 73 (ataque) y
+  72 (release) por canal de pista. Son relativos: 64 deja el sonido como lo guardaste.
+- **Cada instrumento**: nivel, octava, densidad, largo de las notas y seed propia (congelas
+  lo que te gusta y cambias el resto).
+
 ## Rango de las capas
 
 Todo sale en la tonalidad del tema, con la tónica entre E2 y D#3:

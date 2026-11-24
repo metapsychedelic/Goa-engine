@@ -116,6 +116,8 @@ def main():
     todo &= cine()
     todo &= formas_y_tema()
     todo &= robustez()
+    todo &= forma_larga()
+    todo &= esculpir()
 
     print("\nSe guarda (como en la app)")
     import tomllib
@@ -248,6 +250,131 @@ def formas_y_tema():
     b, _ = correr()
     llamada = lambda o: [e[4] for e in o if e[2] == "note_on" and e[3] == 1 and 8 * 96 <= e[1] < 9 * 96]  # noqa: E731
     todo &= ok(llamada(a) != llamada(b), "con tema del track la llamada cambia")
+    return todo
+
+
+def directo(ob_cfg, compases, largo_parte=None, partes=None, tonica="E"):
+    """La obertura sola, con el reloj a mano; `partes`: lista de largos de partes seguidas."""
+    ob = Obertura(dict({"activo": True}, **ob_cfg), Tonalidad(tonica, "menor"))
+    out = []
+    enviar = lambda sal, tipo, canal, a, b: out.append((sal, t, tipo, canal, a, b))  # noqa: E731
+    lista = []
+    for largo in partes or ([largo_parte] if largo_parte else []):
+        lista += [{"dentro": d, "largo": largo, "vuelta": 0} for d in range(largo)]
+    for t in range(compases * 96):
+        if t % 6 == 0:
+            c = t // 96
+            ob.paso(t // 6, t, enviar, None, lista[c] if c < len(lista) else None)
+        ob.tick(t, enviar)
+    ob.apagar(enviar)
+    return out, ob
+
+
+def forma_larga():
+    todo = True
+    print("\nForma larga")
+    out, ob = directo({"modo": "chill", "caracter": "etereo", "largo_parte": True, "seed": "L-1"}, 128, largo_parte=128)
+    ons = [e for e in out if e[2] == "note_on"]
+    todo &= ok(max(e[1] for e in ons) > 120 * 96 and max(e[1] for e in out if e[2] == "note_off") <= 127 * 96 + 72,
+               "largo de la parte: una parte de 128 compases es un solo arco que termina con ella")
+    todo &= ok(ob.etapa(0) == 0 and ob.etapa(120) == 3 and ob.largo == 128, "el arco se estira: etapa 1 al comienzo, 4 al final")
+    letras = "".join(ob.seccion(c) for c in range(0, 128, 16))
+    todo &= ok(len(set(letras)) >= 2 and letras[-1] == "A", f"secciones a lo largo de la parte ({letras})")
+    acordes = lambda a, b: {e[4] for e in ons if e[3] == 0 and a * 96 <= e[1] < b * 96}  # noqa: E731
+    todo &= ok(any(acordes(16 * i, 16 * i + 16) != acordes(0, 16) for i in range(1, 8)), "las secciones cambian la armonía")
+    sin, _ = directo({"modo": "chill", "caracter": "etereo", "largo_parte": True, "seed": "L-1", "secciones": False}, 128, largo_parte=128)
+    todo &= ok(sin != out, "sin secciones es otra cosa (la misma progresión todo el rato)")
+    out, ob = directo({"modo": "chill", "largo_parte": True, "escena": 9, "escena_vuelta": 2}, 70, partes=[32, 32])
+    pcs = [e for e in out if e[2] == "program_change"]
+    todo &= ok([e[4] for e in pcs].count(8) == 1, "dos partes seguidas con la misma escena: la cambia una sola vez")
+    todo &= ok(not colgadas(out), "sin notas colgadas entre partes")
+    out, _ = directo({"modo": "chill", "largo_parte": True, "repetir": True}, 66, partes=[32, 32])
+    todo &= ok(len([e for e in out if e[2] == "note_on" and 31 * 96 <= e[1] < 33 * 96]) > 4, "en loop pasa de una parte a otra sin silencio")
+    out, _ = directo({"modo": "cine", "caracter": "neon", "largo_parte": True}, 40)
+    todo &= ok(max(e[1] for e in out if e[2] == "note_on") < 32 * 96, "sin canción usa su propio largo")
+    print("\nSecciones en loop")
+    out, ob = directo({"modo": "chill", "caracter": "lamento", "repetir": True, "seed": "S-3"}, 32 * 5)
+    letras = "".join(ob.seccion(0, k) for k in range(5))
+    todo &= ok(len(set(letras)) >= 2, f"cada vuelta es una sección ({letras})")
+    print("\nOrquestación viva")
+    out, ob = directo({"modo": "chill", "caracter": "etereo", "largo_parte": True, "viva": 1.0, "seed": "V-2"}, 128, largo_parte=128)
+    ons = [e for e in out if e[2] == "note_on"]
+    por = [{e[3] for e in ons if v * 16 * 96 <= e[1] < (v + 1) * 16 * 96} for v in range(8)]
+    todo &= ok(any(len(x) < 4 for x in por[1:6]), f"capas que salen y entran ({[len(x) for x in por]} por tramo)")
+    quieto, _ = directo({"modo": "chill", "caracter": "etereo", "largo_parte": True, "viva": 0.0, "seed": "V-2"}, 128, largo_parte=128)
+    q = [{e[3] for e in quieto if e[2] == "note_on" and v * 16 * 96 <= e[1] < (v + 1) * 16 * 96} for v in range(8)]
+    todo &= ok(all(len(x) >= 2 for x in por) and por[0] == q[0] and por[7] == q[7], "nunca menos de dos; el comienzo y el cierre completos")
+    return todo
+
+
+def esculpir():
+    todo = True
+    print("\nRespiración por CC")
+    out, _ = directo({"modo": "chill", "respira_cc": 74, "respira_compases": 8, "respira_rango": 0.4}, 34)
+    cc = [e for e in out if e[2] == "control_change" and e[4] == 74]
+    todo &= ok({e[3] for e in cc} == {0, 1, 2} and min(e[5] for e in cc) < 45 and max(e[5] for e in cc) > 83,
+               "el CC 74 respira en las tres pistas tonales, alrededor de 64")
+    todo &= ok(all(e[5] == 64 for e in cc if e[1] == cc[-1][1]), "al terminar vuelve a 64 (sin cambio)")
+    print("\nPor instrumento")
+    base, _ = directo({"modo": "cine", "caracter": "neon", "seed": "P-1"}, 34)
+    otra, _ = directo({"modo": "cine", "caracter": "neon", "seed": "P-1", "seed_coro": "OTRA"}, 34)
+    canal = lambda o, k: [e for e in o if e[3] == k and e[2] in ("note_on", "note_off")]  # noqa: E731
+    todo &= ok(canal(base, 2) != canal(otra, 2) and all(canal(base, k) == canal(otra, k) for k in (0, 1, 3)),
+               "seed propia: cambia solo ese instrumento")
+    menos, _ = directo({"modo": "cine", "caracter": "neon", "seed": "P-1", "nivel_cuernos": 0.5}, 34)
+    v = lambda o: [e[5] for e in o if e[2] == "note_on" and e[3] == 1]  # noqa: E731
+    todo &= ok(all(abs(a / 2 - b) <= 1 for a, b in zip(v(base), v(menos))), "nivel: la fuerza de ese instrumento a la mitad")
+    arriba, _ = directo({"modo": "chill", "seed": "P-1", "octava_coro": 1}, 34)
+    normal, _ = directo({"modo": "chill", "seed": "P-1"}, 34)
+    n = lambda o: [e[4] for e in o if e[2] == "note_on" and e[3] == 2]  # noqa: E731
+    todo &= ok([x + 12 for x in n(normal)] == n(arriba), "octava: el coro una octava arriba")
+    cuenta = lambda o, k: len([e for e in o if e[2] == "note_on" and e[3] == k])  # noqa: E731
+    for capa, k, modo in (("cuernos", 1, "chill"), ("coro", 2, "cine"), ("percusion", 3, "chill"), ("cuerdas", 0, "cine")):
+        poco, _ = directo({"modo": modo, "caracter": "ritual" if modo == "chill" else "cosmos", "seed": "D-1", f"densidad_{capa}": 0.0}, 34)
+        mucho, _ = directo({"modo": modo, "caracter": "ritual" if modo == "chill" else "cosmos", "seed": "D-1", f"densidad_{capa}": 1.0}, 34)
+        todo &= ok(cuenta(poco, k) < cuenta(mucho, k) and not colgadas(poco) and not colgadas(mucho),
+                   f"densidad de {capa}: {cuenta(poco, k)} → {cuenta(mucho, k)} notas")
+    print("\nAcordes")
+    acorde = lambda o: sorted(e[4] for e in o if e[2] == "note_on" and e[3] == 0 and e[1] == 0)  # noqa: E731
+    cinco, _ = directo({"modo": "cine", "caracter": "neon", "voces": 5}, 4)
+    todo &= ok(len(acorde(cinco)) == 5, f"cinco voces ({acorde(cinco)})")
+    norm, _ = directo({"modo": "cine", "caracter": "neon"}, 4)
+    inv, _ = directo({"modo": "cine", "caracter": "neon", "inversion": 1}, 4)
+    todo &= ok(acorde(inv)[0] == acorde(norm)[1] and len(acorde(inv)) == len(acorde(norm)), "inversión: la nota de abajo pasa arriba")
+    ab, _ = directo({"modo": "cine", "caracter": "neon", "abierto": True}, 4)
+    todo &= ok(max(acorde(ab)) - min(acorde(ab)) > max(acorde(norm)) - min(acorde(norm)), "abierto: más separado")
+    ped, _ = directo({"modo": "chill", "pedal": True}, 4)
+    todo &= ok(40 in acorde(ped), "pedal: la tónica grave abajo")
+    print("\nArticulación y feel")
+    cortos, _ = directo({"modo": "chill", "seed": "A-1", "legato_cuerdas": 0.5}, 4)
+    largo = lambda o: [b[1] - a[1] for a in o if a[2] == "note_on" and a[3] == 0 for b in o if b[2] == "note_off" and b[3] == 0 and b[4] == a[4] and b[1] > a[1]][:1]  # noqa: E731
+    todo &= ok(largo(cortos)[0] < largo(normal)[0] * 0.6, f"legato 0,5: notas más cortas ({largo(normal)[0]} → {largo(cortos)[0]} pulsos)")
+    sw, _ = directo({"modo": "cine", "caracter": "neon", "swing": 0.5}, 12)
+    arp = [e[1] % 24 for e in sw if e[2] == "note_on" and e[3] == 2]
+    todo &= ok(16 in arp and 12 not in arp, "swing: las corcheas a contratiempo se atrasan")
+    hum, _ = directo({"modo": "chill", "humanizar": 1.0}, 34)
+    todo &= ok(not colgadas(hum) and len({e[5] for e in hum if e[2] == "note_on" and e[3] == 0}) > len({e[5] for e in normal if e[2] == "note_on" and e[3] == 0}),
+               "humanizar: más variación de fuerza, sin notas colgadas")
+    print("\nTodo mezclado")
+    import random as _r
+    malas = []
+    for i in range(40):
+        r = _r.Random(i)
+        cfg = {"modo": r.choice(("epico", "chill", "cine")), "seed": f"M{i}", "forma": r.choice(("crece", "golpe", "ola", "respiro")),
+               "repetir": r.random() < 0.4, "frases": r.choice((1, 2, 4, 8)), "viva": r.random(), "respira_cc": r.choice((0, 74, 71)),
+               "voces": r.randint(0, 5), "abierto": r.random() < 0.5, "inversion": r.randint(0, 2), "pedal": r.random() < 0.5,
+               "swing": r.random() / 2, "humanizar": r.random(), "tema_track": r.random() < 0.5}
+        for capa in ("cuerdas", "cuernos", "coro", "percusion"):
+            cfg.update({f"densidad_{capa}": r.random(), f"nivel_{capa}": r.random() * 1.5, f"legato_{capa}": 0.2 + r.random() * 1.3})
+            if capa != "percusion":
+                cfg[f"octava_{capa}"] = r.randint(-2, 2)
+        partes = [r.choice((16, 32, 48, 96))] if r.random() < 0.5 else None
+        if partes:
+            cfg["largo_parte"] = True
+        out, _ = directo(cfg, (partes[0] if partes else 8 * cfg["frases"]) + 6, partes=partes, tonica=r.choice("CDEFGAB"))
+        if colgadas(out) or not sanas(out) or not bend_al_centro(out):
+            malas.append(i)
+    todo &= ok(not malas, f"40 configuraciones al azar con todo movido: limpias{'' if not malas else ' ' + str(malas)}")
     return todo
 
 
