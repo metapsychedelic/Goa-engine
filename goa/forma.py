@@ -24,7 +24,7 @@ import json
 
 from . import copia
 
-SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas", "looper", "tocado", "obertura")
+SECCIONES = ("musica", "pads", "bajo", "dialogo", "llamada", "respuesta", "fx", "texturas", "looper", "tocado", "obertura", "circuit")
 # «parar» es el slot vacío del looper: es de la máquina, no de la escena.
 ENRUTAMIENTO = frozenset(("salida", "canal", "disparo", "escucha", "nombre", "cc_corte", "cc_resonancia", "cc_filtro", "filtro_reposo", "parar", "nivel", "canal_cuerdas", "canal_cuernos", "canal_coro", "canal_percusion", "canal_control", "nota_taiko", "nota_tambor", "nota_golpe"))
 # Floats que no se pueden mover de a poco: rehacen el patrón entero.

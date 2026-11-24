@@ -78,6 +78,8 @@ class Motor(FormaMotor):
         self.subida_final = None    # subida pedida para los últimos N compases de la parte
         self.relanzar_parte = False  # «quedarse» cuando la parte siguiente ya entraba
         self.scatter_nota = None     # (salida, canal, nota) del pad de Scatter apretado
+        self.circuit_envios = {}     # cc -> {"valor", "obj", "desde", "p0", "largo"}: envíos de la Circuit
+        self.circuit_filtro = None   # (salida, canal, valor) del filtro maestro de la Circuit si se movió
         self.cc_secuencias = {}     # (salida, canal, cc) -> (valor mandado, reposo): filtros intervenidos
         self.aplicar_config(config)
 
@@ -465,7 +467,8 @@ class Motor(FormaMotor):
         fuentes = [(s, s.get("activa")) for s in config.get("secuencia", [])]
         fuentes += [(config.get("pads", {}), config.get("pads", {}).get("activo")),
                     (config.get("bajo", {}), config.get("bajo", {}).get("activo")),
-                    (config.get("fx", {}), config.get("fx", {}).get("activo")),
+                    # En las baterías de la Circuit el FX no pide parche (el canal 10 no lo usa).
+                    (config.get("fx", {}), config.get("fx", {}).get("activo") and not config.get("fx", {}).get("kit_circuit")),
                     (config.get("tocado", {}), config.get("tocado", {}).get("activo"))]
         hay_dialogo = config.get("dialogo", {}).get("activo")
         fuentes += [(config.get("llamada", {}), hay_dialogo and config["dialogo"].get("modo") == "motor"),
@@ -589,6 +592,7 @@ class Motor(FormaMotor):
         self.bajo.reiniciar()
         self.obertura.reiniciar()
         self.subida, self.subida_pedida, self.subida_final = None, None, None
+        self.circuit_envios = {}   # en cada Start los envíos se vuelven a mandar (por si los moviste a mano)
         self.corriendo = True
         self.looper_pendiente = None
         self._looper(self.config, ya=True)   # antes del primer pulso: la MC-101 arranca con él
@@ -603,6 +607,7 @@ class Motor(FormaMotor):
         log.info("Stop")
         self.corriendo = False
         self._soltar_scatter()
+        self._soltar_filtro_circuit()
         self.apagar_todo()
         self.subida = None
         self._soltar_filtros()
@@ -768,6 +773,7 @@ class Motor(FormaMotor):
         for d in self.disparos.values():
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
         self._paso_scatter(paso)
+        self._paso_circuit(paso)
         if self._en_hueco(paso):
             if paso == self.hueco_desde:
                 self.apagar_todo()  # el último tiempo antes de la parte que viene: silencio

@@ -93,6 +93,10 @@ def _f(x):
     return max(0.0, min(1.0, float(x)))
 
 
+# Los 4 golpes de batería de la Circuit Tracks (canal 10): Drum 1, 2, 3 y 4.
+KIT_CIRCUIT = (60, 62, 64, 65)
+
+
 class Fx:
     def __init__(self, cfg, tonalidad):
         self.activo = bool(cfg.get("activo", False))
@@ -111,6 +115,7 @@ class Fx:
         self.gestos = tuple(g for g in GESTOS if cfg.get(g, True))
         self.riser = bool(cfg.get("riser", True))
         self.caida = bool(cfg.get("caida", True))
+        self.kit = bool(cfg.get("kit_circuit", False))
         self.cc_corte = int(cfg.get("cc_corte", 74))
         self.reposo = int(cfg.get("filtro_reposo", 100))
         # Fondo: notas largas y el filtro en ritmo.
@@ -145,13 +150,28 @@ class Fx:
         self.reso = None
         self.ultimo = None         # último gesto (para la app)
 
+    def _salida(self, enviar):
+        """Con «baterías de la Circuit», las notas van a sus 4 golpes según la altura y no
+        sale ni filtro ni pitch. Se envuelve una sola vez (los métodos se llaman entre sí)."""
+        if not self.kit or getattr(enviar, "kit", False):
+            return enviar
+
+        def al_kit(salida, tipo, canal, a, b):
+            if tipo in ("note_on", "note_off"):
+                enviar(salida, tipo, canal, KIT_CIRCUIT[(int(a) % 12) * 4 // 12], b)
+            elif tipo not in ("control_change", "pitchwheel"):
+                enviar(salida, tipo, canal, a, b)
+        al_kit.kit = True
+        return al_kit
+
     # --- Estado ---
 
     def continuar_de(self, viejo, enviar):
         """Al cambiar la configuración en vivo: el gesto que suena termina solo."""
+        crudo, enviar = enviar, self._salida(enviar)
         if viejo is None:
             return
-        if (viejo.salida, viejo.canal) == (self.salida, self.canal):
+        if (viejo.salida, viejo.canal, viejo.kit) == (self.salida, self.canal, self.kit):
             self.eventos, self.sonando = viejo.eventos, viejo.sonando
             self.ocupado_hasta, self.bend, self.corte = viejo.ocupado_hasta, viejo.bend, viejo.corte
             self.filtro_hasta, self.largas, self.reso = viejo.filtro_hasta, viejo.largas, viejo.reso
@@ -164,9 +184,10 @@ class Fx:
                 enviar(self.salida, "control_change", self.canal, viejo.cc_resonancia, viejo.reso_min)
                 self.reso = None
         else:
-            viejo.apagar(enviar)
+            viejo.apagar(crudo)   # el viejo se envuelve solo (con o sin baterías)
 
     def apagar(self, enviar):
+        enviar = self._salida(enviar)
         for nota in sorted(self.sonando):
             enviar(self.salida, "note_off", self.canal, nota, 0)
         self.sonando = set()
@@ -197,6 +218,7 @@ class Fx:
     # --- Reloj ---
 
     def tick(self, tick, enviar):
+        enviar = self._salida(enviar)
         if not self.eventos:
             return
         listos = sorted((e for e in self.eventos if e[0] <= tick), key=lambda e: (e[0], _ORDEN[e[1]]))
@@ -261,6 +283,7 @@ class Fx:
 
     def paso(self, paso, tick, raiz, momento, subida, enviar):
         """Llamado en cada paso con la nota larga (`raiz`), el acorde y la subida en curso."""
+        enviar = self._salida(enviar)
         if not self.activo:
             return
         if raiz is None:
@@ -537,6 +560,7 @@ class Fx:
 
     def drop(self, tick, raiz, momento, enviar, caida=True):
         """Termina la subida: el riser se corta y, si está la caída, una nota se desploma."""
+        enviar = self._salida(enviar)
         for nota in sorted(self.sonando):
             enviar(self.salida, "note_off", self.canal, nota, 0)
         self.sonando = set()

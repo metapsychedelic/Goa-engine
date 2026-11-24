@@ -188,6 +188,25 @@ canal = 4                 # el canal de la pista Looper
 clip = 0                  # slot que suena (1-16); 0 = ninguno
 parar = 0                 # slot vacío que se lanza para callar (0 = no calla)
 
+[circuit]
+# Circuit Tracks por USB (en el hub con fuente propia). Para tocar sus sintes no hace falta
+# esto: pon salida = "Circuit" en un motor, canal 1 (Synth 1) o 2 (Synth 2); su «programa»
+# cambia el patch (1-64). Esta sección es la mezcla, por el canal de proyecto (16), y va en
+# las escenas: envíos a reverb (CC 88/89) y delay (CC 111/112) de Synth 1/2 (-1 = no lo toca),
+# que llegan de a poco en envios_compases, y el filtro maestro (CC 74, 64 = apagado) en las
+# subidas: de 64 a 64 ± filtro_hasta, y de vuelta a 64 en el drop.
+activo = false
+salida = "Circuit"
+canal_control = 16
+reverb_s1 = -1
+reverb_s2 = -1
+delay_s1 = -1
+delay_s2 = -1
+envios_compases = 4
+subida_filtro = false
+filtro_tipo = "pasa_altos"  # pasa_altos, pasa_bajos
+filtro_hasta = 40
+
 [forma]
 # Escenas y energía (pestaña Tocar). Las escenas se guardan desde la app,
 # abajo de todo como [[escena]]: cada una es una foto de lo musical, sin destinos.

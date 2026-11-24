@@ -11,6 +11,7 @@ function motores() {
   if (cfg.texturas) lista.push(["texturas", "Texturas", cfg.texturas, "activo"]);
   if (cfg.obertura) lista.push(["obertura", "Obertura", cfg.obertura, "activo"]);
   if (cfg.looper) lista.push(["looper", "Looper", cfg.looper, "activo"]);
+  if (cfg.circuit) lista.push(["circuit", "Circuit", cfg.circuit, "activo"]);
   if (cfg.tocado) lista.push(["tocado", "Tocado", cfg.tocado, "activo"]);
   return lista;
 }
@@ -113,6 +114,7 @@ function renderMotores() {
   else if (motorSel === "texturas") panel.append(...panelTexturas());
   else if (motorSel === "obertura") panel.append(...panelObertura());
   else if (motorSel === "looper") panel.append(...panelLooper());
+  else if (motorSel === "circuit") panel.append(...panelCircuit());
   else if (motorSel === "tocado") panel.append(...panelTocado());
   else panel.append(...panelSecuencia(parseInt(motorSel.slice(3))));
   // «Copiar a otras partes…» igual en todos los motores, al final.
@@ -151,6 +153,7 @@ const FABRICA = {
   obertura: ["la obertura", "Obertura", "Se mantienen su salida MIDI y la seed; vuelven los canales, notas y escenas de fábrica."],
   tocado: ["el tocado", "Tocado", "No borra lo grabado. Se mantienen su salida MIDI, canal, programa y seed."],
   looper: ["el looper", "Looper", "Queda sin loop elegido. Se mantienen su salida MIDI, canal y el slot vacío para callar."],
+  circuit: ["la mezcla de la Circuit", "Circuit", "Los envíos vuelven a «no tocar» y el filtro maestro se apaga. Se mantienen la salida MIDI y el canal de proyecto."],
 };
 function botonFabricaMotor(motor) {
   const [quien, titulo, conserva] = FABRICA[motor];
@@ -1072,10 +1075,12 @@ function moldeEditor(obj, ayudaTexto, resumen, textoOrden, cada, alMutar) {
 const LFO_SINTES = [
   ["MC-101 / FM-1", [["74","Corte"],["71","Resonancia"],["73","Ataque"],["72","Release"],["20","Wavetable A (FM-1)"],["21","Wavetable B (FM-1)"]]],
   ["MicroFreak", [["23","Corte"],["83","Resonancia"],["10","Wave"],["12","Timbre"],["13","Shape"]]],
+  ["Circuit Tracks", [["80","Macro 1"],["81","Macro 2"],["82","Macro 3"],["83","Macro 4"],["84","Macro 5"],["85","Macro 6"],["86","Macro 7"],["87","Macro 8"],["74","Corte"],["71","Resonancia"]]],
 ];
 const LFO_DESTINOS = LFO_SINTES.flatMap(([, l]) => l);
 const LFO_NOMBRE_CC = {74: "corte", 71: "resonancia", 73: "ataque", 72: "release", 20: "wavetable A", 21: "wavetable B",
-  23: "corte (MicroFreak)", 83: "resonancia (MicroFreak)", 10: "wave (MicroFreak)", 12: "timbre (MicroFreak)", 13: "shape (MicroFreak)"};
+  23: "corte (MicroFreak)", 83: "resonancia (MicroFreak) / macro 4 (Circuit)", 10: "wave (MicroFreak)", 12: "timbre (MicroFreak)", 13: "shape (MicroFreak)",
+  80: "macro 1 (Circuit)", 81: "macro 2 (Circuit)", 82: "macro 3 (Circuit)", 84: "macro 5 (Circuit)", 85: "macro 6 (Circuit)", 86: "macro 7 (Circuit)", 87: "macro 8 (Circuit)"};
 
 function lfoResumen(s) {
   const activos = [["lfo", s.lfo], ["lfo2", s.lfo2]].filter(([, a]) => a).map(([p]) => {
@@ -1096,9 +1101,10 @@ function editorLfo(s, p, titulo) {
       el("input", {type: "checkbox", className: "switch", checked: !!s[p], "aria-label": titulo,
         onchange: (e) => { s[p] = e.target.checked; guardar(); renderMotores(); }})]),
     ...(s[p] ? [
-      ...LFO_SINTES.map(([sinte, lista]) => campo(`Qué mueve · ${sinte}`, segmentado(lista, String(cc), (v) => { s[k("_cc")] = parseInt(v); guardar(); renderMotores(); }, sinte === "MicroFreak" ? 3 : 2))),
+      ...LFO_SINTES.map(([sinte, lista]) => campo(`Qué mueve · ${sinte}`, segmentado(lista, String(cc), (v) => { s[k("_cc")] = parseInt(v); guardar(); renderMotores(); }, sinte === "MicroFreak" ? 3 : sinte === "Circuit Tracks" ? 4 : 2))),
       numeroDe(s, k("_cc"), "Otro CC (número)", 0, 127, renderMotores),
       [20, 21].includes(cc) ? ayuda("Posición de wavetable de la FM-1 con Shrub: el timbre va cambiando. La MC-101 no tiene este control.") : null,
+      cc >= 80 && cc <= 87 ? ayuda("Perilla macro de la Circuit (CC 80-87): mueve lo que tenga asignado el patch del Synth 1 o 2. Pon la salida en la Circuit y el canal 1 (Synth 1) o 2 (Synth 2).") : null,
       choca ? ayuda("Los dos LFO mueven lo mismo y se van a pisar: elige otra cosa para uno de ellos.") : null,
       campo("Forma", segmentado(LFO_FORMAS, s[k("_forma")] || "seno", (v) => { s[k("_forma")] = v; guardar(); renderMotores(); }, 3)),
       campo("Una vuelta dura", segmentado(LFO_CICLOS, String(s[k("_compases")]), (v) => { s[k("_compases")] = parseFloat(v); guardar(); renderMotores(); }, 4)),
@@ -1346,13 +1352,17 @@ function panelFx() {
         deslizador(x, "octava", "Octava", -2, 3, 1, octavaTexto),
         numeroDe(x, "velocidad", "Fuerza (1-127)", 1, 127),
       ]),
-      grupo("g-fx-midi", "Salida MIDI", `${salidaTexto(x)} · filtro CC ${x.cc_corte}`, [
+      grupo("g-fx-midi", "Salida MIDI", `${salidaTexto(x)} · ${x.kit_circuit ? "baterías de la Circuit" : "filtro CC " + x.cc_corte}`, [
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal", "Canal MIDI", 1, 16, renderMotores)]),
-        ayuda("Un canal libre de la MC-101 (una pista con un sonido para efectos)."),
-        el("div", {className: "dos"}, [numeroDe(x, "cc_corte", "CC del filtro", 0, 127), numeroDe(x, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]),
-        ayuda("Los gestos con filtro, el fondo, el riser y la caída lo mueven por ese CC. Sin fondo, después lo dejan en el reposo."),
+        x.kit_circuit ? null : ayuda("Un canal libre de la MC-101 (una pista con un sonido para efectos)."),
+        casilla(x, "kit_circuit", "Baterías de la Circuit", "Cada nota va a uno de sus 4 golpes (60, 62, 64, 65) según su altura. Sin filtro ni pitch.", () => {
+          if (x.kit_circuit && !/circuit/i.test(x.salida || "")) { x.salida = "Circuit"; x.canal = 10; }
+          renderMotores(); }),
+        x.kit_circuit ? ayuda("Va a la Circuit, canal 10 (el de sus baterías). Los golpes se suman a los del patrón: usa sonidos de glitch o de efecto en el Drum que quieras.") : null,
+        x.kit_circuit ? null : el("div", {className: "dos"}, [numeroDe(x, "cc_corte", "CC del filtro", 0, 127), numeroDe(x, "filtro_reposo", "Filtro en reposo (0-127)", 0, 127)]),
+        x.kit_circuit ? null : ayuda("Los gestos con filtro, el fondo, el riser y la caída lo mueven por ese CC. Sin fondo, después lo dejan en el reposo."),
         numeroDe(x, "disparo", "Canal de su nota larga en la Circuit (0 = el general)", 0, 16, renderMotores),
-        programaDe(x),
+        x.kit_circuit ? null : programaDe(x),
       ]),
     ].filter(Boolean)),
   ];
@@ -1741,6 +1751,41 @@ function panelLooper() {
       ]),
     ]),
  ].filter(Boolean);
+}
+
+// --- Circuit Tracks: mezcla de sus sintes y filtro maestro (goa/motor_forma.py) ---
+
+const ENVIOS_CIRCUIT = [["reverb_s1", "Reverb · Synth 1"], ["reverb_s2", "Reverb · Synth 2"], ["delay_s1", "Delay · Synth 1"], ["delay_s2", "Delay · Synth 2"]];
+const envioTexto = (v) => v < 0 ? "no lo toca" : String(v);
+
+function panelCircuit() {
+  const x = cfg.circuit;
+  const envios = ENVIOS_CIRCUIT.filter(([k]) => x[k] >= 0).map(([k, n]) => `${n.toLowerCase()} ${x[k]}`);
+  const sube = x.filtro_tipo === "pasa_bajos" ? `pasa bajos hasta ${64 - x.filtro_hasta}` : `pasa altos hasta ${64 + x.filtro_hasta}`;
+  const sintes = motores().filter(([k, , o]) => k !== "circuit" && /circuit/i.test(o.salida || "") && o[k.startsWith("sec") ? "activa" : "activo"])
+    .map(([, n, o]) => `${n} → ${Number(o.canal) === 1 ? "Synth 1" : Number(o.canal) === 2 ? "Synth 2" : Number(o.canal) === 10 ? "baterías" : "canal " + o.canal}`);
+  return [
+    cabMotor("Circuit", `${x.salida} · canal ${x.canal_control} · ${envios.length ? envios.length + " envíos" : "sin envíos"}${x.subida_filtro ? " · filtro en subidas" : ""}`, x, "activo", null, botonFabricaMotor("circuit")),
+    ayuda("La mezcla de la Circuit Tracks por USB: los envíos a reverb y delay de sus dos sintes (se guardan en la escena y cambian de a poco) y su filtro maestro en las subidas."),
+    ayuda(sintes.length ? `Tocan en la Circuit: ${sintes.join(" · ")}.` : "Para tocar sus sintes, elige «Circuit» como destino en la Salida MIDI de una secuencia, el bajo o los pads: canal 1 = Synth 1, canal 2 = Synth 2. El campo «Parche» del motor cambia el patch (1-64)."),
+    el("div", {className: "card principales"}, [
+      ...ENVIOS_CIRCUIT.map(([k, n]) => deslizador(x, k, n, -1, 127, 1, envioTexto)),
+      ayuda("Todo a la izquierda = no lo toca (queda como lo tengas en la Circuit). Guarda la escena para que lo recuerde."),
+      numeroDe(x, "envios_compases", "Al cambiar de escena, llegan en (compases; 0 = de golpe)", 0, 32),
+    ]),
+    el("div", {className: "grupos"}, [
+      grupo("g-ci-filtro", "Filtro maestro en las subidas", x.subida_filtro ? sube : "apagado", [
+        casilla(x, "subida_filtro", "Mover el filtro maestro en las subidas", "Se abre durante la subida (la de la app, el nano, una parte con riser o el piloto) y vuelve a apagado justo en el drop.", () => renderMotores()),
+        x.subida_filtro ? campo("Tipo", segmentado([["pasa_altos", "Pasa altos", "se va quitando el grave"], ["pasa_bajos", "Pasa bajos", "se va oscureciendo"]], x.filtro_tipo, (v) => { x.filtro_tipo = v; guardar(); renderMotores(); }, 2)) : null,
+        x.subida_filtro ? deslizador(x, "filtro_hasta", "Hasta dónde llega", 1, 63, 1, (v) => `${v} (${x.filtro_tipo === "pasa_bajos" ? "CC " + (64 - v) : "CC " + (64 + v)})`) : null,
+        ayuda("CC 74 en el canal de proyecto: 64 = apagado, menos = pasa bajos, más = pasa altos. Al parar (Stop) también vuelve a 64."),
+      ]),
+      grupo("g-ci-midi", "Salida MIDI", `${salidaTexto({salida: x.salida, canal: x.canal_control})}`, [
+        el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal_control", "Canal de proyecto", 1, 16, renderMotores)]),
+        ayuda("La Circuit por USB (por el hub con fuente propia). Su canal de proyecto es el 16; el de la MC-101 también, pero no chocan porque cada una va por su propio puerto."),
+      ]),
+    ]),
+  ].filter(Boolean);
 }
 
 // --- Clips (dentro de cada secuencia y del diálogo) ---

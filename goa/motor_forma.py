@@ -13,6 +13,11 @@ from .secuencia import PASOS_POR_COMPAS, TICKS_POR_PASO
 
 log = logging.getLogger("goa")
 
+# Circuit Tracks (programmer's reference v3), en el canal de proyecto:
+CIRCUIT_ENVIOS = (("reverb_s1", 88), ("reverb_s2", 89), ("delay_s1", 111), ("delay_s2", 112))
+CIRCUIT_CC_FILTRO = 74          # filtro maestro: 0-63 pasa bajos, 64 apagado, 65-127 pasa altos
+CIRCUIT_FILTRO_APAGADO = 64
+
 
 class FormaMotor:
     """Métodos de Motor sobre escenas, canción y subidas (usa el estado de Motor)."""
@@ -414,6 +419,67 @@ class FormaMotor:
             salida, canal, nota = self.scatter_nota
             self.enviar(salida, "note_off", canal, nota, 0)
             self.scatter_nota = None
+
+    # --- Circuit Tracks: envíos a reverb y delay, filtro maestro en las subidas ---
+
+    def _paso_circuit(self, paso):
+        """Mezcla de la Circuit por su canal de proyecto: los envíos de Synth 1 y 2 van de a
+        poco hacia los de la escena, y en la subida el filtro maestro se abre desde 64
+        (apagado) hasta 64 ± filtro_hasta; en el drop vuelve a 64."""
+        c = (self.config or {}).get("circuit") or {}
+        if not c.get("activo"):
+            self._soltar_filtro_circuit()
+            return
+        salida, canal = c.get("salida", "Circuit"), int(c.get("canal_control", 16)) - 1
+        compases = int(c.get("envios_compases", 4))
+        for clave, cc in CIRCUIT_ENVIOS:
+            objetivo = int(c.get(clave, -1))
+            st = self.circuit_envios.get(cc)
+            if objetivo < 0:
+                self.circuit_envios.pop(cc, None)   # no lo toca: queda donde esté
+                continue
+            if st is None or st.get("salida") != (salida, canal):
+                st = {"salida": (salida, canal), "valor": objetivo, "obj": objetivo, "p0": None}
+                self.circuit_envios[cc] = st
+                self.enviar(salida, "control_change", canal, cc, objetivo)
+                continue
+            if st["obj"] != objetivo:
+                st.update(obj=objetivo, desde=st["valor"], p0=paso, largo=max(1, compases * PASOS_POR_COMPAS))
+                if compases == 0:
+                    st["p0"] = None
+                    st["valor"] = objetivo
+                    self.enviar(salida, "control_change", canal, cc, objetivo)
+                    continue
+            if st["p0"] is not None:
+                x = min(1.0, (paso - st["p0"] + 1) / st["largo"])
+                valor = round(st["desde"] + (st["obj"] - st["desde"]) * x)
+                if valor != st["valor"]:
+                    st["valor"] = valor
+                    self.enviar(salida, "control_change", canal, cc, valor)
+                if x >= 1:
+                    st["p0"] = None
+        if c.get("subida_filtro") and self.subida is not None:
+            # El último paso de la subida ya está en su punto (el drop cae justo después).
+            largo = max(1, self.subida["hasta"] - self.subida["desde"] - 1)
+            x = max(0.0, min(1.0, (paso - self.subida["desde"]) / largo))
+            signo = -1 if c.get("filtro_tipo") == "pasa_bajos" else 1
+            valor = max(0, min(127, CIRCUIT_FILTRO_APAGADO + signo * round(int(c.get("filtro_hasta", 40)) * x ** 1.6)))
+            quiero = (salida, canal, valor)
+            if quiero != self.circuit_filtro:
+                if self.circuit_filtro is not None and self.circuit_filtro[:2] != (salida, canal):
+                    self._soltar_filtro_circuit()
+                self.enviar(salida, "control_change", canal, CIRCUIT_CC_FILTRO, valor)
+                self.circuit_filtro = quiero
+        else:
+            self._soltar_filtro_circuit()
+
+    def _soltar_filtro_circuit(self):
+        """El filtro maestro de la Circuit vuelve a 64 (apagado) si el motor lo movió."""
+        f = getattr(self, "circuit_filtro", None)
+        if f is not None:
+            if f[2] != CIRCUIT_FILTRO_APAGADO:
+                self.enviar(f[0], "control_change", f[1], CIRCUIT_CC_FILTRO, CIRCUIT_FILTRO_APAGADO)
+            self.circuit_filtro = None
 
     def _en_hueco(self, paso):
         return self.hueco_desde is not None and self.hueco_desde <= paso < self.hueco_desde + 4

@@ -194,6 +194,9 @@ ESQUEMA_SECCIONES["fx"] = {
     "caida": (bool, True, None, None),       # en el drop, la caída
     "octava": (int, 1, -2, 3),
     "velocidad": (int, 100, 1, 127),
+    # Baterías de la Circuit: cada nota va a uno de sus 4 golpes (60, 62, 64, 65; canal 10)
+    # según su altura, y no manda filtro ni pitch (la batería no los usa).
+    "kit_circuit": (bool, False, None, None),
     "cc_corte": (int, 74, 0, 127),           # CC del filtro del sinte de FX
     "filtro_reposo": (int, 100, 0, 127),     # dónde queda el filtro cuando no hay gestos
     "seed": (str, "FX-0001", None, None),
@@ -328,6 +331,26 @@ ESQUEMA_SECCIONES["looper"] = {
 # Armonía del tema: la base que siguen las escenas (partes) que no tienen armonía propia.
 # Cambiarla cambia todas esas partes; una parte con armonía propia (otra tonalidad) no se mueve.
 ESQUEMA_SECCIONES["armonia_tema"] = dict(ESQUEMA_SECCIONES["musica"])
+
+# Circuit Tracks por USB (programmer's reference v3): mezcla de sus sintes y filtro maestro.
+# Va en las escenas (activo, envíos, filtro); la salida y el canal de proyecto son de la máquina.
+# Envíos: CC 88/89 reverb y 111/112 delay de Synth 1/2 en el canal de proyecto (16); -1 = no lo
+# toca. Al cambiar de escena van de a poco (`envios_compases`; 0 = de golpe).
+# Filtro maestro: CC 74 en el canal de proyecto, 64 = apagado, menos = pasa bajos, más = pasa
+# altos. En cada subida va de 64 a 64 ± `filtro_hasta` y vuelve a 64 en el drop (y en Stop).
+ESQUEMA_SECCIONES["circuit"] = {
+    "activo": (bool, False, None, None),
+    "salida": (str, "Circuit", None, None),
+    "canal_control": (int, 16, 1, 16),       # canal de proyecto de la Circuit
+    "reverb_s1": (int, -1, -1, 127),
+    "reverb_s2": (int, -1, -1, 127),
+    "delay_s1": (int, -1, -1, 127),
+    "delay_s2": (int, -1, -1, 127),
+    "envios_compases": (int, 4, 0, 32),
+    "subida_filtro": (bool, False, None, None),
+    "filtro_tipo": (str, "pasa_altos", None, ("pasa_altos", "pasa_bajos")),
+    "filtro_hasta": (int, 40, 1, 63),
+}
 
 ESQUEMA_SECCIONES["scatter"] = {
     "salida": (str, "MC-101", None, None),
@@ -796,7 +819,7 @@ def _suenan_en_cancion(cfg):
                 datos = json.loads(cfg["escena"][p["escena"]]["datos"])
             except ValueError:
                 continue
-            for motor in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "obertura"):
+            for motor in ("pads", "bajo", "dialogo", "fx", "texturas", "looper", "obertura", "circuit"):
                 if (datos.get(motor) or {}).get("activo"):
                     suenan.add(motor)
     return suenan
@@ -822,6 +845,8 @@ def salidas(cfg):
         claves.append(cfg["looper"]["salida"])
     if cfg["tocado"]["activo"]:
         claves.append(cfg["tocado"]["salida"])
+    if cfg["circuit"]["activo"] or "circuit" in cancion:
+        claves.append(cfg["circuit"]["salida"])
     if any(p.get("scatter") for p in cfg.get("parte", [])) and cfg.get("cancion", {}).get("activa"):
         claves.append(cfg["scatter"]["salida"])
     if cfg["teclado"]["activo"] and cfg["teclado"]["perillas"]:
@@ -931,7 +956,7 @@ CONSERVAR_EN_FABRICA_MOTOR = ("activo", "suenan", "salida", "canal", "programa",
                               "filtro_cc", "cc_corte", "cc", "parar", "loop")
 MOTORES_FABRICA = {"pads": ("pads",), "bajo": ("bajo",), "dialogo": ("dialogo", "llamada", "respuesta"),
                    "fx": ("fx",), "texturas": ("texturas",), "looper": ("looper",), "tocado": ("tocado",),
-                   "obertura": ("obertura",)}
+                   "obertura": ("obertura",), "circuit": ("circuit",)}
 
 
 def _fabrica_seccion(seccion, datos):

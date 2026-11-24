@@ -205,7 +205,7 @@ function seccionDe(datos, clave) {
   return datos[clave] || null;
 }
 function suenaEn(datos, clave, k) { const s = seccionDe(datos, clave); return !!(s && s[k]); }
-const SIGLAS = {pads: "Pa", bajo: "Ba", dialogo: "Di", fx: "FX", texturas: "Tx", looper: "Lp", tocado: "To", obertura: "Ob"};
+const SIGLAS = {pads: "Pa", bajo: "Ba", dialogo: "Di", fx: "FX", texturas: "Tx", looper: "Lp", tocado: "To", obertura: "Ob", circuit: "Ci"};
 const sigla = (clave, nombre) => SIGLAS[clave] || (nombre || "").slice(0, 2);
 function apoyosDe(p) {
   return [p.riser && "riser", p.roll && "roll", p.corte_bajo && "corte", p.tension && "tensión", p.hueco && "hueco", p.pads_suben && "pads", p.scatter && "scatter"].filter(Boolean);
