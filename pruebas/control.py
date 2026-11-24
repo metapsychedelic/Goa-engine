@@ -85,6 +85,19 @@ def main():
         cc(1, v, 0.02)
     time.sleep(0.3)
     todo &= ok(len(ctx.historia) == pasos, "mover el fader seguido es un solo paso de deshacer")
+    version, pasos = ctx.version_externa, len(ctx.historia)
+    densidad = ctx.config["bajo"]["densidad"]
+    for v in (34, 32, 35, 33, 30, 35, 33, 32, 35, 30, 34, 31, 35):   # fader sucio: tiembla sin tocarlo (como el del usuario)
+        cc(1, v, 0.03)
+    time.sleep(0.3)
+    todo &= ok(ctx.version_externa == version and ctx.config["bajo"]["densidad"] == densidad,
+               f"un fader que tiembla solo no cambia nada (la app no se recarga)")
+    for v in range(36, 52, 1):
+        cc(1, v, 0.02)
+    time.sleep(0.3)
+    todo &= ok(abs(ctx.config["bajo"]["densidad"] - 51 / 127) < 0.01, f"moverlo de verdad sí, fino y hasta donde lo dejas ({ctx.config['bajo']['densidad']})")
+    cc(1, 0, 0.3)
+    todo &= ok(ctx.config["bajo"]["densidad"] == 0.0, "y llega al extremo aunque sea un paso chico")
     cc(16 + 7, 90)  # perilla del looper: resonancia CC 71 a la MC-101
     todo &= ok(("MC-101", "control_change", 3, 71, 90) in puertos.enviados, "perilla del looper: CC 71 a la MC-101, canal 4")
     cc(7, 40)

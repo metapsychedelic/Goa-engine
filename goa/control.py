@@ -43,6 +43,14 @@ log = logging.getLogger("goa.control")
 
 INTERVALO = 0.06      # cada cuánto se aplica lo que movieron faders y perillas
 RECOGER = 3           # a cuántos pasos (de 0-127) del valor del motor engancha un control
+# Un fader gastado o sucio tiembla solo (manda 82, 85, 83, 87… sin tocarlo): eso cambiaba el
+# motor sin parar y la app se recargaba todo el tiempo. Histéresis: mientras lo mueves
+# (otro cambio hace menos de QUIETO segundos) y sigue para el mismo lado, va fino (SEGUIR
+# pasos); quieto, o dando la vuelta, tiene que moverse VUELTA pasos. El temblor va y viene
+# sobre un fader quieto, así que no pasa. 0 y 127 siempre llegan.
+SEGUIR = 2
+VUELTA = 7
+QUIETO = 0.4
 LUCES_CADA = 0.25
 
 FADERS, PERILLAS = range(0, 8), range(16, 24)
@@ -115,6 +123,8 @@ class Control:
         self.cola = queue.Queue()
         self.mover = {}          # cc -> último valor sin aplicar (faders y perillas)
         self.enganchado = {}     # cc -> último valor aplicado (control "recogido")
+        self.lado = {}           # cc -> +1 / -1: para dónde se movió la última vez (contra el temblor)
+        self.movido = {}         # cc -> cuándo se aplicó su último cambio
         self.previo = {}         # cc -> valor anterior que mandó el control (para ver si cruzó)
         self.solo = None         # (canal, encendidos de antes) mientras hay un solo
         self.escena = None       # escena elegida con TRACK
@@ -217,6 +227,16 @@ class Control:
                     cruzo = antes is not None and (antes - actual) * (v - actual) <= 0
                     if abs(v - actual) > RECOGER and not cruzo:
                         continue
+            ultimo = self.enganchado.get(cc)
+            if ultimo is not None and v not in (0, 127):
+                lado = 1 if v > ultimo else -1
+                moviendo = time.monotonic() - self.movido.get(cc, 0.0) < QUIETO
+                umbral = SEGUIR if moviendo and self.lado.get(cc) in (None, lado) else VUELTA
+                if abs(v - ultimo) < umbral:
+                    continue  # tiembla en el lugar: no es un movimiento
+            if ultimo is not None and v != ultimo:
+                self.lado[cc] = 1 if v > ultimo else -1
+            self.movido[cc] = time.monotonic()
             self.enganchado[cc] = v
             if secciones == ("cc",):
                 ccs.append(self._cc_del_motor(canal, clave, v))
