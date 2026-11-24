@@ -419,6 +419,7 @@ def crear_servidor(ctx, puerto):
                 "/api/ajuste": self._ajuste,
                 "/api/tocado": self._tocado,
                 "/api/cc": self._cc,
+                "/api/control/led": self._control_led,
                 "/api/clip/guardar": self._clip_guardar,
                 "/api/clip/borrar": self._clip_borrar,
                 "/api/escena/armonia": self._escena_armonia,
@@ -635,6 +636,33 @@ def crear_servidor(ctx, puerto):
             with ctx.candado:
                 ctx.puertos.enviar(str(datos["salida"]), "control_change", int(datos["canal"]) - 1,
                                    max(0, min(127, int(datos["cc"]))), max(0, min(127, int(datos["valor"]))))
+            self._responder()
+
+        def _control_led(self, datos):
+            """Pone el nanoKONTROL2 en LED Mode = External (sin el Kontrol Editor de Korg):
+            le escribe la escena de fábrica con ese modo. Fuera del candado del motor: tarda
+            casi un segundo y el reloj no puede esperar."""
+            import mido
+            from . import nano
+            from .main import buscar_puerto
+            with ctx.candado:
+                c = dict(ctx.config["control"])
+            clave = c["puerto"]
+            abierto = ctx.puertos.abiertos.get(clave)
+            if abierto is not None:
+                with ctx.puertos.envio(clave):
+                    nano.led_externo(abierto, c["canal"])
+                nombre = abierto.name
+            else:
+                nombre = buscar_puerto(mido.get_output_names(), clave)
+                if not nombre:
+                    raise ValueError(f"No encuentro el nanoKONTROL2 ({clave}): revisa el cable USB")
+                try:
+                    with mido.open_output(nombre) as puerto:
+                        nano.led_externo(puerto, c["canal"])
+                except OSError as e:
+                    raise ValueError(f"No pude abrir el nanoKONTROL2: {e}") from None
+            log.info("nanoKONTROL2 en LED Mode External (%s)", nombre)
             self._responder()
 
         def _deshacer(self, datos):

@@ -2,7 +2,8 @@
 
 El nanoKONTROL2 tiene que estar en modo CC (al prenderlo, mantener SET + CYCLE) con sus
 números de fábrica. Para que los botones se queden prendidos según el estado del motor,
-en el Kontrol Editor de Korg: LED Mode = External.
+LED Mode = External: el botón de Ajustes › nanoKONTROL2 o `goa-ports --nano-led` (goa/nano.py)
+lo escriben en el nano sin el Kontrol Editor de Korg.
 
 Los ocho canales, de izquierda a derecha: Pads, Bajo, Secuencia A, Secuencia B, Diálogo,
 FX, Texturas y Looper.

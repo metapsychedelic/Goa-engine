@@ -229,8 +229,14 @@ function renderControl() {
   resto.replaceChildren(
     el("div", {className: "campo"}, ["Puerto", puertoSelect("entrada", c.puerto, (v) => { c.puerto = v; guardar(); })]),
     el("div", {className: "dos"}, [numeroDe(c, "canal", "Canal MIDI global", 1, 16), numeroDe(c, "subida", "Compases de la subida (REC)", 1, 32)]),
-    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Prender sus botones", el("br"), el("span", {className: "mut", textContent: "Pide LED Mode = External en el Kontrol Editor de Korg"})]),
+    el("label", {className: "fila", style: "min-height:44px"}, [el("span", {}, ["Prender sus botones", el("br"), el("span", {className: "mut", textContent: "Pide LED Mode = External (botón de abajo)"})]),
       el("input", {type: "checkbox", checked: c.luces, onchange: (e) => { c.luces = e.target.checked; guardar(); }})]),
+    c.luces ? el("button", {type: "button", textContent: "Poner LED Mode = External en el nano", onclick: async (ev) => {
+      const b = ev.target; b.disabled = true; b.textContent = "Escribiendo en el nano…";
+      try { await enviarPendiente(); await api("/api/control/led", {}); aviso("Listo: el nano quedó con LED Mode = External"); }
+      catch (e) { aviso(e.message, true); }
+      b.disabled = false; b.textContent = "Poner LED Mode = External en el nano"; }}) : null,
+    c.luces ? ayuda("Sin el Kontrol Editor de Korg: le escribe al nano su escena de fábrica con LED Mode = External y la deja guardada (sobrevive al apagarlo). Si le habías cambiado números de CC, vuelven a los de fábrica, que son los que usa Yantra. Solo hace falta una vez.") : null,
     tabla,
     ayuda("S: solo (otra vez y vuelven los demás) · M: prende o apaga el motor · R: seed nueva (en el looper, el loop siguiente)."),
     ayuda("◀ TRACK ▶ elige escena · PLAY la lanza · STOP vuelve a la de antes · SET guarda lo que suena como escena nueva · ◀ MARKER ▶ energía −/+ · CYCLE piloto · REW deshacer · REC subida."),

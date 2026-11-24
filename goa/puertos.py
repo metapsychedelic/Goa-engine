@@ -3,6 +3,8 @@
   goa-ports                      lista entradas y salidas
   goa-ports --probar FM-1 2      toca unas notas en la salida "FM-1", canal 2
   goa-ports --escuchar Circuit   muestra lo que llega de la Circuit (Ctrl+C para salir)
+  goa-ports --nano-led           pone el nanoKONTROL2 en LED Mode = External (canal global 1)
+  goa-ports --nano-led 2         lo mismo si su canal MIDI global es otro
 """
 
 import argparse
@@ -32,7 +34,20 @@ def main():
     parser = argparse.ArgumentParser(description="Puertos MIDI del motor Goa")
     parser.add_argument("--probar", nargs=2, metavar=("SALIDA", "CANAL"))
     parser.add_argument("--escuchar", metavar="ENTRADA")
+    parser.add_argument("--nano-led", nargs="?", const=1, type=int, metavar="CANAL")
     args = parser.parse_args()
+
+    if args.nano_led:
+        from . import nano
+        nombre = buscar(mido.get_output_names(), "nanoKONTROL2")
+        if not nombre:
+            print("No encuentro el nanoKONTROL2. Revisa el cable USB.")
+            return
+        print(f"Escribiendo la escena de fábrica con LED Mode = External en {nombre}...")
+        with mido.open_output(nombre) as out:
+            nano.led_externo(out, args.nano_led)
+        print("Listo. Desenchúfalo y vuelve a enchufarlo, y prueba sus botones (goa-restart si el motor ya corría).")
+        return
 
     if args.probar:
         parte, canal = args.probar[0], int(args.probar[1]) - 1
