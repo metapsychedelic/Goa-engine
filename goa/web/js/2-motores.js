@@ -890,7 +890,7 @@ function copiarMotorA(clave, nombre) {
 
 const FRASEADOS = ["clasico", "psytrance"];  // estilos cuyo patrón dura una frase de 2 o 4 compases
 const FIGURAS_PSY = [["auto","Auto (seed)"],["riff","Riff"],["rafaga","Ráfaga"],["octavas","Octavas"],["arpegio","Arpegio"],["pulsos","Pulsos"],
-  ["espacio","Espacio ✦"],["mantra","Mantra ✦"],["tresillo","Tresillo ✦"],["descenso","Descenso ✦"],["puntillo","Puntillo"],["melodia","Melodía"]];
+  ["espacio","Espacio ✦"],["mantra","Mantra ✦"],["tresillo","Tresillo ✦"],["descenso","Descenso ✦"],["puntillo","Puntillo"],["melodia","Melodía"],["piano","Piano"]];
 const FIGURA_PSY_TEXTO = {
   auto: "La seed elige la figura: cambia la seed para pasar por las cinco.",
   riff: "El riff del psytrance: deja huecos donde cae el bombo, raíz en dos octavas y el color (♭7, ♭3, ♭2) al cierre de cada medio compás. Notas cortas, alguna larga de acento.",
@@ -903,9 +903,63 @@ const FIGURA_PSY_TEXTO = {
   tresillo: "✦ Místico. Tresillos de corchea (raíz, ♭2, 4.ª) y tresillos de negra sobre el 4/4: el galope oriental.",
   puntillo: "Notas cada 3 semicorcheas (3-3-2, 3-3-3-3-2-2): el acento cruza el compás sin salir de la rejilla. Raíz con alguna octava y color al final del compás. Huecos elige de la máscara más llena a la más vacía.",
   melodia: "Una línea por grados que sube en el compás A, baja desde el ♭6 en el B y resuelve en la raíz al cerrar la frase. Con armonía guiada y pads cae en el acorde; con menor armónica suena a drop de psytrance.",
-  descenso: "✦ Místico. La raíz en cada tiempo y entre medio una línea que baja por la escala (♭7 ♭6 5 4), acento en el tres."};
+  descenso: "✦ Místico. La raíz en cada tiempo y entre medio una línea que baja por la escala (♭7 ♭6 5 4), acento en el tres.",
+  piano: "Golpes de 2 a 5 notas del acorde que suena, una tras otra, con espacio entre medio y compases que descansan. Para un piano o un pluck: melancolía y psy le dan el carácter."};
+// Figura «piano» (generador.piano_psy): los mismos controles del prototipo.
+const FORMAS_PIANO = [["seed","Seed"],["arp_sube","Arpegio ↑"],["arp_baja","Arpegio ↓"],["abierto","Abierto"],["grados_baja","Grados ↓"],
+  ["grados_sube","Grados ↑"],["bordado","Bordado"],["repetida","Repetida"],["salto","Salto y bajada"]];
+const RITMOS_PIANO = [["seed","Seed"],["parejo","Parejo"],["ultima","Última larga"],["primera","Primera larga"],["corta_larga","Corta-larga"],
+  ["medio","Larga al medio"],["anacrusa","Anacrusa"]];
+
+function recursosMelancolia(m) {
+  const r = [];
+  if (m >= 0.15) r.push("última larga y suave");
+  if (m >= 0.35) r.push("séptima");
+  if (m >= 0.55) r.push("final en la tercera");
+  if (m >= 0.75) r.push("suspiro");
+  return r.length ? r.join(" · ") : "neutro";
+}
+
+function recursosPsy(p, ajuste) {
+  const r = [];
+  if (p >= 0.15) r.push("staccato");
+  if (p >= 0.35) r.push(ajuste === "tiempo" ? "eco cada tiempo" : ajuste === "corchea" ? "eco cada corchea" : "eco con puntillo (3/16)");
+  if (p >= 0.55) r.push("♭2 frigia");
+  if (p >= 0.75) r.push(ajuste === "tiempo" ? "síncopa: corre un tiempo" : ajuste === "corchea" ? "síncopa: al contratiempo" : "síncopa: 3/16");
+  return r.length ? r.join(" · ") : "sin rasgos psy";
+}
+
+function panelPiano(s) {
+  const seg = (clave, opciones, cols, num) => segmentado(opciones, String(s[clave]), (v) => { s[clave] = num ? parseInt(v) : v; guardar(); renderMotores(); }, cols);
+  const desp = (v) => v === 0 ? "centrado" : `${v > 0 ? "+" : ""}${v} semicorch.`;
+  return [
+    campo("Suena en", seg("piano_suena", [["todos","Todos"],["medio","Uno por medio"],["uno4","1 de cada 4"],["dos2","2 y descansa 2"],["tres1","3 y descansa 1"]], 3)),
+    campo("Empieza en", seg("piano_inicio", [["0","Compás 1"],["1","Compás 2"],["2","Compás 3"],["3","Compás 4"]], 4, true)),
+    deslizador(s, "piano_melancolia", "Melancolía", 0, 1, 0.05, (v) => porcentaje(v), () => renderMotores()),
+    ayuda(recursosMelancolia(s.piano_melancolia)),
+    deslizador(s, "piano_psy", "Psy", 0, 1, 0.05, (v) => porcentaje(v), () => renderMotores()),
+    ayuda(recursosPsy(s.piano_psy, s.piano_ajuste)),
+    campo("Ajuste a la grilla", seg("piano_ajuste", [["tiempo","Tiempo"],["corchea","Corchea"],["libre","Libre"]], 3)),
+    ayuda("Tiempo: el golpe parte sobre el bombo. Corchea: también en el contratiempo. Libre: centrado exacto. La síncopa y el eco del psy siguen este ajuste."),
+    campo("Forma", seg("piano_forma", FORMAS_PIANO, 3)),
+    campo("Ritmo", seg("piano_ritmo", RITMOS_PIANO, 3)),
+    ayuda("«Seed» deja que la seed elija; la seed también decide desde qué nota del acorde parte."),
+    campo("Notas por golpe", seg("piano_notas", [["2","2"],["3","3"],["4","4"],["5","5"]], 4, true)),
+    campo("Golpes por compás", seg("piano_golpes", [["1","1"],["2","2"],["3","3"],["4","4"]], 4, true)),
+    campo("Separación", seg("piano_separacion", [["1","Pegadas"],["2","1 de aire"],["3","2 de aire"],["4","3 de aire"]], 4, true)),
+    deslizador(s, "piano_desplazar", "Dónde cae", -8, 7, 1, desp),
+    campo("Rango", seg("piano_rango", [["compacto","Compacto"],["normal","Normal"],["abierto","Abierto"]], 3)),
+    ayuda("Compacto: cada golpe cabe en una octava. El registro lo da la Octava de la secuencia y la mutación (en Notas) cambia una nota en todos los golpes."),
+  ];
+}
+
 function panelPsy(s) {
   const fig = s.figura && FIGURAS_PSY.some((f) => f[0] === s.figura) ? s.figura : "auto";
+  if (fig === "piano") return [el("div", {className: "card principales"}, [
+    campo("Figura", segmentado(FIGURAS_PSY, fig, (v) => { s.figura = v; renderMotores(); guardar(); }, 3)),
+    ayuda(FIGURA_PSY_TEXTO[fig]),
+    ...panelPiano(s),
+  ])];
   return [el("div", {className: "card principales"}, [
     campo("Figura", segmentado(FIGURAS_PSY, fig, (v) => { s.figura = v; renderMotores(); guardar(); }, 3)),
     ayuda(FIGURA_PSY_TEXTO[fig]),

@@ -32,6 +32,10 @@ def celda_molde(molde, prob, seed, paso, filtro=True):
     return celda
 
 
+PIANO = ("piano_forma", "piano_ritmo", "piano_notas", "piano_golpes", "piano_separacion", "piano_desplazar",
+         "piano_ajuste", "piano_suena", "piano_inicio", "piano_melancolia", "piano_psy", "piano_rango")
+
+
 class Secuencia:
     def __init__(self, cfg):
         self.nombre = cfg.get("nombre", "?")
@@ -69,6 +73,8 @@ class Secuencia:
         self.clasico = {"figura": cfg.get("figura", "auto"), "frase": int(cfg.get("frase", 2)),
                         "remate": float(cfg.get("remate", 0.5)), "ciclo": int(cfg.get("ciclo", 0)),
                         "registro": int(cfg.get("registro", 2)), "huecos": float(cfg.get("huecos", 0.5)),
+                        # Figura «piano» (psytrance): ver generador.piano_psy.
+                        "piano": {k[6:]: cfg[k] for k in PIANO if k in cfg},
                         # Con raga y ornamentos desde 30 %, la respuesta cierra con su frase típica.
                         "raga": cfg.get("raga", "") if float(cfg.get("ornamentos", 0.5)) >= 0.3 else ""}
         # Respuestas distintas: cada vuelta de la frase toca otra respuesta (B, C) y
@@ -136,7 +142,8 @@ class Secuencia:
 
     def firma(self):
         """Lo que define el patrón de base: si cambia, el patrón se vuelve a generar."""
-        extra = tuple(sorted(self.clasico.items())) if self.estilo in generador.FRASEADOS else ()
+        extra = tuple(sorted((k, tuple(sorted(v.items())) if isinstance(v, dict) else v)
+                             for k, v in self.clasico.items())) if self.estilo in generador.FRASEADOS else ()
         return (self.seed, self.estilo, self.largo, self.pedal) + extra
 
     def vueltas_respuesta(self):

@@ -169,7 +169,7 @@ def _acido(rng, largo, pedal):
 FIGURAS = ("pedal", "ciclo", "acordes")
 # Psytrance (análisis del pack Zenhiser Analog Psytrance, 0.54): ver _psy_*.
 FIGURAS_PSY = ("riff", "rafaga", "octavas", "arpegio", "pulsos", "espacio", "mantra", "tresillo", "descenso",
-               "puntillo", "melodia")
+               "puntillo", "melodia", "piano")
 FIGURAS_CON_AUTO = ("auto",) + FIGURAS + FIGURAS_PSY
 FRASEADOS = ("clasico", "psytrance")   # estilos cuyo patrón dura una frase de 2 o 4 compases
 CICLOS = (0, 3, 5, 6, 7)  # 0 = lo elige la seed
@@ -346,7 +346,7 @@ def _clasico_acordes(rng, frase, remate, rr=None):
 
 
 def clasico(seed, figura="auto", frase=2, remate=0.5, ciclo=0, registro=2, pedal=0.5, vuelta=0, raga="",
-            familia="clasico", huecos=0.5):
+            familia="clasico", huecos=0.5, piano=None):
     """Patrón «Goa clásico» de `frase` compases (16 pasos cada uno).
 
     `vuelta` > 0 da otra respuesta para la misma frase: el compás A y la figura
@@ -356,6 +356,8 @@ def clasico(seed, figura="auto", frase=2, remate=0.5, ciclo=0, registro=2, pedal
     rng = random.Random(f"clasico:{seed}")
     rr = random.Random(f"clasico:{seed}:respuesta:{vuelta}") if vuelta else None
     figura = figura_de(seed, figura, familia)
+    if familia == "psytrance" and figura == "piano":
+        return piano_psy(seed, **(piano or {}))   # 4 compases, no usa frase ni respuesta
     if familia == "psytrance":
         rng = random.Random(f"psy:{seed}")
         rr = random.Random(f"psy:{seed}:respuesta:{vuelta}") if vuelta else None
@@ -779,6 +781,151 @@ def _psy_melodia(rng, frase, remate, huecos, rr):
                 contorno[-1] = 0          # la frase resuelve en la raíz
             resultado += compas(contorno, False)
     return resultado
+
+
+# --- Piano (psytrance) ----------------------------------------------------------------------
+# Golpes de 2 a 5 notas una tras otra, 1 a 4 veces por compás, centrados en su espacio y
+# ajustados a la grilla; en un ciclo de 4 compases donde algunos descansan. Grados sobre la
+# raíz del acorde que suena (0 raíz, 2 tercera, 4 quinta, 6 séptima, 7 octava). Dos
+# caracteres que suman recursos en orden: melancolía (última larga y suave, séptima, final
+# en la tercera, suspiro) y psy (staccato, eco, ♭2 frigia, síncopa). Igual al prototipo
+# que aprobó el usuario.
+FORMAS_PIANO = ("arp_sube", "arp_baja", "abierto", "grados_baja", "grados_sube", "bordado", "repetida", "salto")
+RITMOS_PIANO = ("parejo", "ultima", "primera", "corta_larga", "medio", "anacrusa")
+SUENA_PIANO = {"todos": "xxxx", "medio": "x.x.", "uno4": "x...", "dos2": "xx..", "tres1": "xxx."}
+AJUSTES_PIANO = {"tiempo": 4, "corchea": 2, "libre": 1}
+RANGOS_PIANO = ("compacto", "normal", "abierto")
+SALTO_PIANO = {"tiempo": 4, "corchea": 2, "libre": 3}   # síncopa y eco: un tiempo, una corchea o 3/16
+
+
+def _piano_base(forma, n, giro, centro):
+    if forma == "arp_sube":
+        a = ([0, 2, 4][giro:] + [x + 7 for x in [0, 2, 4][:giro]] + [7, 9])[:n]
+        return [x + 7 if i and x <= a[i - 1] else x for i, x in enumerate(a)]
+    if forma == "arp_baja":
+        a = [0, 2, 4][giro:] + [x + 7 for x in [0, 2, 4][:giro]] + [7]
+        return (sorted(a, reverse=True) + [-3])[:n]
+    if forma == "abierto":
+        return [x + (2 if giro else 0) for x in [0, 4, 7, 9, 11][:n]]
+    if forma == "grados_baja":
+        return [x + centro for x in [4, 3, 2, 1, 0][5 - n:]]
+    if forma == "grados_sube":
+        return [x + centro for x in [0, 1, 2, 3, 4][5 - n:]]
+    if forma == "bordado":
+        return [centro, centro + 1, centro, centro - 1, centro][:n]
+    if forma == "repetida":
+        return [centro] * (n - 1) + [centro + (2 if centro == 2 else 3)]
+    return {2: [7, 4], 3: [7, 4, 2], 4: [7, 4, 3, 2], 5: [7, 4, 3, 2, 0]}[n]
+
+
+def _piano_melancolia(g, m):
+    g = list(g)
+    n = len(g)
+    if m >= 0.35:
+        g[:-1] = [6 if x == 7 else x for x in g[:-1]]        # séptima en vez de octava
+    if m >= 0.55 and g[-1] % 7 == 0:
+        g[-1] = g[-1] // 7 * 7 + 2                           # termina en la tercera, sin resolver
+    if m >= 0.75 and n >= 3:
+        g[-2] = g[-1] + 1                                    # suspiro: cae un grado a la última
+    return g
+
+
+def _piano_duraciones(ritmo, n, melancolia):
+    d = [1] * n
+    if ritmo == "ultima":
+        d[-1] = 3
+    elif ritmo == "primera":
+        d[0] = 3
+    elif ritmo == "corta_larga":
+        d = [2 if i % 2 else 1 for i in range(n)]
+    elif ritmo == "medio":
+        d[n // 2] = 3
+    elif ritmo == "anacrusa":
+        d[min(1, n - 1)] = 3
+    if melancolia >= 0.15 and ritmo not in ("primera", "medio"):
+        d[-1] = max(d[-1], 3)
+    return d
+
+
+def piano_psy(seed, notas=4, golpes=1, separacion=1, desplazar=0, forma="seed", ritmo="seed",
+              ajuste="tiempo", suena="medio", inicio=0, melancolia=0.6, psy=0.5, rango="compacto"):
+    """Patrón «piano» de 4 compases (64 pasos)."""
+    n = max(2, min(5, int(notas)))
+    golpes = max(1, min(4, int(golpes)))
+    sep = max(1, min(4, int(separacion)))
+    rng = random.Random(f"piano:{seed}")
+    f = rng.choice(FORMAS_PIANO)
+    f = forma if forma in FORMAS_PIANO else f
+    r = rng.choice(RITMOS_PIANO)
+    r = ritmo if ritmo in RITMOS_PIANO else r
+    giro, centro, frig = int(rng.random() * 3), rng.choice((0, 2, 4)), rng.random()
+    grados = _piano_melancolia(_piano_base(f, n, giro, centro), melancolia)
+    if rango != "abierto":
+        # Compacto: el golpe cabe en una octava (lo que pasa se dobla hacia abajo) y queda
+        # cerca de la raíz; normal: hasta una novena y media. La forma se mantiene si cabe.
+        ancho, techo = (6, 9) if rango == "compacto" else (9, 11)
+        piso = min(grados)
+        grados = [x - 7 if x > piso + ancho else x for x in grados]
+        while max(grados) > techo:
+            grados = [x - 7 for x in grados]
+    notas_g = [{"grado": x, "semi": False} for x in grados]
+    if psy >= 0.55 and n >= 3:
+        notas_g[1 + int(frig * (n - 2))] = {"grado": 0, "semi": True}   # ♭2 frigia en una nota interior
+    hueco = 16 / golpes
+    d = _piano_duraciones(r, n, melancolia)
+    largo = sum(d) * sep
+    if largo > hueco:
+        d, largo = [1] * n, n * sep
+    if largo > hueco:
+        sep = max(1, int(hueco // n))
+        largo = n * sep
+    q = AJUSTES_PIANO.get(ajuste, 4)
+    salto = SALTO_PIANO.get(ajuste, 4)
+    mascara = SUENA_PIANO.get(suena, "x.x.")
+    suave = 1 - melancolia / 4
+    patron = _silencios(64)
+    fuentes = {}          # nota k del golpe -> su primer paso: la mutación la cambia en todos los golpes
+    vez = 0
+    for b in range(4):
+        if mascara[(b - int(inicio)) % 4] != "x":
+            continue
+        corre = salto if psy >= 0.75 and vez % 2 == 1 else 0
+        vez += 1
+        for g in range(golpes):
+            pos = round((g * hueco + (hueco - largo) / 2) / q) * q + int(desplazar) + corre
+            if r == "anacrusa":
+                pos -= sep
+            for k, nota in enumerate(notas_g):
+                if k * sep >= hueco:
+                    break
+                i = b * 16 + pos % 16
+                ultima = k == n - 1
+                larga = min(d[k] * sep, hueco)
+                if d[k] > 1 and not (psy >= 0.15 and not (ultima and melancolia >= 0.15)):
+                    p = _nota(nota["grado"], 0, sostener=larga, fuente=fuentes.setdefault(k, i))
+                else:
+                    p = _nota(nota["grado"], 0, gate_mult=0.7 if psy >= 0.15 else 1.4, fuente=fuentes.setdefault(k, i))
+                p["acento"] = k == 0 and g == 0
+                if nota["semi"]:
+                    p["semi"] = True
+                if suave < 1:
+                    p["vel_mult"] = round(suave, 3)
+                patron[i] = p
+                if ultima and psy >= 0.35:
+                    # Eco: con «libre», el 3/16 del delay psy; si no, en el tiempo (o corchea)
+                    # que sigue a la última nota y el siguiente: no se sale de la grilla.
+                    primero = 3 if ajuste == "libre" else (pos // salto + 1) * salto - pos
+                    for j, o in enumerate((primero, primero + salto)):
+                        e = b * 16 + (pos + o) % 16
+                        if not patron[e]["suena"]:
+                            eco = _nota(nota["grado"], 0, gate_mult=0.7)
+                            eco["eco"] = True
+                            eco["vel_mult"] = round((0.3 if j else 0.5) * suave, 3)
+                            if nota["semi"]:
+                                eco["semi"] = True
+                            patron[e] = eco
+                pos += d[k] * sep
+    return patron
 
 
 PSY = {"riff": _psy_riff, "rafaga": _psy_rafaga, "octavas": _psy_octavas,

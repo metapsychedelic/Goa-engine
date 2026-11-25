@@ -490,6 +490,19 @@ ESQUEMA_SECUENCIA = {
     "registro": (int, 2, 1, 3),
     "variar": (float, 0.0, 0.0, 1.0),       # respuestas distintas en cada vuelta de la frase (0 = siempre la misma)
     "huecos": (float, 0.5, 0.0, 1.0),       # psytrance: de la máscara de riff más llena a la más vacía
+    # Psytrance «piano» (generador.piano_psy): golpes de notas del acorde en un ciclo de 4 compases.
+    "piano_forma": (str, "seed", None, ("seed",) + generador.FORMAS_PIANO),
+    "piano_ritmo": (str, "seed", None, ("seed",) + generador.RITMOS_PIANO),
+    "piano_notas": (int, 4, 2, 5),
+    "piano_golpes": (int, 1, 1, 4),
+    "piano_separacion": (int, 1, 1, 4),        # semicorcheas entre nota y nota (1 = pegadas)
+    "piano_desplazar": (int, 0, -8, 7),        # desde el centro de su espacio
+    "piano_ajuste": (str, "tiempo", None, tuple(generador.AJUSTES_PIANO)),
+    "piano_suena": (str, "medio", None, tuple(generador.SUENA_PIANO)),
+    "piano_inicio": (int, 0, 0, 3),            # en qué compás del ciclo de 4 empieza
+    "piano_melancolia": (float, 0.6, 0.0, 1.0),
+    "piano_psy": (float, 0.5, 0.0, 1.0),
+    "piano_rango": (str, "compacto", None, generador.RANGOS_PIANO),
     "seed": (str, "goa", None, None),
     "mutacion": (float, 0.0, 0.0, 1.0),
     "mutar_cada": (int, 8, 1, 64),
@@ -539,6 +552,8 @@ ESQUEMA_SECUENCIA = {
 # El Tocado arma su melodía con una secuencia del estilo elegido: lleva los mismos
 # ajustes de patrón que una secuencia (figura, frase, respuesta, raga…).
 TOCADO_PATRON = ("genero", "figura", "frase", "remate", "variar", "ciclo", "registro", "huecos", "pedal",
+                 "piano_forma", "piano_ritmo", "piano_notas", "piano_golpes", "piano_separacion", "piano_desplazar",
+                 "piano_ajuste", "piano_suena", "piano_inicio", "piano_melancolia", "piano_psy", "piano_rango",
                  "saltos", "raga", "ornamentos", "escala_color", "semitono", "relacion", "acentos", "acento", "largo")
 # Ajustes de una secuencia que el Tocado usa sin tocar el ritmo que grabaste: cómo toma
 # la armonía, techo, voz doble, slide, mutación de notas, recorrido, fuerza al azar,

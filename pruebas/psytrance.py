@@ -21,6 +21,8 @@ def main():
 
     print("Figuras")
     for fig in g.FIGURAS_PSY:
+        if fig == "piano":   # 4 compases con descansos y notas del acorde: se prueba en pruebas/piano.py
+            continue
         pats = [g.clasico(s, fig, 4, familia="psytrance") for s in seeds]
         todo &= ok(all(len(p) == 64 for p in pats) and all(len(g.clasico(s, fig, 2, familia="psytrance")) == 32 for s in seeds),
                    f"{fig}: 32 pasos con frase 2, 64 con frase 4")
@@ -31,8 +33,8 @@ def main():
         todo &= ok(min(raiz) >= piso, f"{fig}: la raíz manda ({min(raiz):.0%}-{max(raiz):.0%} de las notas)")
         primeras = [next(x for x in p if x["suena"]) for p in pats]
         todo &= ok(all(x["grado"] == 0 for x in primeras), f"{fig}: la primera nota es la raíz (a veces entra en el paso 2)")
-    todo &= ok(len({g.figura_de(f"S{i}", "auto", "psytrance") for i in range(200)}) == len(g.FIGURAS_PSY),
-               "auto: la seed pasa por todas las figuras")
+    todo &= ok(len({g.figura_de(f"S{i}", "auto", "psytrance") for i in range(200)}) == len(g.FIGURAS_PSY) - 1,
+               "auto: la seed pasa por todas las figuras (menos piano, que se elige a mano)")
 
     print("\nRiff con huecos")
     llenos = sum(sum(x["suena"] for x in g.clasico(s, "riff", 2, familia="psytrance", huecos=0.0)) for s in seeds)

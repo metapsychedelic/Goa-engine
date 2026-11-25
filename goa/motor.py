@@ -942,6 +942,9 @@ class Motor(FormaMotor):
             if s.semitono and not fuerte and azar_fijo(f"{s.seed}:semitono:{i}") < s.semitono:
                 # El ♭2: medio tono sobre la raíz que suena, en los pasos débiles (el fuerte queda firme).
                 nota = _cerca((raiz + 1) % 12, nota)
+            if p.get("semi"):
+                # Figura piano con psy: la ♭2 frigia del acorde que suena (sobre su raíz).
+                nota = _cerca((raiz + 1) % 12, nota)
             while nota > s.techo and nota - 12 >= 0:
                 nota -= 12  # techo: lo que pasa de la nota más alta baja de octava (misma nota, más grave)
             nota = max(0, min(127, nota))
@@ -960,6 +963,8 @@ class Motor(FormaMotor):
                 slide = p.get("slide", False) or x["slide"] < s.slide
             azar = random.Random(f"{s.seed}:{paso}")  # determinista: misma seed, mismo resultado
             velocidad = (s.acento if acento else s.velocidad) + round(s.vel_random * 30 * azar.uniform(-1, 1))
+            if "vel_mult" in p:
+                velocidad = round(velocidad * p["vel_mult"])   # figura piano: ecos y melancolía más suaves
             velocidad = max(1, min(127, velocidad))
             # Para las voces que la complementan o se separan: el ataque y si es fuerte
             # (acento o tiempo del compás).
