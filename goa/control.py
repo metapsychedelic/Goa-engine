@@ -5,8 +5,10 @@ números de fábrica. Para que los botones se queden prendidos según el estado 
 LED Mode = External: el botón de Ajustes › nanoKONTROL2 o `goa-ports --nano-led` (goa/nano.py)
 lo escriben en el nano sin el Kontrol Editor de Korg.
 
-Los ocho canales, de izquierda a derecha: Pads, Bajo, Secuencia A, Secuencia B, Diálogo,
-FX, Texturas y Looper.
+Cada canal maneja el motor que elijas en Ajustes › nanoKONTROL2 (config [control]
+canal1-canal8). De fábrica, de izquierda a derecha: Pads, Bajo, Secuencia A, Secuencia B,
+Diálogo, FX, Texturas y Looper. Cada motor trae su fader y su perilla (DEFECTO) y se pueden
+cambiar por canal (fader1-8, perilla1-8) entre los de OPCIONES.
 
   Fader    cuánto pasa (densidad, voces, filtro)   Perilla  su carácter
            El volumen no se maneja desde acá: queda en cada sinte.
@@ -61,38 +63,91 @@ REW, FF, STOP, PLAY, GRABAR = 43, 44, 42, 41, 45
 # Qué maneja cada canal: (sección, fila) del motor, la clave de su encendido, y
 # (secciones, clave) del fader y de la perilla. Una sección "cc" no toca la
 # configuración: manda ese CC al sinte del motor (el looper no tiene parámetros).
-CANALES = [
-    {"nombre": "Pads", "motor": ("pads", None), "activo": "activo",
-     "fader": (("pads",), "voces"), "perilla": (("pads",), "variacion")},
-    {"nombre": "Bajo", "motor": ("bajo", None), "activo": "activo",
-     "fader": (("bajo",), "densidad"), "perilla": (("bajo",), "filtro_max")},
-    {"nombre": "Secuencia A", "motor": ("secuencia", 0), "activo": "activa",
-     "fader": (("secuencia",), "densidad"), "perilla": (("secuencia",), "mutacion")},
-    {"nombre": "Secuencia B", "motor": ("secuencia", 1), "activo": "activa",
-     "fader": (("secuencia",), "densidad"), "perilla": (("secuencia",), "mutacion")},
-    {"nombre": "Diálogo", "motor": ("dialogo", None), "activo": "activo",
-     "fader": (("dialogo",), "densidad"), "perilla": (("llamada", "respuesta"), "oscuridad")},
-    {"nombre": "FX", "motor": ("fx", None), "activo": "activo",
-     "fader": (("fx",), "filtro_reposo"), "perilla": (("fx",), "locura")},
-    {"nombre": "Texturas", "motor": ("texturas", None), "activo": "activo",
-     "fader": (("texturas",), "densidad"), "perilla": (("texturas",), "profundidad")},
-    {"nombre": "Looper", "motor": ("looper", None), "activo": "activo",
-     "fader": (("cc",), 74), "perilla": (("cc",), 71)},
-]
+# Lo que pueden mover el fader y la perilla de cada tipo de motor: id -> (secciones, clave,
+# nombre). ("cc",) es un CC directo al sinte del motor (sin valor guardado: no recoge).
+# La app tiene la misma lista (web/js/3-vivo.js, OPCIONES_NANO).
+OPCIONES = {
+    "secuencia": {"densidad": (("secuencia",), "densidad", "densidad"), "mutacion": (("secuencia",), "mutacion", "mutación"),
+                  "gate": (("secuencia",), "gate", "largo de nota (gate)"), "swing": (("secuencia",), "swing", "swing"),
+                  "huecos": (("secuencia",), "huecos", "huecos (psytrance)"), "slide": (("secuencia",), "slide", "slide"),
+                  "acentos": (("secuencia",), "acentos", "acentos"), "largas": (("secuencia",), "largas", "notas largas"),
+                  "repeticion": (("secuencia",), "repeticion", "repetición"),
+                  "filtro_reposo": (("secuencia",), "filtro_reposo", "filtro en reposo"),
+                  "piano_melancolia": (("secuencia",), "piano_melancolia", "melancolía (piano)"),
+                  "piano_psy": (("secuencia",), "piano_psy", "psy (piano)")},
+    "pads": {"voces": (("pads",), "voces", "voces del acorde"), "variacion": (("pads",), "variacion", "variación"),
+             "rasgueo": (("pads",), "rasgueo", "rasgueo"), "pulso": (("pads",), "pulso", "pulso"),
+             "suspensiones": (("pads",), "suspensiones", "suspensiones"), "velocidad": (("pads",), "velocidad", "fuerza")},
+    "bajo": {"densidad": (("bajo",), "densidad", "densidad"), "filtro_max": (("bajo",), "filtro_max", "filtro (apertura)"),
+             "filtro_min": (("bajo",), "filtro_min", "filtro (cierre)"), "swing": (("bajo",), "swing", "swing"),
+             "slide": (("bajo",), "slide", "slide"), "acentos": (("bajo",), "acentos", "acentos"),
+             "gate": (("bajo",), "gate", "largo de nota (gate)"), "evolucion": (("bajo",), "evolucion", "evolución")},
+    "dialogo": {"densidad": (("dialogo",), "densidad", "densidad"), "oscuridad": (("llamada", "respuesta"), "oscuridad", "oscuridad"),
+                "espacio": (("dialogo",), "espacio", "espacio"), "evolucion": (("dialogo",), "evolucion", "evolución")},
+    "fx": {"filtro_reposo": (("fx",), "filtro_reposo", "filtro en reposo"), "locura": (("fx",), "locura", "locura"),
+           "caos": (("fx",), "caos", "caos"), "repetir": (("fx",), "repetir", "repetir"),
+           "movimiento": (("fx",), "movimiento", "movimiento")},
+    "texturas": {"densidad": (("texturas",), "densidad", "densidad"), "profundidad": (("texturas",), "profundidad", "profundidad"),
+                 "largas": (("texturas",), "largas", "notas largas"), "registro": (("texturas",), "registro", "registro")},
+    "looper": {"cc74": (("cc",), 74, "filtro (CC 74)"), "cc71": (("cc",), 71, "resonancia (CC 71)"),
+               "nivel": (("looper",), "nivel", "nivel")},
+    "obertura": {"densidad_cuerdas": (("obertura",), "densidad_cuerdas", "intensidad (densidad de cuerdas)"),
+                 "viva": (("obertura",), "viva", "desarrollo (orquestación viva)"),
+                 "humanizar": (("obertura",), "humanizar", "humanizar"), "swing": (("obertura",), "swing", "swing"),
+                 "nivel_cuerdas": (("obertura",), "nivel_cuerdas", "nivel de cuerdas"),
+                 "nivel_cuernos": (("obertura",), "nivel_cuernos", "nivel de cuernos"),
+                 "nivel_coro": (("obertura",), "nivel_coro", "nivel del coro")},
+    "tocado": {"densidad": (("tocado",), "densidad", "densidad"), "mutacion": (("tocado",), "mutacion", "mutación"),
+               "gate": (("tocado",), "gate", "largo de nota (gate)"), "huecos": (("tocado",), "huecos", "huecos")},
+    "circuit": {"cc74": (("cc",), 74, "filtro maestro (CC 74)"), "reverb_s1": (("circuit",), "reverb_s1", "reverb Synth 1"),
+                "reverb_s2": (("circuit",), "reverb_s2", "reverb Synth 2"), "delay_s1": (("circuit",), "delay_s1", "delay Synth 1"),
+                "delay_s2": (("circuit",), "delay_s2", "delay Synth 2")},
+}
+DEFECTO = {"secuencia": ("densidad", "mutacion"), "pads": ("voces", "variacion"), "bajo": ("densidad", "filtro_max"),
+           "dialogo": ("densidad", "oscuridad"), "fx": ("filtro_reposo", "locura"), "texturas": ("densidad", "profundidad"),
+           "looper": ("cc74", "cc71"), "obertura": ("densidad_cuerdas", "viva"), "tocado": ("densidad", "mutacion"),
+           "circuit": ("cc74", "reverb_s1")}
+NOMBRE_MOTOR = {"pads": "Pads", "bajo": "Bajo", "dialogo": "Diálogo", "fx": "FX", "texturas": "Texturas",
+                "looper": "Looper", "obertura": "Obertura", "tocado": "Tocado", "circuit": "Circuit"}
+# De fábrica (lo que había antes de poder elegir): las secuencias por su nombre.
+FABRICA = ("pads", "bajo", "sec:A", "sec:B", "dialogo", "fx", "texturas", "looper")
 
-NOMBRES = {"voces": "voces del acorde", "densidad": "densidad", "variacion": "variación",
-           "filtro_max": "filtro (apertura)", "mutacion": "mutación",
-           "oscuridad": "oscuridad", "filtro_reposo": "filtro en reposo", "locura": "locura",
-           "profundidad": "profundidad", 74: "filtro (CC 74)", 71: "resonancia (CC 71)"}
+
+def canales(cfg):
+    """Los 8 canales según [control]: cada uno un dict (o None si está en «nada» o su motor
+    no existe, por ejemplo una secuencia borrada)."""
+    c = cfg.get("control", {})
+    lista = []
+    for n in range(1, 9):
+        ref = c.get(f"canal{n}", FABRICA[n - 1])
+        tipo, fila, nombre = ref, None, NOMBRE_MOTOR.get(ref)
+        if ref.startswith("sec:"):
+            tipo = "secuencia"
+            nombres = [s.get("nombre") for s in cfg.get("secuencia", [])]
+            fila = nombres.index(ref[4:]) if ref[4:] in nombres else None
+            nombre = f"Secuencia {ref[4:]}"
+            if fila is None:
+                lista.append(None)
+                continue
+        if tipo not in OPCIONES:
+            lista.append(None)
+            continue
+        opciones = OPCIONES[tipo]
+        f = c.get(f"fader{n}") or DEFECTO[tipo][0]
+        p = c.get(f"perilla{n}") or DEFECTO[tipo][1]
+        f = f if f in opciones else DEFECTO[tipo][0]
+        p = p if p in opciones else DEFECTO[tipo][1]
+        lista.append({"nombre": nombre, "tipo": tipo, "motor": (tipo, fila),
+                      "activo": "activa" if tipo == "secuencia" else "activo",
+                      "fader": opciones[f][:2], "perilla": opciones[p][:2],
+                      "textos": (opciones[f][2], opciones[p][2])})
+    return lista
 
 
-def mapa():
+def mapa(cfg):
     """El mapa para mostrar en la app."""
-    def texto(destino):
-        secciones, clave = destino
-        return NOMBRES.get(clave, str(clave))
-    return [{"canal": i + 1, "motor": c["nombre"], "fader": texto(c["fader"]), "perilla": texto(c["perilla"])}
-            for i, c in enumerate(CANALES)]
+    return [{"canal": i + 1, "motor": c["nombre"] if c else "—", "fader": c["textos"][0] if c else "",
+             "perilla": c["textos"][1] if c else ""} for i, c in enumerate(canales(cfg))]
 
 
 def _rango(seccion, clave):
@@ -147,7 +202,7 @@ class Control:
         escenas = cfg.get("escena", [])
         elegida = self.escena if self.escena is not None and self.escena < len(escenas) else None
         return {"conectado": self.conectado, "ultimo": self.ultimo, "escena": elegida,
-                "solo": None if self.solo is None else CANALES[self.solo[0]]["nombre"],
+                "solo": None if self.solo is None else (self._canal(self.solo[0]) or {}).get("nombre"),
                 "sueltos": sorted(c for c in list(FADERS) + list(PERILLAS) if c not in self.enganchado and self._destino(c))}
 
     # --- El hilo ---
@@ -188,11 +243,12 @@ class Control:
 
     # --- Faders y perillas ---
 
+    def _canal(self, i):
+        return canales(self.ctx.config)[i]
+
     def _destino(self, cc):
-        i = cc - (0 if cc in FADERS else 16)
-        canal = CANALES[i]
-        seccion, fila = canal["motor"]
-        if seccion == "secuencia" and fila >= len(self.ctx.config["secuencia"]):
+        canal = self._canal(cc - (0 if cc in FADERS else 16))
+        if canal is None:
             return None
         return canal, canal["fader" if cc in FADERS else "perilla"]
 
@@ -253,22 +309,27 @@ class Control:
     def _cc_del_motor(self, canal, numero, valor):
         seccion, _ = canal["motor"]
         datos = self.ctx.config[seccion]
-        return {"salida": datos["salida"], "canal": datos["canal"], "cc": numero, "valor": valor}
+        # La Circuit: su filtro maestro va por el canal de proyecto.
+        return {"salida": datos["salida"], "canal": datos.get("canal_control", datos.get("canal")), "cc": numero, "valor": valor}
 
     # --- Botones ---
 
     def _encendido(self, i):
-        seccion, fila = CANALES[i]["motor"]
+        canal = self._canal(i)
+        if canal is None:
+            return False
+        seccion, fila = canal["motor"]
         cfg = self.ctx.config
         if seccion == "secuencia":
-            return fila < len(cfg["secuencia"]) and cfg["secuencia"][fila]["activa"]
-        return cfg[seccion]["activo"]
+            return bool(cfg["secuencia"][fila]["activa"])
+        return bool(cfg[seccion]["activo"])
 
     def _cambio_encendido(self, i, valor):
-        seccion, fila = CANALES[i]["motor"]
-        if seccion == "secuencia" and fila >= len(self.ctx.config["secuencia"]):
+        canal = self._canal(i)
+        if canal is None:
             return None
-        return [seccion, fila, CANALES[i]["activo"], bool(valor)]
+        seccion, fila = canal["motor"]
+        return [seccion, fila, canal["activo"], bool(valor)]
 
     def _boton(self, cc):
         cfg = self.ctx.config
@@ -320,8 +381,8 @@ class Control:
                     cambios.append(cambio)
             self.solo = None
         else:
-            antes = self.solo[1] if self.solo is not None else [self._encendido(j) for j in range(len(CANALES))]
-            for j in range(len(CANALES)):
+            antes = self.solo[1] if self.solo is not None else [self._encendido(j) for j in range(8)]
+            for j in range(8):
                 cambio = self._cambio_encendido(j, j == i)
                 if cambio:
                     cambios.append(cambio)
@@ -330,15 +391,18 @@ class Control:
             self._api("/api/ajuste", {"cambios": cambios})
 
     def _rec(self, i):
-        seccion, fila = CANALES[i]["motor"]
+        canal = self._canal(i)
+        if canal is None:
+            return
+        seccion, fila = canal["motor"]
         cfg = self.ctx.config
         if seccion == "looper":
             clip = cfg["looper"]["clip"] % 16 + 1
             self._api("/api/ajuste", {"cambios": [["looper", None, "clip", clip]]})
             return
-        if seccion == "secuencia" and fila >= len(cfg["secuencia"]):
-            return
-        self._api("/api/ajuste", {"cambios": [[seccion, fila, "seed", nueva_seed()]]})
+        esquema = ESQUEMA_SECUENCIA if seccion == "secuencia" else ESQUEMA_SECCIONES[seccion]
+        if "seed" in esquema:   # la Circuit no tiene seed: R no hace nada
+            self._api("/api/ajuste", {"cambios": [[seccion, fila, "seed", nueva_seed()]]})
 
     def _subida_en_curso(self):
         try:
@@ -356,7 +420,7 @@ class Control:
             self.luces = {}
             return
         quiero = {}
-        for i in range(len(CANALES)):
+        for i in range(8):
             quiero[MUTE.start + i] = 127 if self._encendido(i) else 0
             quiero[SOLO.start + i] = 127 if self.solo is not None and self.solo[0] == i else 0
             quiero[REC.start + i] = 0

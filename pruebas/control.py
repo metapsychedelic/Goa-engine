@@ -178,6 +178,56 @@ def main():
     boton(48 + 1)
     todo &= ok(ctx.config["bajo"] == antes, "otro canal MIDI: no hace caso")
 
+    print("\nCanales asignables")
+
+    def asignar(**cambios):   # como la app: manda la configuración entera
+        with candado:
+            nueva = json.loads(json.dumps(ctx.config))
+        for seccion, valores in cambios.items():
+            nueva[seccion].update(valores)
+        c._api("/api/config", nueva)
+        time.sleep(0.2)
+
+    asignar(control=dict(canal=1, canal3="obertura", perilla3="swing", canal4="", canal8="circuit"),
+            obertura=dict(densidad_cuerdas=0.5, swing=0.0))
+    m = ctl.mapa(ctx.config)
+    todo &= ok(m[2]["motor"] == "Obertura" and m[2]["fader"].startswith("intensidad") and m[2]["perilla"] == "swing",
+               f"el mapa muestra lo asignado ({m[2]})")
+    todo &= ok(m[3]["motor"] == "—" and m[7]["motor"] == "Circuit", "un canal en «nada» y otro con la Circuit")
+    for v in (64, 70, 80, 100):
+        cc(2, v, 0.12)
+    time.sleep(0.2)
+    todo &= ok(abs(ctx.config["obertura"]["densidad_cuerdas"] - 100 / 127) < 0.01,
+               f"el fader 3 mueve la intensidad de la obertura ({ctx.config['obertura']['densidad_cuerdas']})")
+    for v in (0, 30, 60):
+        cc(18, v, 0.12)
+    time.sleep(0.2)
+    todo &= ok(abs(ctx.config["obertura"]["swing"] - 60 / 127 * 0.5) < 0.01,
+               f"la perilla 3, personalizada, mueve el swing ({ctx.config['obertura']['swing']})")
+    antes = json.dumps(ctx.config, sort_keys=True)
+    cc(3, 0, 0.1)
+    cc(3, 127, 0.2)
+    boton(51)
+    todo &= ok(json.dumps(ctx.config, sort_keys=True) == antes, "el canal en «nada» no cambia nada")
+    enviados = len(puertos.enviados)
+    for v in (60, 70, 90):
+        cc(7, v, 0.12)
+    filtro = [e for e in puertos.enviados[enviados:] if e[1] == "control_change" and e[3] == 74]
+    todo &= ok(bool(filtro) and filtro[-1][2] == 15 and filtro[-1][4] == 90,
+               f"el fader 8 mueve el filtro maestro de la Circuit (CC 74, canal 16) {filtro[-1:] }")
+    asignar(control=dict(canal4="sec:Z"))
+    todo &= ok(ctl.canales(ctx.config)[3] is None, "una secuencia que no existe deja el canal libre")
+    asignar(control=dict(canal4="sec:A"))
+    todo &= ok(ctl.canales(ctx.config)[3]["motor"] == ("secuencia", 0), "las secuencias se eligen por su nombre")
+    todo &= ok(all(ctl.canales(ctx.config)[i]["textos"] for i in (0, 1)), "los otros canales siguen con lo de fábrica")
+    try:
+        js = (RAIZ / "goa" / "web" / "js" / "3-vivo.js").read_text()
+        faltan = [f"{t}:{k}" for t, ops in ctl.OPCIONES.items() for k in ops if f'"{k}"' not in js]
+        todo &= ok(not faltan and all(f'{t}:' in js or f'{t}: ' in js for t in ctl.OPCIONES),
+                   f"la app tiene las mismas opciones {faltan[:5]}")
+    except OSError:
+        todo &= ok(False, "no pude leer la app")
+
     print("\nTodo bien" if todo else "\nHAY FALLAS")
     raise SystemExit(0 if todo else 1)
 

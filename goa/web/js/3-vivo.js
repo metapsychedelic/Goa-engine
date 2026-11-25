@@ -210,21 +210,70 @@ function pintarTeclado(d) {
 }
 
 // --- nanoKONTROL2 (goa/control.py) ---
-const MAPA_CONTROL = [
-  ["Pads", "voces del acorde", "variación"], ["Bajo", "densidad", "filtro (apertura)"],
-  ["Secuencia A", "densidad", "mutación"], ["Secuencia B", "densidad", "mutación"],
-  ["Diálogo", "densidad", "oscuridad"], ["FX", "filtro en reposo", "locura"],
-  ["Texturas", "densidad", "profundidad"], ["Looper", "filtro (CC 74)", "resonancia (CC 71)"],
-];
+// = control.OPCIONES y control.DEFECTO: qué puede mover el fader y la perilla de cada motor.
+const OPCIONES_NANO = {
+  secuencia: [["densidad", "densidad"], ["mutacion", "mutación"], ["gate", "largo de nota (gate)"], ["swing", "swing"], ["huecos", "huecos (psytrance)"], ["slide", "slide"], ["acentos", "acentos"], ["largas", "notas largas"], ["repeticion", "repetición"], ["filtro_reposo", "filtro en reposo"], ["piano_melancolia", "melancolía (piano)"], ["piano_psy", "psy (piano)"]],
+  pads: [["voces", "voces del acorde"], ["variacion", "variación"], ["rasgueo", "rasgueo"], ["pulso", "pulso"], ["suspensiones", "suspensiones"], ["velocidad", "fuerza"]],
+  bajo: [["densidad", "densidad"], ["filtro_max", "filtro (apertura)"], ["filtro_min", "filtro (cierre)"], ["swing", "swing"], ["slide", "slide"], ["acentos", "acentos"], ["gate", "largo de nota (gate)"], ["evolucion", "evolución"]],
+  dialogo: [["densidad", "densidad"], ["oscuridad", "oscuridad"], ["espacio", "espacio"], ["evolucion", "evolución"]],
+  fx: [["filtro_reposo", "filtro en reposo"], ["locura", "locura"], ["caos", "caos"], ["repetir", "repetir"], ["movimiento", "movimiento"]],
+  texturas: [["densidad", "densidad"], ["profundidad", "profundidad"], ["largas", "notas largas"], ["registro", "registro"]],
+  looper: [["cc74", "filtro (CC 74)"], ["cc71", "resonancia (CC 71)"], ["nivel", "nivel"]],
+  obertura: [["densidad_cuerdas", "intensidad (densidad de cuerdas)"], ["viva", "desarrollo (orquestación viva)"], ["humanizar", "humanizar"], ["swing", "swing"], ["nivel_cuerdas", "nivel de cuerdas"], ["nivel_cuernos", "nivel de cuernos"], ["nivel_coro", "nivel del coro"]],
+  tocado: [["densidad", "densidad"], ["mutacion", "mutación"], ["gate", "largo de nota (gate)"], ["huecos", "huecos"]],
+  circuit: [["cc74", "filtro maestro (CC 74)"], ["reverb_s1", "reverb Synth 1"], ["reverb_s2", "reverb Synth 2"], ["delay_s1", "delay Synth 1"], ["delay_s2", "delay Synth 2"]]};
+const DEFECTO_NANO = {"secuencia": ["densidad", "mutacion"], "pads": ["voces", "variacion"], "bajo": ["densidad", "filtro_max"], "dialogo": ["densidad", "oscuridad"], "fx": ["filtro_reposo", "locura"], "texturas": ["densidad", "profundidad"], "looper": ["cc74", "cc71"], "obertura": ["densidad_cuerdas", "viva"], "tocado": ["densidad", "mutacion"], "circuit": ["cc74", "reverb_s1"]};
+const FABRICA_NANO = ["pads", "bajo", "sec:A", "sec:B", "dialogo", "fx", "texturas", "looper"];
+const MOTORES_NANO = [["pads", "Pads"], ["bajo", "Bajo"], ["dialogo", "Diálogo"], ["fx", "FX"], ["texturas", "Texturas"],
+  ["looper", "Looper"], ["obertura", "Obertura"], ["tocado", "Tocado"], ["circuit", "Circuit"]];
+const nanoAbiertos = new Set();   // canales con «Personalizar» abierto
+
+function tipoNano(ref) { return ref && ref.startsWith("sec:") ? "secuencia" : ref; }
+
+function filaCanalNano(c, n) {
+  const ref = c["canal" + n] ?? FABRICA_NANO[n - 1];
+  const tipo = tipoNano(ref);
+  const opciones = OPCIONES_NANO[tipo];
+  const existe = !ref.startsWith("sec:") || cfg.secuencia.some((s) => s.nombre === ref.slice(4));
+  const motores = [["", "— nada —"], ...cfg.secuencia.map((s) => ["sec:" + s.nombre, "Secuencia " + s.nombre]), ...MOTORES_NANO];
+  if (ref.startsWith("sec:") && !existe) motores.push([ref, `Secuencia ${ref.slice(4)} (no existe)`]);
+  const sel = el("select", {"aria-label": `Motor del canal ${n}`, onchange: () => {
+    c["canal" + n] = sel.value; c["fader" + n] = ""; c["perilla" + n] = ""; guardar(); renderControl(); }},
+    motores.map(([v, t]) => el("option", {value: v, textContent: t, selected: v === ref})));
+  const elegido = (k, i) => { const v = c[k + n]; return opciones && opciones.some((o) => o[0] === v) ? v : (opciones ? DEFECTO_NANO[tipo][i] : ""); };
+  const texto = (k, i) => { const o = opciones && opciones.find((x) => x[0] === elegido(k, i)); return o ? o[1] : ""; };
+  const personal = opciones && (c["fader" + n] || c["perilla" + n]);
+  const abierto = nanoAbiertos.has(n);
+  const elegir = (k, i, etiqueta) => {
+    const s = el("select", {"aria-label": `${etiqueta} del canal ${n}`, onchange: () => {
+      c[k + n] = s.value === DEFECTO_NANO[tipo][i] ? "" : s.value; guardar(); renderControl(); }},
+      opciones.map(([v, t]) => el("option", {value: v, textContent: t + (v === DEFECTO_NANO[tipo][i] ? " (de fábrica)" : ""), selected: v === elegido(k, i)})));
+    return el("div", {className: "campo"}, [etiqueta, s]);
+  };
+  return el("div", {className: "card", style: "padding:10px 12px;margin:0 0 8px"}, [
+    el("div", {style: "display:flex;align-items:center;gap:10px"}, [
+      el("b", {textContent: String(n), style: "min-width:18px"}), sel]),
+    opciones && existe ? el("div", {style: "display:flex;align-items:center;gap:8px;margin-top:6px"}, [
+      el("span", {className: "mut", style: "flex:1", textContent: `Fader: ${texto("fader", 0)} · perilla: ${texto("perilla", 1)}${personal ? " · personalizado" : ""}`}),
+      el("button", {type: "button", textContent: abierto ? "Listo" : "Personalizar", onclick: () => {
+        if (abierto) nanoAbiertos.delete(n); else nanoAbiertos.add(n); renderControl(); }})]) : null,
+    opciones && existe && abierto ? el("div", {className: "dos", style: "margin-top:6px"}, [elegir("fader", 0, "Fader"), elegir("perilla", 1, "Perilla")]) : null,
+  ]);
+}
+
 function renderControl() {
   const c = cfg.control;
   const ca = $("control_activo"); ca.checked = c.activo;
   ca.onchange = () => { c.activo = ca.checked; guardar(); renderControl(); };
   const resto = $("control_resto");
   if (!c.activo) { resto.replaceChildren(ayuda("Ocho canales para ocho motores (fader, perilla, S, M y R) y el transporte para las escenas. Conéctalo por USB a la Pi.")); return; }
-  const tabla = el("table", {className: "mapa"}, [
-    el("tr", {}, ["", "Motor", "Fader", "Perilla"].map((t) => el("th", {textContent: t}))),
-    ...MAPA_CONTROL.map(([m, f, p], i) => el("tr", {}, [String(i + 1), m, f, p].map((t) => el("td", {textContent: t})))),
+  const tabla = el("div", {}, [
+    el("h3", {textContent: "Canales", style: "margin:14px 0 6px"}),
+    ayuda("Qué motor maneja cada canal del nano, de izquierda a derecha. Cada motor trae su fader y su perilla; con «Personalizar» los cambias en ese canal."),
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => filaCanalNano(c, n)),
+    el("button", {type: "button", textContent: "Volver a la asignación de fábrica", onclick: () => {
+      for (let n = 1; n <= 8; n++) { c["canal" + n] = FABRICA_NANO[n - 1]; c["fader" + n] = ""; c["perilla" + n] = ""; }
+      nanoAbiertos.clear(); guardar(); renderControl(); aviso("Canales del nano como de fábrica"); }}),
   ]);
   resto.replaceChildren(
     el("div", {className: "campo"}, ["Puerto", puertoSelect("entrada", c.puerto, (v) => { c.puerto = v; guardar(); })]),

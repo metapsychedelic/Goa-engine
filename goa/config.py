@@ -367,6 +367,13 @@ ESQUEMA_SECCIONES["control"] = {
     "luces": (bool, True, None, None),       # prende sus botones (LED Mode External)
     "subida": (int, 8, 1, 32),               # compases de la subida del botón REC
 }
+# Qué motor maneja cada canal del nano (goa/control.py): "pads", "bajo", "sec:<nombre>",
+# "dialogo", "fx", "texturas", "looper", "obertura", "tocado", "circuit" o "" (nada). Y qué
+# mueven su fader y su perilla ("" = lo de fábrica de ese motor; ver control.OPCIONES).
+for _n, _motor in enumerate(("pads", "bajo", "sec:A", "sec:B", "dialogo", "fx", "texturas", "looper"), 1):
+    ESQUEMA_SECCIONES["control"][f"canal{_n}"] = (str, _motor, None, None)
+    ESQUEMA_SECCIONES["control"][f"fader{_n}"] = (str, "", None, None)
+    ESQUEMA_SECCIONES["control"][f"perilla{_n}"] = (str, "", None, None)
 
 # Tocado: el secuenciador que se toca con el teclado de la MicroFreak (goa/tocado.py).
 ESQUEMA_SECCIONES["tocado"] = {
