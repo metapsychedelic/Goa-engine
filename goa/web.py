@@ -633,10 +633,17 @@ def crear_servidor(ctx, puerto):
 
         def _cc(self, datos):
             """Un CC directo al sinte de un motor (volumen, filtro), sin tocar la configuración."""
+            pedida = str(datos["salida"])
+            abiertas = list(getattr(ctx.puertos, "abiertos", {}) or {})
+            clave = pedida if pedida in abiertas else next(
+                (k for k in abiertas if pedida.lower() in k.lower() or k.lower() in pedida.lower()), None)
+            if abiertas and clave is None:
+                # Antes se perdía en silencio: ahora dice qué salidas tiene abiertas Yantra.
+                raise ValueError(f"La salida «{pedida}» no está abierta. Abiertas: {', '.join(abiertas)}")
             with ctx.candado:
-                ctx.puertos.enviar(str(datos["salida"]), "control_change", int(datos["canal"]) - 1,
+                ctx.puertos.enviar(clave or pedida, "control_change", int(datos["canal"]) - 1,
                                    max(0, min(127, int(datos["cc"]))), max(0, min(127, int(datos["valor"]))))
-            self._responder()
+            self._responder(salida=clave or pedida)
 
         def _control_led(self, datos):
             """Pone el nanoKONTROL2 en LED Mode = External (sin el Kontrol Editor de Korg):
