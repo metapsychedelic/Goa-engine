@@ -42,6 +42,12 @@ def _intervalo(s, intensidad):
     return 4 if x < 0.3 else 2 if x < 0.55 else 1 if x < 0.85 else (0.5 if intensidad > 0.5 else 1)
 
 
+def fuerza(t, s, factor=1.0):
+    """Velocity con el avance s (0-1): de `bateria_vel_desde` a `bateria_vel_hasta`."""
+    d, h = int(t.get("bateria_vel_desde", 70)), int(t.get("bateria_vel_hasta", 127))
+    return max(1, min(127, round((d + (h - d) * max(0.0, min(1.0, s))) * factor)))
+
+
 def elegir_tipo(tipo, tipos, seed, vez, variar):
     rng = random.Random(f"bateria:{seed}:{vez if variar else 0}")
     elegido = rng.choice(tipos)
@@ -71,7 +77,7 @@ def rise(t, total, vez=0):
         pos, j = 0.0, 0
         while pos < hasta:
             s = pos / total
-            vel = round(127 * (0.35 + 0.65 * s) * (1 if j % acento == 0 else 0.85))
+            vel = fuerza(t, s, 1 if j % acento == 0 else 0.85)
             if tipo == "toms":
                 orden = TOMS if not sube else TOMS[::-1]
                 muestra = orden[j % 3] if s_fx != -1 else None
@@ -81,9 +87,9 @@ def rise(t, total, vez=0):
             pos += _intervalo(s, inten)
             j += 1
     if tipo == "riser":
-        poner(max(0, total - 32), Golpe(fx, 110, sample=RISER if s_fx == -2 else (s_fx if s_fx >= 0 else None)))
+        poner(max(0, total - 32), Golpe(fx, fuerza(t, 0.85), sample=RISER if s_fx == -2 else (s_fx if s_fx >= 0 else None)))
     if tipo == "reversa":
-        poner(max(0, total - 16), Golpe(fx, 120, sample=REVERSA if s_fx == -2 else (s_fx if s_fx >= 0 else None)))
+        poner(max(0, total - 16), Golpe(fx, fuerza(t, 0.95), sample=REVERSA if s_fx == -2 else (s_fx if s_fx >= 0 else None)))
     if tipo == "glitch":
         grupos = (3, 3, 2)
         compases = max(1, total // 16)
@@ -97,7 +103,7 @@ def rise(t, total, vez=0):
                 while k < n:
                     zap = k == 0
                     muestra = (ZAP if zap else BLIP) if s_fx == -2 else (s_fx if s_fx >= 0 else None)
-                    poner(pos + k, Golpe(fx, round(127 * (0.5 + 0.5 * s)), sample=muestra,
+                    poner(pos + k, Golpe(fx, fuerza(t, s), sample=muestra,
                                          pitch=None if s_fx != -1 else round(64 + pitch * s * 30)))
                     k += max(0.5, largo)
                 pos += grupos[g % 3] * (2 if largo >= 1 else 1)
@@ -107,9 +113,9 @@ def rise(t, total, vez=0):
             s = i / total
             iv = 4 if s < 0.5 else 2 if s < 0.75 else 1
             if i % iv == 0 and i % 4 != 0:
-                poner(i, Golpe(1, round(127 * (0.7 + 0.3 * s))))
+                poner(i, Golpe(1, fuerza(t, 0.4 + 0.6 * s)))
             if i % 8 == 4:
-                poner(i, Golpe(golpe, round(127 * (0.6 + 0.4 * s)), pitch=round(64 + pitch * s * 20),
+                poner(i, Golpe(golpe, fuerza(t, s), pitch=round(64 + pitch * s * 20),
                                sample=muestra_golpe if i == 4 else None))
     return tipo, ev
 
@@ -132,7 +138,7 @@ def fill(t, vez=0):
     if tipo == "redoble":
         i, primero = 0, True
         while i < largo:
-            poner(i, Golpe(golpe, round(127 * (0.5 + 0.5 * i / largo)), pitch=round(64 + 12 * i / largo),
+            poner(i, Golpe(golpe, fuerza(t, i / max(1, largo - 1)), pitch=round(64 + 12 * i / largo),
                            sample=muestra_golpe if primero else None))
             primero = False
             i += 1 if i >= largo - 4 else 2
@@ -142,19 +148,19 @@ def fill(t, vez=0):
         for j, i in enumerate(pasos):
             n = min(2, j * 3 // max(1, len(pasos)))
             muestra = TOMS[n] if s_fx != -1 else None
-            poner(i, Golpe(fx, 108, sample=muestra, pitch=None if muestra else (74, 64, 54)[n]))
+            poner(i, Golpe(fx, fuerza(t, j / max(1, len(pasos) - 1)), sample=muestra, pitch=None if muestra else (74, 64, 54)[n]))
     elif tipo == "glitch":
         pos = 0.0
         while pos < largo:
             zap = rng.random() < 0.5
             muestra = (ZAP if zap else BLIP) if s_fx == -2 else (s_fx if s_fx >= 0 else None)
-            poner(pos, Golpe(fx, 90, sample=muestra, pitch=round(64 + rng.random() * 24)))
+            poner(pos, Golpe(fx, fuerza(t, pos / largo), sample=muestra, pitch=round(64 + rng.random() * 24)))
             pos += 1 if rng.random() < 0.5 else 0.5
     elif tipo == "claps":
         for i in range(max(0, largo - 4), largo):
-            poner(i, Golpe(golpe, round(127 * (0.55 + 0.15 * (i - largo + 4))), sample=muestra_golpe if i == largo - 4 else None))
+            poner(i, Golpe(golpe, fuerza(t, (i - largo + 4) / 3), sample=muestra_golpe if i == largo - 4 else None))
     elif tipo == "bombo":
         for i in ((largo - 6) if largo >= 8 else None, largo - 2, largo - 1):
             if i is not None:
-                poner(i, Golpe(1, 110))
+                poner(i, Golpe(1, fuerza(t, 1.0)))
     return tipo, ev

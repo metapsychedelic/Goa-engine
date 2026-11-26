@@ -625,6 +625,7 @@ class Motor(FormaMotor, BateriaMotor, FiltroMotor):
         self._soltar_scatter()
         self._soltar_filtro_circuit()
         self._bateria_soltar()
+        self._bateria_crash_ya()
         self._soltar_filtro_grupo()
         self.bateria_prueba = self.filtro_prueba = None
         self.apagar_todo()

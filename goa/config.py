@@ -486,6 +486,13 @@ _BATERIA_COMUN = {
     "golpe_sample": (int, 22, -1, 63),             # snare roll
     "fx_drum": (int, 4, 1, 4),
     "fx_sample": (int, -2, -2, 63),
+    "bateria_vel_desde": (int, 70, 1, 127),        # fuerza de los primeros golpes
+    "bateria_vel_hasta": (int, 127, 1, 127),       # fuerza al final (justo antes del drop)
+    # Entrada con crash: en el uno de la parte siguiente, un golpe en `crash_drum` con
+    # `crash_sample` (40 = Crash). Cambia el sample solo si sabes el normal de ese Drum.
+    "crash": (bool, False, None, None),
+    "crash_drum": (int, 4, 1, 4),
+    "crash_sample": (int, 40, -1, 63),
 }
 ESQUEMA_RISE.update({
     # Filtro compartido (goa/motor_filtro.py): los filtros de los que elijas parten cerrados

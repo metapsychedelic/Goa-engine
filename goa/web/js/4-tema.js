@@ -263,7 +263,8 @@ const CLASES_TRANS = {
   break: {nombre: "Break", base: "Break", claves: ["corte_bajo", "hueco"], nueva: {corte_bajo: false, hueco: true}},
 };
 // Batería de la Circuit en rises y fills (= config._BATERIA_COMUN y goa/bateria.py)
-const BATERIA_NUEVA = {bateria: "", bateria_seed: "lluvia", bateria_variar: true, golpe_drum: 2, golpe_sample: 22, fx_drum: 4, fx_sample: -2};
+const BATERIA_NUEVA = {bateria: "", bateria_seed: "lluvia", bateria_variar: true, golpe_drum: 2, golpe_sample: 22, fx_drum: 4, fx_sample: -2,
+  bateria_vel_desde: 70, bateria_vel_hasta: 127, crash: false, crash_drum: 4, crash_sample: 40};
 const TIPOS_BATERIA = {
   rise: [["", "Sin batería"], ["seed", "Al azar (seed)"], ["redoble", "Redoble"], ["riser", "Redoble + riser"], ["toms", "Toms"], ["reversa", "Redoble + reversa"], ["glitch", "Glitch"], ["bombo", "Bombo y snare"]],
   fill: [["", "Sin batería"], ["seed", "Al azar (seed)"], ["redoble", "Redoble"], ["toms", "Toms que bajan"], ["glitch", "Glitch"], ["claps", "Claps"], ["bombo", "Bombos"]],
@@ -344,8 +345,12 @@ function bloqueBateria(clase, t) {
     } else {
       hijos.push(campo("Largo", segmentado([["4","1 tiempo"],["8","2 tiempos"],["16","1 compás"]], String(t.bateria_largo), (v) => { t.bateria_largo = parseInt(v); guardar(); }, 3)));
     }
+    hijos.push(deslizador(t, "bateria_vel_desde", "Fuerza al empezar (velocity)", 1, 127, 1, (v) => String(v)));
+    hijos.push(deslizador(t, "bateria_vel_hasta", "Fuerza al final (velocity)", 1, 127, 1, (v) => String(v)));
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "golpe_drum", "Golpes (redoble, claps) en"), elegirSample(t, "golpe_sample", "con el sample", [[-1, "el que tenga el Drum"]])]));
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "fx_drum", "FX (riser, toms, glitch) en"), elegirSample(t, "fx_sample", "con el sample", [[-2, "el del tipo (automático)"], [-1, "el que tenga el Drum"]])]));
+    hijos.push(casilla(t, "crash", "Entrar con crash", "En el uno de la parte siguiente, un golpe de crash con la fuerza final.", re));
+    if (t.crash) hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "crash_drum", "Crash en"), elegirSample(t, "crash_sample", "con el sample", [[-1, "el que tenga el Drum"]])]));
     hijos.push(ayuda("Suena por la Circuit (canal de baterías) encima de tu patrón. Solo cambia el sample de un Drum si en Motores → Circuit → «Batería en rises y fills» dijiste cuál tiene normalmente, y al terminar lo devuelve; si no, usa el que tenga y mueve el pitch."));
   }
   return hijos;

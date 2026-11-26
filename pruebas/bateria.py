@@ -131,6 +131,23 @@ def main():
     except ValueError:
         todo &= ok(True, "sin tipo de batería avisa")
 
+    print("Velocity y entrada limpia")
+    suave = defecto(ESQUEMA_RISE, bateria="redoble", bateria_vel_desde=20, bateria_vel_hasta=60)
+    _, ev = bateria.rise(suave, 64)
+    vels = [g.vel for k in sorted(ev) for g in ev[k]]
+    todo &= ok(min(vels) >= 17 and max(vels) <= 60 and vels[0] < vels[-1], f"el redoble sube de {min(vels)} a {max(vels)} (pedido 20 → 60)")
+    _, ev = bateria.fill(defecto(ESQUEMA_FILL, bateria="redoble", bateria_vel_desde=90, bateria_vel_hasta=100))
+    todo &= ok(all(90 <= g.vel <= 100 for v in ev.values() for g in v), "el fill respeta su rango de velocity")
+    crash = dict(rise, crash=True, crash_drum=4, crash_sample=40)
+    partes = [dict(nombre="A", compases=4, final="rise", final_rise="R"), dict(nombre="B", compases=4)]
+    ev = tocar(base(partes, rise=[crash], sample_d2=16, sample_d4=33), 6)
+    ultimo_golpe = max(e[0] for e in ev if e[2] == "note_on" and e[5] > 0 and e[4] == 62)
+    vuelta = [e[0] for e in ev if e[2] == "control_change" and e[4] == 18 and e[5] == 16]
+    todo &= ok(vuelta and ultimo_golpe < vuelta[0] < 4 * 96, f"el Drum 2 vuelve a su sample en el silencio antes del drop (tick {vuelta[0] if vuelta else None})")
+    c = [e for e in ev if e[0] >= 4 * 96 and e[4] in (50, 65) and e[2] in ("control_change", "note_on")]
+    todo &= ok([(e[2], e[4], e[5]) for e in c][:3] == [("control_change", 50, 40), ("note_on", 65, 127), ("control_change", 50, 33)] and c[0][0] == 4 * 96,
+               f"en el uno de la parte siguiente: crash en el Drum 4 y vuelve a su sample ({[(e[0], e[2], e[4], e[5]) for e in c][:3]})")
+
     print("Stop a mitad")
     m_ev = []
     cfg = base(partes, rise=[rise], sample_d2=16)

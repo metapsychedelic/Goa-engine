@@ -22,6 +22,7 @@ class BateriaMotor:
         self.bateria_plan = None
         self.bateria_pend = []        # [(tick, salida, canal, nota, vel)] golpes en mitad de paso y note_off
         self.bateria_estado = {}      # drum -> {"sample": valor mandado, "pitch": valor mandado}
+        self.bateria_crash = []       # [(tick, drum)]: después del crash, el Drum vuelve a su sample
         self.bateria_veces = {}       # nombre de la transición -> cuántas veces sonó
         self.bateria_prueba = None    # (clase, transición) pedida con «Probar»: suena en el próximo compás
         self.filtro_prueba = None     # (transición, inicio, fin): el filtro compartido de un rise en prueba
@@ -99,9 +100,18 @@ class BateriaMotor:
         else:
             tipo, ev = bateria.fill(t, vez)
         log.info("Batería: %s «%s» (%s), %d pasos", clase, t["nombre"], tipo, fin - inicio)
-        return {"clave": clave, "inicio": inicio, "fin": fin, "ev": ev, "tipo": tipo, "nombre": t["nombre"]}
+        ultimo = inicio + max(ev) if ev else inicio
+        return {"clave": clave, "inicio": inicio, "fin": fin, "ev": ev, "tipo": tipo, "nombre": t["nombre"],
+                "t": t, "ultimo": ultimo}
 
     def _paso_bateria(self, paso):
+        plan = self.bateria_plan
+        if plan is not None and paso >= plan["fin"]:
+            # El drop (o el uno de la parte siguiente): todo vuelve y, si se pidió, el crash.
+            t = plan["t"]
+            self._bateria_soltar()
+            if t.get("crash") and paso == plan["fin"]:
+                self._bateria_golpe_crash(t)
         if paso % PASOS_POR_COMPAS == 0 and self.bateria_prueba is not None:
             clase, t = self.bateria_prueba
             self.bateria_prueba = None
@@ -129,12 +139,13 @@ class BateriaMotor:
                     self._bateria_soltar()
                 self.bateria_plan = plan
         plan = self.bateria_plan
-        if plan is None:
+        if plan is None or paso < plan["inicio"]:
             return
-        if paso >= plan["fin"]:
-            self._bateria_soltar()
-            return
-        if paso < plan["inicio"]:
+        if paso > plan["ultimo"] and not plan.get("devuelto"):
+            # Después del último golpe (en el silencio antes del drop) cada Drum vuelve a su
+            # sample y a su pitch: así el uno de la parte siguiente entra limpio.
+            plan["devuelto"] = True
+            self._bateria_devolver()
             return
         salida, canal, b = self._bateria_cfg()
         for g in plan["ev"].get(paso - plan["inicio"], ()):
@@ -164,7 +175,34 @@ class BateriaMotor:
                 self.enviar(salida, "control_change", canal, bateria.CC_PITCH[g.drum], pitch)
                 st["pitch"] = pitch
 
+    def _bateria_golpe_crash(self, t):
+        salida, canal, b = self._bateria_cfg()
+        drum = int(t.get("crash_drum", 4))
+        muestra, normal = int(t.get("crash_sample", 40)), int(b.get(f"sample_d{drum}", -1))
+        if muestra >= 0 and normal >= 0 and muestra != normal:
+            self.enviar(salida, "control_change", canal, bateria.CC_SAMPLE[drum], muestra)
+            self.bateria_crash.append((self.tick + TICKS_POR_PASO, drum))
+        nota = bateria.NOTAS[drum]
+        self.enviar(salida, "note_on", canal, nota, int(t.get("bateria_vel_hasta", 127)))
+        self.bateria_pend.append((self.tick + 1, salida, canal, nota, 0))
+
+    def _bateria_crash_ya(self):
+        """Stop justo después de un crash: su Drum vuelve ya a su sample."""
+        salida, canal, b = self._bateria_cfg()
+        for _, drum in self.bateria_crash:
+            self.enviar(salida, "control_change", canal, bateria.CC_SAMPLE[drum], int(b.get(f"sample_d{drum}", -1)))
+        self.bateria_crash = []
+
     def _bateria_tick(self):
+        if self.bateria_crash:
+            salida, canal, b = self._bateria_cfg()
+            quedan = []
+            for tick, drum in self.bateria_crash:
+                if tick <= self.tick:
+                    self.enviar(salida, "control_change", canal, bateria.CC_SAMPLE[drum], int(b.get(f"sample_d{drum}", -1)))
+                else:
+                    quedan.append((tick, drum))
+            self.bateria_crash = quedan
         if not self.bateria_pend:
             return
         quedan = []
@@ -182,11 +220,15 @@ class BateriaMotor:
 
     def _bateria_soltar(self):
         """Fin de la transición: cada Drum vuelve a su sample normal y a pitch 64."""
-        salida, canal, b = self._bateria_cfg()
         for _, s, c, nota, vel in self.bateria_pend:
             if not vel:
                 self.enviar(s, "note_off", c, nota, 0)
         self.bateria_pend = []
+        self._bateria_devolver()
+        self.bateria_plan = None
+
+    def _bateria_devolver(self):
+        salida, canal, b = self._bateria_cfg()
         for drum, st in self.bateria_estado.items():
             if "sample" in st:
                 normal = int(b.get(f"sample_d{drum}", -1))
@@ -195,4 +237,3 @@ class BateriaMotor:
             if st.get("pitch", 64) != 64:
                 self.enviar(salida, "control_change", canal, bateria.CC_PITCH[drum], 64)
         self.bateria_estado = {}
-        self.bateria_plan = None
