@@ -869,6 +869,13 @@ def salidas(cfg):
         claves.append(cfg["tocado"]["salida"])
     if cfg["circuit"]["activo"] or "circuit" in cancion:
         claves.append(cfg["circuit"]["salida"])
+    # Un canal del nano con el looper o la Circuit manda CC directo a su sinte: su salida
+    # tiene que estar abierta aunque el motor esté apagado.
+    if cfg["control"]["activo"]:
+        for n in range(1, 9):
+            ref = cfg["control"].get(f"canal{n}", "")
+            if ref in ("looper", "circuit"):
+                claves.append(cfg[ref]["salida"])
     if any(p.get("scatter") for p in cfg.get("parte", [])) and cfg.get("cancion", {}).get("activa"):
         claves.append(cfg["scatter"]["salida"])
     if cfg["teclado"]["activo"] and cfg["teclado"]["perillas"]:
