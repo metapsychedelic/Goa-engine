@@ -262,6 +262,61 @@ const CLASES_TRANS = {
   fill: {nombre: "Fill", base: "Fill", claves: ["roll", "tension"], nueva: {roll: true, tension: false}},
   break: {nombre: "Break", base: "Break", claves: ["corte_bajo", "hueco"], nueva: {corte_bajo: false, hueco: true}},
 };
+// Batería de la Circuit en rises y fills (= config._BATERIA_COMUN y goa/bateria.py)
+const BATERIA_NUEVA = {bateria: "", bateria_seed: "lluvia", bateria_variar: true, golpe_drum: 2, golpe_sample: 22, fx_drum: 4, fx_sample: -2};
+const TIPOS_BATERIA = {
+  rise: [["", "Sin batería"], ["seed", "Al azar (seed)"], ["redoble", "Redoble"], ["riser", "Redoble + riser"], ["toms", "Toms"], ["reversa", "Redoble + reversa"], ["glitch", "Glitch"], ["bombo", "Bombo y snare"]],
+  fill: [["", "Sin batería"], ["seed", "Al azar (seed)"], ["redoble", "Redoble"], ["toms", "Toms que bajan"], ["glitch", "Glitch"], ["claps", "Claps"], ["bombo", "Bombos"]],
+};
+let MUESTRAS_CI = null;
+async function cargarMuestras() {
+  if (MUESTRAS_CI) return MUESTRAS_CI;
+  try { MUESTRAS_CI = (await (await fetch("/api/muestras_circuit")).json()).muestras; } catch (e) { MUESTRAS_CI = []; }
+  return MUESTRAS_CI;
+}
+function elegirSample(obj, k, etiqueta, extras, alCambiar) {
+  const lista = MUESTRAS_CI || [];
+  const sel = el("select", {"aria-label": etiqueta, onchange: () => { obj[k] = parseInt(sel.value); guardar(); if (alCambiar) alCambiar(); }},
+    [...extras.map(([v, t]) => el("option", {value: String(v), textContent: t})),
+     ...lista.map(([n, nombre]) => el("option", {value: String(n), textContent: nombre}))]);
+  sel.value = String(obj[k]);
+  if (!lista.length) cargarMuestras().then(() => { if (sel.isConnected) sel.replaceWith(elegirSample(obj, k, etiqueta, extras, alCambiar)); });
+  return el("label", {className: "campo"}, [etiqueta, sel]);
+}
+function elegirDrum(obj, k, etiqueta) {
+  const sel = el("select", {"aria-label": etiqueta, onchange: () => { obj[k] = parseInt(sel.value); guardar(); }},
+    [1, 2, 3, 4].map((n) => el("option", {value: String(n), textContent: `Drum ${n}`})));
+  sel.value = String(obj[k] || 1);
+  return el("label", {className: "campo"}, [etiqueta, sel]);
+}
+function bloqueBateria(clase, t) {
+  for (const [k, v] of Object.entries(BATERIA_NUEVA)) if (t[k] === undefined) t[k] = v;
+  if (clase === "rise") Object.assign(t, Object.assign({bateria_compases: 4, bateria_intensidad: 0.6, bateria_pitch: 0.5, bateria_silencio: 2}, t));
+  else if (t.bateria_largo === undefined) t.bateria_largo = 8;
+  const re = () => renderCancion();
+  const tipo = el("select", {"aria-label": "Batería de la Circuit", onchange: () => { t.bateria = tipo.value; guardar(); re(); }},
+    TIPOS_BATERIA[clase].map(([v, n]) => el("option", {value: v, textContent: n})));
+  tipo.value = t.bateria || "";
+  const hijos = [el("label", {className: "campo"}, ["Batería de la Circuit", tipo])];
+  if (t.bateria) {
+    hijos.push(el("label", {className: "campo"}, ["Seed", el("input", {type: "text", value: t.bateria_seed, maxLength: 24,
+      onchange: (e) => { t.bateria_seed = e.target.value.trim() || "lluvia"; guardar(); }})]));
+    hijos.push(casilla(t, "bateria_variar", "Variar cada vez", "Con la misma seed, cada vez que suena cambia un poco. Apagado: siempre igual."));
+    if (clase === "rise") {
+      hijos.push(campo("Empieza antes del drop (compases)", segmentado([["1","1"],["2","2"],["4","4"],["8","8"],["16","16"]], String(t.bateria_compases), (v) => { t.bateria_compases = parseInt(v); guardar(); }, 5)));
+      hijos.push(deslizador(t, "bateria_intensidad", "Intensidad (alta = llega a fusas)", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"));
+      hijos.push(deslizador(t, "bateria_pitch", "Cuánto sube el pitch", 0, 1, 0.05, (v) => Math.round(v * 100) + " %"));
+      hijos.push(numeroDe(t, "bateria_silencio", "Silencio antes del drop (pasos)", 0, 8));
+    } else {
+      hijos.push(campo("Largo", segmentado([["4","1 tiempo"],["8","2 tiempos"],["16","1 compás"]], String(t.bateria_largo), (v) => { t.bateria_largo = parseInt(v); guardar(); }, 3)));
+    }
+    hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "golpe_drum", "Golpes (redoble, claps) en"), elegirSample(t, "golpe_sample", "con el sample", [[-1, "el que tenga el Drum"]])]));
+    hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "fx_drum", "FX (riser, toms, glitch) en"), elegirSample(t, "fx_sample", "con el sample", [[-2, "el del tipo (automático)"], [-1, "el que tenga el Drum"]])]));
+    hijos.push(ayuda("Suena por la Circuit (canal de baterías) encima de tu patrón. Solo cambia el sample de un Drum si en Motores → Circuit → «Batería en rises y fills» dijiste cuál tiene normalmente, y al terminar lo devuelve; si no, usa el que tenga y mueve el pitch."));
+  }
+  return hijos;
+}
+
 const APOYOS_PARTE = ["riser", "pads_suben", "roll", "corte_bajo", "tension", "hueco", "scatter", "scatter_compases", "scatter_suave", "scatter_intenso", "scatter_extremo"];
 const DEFECTO_APOYO = {scatter_compases: 4, scatter_suave: 1, scatter_intenso: 8, scatter_extremo: 16};
 const TEXTO_APOYO = {
@@ -306,6 +361,7 @@ function nuevaTransicion(clase, desde) {
 function resumenTransicion(clase, t) {
   if (!t) return "no existe";
   const r = CLASES_TRANS[clase].claves.filter((k) => t[k]).map((k) => TEXTO_APOYO[k][0].toLowerCase());
+  if (t.bateria) r.push("batería: " + ((TIPOS_BATERIA[clase] || []).find(([v]) => v === t.bateria) || [, t.bateria])[1].toLowerCase());
   return r.length ? r.join(" · ") : "no hace nada todavía";
 }
 
@@ -364,6 +420,7 @@ function bloqueTransicion(clase, t, j) {
     el("label", {className: "campo"}, ["Nombre", nombre]),
     ...CLASES_TRANS[clase].claves.map((k) => casilla(t, k, TEXTO_APOYO[k][0], TEXTO_APOYO[k][1], cambio)),
     ...(clase === "rise" && t.scatter ? bloqueScatter(t) : []),
+    ...(clase in TIPOS_BATERIA ? bloqueBateria(clase, t) : []),
     el("div", {className: "dos"}, [
       el("button", {type: "button", textContent: "Duplicar", onclick: () => { const c = nuevaTransicion(clase, t); transAbierta = [clase, c.nombre]; guardar(); renderCancion(); }}),
       el("button", {type: "button", textContent: "Borrar", style: "color:var(--bad)", onclick: () => {

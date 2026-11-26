@@ -188,6 +188,19 @@ canal = 4                 # el canal de la pista Looper
 clip = 0                  # slot que suena (1-16); 0 = ninguno
 parar = 0                 # slot vacío que se lanza para callar (0 = no calla)
 
+[bateria]
+# Batería de la Circuit en los rises y fills (canal de baterías 10). sample_d1-4: el sample
+# que tiene normalmente cada Drum en tu plantilla (-1 = no lo sé: Yantra no lo cambia). Si lo
+# sabe, en la transición carga el que pida (snare roll, toms, riser…) y al final lo devuelve.
+# rise_libre: el rise (por nombre) que suena con la subida del botón o del nano sin canción.
+salida = "Circuit"
+canal = 10
+sample_d1 = -1
+sample_d2 = -1
+sample_d3 = -1
+sample_d4 = -1
+rise_libre = ""
+
 [circuit]
 # Circuit Tracks por USB (en el hub con fuente propia). Para tocar sus sintes no hace falta
 # esto: pon salida = "Circuit" en un motor, canal 1 (Synth 1) o 2 (Synth 2); su «programa»

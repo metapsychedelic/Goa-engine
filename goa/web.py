@@ -385,6 +385,9 @@ def crear_servidor(ctx, puerto):
                 if estilo not in generador.ESTILOS_MOLDE:
                     estilo = "goa"
                 self._json({"molde": generador.molde_al_azar(random.Random(), estilo), "estilo": estilo})
+            elif self.path == "/api/muestras_circuit":
+                from .muestras_circuit import MUESTRAS
+                self._json({"muestras": [[n, MUESTRAS[n]] for n in sorted(MUESTRAS)]})
             elif self.path == "/api/plantillas":
                 self._json({"plantillas": plantillas.lista()})
             elif self.path.startswith("/api/actualizacion"):

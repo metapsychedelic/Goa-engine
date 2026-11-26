@@ -19,6 +19,7 @@ from .director import Director
 from .disparo import Disparo
 from .escalas import Tonalidad, nombre_midi
 from .fx import Fx
+from .motor_bateria import BateriaMotor
 from .motor_forma import FormaMotor
 from .pads import Pads, _cerca
 from .secuencia import PASOS_POR_COMPAS, TICKS_POR_PASO, Secuencia, celda_molde
@@ -34,7 +35,7 @@ log = logging.getLogger("goa")
 GRADOS_PAR = (6, 4, 2, 7, 1)  # ♭7, 5.ª, ♭3, octava, ♭2 (grados de escala desde la raíz)
 
 
-class Motor(FormaMotor):
+class Motor(FormaMotor, BateriaMotor):
     def __init__(self, config, enviar):
         self.enviar = enviar
         self.secuencias = []
@@ -79,6 +80,7 @@ class Motor(FormaMotor):
         self.relanzar_parte = False  # «quedarse» cuando la parte siguiente ya entraba
         self.scatter_nota = None     # (salida, canal, nota) del pad de Scatter apretado
         self.circuit_envios = {}     # cc -> {"valor", "obj", "desde", "p0", "largo"}: envíos de la Circuit
+        self._bateria_reiniciar()
         self.circuit_filtro = None   # (salida, canal, valor) del filtro maestro de la Circuit si se movió
         self.cc_secuencias = {}     # (salida, canal, cc) -> (valor mandado, reposo): filtros intervenidos
         self.aplicar_config(config)
@@ -592,6 +594,7 @@ class Motor(FormaMotor):
         self.bajo.reiniciar()
         self.obertura.reiniciar()
         self.subida, self.subida_pedida, self.subida_final = None, None, None
+        self._bateria_reiniciar()
         self.circuit_envios = {}   # en cada Start los envíos se vuelven a mandar (por si los moviste a mano)
         self.corriendo = True
         self.looper_pendiente = None
@@ -608,6 +611,7 @@ class Motor(FormaMotor):
         self.corriendo = False
         self._soltar_scatter()
         self._soltar_filtro_circuit()
+        self._bateria_soltar()
         self.apagar_todo()
         self.subida = None
         self._soltar_filtros()
@@ -622,6 +626,7 @@ class Motor(FormaMotor):
         if self.looper_pendiente is not None:
             self._looper_pulso()
         self._apagar_vencidas()
+        self._bateria_tick()
         self.dialogo.tick(self.tick, self.enviar)
         if self.tick % 3 == 0:
             self._lfo_secuencias()
@@ -774,6 +779,7 @@ class Motor(FormaMotor):
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
         self._paso_scatter(paso)
         self._paso_circuit(paso)
+        self._paso_bateria(paso)
         if self._en_hueco(paso):
             if paso == self.hueco_desde:
                 self.apagar_todo()  # el último tiempo antes de la parte que viene: silencio

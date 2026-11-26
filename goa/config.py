@@ -352,6 +352,20 @@ ESQUEMA_SECCIONES["circuit"] = {
     "filtro_hasta": (int, 40, 1, 63),
 }
 
+# Batería de la Circuit en los rises y fills (goa/bateria.py). Es de la máquina, no va en las
+# escenas. `sample_d1..4`: el sample que tienes normalmente en cada Drum (-1 = no lo sé): solo
+# si lo sabe, Yantra cambia el sample de ese Drum durante la transición y lo devuelve al final.
+# `rise_libre`: el rise (por nombre) que usa la subida del botón o del nano en modo libre.
+ESQUEMA_SECCIONES["bateria"] = {
+    "salida": (str, "Circuit", None, None),
+    "canal": (int, 10, 1, 16),
+    "sample_d1": (int, -1, -1, 63),
+    "sample_d2": (int, -1, -1, 63),
+    "sample_d3": (int, -1, -1, 63),
+    "sample_d4": (int, -1, -1, 63),
+    "rise_libre": (str, "", None, None),
+}
+
 ESQUEMA_SECCIONES["scatter"] = {
     "salida": (str, "MC-101", None, None),
     "canal": (int, 16, 1, 16),               # canal de control de la MC-101
@@ -462,10 +476,32 @@ ESQUEMA_RISE = {
     "scatter_intenso": (int, 8, 0, 16),
     "scatter_extremo": (int, 16, 0, 16),
 }
+# Batería de la Circuit (goa/bateria.py). Voces: «golpe» (redoble, claps) y «fx» (riser,
+# reversa, toms, glitch), cada una con su Drum y sample (-1 = el que tenga el Drum; en fx,
+# -2 = el que corresponde al tipo: riser, reversa, toms, zap/blip).
+_BATERIA_COMUN = {
+    "bateria_seed": (str, "lluvia", None, None),
+    "bateria_variar": (bool, True, None, None),    # con la misma seed, cada vez cambia un poco
+    "golpe_drum": (int, 2, 1, 4),
+    "golpe_sample": (int, 22, -1, 63),             # snare roll
+    "fx_drum": (int, 4, 1, 4),
+    "fx_sample": (int, -2, -2, 63),
+}
+ESQUEMA_RISE.update({
+    "bateria": (str, "", None, ("", "seed", "redoble", "riser", "toms", "reversa", "glitch", "bombo")),
+    "bateria_compases": (int, 4, 1, 32),            # los últimos N compases de la parte
+    "bateria_intensidad": (float, 0.6, 0.0, 1.0),
+    "bateria_pitch": (float, 0.5, 0.0, 1.0),
+    "bateria_silencio": (int, 2, 0, 8),             # pasos sin sonido antes del drop
+    **_BATERIA_COMUN,
+})
 ESQUEMA_FILL = {
     "nombre": (str, "Fill", None, None),
     "roll": (bool, True, None, None),
     "tension": (bool, False, None, None),
+    "bateria": (str, "", None, ("", "seed", "redoble", "toms", "glitch", "claps", "bombo")),
+    "bateria_largo": (int, 8, 2, 16),               # pasos al final de la parte (4 = un tiempo)
+    **_BATERIA_COMUN,
 }
 ESQUEMA_BREAK = {
     "nombre": (str, "Break", None, None),
@@ -750,14 +786,16 @@ def _migrar_finales(cfg, crudas):
     corte de bajo y el hueco, a un break. Iguales comparten la misma. Suena igual que antes."""
     def buscar_o_crear(clase, valores, base):
         esquema = TRANSICIONES[clase]
+        de_fabrica = {k: e[1] for k, e in esquema.items()}
         for t in cfg[clase]:
-            if all(t[k] == valores[k] for k in esquema if k != "nombre"):
+            if all(t[k] == v for k, v in valores.items()) and all(
+                    t[k] == de_fabrica[k] for k in esquema if k not in valores and k != "nombre"):
                 return t["nombre"]
         usados = {t["nombre"] for t in cfg[clase]}
         n = 1
         while f"{base} {n}" in usados:
             n += 1
-        nueva = dict(valores, nombre=f"{base} {n}")
+        nueva = dict(de_fabrica, **valores, nombre=f"{base} {n}")
         cfg[clase].append(nueva)
         return nueva["nombre"]
 
@@ -768,14 +806,14 @@ def _migrar_finales(cfg, crudas):
             continue
         if parte["riser"] or parte["scatter"] or parte["pads_suben"]:
             parte["final"] = "rise"
-            parte["final_rise"] = buscar_o_crear("rise", {k: parte[k] for k in ESQUEMA_RISE if k != "nombre"}, "Subida")
+            parte["final_rise"] = buscar_o_crear("rise", {k: parte[k] for k in ESQUEMA_RISE if k in APOYOS}, "Subida")
             continue
         fill = parte["roll"] or parte["tension"]
         corte = parte["corte_bajo"] or parte["hueco"]
         if fill:
-            parte["final_fill"] = buscar_o_crear("fill", {k: parte[k] for k in ESQUEMA_FILL if k != "nombre"}, "Fill")
+            parte["final_fill"] = buscar_o_crear("fill", {k: parte[k] for k in ESQUEMA_FILL if k in APOYOS}, "Fill")
         if corte:
-            parte["final_break"] = buscar_o_crear("break", {k: parte[k] for k in ESQUEMA_BREAK if k != "nombre"}, "Break")
+            parte["final_break"] = buscar_o_crear("break", {k: parte[k] for k in ESQUEMA_BREAK if k in APOYOS}, "Break")
         parte["final"] = "fill_break" if fill and corte else "fill" if fill else "break" if corte else "nada"
 
 
@@ -975,6 +1013,8 @@ def salidas(cfg):
         claves.append(cfg["tocado"]["salida"])
     if cfg["circuit"]["activo"] or "circuit" in cancion:
         claves.append(cfg["circuit"]["salida"])
+    if any(t.get("bateria") for clase in ("rise", "fill") for t in cfg.get(clase, [])):
+        claves.append(cfg["bateria"]["salida"])
     # Un canal del nano con el looper o la Circuit manda CC directo a su sinte: su salida
     # tiene que estar abierta aunque el motor esté apagado.
     if cfg["control"]["activo"]:

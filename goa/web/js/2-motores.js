@@ -1812,6 +1812,21 @@ function panelLooper() {
 const ENVIOS_CIRCUIT = [["reverb_s1", "Reverb · Synth 1"], ["reverb_s2", "Reverb · Synth 2"], ["delay_s1", "Delay · Synth 1"], ["delay_s2", "Delay · Synth 2"]];
 const envioTexto = (v) => v < 0 ? "no lo toca" : String(v);
 
+function grupoBateriaCircuit() {
+  const b = cfg.bateria || (cfg.bateria = {salida: "Circuit", canal: 10, sample_d1: -1, sample_d2: -1, sample_d3: -1, sample_d4: -1, rise_libre: ""});
+  const conocidos = [1, 2, 3, 4].filter((n) => b["sample_d" + n] >= 0).length;
+  const rises = (cfg.rise || []).filter((t) => t.bateria);
+  const sel = el("select", {"aria-label": "Rise del modo libre", onchange: () => { b.rise_libre = sel.value; guardar(); }},
+    [el("option", {value: "", textContent: "ninguno"}), ...rises.map((t) => el("option", {value: t.nombre, textContent: t.nombre}))]);
+  sel.value = rises.some((t) => t.nombre === b.rise_libre) ? b.rise_libre : "";
+  return grupo("g-ci-bateria", "Batería en rises y fills", `${conocidos} de 4 samples conocidos · modo libre: ${b.rise_libre || "sin rise"}`, [
+    ayuda("Los redobles, toms y FX de los rises y fills (se eligen en Canción → Rises y fills). Dime qué sample tiene normalmente cada Drum en tu plantilla: así Yantra puede cambiarlo durante la transición y devolverlo al terminar. Si no lo dices, no lo toca."),
+    ...[1, 2, 3, 4].map((n) => elegirSample(b, "sample_d" + n, `Drum ${n} normalmente tiene`, [[-1, "no lo sé (no cambiarlo)"]], renderMotores)),
+    el("label", {className: "campo"}, ["Rise de la subida en modo libre (botón y nano)", sel]),
+    numeroDe(b, "canal", "Canal de baterías", 1, 16),
+  ]);
+}
+
 function panelCircuit() {
   const x = cfg.circuit;
   const envios = ENVIOS_CIRCUIT.filter(([k]) => x[k] >= 0).map(([k, n]) => `${n.toLowerCase()} ${x[k]}`);
@@ -1834,6 +1849,7 @@ function panelCircuit() {
         x.subida_filtro ? deslizador(x, "filtro_hasta", "Hasta dónde llega", 1, 63, 1, (v) => `${v} (${x.filtro_tipo === "pasa_bajos" ? "CC " + (64 - v) : "CC " + (64 + v)})`) : null,
         ayuda("CC 74 en el canal de proyecto: 64 = apagado, menos = pasa bajos, más = pasa altos. Al parar (Stop) también vuelve a 64."),
       ]),
+      grupoBateriaCircuit(),
       grupo("g-ci-midi", "Salida MIDI", `${salidaTexto({salida: x.salida, canal: x.canal_control})}`, [
         el("div", {className: "dos"}, [destinoDe(x, renderMotores), numeroDe(x, "canal_control", "Canal de proyecto", 1, 16, renderMotores)]),
         ayuda("La Circuit por USB (por el hub con fuente propia). Su canal de proyecto es el 16; el de la MC-101 también, pero no chocan porque cada una va por su propio puerto."),
