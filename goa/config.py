@@ -435,8 +435,49 @@ ESQUEMA_PARTE = {
     "scatter_suave": (int, 1, 0, 16),
     "scatter_intenso": (int, 8, 0, 16),
     "scatter_extremo": (int, 16, 0, 16),
+    # Cómo termina la parte (módulo «Rises y fills»): el tipo y la transición de cada clase.
+    "final": (str, "nada", None, ("nada", "rise", "fill", "break", "fill_break")),
+    "final_rise": (str, "", None, None),
+    "final_fill": (str, "", None, None),
+    "final_break": (str, "", None, None),
 }
 MAX_PARTES = 32
+
+# --- Rises y fills: transiciones con nombre que eligen las partes («Final») ---
+# Cada parte termina con nada, un rise, un fill, un break o fill + break. Lo que hace cada
+# transición se edita una vez en el módulo «Rises y fills» y lo usan todas las partes que la
+# eligen. Al normalizar, los apoyos de cada parte (riser, roll, hueco...) se copian desde su
+# transición: el motor sigue leyendo los de la parte (ver _aplicar_transiciones).
+ESQUEMA_RISE = {
+    "nombre": (str, "Subida", None, None),
+    "riser": (bool, True, None, None),               # subida de FX (riser, filtros, stutter) y drop
+    "pads_suben": (bool, False, None, None),
+    "roll": (bool, False, None, None),
+    "corte_bajo": (bool, False, None, None),
+    "tension": (bool, False, None, None),
+    "hueco": (bool, False, None, None),
+    "scatter": (bool, False, None, None),
+    "scatter_compases": (int, 4, 1, 32),
+    "scatter_suave": (int, 1, 0, 16),
+    "scatter_intenso": (int, 8, 0, 16),
+    "scatter_extremo": (int, 16, 0, 16),
+}
+ESQUEMA_FILL = {
+    "nombre": (str, "Fill", None, None),
+    "roll": (bool, True, None, None),
+    "tension": (bool, False, None, None),
+}
+ESQUEMA_BREAK = {
+    "nombre": (str, "Break", None, None),
+    "corte_bajo": (bool, False, None, None),
+    "hueco": (bool, True, None, None),
+}
+TRANSICIONES = {"rise": ESQUEMA_RISE, "fill": ESQUEMA_FILL, "break": ESQUEMA_BREAK}
+FINALES = ("nada", "rise", "fill", "break", "fill_break")
+MAX_TRANSICIONES = 32
+# Los apoyos de la parte que vienen de su transición (todos se recalculan al normalizar).
+APOYOS = ("riser", "pads_suben", "roll", "corte_bajo", "tension", "hueco", "scatter",
+          "scatter_compases", "scatter_suave", "scatter_intenso", "scatter_extremo")
 
 ESQUEMA_ESCENA = {
     "nombre": (str, "Escena", None, None),
@@ -687,12 +728,77 @@ def normalizar(cfg):
         raise ConfigError("parte debe ser una lista")
     limpia["parte"] = [{k: _valor(k, (p or {}).get(k), e) for k, e in ESQUEMA_PARTE.items()}
                        for p in partes[:MAX_PARTES]]
+    for clase, esquema in TRANSICIONES.items():
+        lista = cfg.get(clase) or []
+        if not isinstance(lista, list):
+            raise ConfigError(f"{clase} debe ser una lista")
+        limpia[clase] = [{k: _valor(k, (t or {}).get(k), e) for k, e in esquema.items()}
+                         for t in lista[:MAX_TRANSICIONES]]
+    _migrar_finales(limpia, partes[:MAX_PARTES])
+    _aplicar_transiciones(limpia)
     for p in limpia["parte"]:
         if p["escena"] >= len(limpia["escena"]):
             p["escena"] = -1
     if not isinstance(cfg.get("armonia_tema"), dict):
         _migrar_armonia_tema(limpia)
     return limpia
+
+
+def _migrar_finales(cfg, crudas):
+    """Partes de antes (sin «final»): sus apoyos pasan a transiciones con nombre. Las que
+    tienen riser, scatter o pads que suben, a un rise; el roll y la tensión, a un fill; el
+    corte de bajo y el hueco, a un break. Iguales comparten la misma. Suena igual que antes."""
+    def buscar_o_crear(clase, valores, base):
+        esquema = TRANSICIONES[clase]
+        for t in cfg[clase]:
+            if all(t[k] == valores[k] for k in esquema if k != "nombre"):
+                return t["nombre"]
+        usados = {t["nombre"] for t in cfg[clase]}
+        n = 1
+        while f"{base} {n}" in usados:
+            n += 1
+        nueva = dict(valores, nombre=f"{base} {n}")
+        cfg[clase].append(nueva)
+        return nueva["nombre"]
+
+    for parte, cruda in zip(cfg["parte"], crudas):
+        # Con un final elegido manda su transición (también «nada»: los apoyos que traiga la
+        # parte son copias de antes y se recalculan).
+        if isinstance(cruda, dict) and "final" in cruda:
+            continue
+        if parte["riser"] or parte["scatter"] or parte["pads_suben"]:
+            parte["final"] = "rise"
+            parte["final_rise"] = buscar_o_crear("rise", {k: parte[k] for k in ESQUEMA_RISE if k != "nombre"}, "Subida")
+            continue
+        fill = parte["roll"] or parte["tension"]
+        corte = parte["corte_bajo"] or parte["hueco"]
+        if fill:
+            parte["final_fill"] = buscar_o_crear("fill", {k: parte[k] for k in ESQUEMA_FILL if k != "nombre"}, "Fill")
+        if corte:
+            parte["final_break"] = buscar_o_crear("break", {k: parte[k] for k in ESQUEMA_BREAK if k != "nombre"}, "Break")
+        parte["final"] = "fill_break" if fill and corte else "fill" if fill else "break" if corte else "nada"
+
+
+def _aplicar_transiciones(cfg):
+    """Copia a cada parte los apoyos de su transición (el motor lee los de la parte). Si la
+    transición elegida ya no existe, esa parte de su final queda sin apoyos."""
+    por_nombre = {clase: {t["nombre"]: t for t in cfg[clase]} for clase in TRANSICIONES}
+    for parte in cfg["parte"]:
+        for k in APOYOS:
+            parte[k] = ESQUEMA_PARTE[k][1]
+        final = parte["final"]
+        usar = []
+        if final == "rise":
+            usar.append(por_nombre["rise"].get(parte["final_rise"]))
+        if final in ("fill", "fill_break"):
+            usar.append(por_nombre["fill"].get(parte["final_fill"]))
+        if final in ("break", "fill_break"):
+            usar.append(por_nombre["break"].get(parte["final_break"]))
+        for t in usar:
+            if t:
+                for k, v in t.items():
+                    if k in APOYOS:
+                        parte[k] = v
 
 
 def _musica_de_escena(escena):
@@ -934,6 +1040,11 @@ def a_toml(cfg):
         lineas.append("[[parte]]")
         lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
         lineas.append("")
+    for clase in TRANSICIONES:
+        for s in cfg.get(clase, []):
+            lineas.append(f"[[{clase}]]")
+            lineas += [f"{k} = {_toml(v)}" for k, v in s.items()]
+            lineas.append("")
     return "\n".join(lineas)
 
 

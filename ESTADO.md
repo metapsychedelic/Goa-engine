@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.104.3** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.105.0** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -22,11 +22,12 @@ Canción, Ajustes).
 - `goa/plantillas.py` (templates de canción de la app)
 - `herramientas/circuit_cancion.py` (genera los .ncs de la Circuit; `todas carpeta/`)
 - Pruebas: `python3 -m pruebas.<nombre>` (aprendido, zenon, cancion, director, dialogo, en_vivo,
-  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica, looper, control, teclado, tocado, circuit, nano, piano).
+  escenas, piloto, progresiones, bajo, generos, armonia, mutaciones, thru, simular, clasico, psytrance, carpeta, fabrica, looper, control, teclado, tocado, circuit, nano, piano, transiciones).
   App simulada: `python3 -m pruebas.app` en localhost:8080.
 
 ## Hecho recientemente
 
+- **0.105.0 · Rises y fills, etapa 1: transiciones con nombre.** Listas nuevas en la config `rise`, `fill`, `break` (ESQUEMA_RISE: riser, pads_suben, roll, corte_bajo, tension, hueco, scatter y sus pads; FILL: roll, tension; BREAK: corte_bajo, hueco), guardadas como [[rise]], [[fill]], [[break]] y llevadas con la canción en `Contexto.sincronizar`. La parte elige `final` (nada, rise, fill, break, fill_break) y `final_rise/_fill/_break` (por nombre). `config._aplicar_transiciones` copia a la parte los APOYOS de su transición en cada normalizar: el motor sigue leyendo los de la parte (nada cambió en el motor; huella igual). `_migrar_finales`: una parte sin la clave `final` (configs, proyectos y plantillas de antes) pasa sus apoyos a transiciones («Subida N», «Fill N», «Break N»; iguales comparten). Con `final` presente manda la transición, también «nada» (los apoyos que traiga son copias). App (4-tema.js): «Final de la parte» con selector y transición por clase (+ nueva), y sección «Rises y fills» al final del Tema (editar, renombrar —las partes siguen el nombre—, duplicar, borrar con deshacer); `aplicarFinales()` replica el cálculo para mostrar al tiro. `goa/muestras_circuit.py`: los 64 samples del banco FROM GOA TO PSYT por nombre (reconstruidos de la medición; 20, 28-30 y 52 sin medir); el CC de patch select de cada Drum manda el número de sample directo (probado en la Circuit del usuario). Pruebas: pruebas/transiciones.py; cancion.py pone los apoyos sacando `final` (como una parte de antes).
 - **0.104.3 · Red de seguridad al cerrar.** Al instalar 0.104.2 desde la app, el motor viejo recibió SIGTERM y no terminó nunca (seguía `active (running)` con el mismo PID, sin log nuevo): el nuevo no arrancaba y la app no respondía. Causa exacta pendiente (el bucle principal o el `finally` se trabaron: un candado o el cierre de un puerto USB). `main.al_terminar`: además de pedir el cierre ordenado arranca un Timer daemon de CIERRE_MAXIMO (8 s) que deja en el log (stderr → journal) el traceback de todos los hilos con faulthandler y hace `os._exit(1)`; systemd (Restart=always) lo levanta. Probado con un cierre trabado a propósito. **Si vuelve a pasar, el journal trae dónde se trabó.**
 - **0.104.2 · El nano abre la salida del looper o la Circuit si los tiene asignados.** `config.salidas`: con el control activo, un canal en "looper" o "circuit" agrega la salida de ese motor aunque esté apagado (su fader y perilla mandan CC directo). Antes el CC se perdía si ningún motor usaba esa salida; lo destapó la prueba al pasar a la búsqueda estricta de 0.104.1.
 - **0.104.1 · /api/cc avisa si la salida no está abierta.** Antes `Puertos.enviar` descartaba en silencio un CC a una clave no abierta (pasó probando la Circuit con salida «Circuit» cuando el motor la tenía con otro nombre). Ahora busca la salida abierta que contenga el nombre pedido (o al revés, sin mayúsculas) y, si no hay ninguna, responde 400 con la lista de salidas abiertas; la respuesta trae `salida` (la clave usada).

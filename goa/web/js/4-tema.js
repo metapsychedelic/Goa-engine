@@ -67,15 +67,7 @@ function bloqueParte(p, i) {
     deslizador(p, "energia", "Energía al empezar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
     deslizador(p, "energia_fin", "Energía al terminar", 0, 1, 0.05, (v) => Math.round(v * 100), () => renderCancion()),
     campo("Entrada", segmentado([["suave", "Suave"], ["golpe", "De golpe"]], p.entrada, (v) => { p.entrada = v; renderCancion(); guardar(); }, 2)),
-    h3("Apoyo a la subida (opcional)"),
-    casilla(p, "pads_suben", "Los pads acompañan la subida", "El pulso acelera (de 2 a 8 golpes por compás), suben de fuerza y suman una voz al final. En la parte siguiente vuelven a lo de su escena.", () => renderCancion()),
-    casilla(p, "roll", "Roll de las secuencias", `En ${p.compases >= 8 ? "los 2 últimos compases" : "el último compás"} repiten un tiempo, después medio, después una semicorchea: el loop que se encoge antes del cambio.`, () => renderCancion()),
-    casilla(p, "corte_bajo", "Corte de bajo", `El bajo se calla en ${p.compases >= 8 ? "los 2 últimos compases" : "el último compás"} para que la parte siguiente pegue más.`, () => renderCancion()),
-    casilla(p, "tension", "Acorde de tensión al final", "El último compás va a un acorde que pide resolver (♭II en frigio, V en menor armónica, ♭VII en menor) y la parte siguiente parte en la i. Lo siguen los pads, el bajo y las secuencias guiadas.", () => renderCancion()),
-    casilla(p, "hueco", "Hueco antes del cambio", "El último tiempo de la parte, el motor queda en silencio.", () => renderCancion()),
-    casilla(p, "riser", "Riser de FX", `Subida de FX en ${p.compases > 32 ? "los 32 últimos compases" : "toda la parte"}: riser, filtros que bajan y se abren, redobles en las secuencias con FX. En el uno de la parte siguiente, el drop con su caída.`, () => renderCancion()),
-    casilla(p, "scatter", "Scatter de la MC-101", "Aprieta pads de Scatter de la MC-101 al final de la parte: suave, intenso en los 2 últimos compases y extremo en el último tiempo. Se suelta justo en el uno de la parte siguiente.", () => { renderCancion(); if (vista === "parte") renderParte(); }),
-    ...(p.scatter ? bloqueScatter(p) : []),
+    ...bloqueFinal(p),
     ayuda(p.entrada === "golpe" ? "Entra de una en su primer compás, con su energía (como un drop)."
       : `Llega de a poco en los compases antes (los de Transición en Vivo, como mucho la mitad de la parte anterior). Los motores entran y salen justo en su primer compás.`),
     el("div", {className: "dos"}, [
@@ -260,6 +252,144 @@ function bloqueScatter(p) {
     ayuda(`Sale por ${sc.salida}, canal ${sc.canal} (el de control de la MC-101; pad 1 = nota 60 … pad 16 = nota 75). En la MC-101, RX Scatter tiene que estar en ON. El canal se cambia en Ajustes.`),
   ].filter(Boolean))];
 }
+// --- Rises y fills: transiciones con nombre que las partes eligen como «Final» ---
+// = config.ESQUEMA_RISE / FILL / BREAK. Al guardar, el servidor copia a cada parte los apoyos
+// de su transición (config._aplicar_transiciones); aquí se hace lo mismo para mostrarlo al tiro.
+const CLASES_TRANS = {
+  rise: {nombre: "Rise", base: "Subida", claves: ["riser", "pads_suben", "roll", "corte_bajo", "tension", "hueco", "scatter"],
+         nueva: {riser: true, pads_suben: false, roll: false, corte_bajo: false, tension: false, hueco: false, scatter: false,
+                 scatter_compases: 4, scatter_suave: 1, scatter_intenso: 8, scatter_extremo: 16}},
+  fill: {nombre: "Fill", base: "Fill", claves: ["roll", "tension"], nueva: {roll: true, tension: false}},
+  break: {nombre: "Break", base: "Break", claves: ["corte_bajo", "hueco"], nueva: {corte_bajo: false, hueco: true}},
+};
+const APOYOS_PARTE = ["riser", "pads_suben", "roll", "corte_bajo", "tension", "hueco", "scatter", "scatter_compases", "scatter_suave", "scatter_intenso", "scatter_extremo"];
+const DEFECTO_APOYO = {scatter_compases: 4, scatter_suave: 1, scatter_intenso: 8, scatter_extremo: 16};
+const TEXTO_APOYO = {
+  riser: ["Riser de FX", "Subida de FX al final de la parte (como mucho los 32 últimos compases): riser, filtros que bajan y se abren, redobles en las secuencias con FX. En el uno de la parte siguiente, el drop con su caída."],
+  pads_suben: ["Los pads acompañan la subida", "El pulso acelera (de 2 a 8 golpes por compás), suben de fuerza y suman una voz al final. En la parte siguiente vuelven a lo de su escena."],
+  roll: ["Roll de las secuencias", "Al final (los 2 últimos compases, o el último si la parte es corta) repiten un tiempo, después medio, después una semicorchea: el loop que se encoge antes del cambio."],
+  corte_bajo: ["Corte de bajo", "El bajo se calla al final (los 2 últimos compases, o el último) para que la parte siguiente pegue más."],
+  tension: ["Acorde de tensión al final", "El último compás va a un acorde que pide resolver (♭II en frigio, V en menor armónica, ♭VII en menor) y la parte siguiente parte en la i."],
+  hueco: ["Hueco antes del cambio", "El último tiempo de la parte, el motor queda en silencio."],
+  scatter: ["Scatter de la MC-101", "Aprieta pads de Scatter de la MC-101 al final: suave, intenso en los 2 últimos compases y extremo en el último tiempo. Se suelta justo en el uno de la parte siguiente."],
+};
+const FINALES = [["nada", "Nada"], ["rise", "Rise"], ["fill", "Fill"], ["break", "Break"], ["fill_break", "Fill + break"]];
+
+function aplicarFinales() {
+  for (const p of cfg.parte) {
+    for (const k of APOYOS_PARTE) p[k] = DEFECTO_APOYO[k] ?? false;
+    const usar = [];
+    if (p.final === "rise") usar.push(["rise", p.final_rise]);
+    if (p.final === "fill" || p.final === "fill_break") usar.push(["fill", p.final_fill]);
+    if (p.final === "break" || p.final === "fill_break") usar.push(["break", p.final_break]);
+    for (const [clase, nombre] of usar) {
+      const t = (cfg[clase] || []).find((x) => x.nombre === nombre);
+      if (t) for (const k of APOYOS_PARTE) if (k in t) p[k] = t[k];
+    }
+  }
+}
+
+function nombreLibre(clase) {
+  const usados = new Set((cfg[clase] || []).map((t) => t.nombre));
+  let n = 1;
+  while (usados.has(`${CLASES_TRANS[clase].base} ${n}`)) n++;
+  return `${CLASES_TRANS[clase].base} ${n}`;
+}
+
+function nuevaTransicion(clase, desde) {
+  cfg[clase] = cfg[clase] || [];
+  const t = Object.assign({}, CLASES_TRANS[clase].nueva, desde || {}, {nombre: nombreLibre(clase)});
+  cfg[clase].push(t);
+  return t;
+}
+
+function resumenTransicion(clase, t) {
+  if (!t) return "no existe";
+  const r = CLASES_TRANS[clase].claves.filter((k) => t[k]).map((k) => TEXTO_APOYO[k][0].toLowerCase());
+  return r.length ? r.join(" · ") : "no hace nada todavía";
+}
+
+function usosDe(clase, nombre) {
+  const campo = "final_" + clase;
+  return cfg.parte.filter((p) => p[campo] === nombre && (p.final === clase || (p.final === "fill_break" && clase !== "rise"))).length;
+}
+
+function bloqueFinal(p) {
+  const elegir = (clase) => {
+    const lista = cfg[clase] || [];
+    const campoP = "final_" + clase;
+    if (!lista.some((t) => t.nombre === p[campoP])) p[campoP] = lista.length ? lista[0].nombre : nuevaTransicion(clase).nombre;
+    const sel = el("select", {"aria-label": `${CLASES_TRANS[clase].nombre} de la parte`, onchange: () => {
+      if (sel.value === "__nueva") p[campoP] = nuevaTransicion(clase).nombre; else p[campoP] = sel.value;
+      aplicarFinales(); guardar(); renderCancion(); if (vista === "parte") renderParte(); }},
+      [...(cfg[clase] || []).map((t) => el("option", {value: t.nombre, textContent: t.nombre, selected: t.nombre === p[campoP]})),
+       el("option", {value: "__nueva", textContent: `+ ${CLASES_TRANS[clase].nombre} nuevo`})]);
+    const t = (cfg[clase] || []).find((x) => x.nombre === p[campoP]);
+    return [el("label", {className: "campo"}, [CLASES_TRANS[clase].nombre, sel]), ayuda(resumenTransicion(clase, t))];
+  };
+  const f = p.final || "nada";
+  return [
+    h3("Final de la parte"),
+    campo("Cómo termina", segmentado(FINALES, f, (v) => { p.final = v; if (v !== "nada") { if (v === "rise") elegir("rise"); if (v === "fill" || v === "fill_break") elegir("fill"); if (v === "break" || v === "fill_break") elegir("break"); }
+      aplicarFinales(); guardar(); renderCancion(); if (vista === "parte") renderParte(); }, 3)),
+    ...(f === "rise" ? elegir("rise") : []),
+    ...(f === "fill" || f === "fill_break" ? elegir("fill") : []),
+    ...(f === "break" || f === "fill_break" ? elegir("break") : []),
+    f !== "nada" ? el("button", {type: "button", textContent: "Editar en Rises y fills ›", onclick: () => abrirTransiciones(
+      f === "rise" ? ["rise", p.final_rise] : f === "break" ? ["break", p.final_break] : ["fill", p.final_fill])}) : null,
+    ayuda("Lo que hace cada rise, fill y break se arma una vez en «Rises y fills» (abajo, en Tema) y lo usan todas las partes que lo eligen."),
+  ].filter(Boolean);
+}
+
+let transAbierta = null;   // [clase, nombre] a mostrar abierta
+function abrirTransiciones(cual) {
+  transAbierta = cual;
+  const b = document.querySelector('[data-vista="cancion"]');
+  if (b && vista !== "cancion") b.click();
+  renderCancion();
+  const j = (cfg[cual[0]] || []).findIndex((t) => t.nombre === cual[1]);
+  setTimeout(() => { const g = document.getElementById(`g-trans-${cual[0]}-${j}`); if (g) { g.open = true; g.scrollIntoView({block: "start"}); } }, 80);
+}
+
+function bloqueTransicion(clase, t, j) {
+  const nombre = el("input", {type: "text", value: t.nombre, maxLength: 24, onchange: () => {
+    const nuevo = nombre.value.trim();
+    if (!nuevo || nuevo === t.nombre) { nombre.value = t.nombre; return; }
+    if (cfg[clase].some((x) => x.nombre === nuevo)) { aviso(`Ya hay un ${CLASES_TRANS[clase].nombre.toLowerCase()} con ese nombre`, true); nombre.value = t.nombre; return; }
+    for (const p of cfg.parte) if (p["final_" + clase] === t.nombre) p["final_" + clase] = nuevo;
+    t.nombre = nuevo; guardar(); renderCancion(); }});
+  const cambio = () => { aplicarFinales(); renderCancion(); };
+  const usos = usosDe(clase, t.nombre);
+  const g = grupo(`g-trans-${clase}-${j}`, t.nombre, `${resumenTransicion(clase, t)} · ${usos ? `en ${usos} parte${usos === 1 ? "" : "s"}` : "sin usar"}`, [
+    el("label", {className: "campo"}, ["Nombre", nombre]),
+    ...CLASES_TRANS[clase].claves.map((k) => casilla(t, k, TEXTO_APOYO[k][0], TEXTO_APOYO[k][1], cambio)),
+    ...(clase === "rise" && t.scatter ? bloqueScatter(t) : []),
+    el("div", {className: "dos"}, [
+      el("button", {type: "button", textContent: "Duplicar", onclick: () => { const c = nuevaTransicion(clase, t); transAbierta = [clase, c.nombre]; guardar(); renderCancion(); }}),
+      el("button", {type: "button", textContent: "Borrar", style: "color:var(--bad)", onclick: () => {
+        const antes = JSON.parse(JSON.stringify({lista: cfg[clase], partes: cfg.parte}));
+        cfg[clase].splice(j, 1); aplicarFinales(); renderCancion(); guardar();
+        avisoDeshacer(usos ? `${t.nombre} borrado: ${usos} parte${usos === 1 ? "" : "s"} quedan sin ${CLASES_TRANS[clase].nombre.toLowerCase()}` : `${t.nombre} borrado`,
+          () => { cfg[clase] = antes.lista; cfg.parte = antes.partes; renderCancion(); guardar(); }); }}),
+    ]),
+  ]);
+  g.id = `g-trans-${clase}-${j}`;
+  if (transAbierta && transAbierta[0] === clase && transAbierta[1] === t.nombre) g.open = true;
+  return g;
+}
+
+function bloqueTransiciones() {
+  return el("div", {style: "display:flex;flex-direction:column;gap:8px", id: "rises_fills"}, [
+    el("h2", {textContent: "Rises y fills", style: "margin:12px 0 0"}),
+    ayuda("Las transiciones del tema, con nombre. Cada parte elige en «Final de la parte» cómo termina: nada, un rise, un fill, un break o fill + break. Lo que cambies aquí llega a todas las partes que la usan."),
+    ...Object.keys(CLASES_TRANS).flatMap((clase) => [
+      h3(CLASES_TRANS[clase].nombre === "Rise" ? "Rises (subidas)" : CLASES_TRANS[clase].nombre === "Fill" ? "Fills" : "Breaks"),
+      ...(cfg[clase] || []).map((t, j) => bloqueTransicion(clase, t, j)),
+      el("button", {type: "button", textContent: `+ ${CLASES_TRANS[clase].nombre}`, onclick: () => { const t = nuevaTransicion(clase); transAbierta = [clase, t.nombre]; guardar(); renderCancion(); }}),
+    ]),
+  ]);
+}
+
 function elegirParte(i) {
   parteSel = parteSel === i ? null : i;
   renderCancion();
@@ -459,7 +589,7 @@ function renderParte() {
     title: "Todos los motores y las secuencias a sus valores de fábrica, en silencio",
     onclick: async () => { if (p && !editandoVista()) { await editarMotorEnParte(i, null); if (!editandoVista()) return; } await limpiarTodo(); if (vista === "parte") renderParte(); }});
   const ajustes = p ? bloqueParte(p, i) : null;
-  if (ajustes) { ajustes.open = true; ajustes.querySelector("summary b").textContent = "Entrada, apoyos y ajustes de la parte"; }
+  if (ajustes) { ajustes.open = true; ajustes.querySelector("summary b").textContent = "Entrada, final y ajustes de la parte"; }
   caja.replaceChildren(...[nav, cab, acciones, el("div", {className: "motores-lista"}, filas), limpiar, ajustes,
     p && !vivo ? null : null].filter(Boolean));
 }
@@ -572,6 +702,7 @@ function moverCabezal() {
 function renderCancion() {
   const caja = $("cancion_caja");
   if (!caja || !cfg) return;
+  aplicarFinales();
   const c = cfg.cancion;
   const chk = el("input", {type: "checkbox", className: "switch", checked: c.activa, "aria-label": "Modo canción",
     onchange: async () => { try { await api("/api/cancion", {activa: chk.checked}); await recargar(); estado();
@@ -606,6 +737,7 @@ function renderCancion() {
       ayuda("Arma cada parte en modo libre: toca «Editar» en la parte, y todo lo que muevas (secuencias, pads, bajo…) queda guardado en ella al momento. Arriba aparece «Listo» para terminar y «Descartar» para volverla a como estaba. «Escuchar» solo la hace sonar, sin editarla."),
       ayuda("Para tocar con la Circuit: prende el modo canción y arma su cadena de escenas con los mismos largos. Al dar Play en la Circuit los dos parten juntos. Si se desfasan (por ejemplo, saltaste una escena en la Circuit), usa «Saltar aquí» en la parte que corresponde."),
     ]),
+    bloqueTransiciones(),
   );
   if (ultimoEstado) pintarCancion(ultimoEstado);
   if (vista === "parte") renderParte();

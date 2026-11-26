@@ -211,6 +211,8 @@ class Contexto:
         nueva = copy.deepcopy(self.motor.base)
         # Las escenas y la canción las edita la app: se quedan como están acá.
         nueva["escena"], nueva["parte"], nueva["cancion"] = self.config["escena"], self.config["parte"], self.config["cancion"]
+        for clase in ("rise", "fill", "break"):   # las transiciones van con la canción
+            nueva[clase] = self.config.get(clase, [])
         self.config = nueva
         return True
 

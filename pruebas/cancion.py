@@ -136,12 +136,18 @@ if __name__ == "__main__":
     m.saltar_parte(2)
     todo &= ok(fuera and m.saltar_parte_a == 2, "dentro del loop se puede saltar; a una parte de afuera, no")
 
+    def con_apoyos(parte, **apoyos):
+        """Desde 0.105 los apoyos vienen de la transición que la parte elige como final. Una
+        parte sin «final» es como las de antes: sus apoyos pasan a una transición con nombre."""
+        parte.pop("final", None)
+        parte.update(apoyos)
+
     print("\nScatter de la MC-101 al final de la parte")
     from goa.motor import Motor as _Motor
 
     def scatter(ajuste, compases=18, en_compas=None):
         cfg = armar()
-        cfg["parte"][1].update(scatter=True, **ajuste)
+        con_apoyos(cfg["parte"][1], scatter=True, **ajuste)
         cfg = normalizar(cfg)
         ev, ref = [], {}
         m = _Motor(cfg, lambda sal, tipo, canal, n, v: "m" in ref and tipo in ("note_on", "note_off") and (sal, canal) == ("MC-101", 15)
@@ -170,7 +176,9 @@ if __name__ == "__main__":
     m, ev = scatter({}, compases=22, en_compas={12: lambda m: m.quedarse_parte(4)})
     todo &= ok(ev[:3] == [(192 * 6, "note_on", 60), (201 * 6, "note_off", 60), (256 * 6, "note_on", 60)] and ev[-1] == (320 * 6, "note_off", 75),
                f"con «quedarse» a mitad del Scatter: se suelta en el paso siguiente y vuelve 4 compases antes del nuevo final {ev}")
-    todo &= ok("MC-101" in salidas(normalizar(dict(armar(), parte=[dict(armar()["parte"][0], scatter=True)]))), "abre la salida del Scatter")
+    con_scatter = dict(armar()["parte"][0])
+    con_apoyos(con_scatter, scatter=True)
+    todo &= ok("MC-101" in salidas(normalizar(dict(armar(), parte=[con_scatter]))), "abre la salida del Scatter")
 
     def reiniciar(m):
         m.stop()
@@ -203,7 +211,7 @@ if __name__ == "__main__":
                 vistos.append((p["pulso"], p["velocidad"], p["voces"]))
         return vistos
     sube = armar()
-    sube["parte"][1]["pads_suben"] = True        # Groove (8 compases) con los pads subiendo
+    con_apoyos(sube["parte"][1], pads_suben=True)        # Groove (8 compases) con los pads subiendo
     v_sube = pulsos(normalizar(sube), 18)
     v_igual = pulsos(armar(), 18)
     todo &= ok([x[0] for x in v_sube[8:16]] == [2, 2, 4, 4, 6, 6, 8, 8],
@@ -224,7 +232,7 @@ if __name__ == "__main__":
             sec.update(activa=True, armonia="guiada", salida="SEC", posicion="todos", densidad=1.0)
         for p in cfg["parte"]:
             p["escena"] = -1  # todas siguen lo que suena
-        cfg["parte"][1].update(**flags)
+        con_apoyos(cfg["parte"][1], **flags)
         ev = []
         m = Motor(normalizar(cfg), lambda sal, tipo, canal, n, v: ev.append((m.tick, sal, tipo, n, v)))
         m.start()
