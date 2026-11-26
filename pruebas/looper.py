@@ -114,6 +114,8 @@ def main():
         r = Todo(); m = Motor(cfg, r); r.motor = m; m.start(); m.nota_on(1, 45); return m, r
     m, r = con(base(clip=3, nivel=110))
     compases(m, 2)
+    todo &= ok(r.cc == [(0, 0, 110)], f"el primer loop desde el Start también manda el volumen (por si Yantra se reinició con la pista callada) {r.cc}")
+    r.cc.clear()
     cfg = json.loads(json.dumps(m.base)); cfg["looper"]["activo"] = False
     m.aplicar_config(normalizar(cfg))
     compases(m, 3)
@@ -128,9 +130,19 @@ def main():
                "con otro loop: lo pide en la mitad del compás y sube el volumen en el uno en que entra")
     m, r = con(base(clip=3, parar=16))
     compases(m, 2)
+    r.cc.clear()
     cfg = json.loads(json.dumps(m.base)); cfg["looper"]["activo"] = False
     m.aplicar_config(normalizar(cfg)); compases(m, 3)
     todo &= ok(r.pcs[-1][2] == 15 and not r.cc, "apagado con slot vacío: lanza el slot vacío (sin tocar el volumen)")
+    m, r = con(base(clip=3, nivel=90))
+    compases(m, 2)
+    cfg = json.loads(json.dumps(m.base)); cfg["looper"]["activo"] = False
+    m.aplicar_config(normalizar(cfg)); compases(m, 2)
+    otras = []
+    m.enviar = lambda s_, t, c, a, b: otras.append((c, a, b)) if t == "control_change" and a == 7 else None
+    cfg["looper"]["canal"] = 5
+    m.aplicar_config(normalizar(cfg)); compases(m, 1)
+    todo &= ok((3, 7, 90) in otras, f"cambiar el canal con la pista callada: la de antes vuelve a su volumen {otras}")
     m, r = con(base(clip=3, activo=False))
     compases(m, 3)
     todo &= ok(not r.cc and not r.pcs, "si el motor no lo hizo sonar, no toca la pista")

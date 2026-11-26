@@ -20,6 +20,7 @@ from .disparo import Disparo
 from .escalas import Tonalidad, nombre_midi
 from .fx import Fx
 from .motor_bateria import BateriaMotor
+from .motor_filtro import FiltroMotor
 from .motor_forma import FormaMotor
 from .pads import Pads, _cerca
 from .secuencia import PASOS_POR_COMPAS, TICKS_POR_PASO, Secuencia, celda_molde
@@ -35,7 +36,7 @@ log = logging.getLogger("goa")
 GRADOS_PAR = (6, 4, 2, 7, 1)  # ♭7, 5.ª, ♭3, octava, ♭2 (grados de escala desde la raíz)
 
 
-class Motor(FormaMotor, BateriaMotor):
+class Motor(FormaMotor, BateriaMotor, FiltroMotor):
     def __init__(self, config, enviar):
         self.enviar = enviar
         self.secuencias = []
@@ -81,6 +82,7 @@ class Motor(FormaMotor, BateriaMotor):
         self.scatter_nota = None     # (salida, canal, nota) del pad de Scatter apretado
         self.circuit_envios = {}     # cc -> {"valor", "obj", "desde", "p0", "largo"}: envíos de la Circuit
         self._bateria_reiniciar()
+        self._filtro_grupo_reiniciar()
         self.circuit_filtro = None   # (salida, canal, valor) del filtro maestro de la Circuit si se movió
         self.cc_secuencias = {}     # (salida, canal, cc) -> (valor mandado, reposo): filtros intervenidos
         self.aplicar_config(config)
@@ -524,12 +526,22 @@ class Motor(FormaMotor, BateriaMotor):
             cada = max(1, int(lp.get("cada", 1)))
             objetivo = -(-objetivo // cada) * cada
         canal = int(lp.get("canal", 4)) - 1
+        if self.looper_mudo is not None and self.looper_mudo != (lp["salida"], canal):
+            # Cambiaste el canal o la salida del looper con la pista callada: la de antes
+            # vuelve a su volumen (si no, quedaba en 0 para siempre).
+            self.enviar(self.looper_mudo[0], "control_change", self.looper_mudo[1], 7, int(lp.get("nivel", 100)))
+            log.info("Looper: la pista de antes (canal %d) vuelve a su volumen", self.looper_mudo[1] + 1)
+            self.looper_mudo = None
         clip, parar = int(lp.get("clip", 0)), int(lp.get("parar", 0))
         pc = nivel = None
         if lp.get("activo") and clip > 0:
             clave = (lp["salida"], canal, clip)
             if clave != self.looper_enviado:
                 pc = clip - 1
+                if self.looper_enviado is None:
+                    # El primer loop desde el Start también manda el volumen: si Yantra se
+                    # reinició (una actualización) con la pista callada, no sabe que la bajó.
+                    nivel = int(lp.get("nivel", 100))
             if self.looper_mudo == (lp["salida"], canal):
                 nivel = int(lp.get("nivel", 100))   # vuelve a sonar
         else:
@@ -595,6 +607,7 @@ class Motor(FormaMotor, BateriaMotor):
         self.obertura.reiniciar()
         self.subida, self.subida_pedida, self.subida_final = None, None, None
         self._bateria_reiniciar()
+        self._filtro_grupo_reiniciar()
         self.circuit_envios = {}   # en cada Start los envíos se vuelven a mandar (por si los moviste a mano)
         self.corriendo = True
         self.looper_pendiente = None
@@ -612,7 +625,8 @@ class Motor(FormaMotor, BateriaMotor):
         self._soltar_scatter()
         self._soltar_filtro_circuit()
         self._bateria_soltar()
-        self.bateria_prueba = None
+        self._soltar_filtro_grupo()
+        self.bateria_prueba = self.filtro_prueba = None
         self.apagar_todo()
         self.subida = None
         self._soltar_filtros()
@@ -705,7 +719,7 @@ class Motor(FormaMotor, BateriaMotor):
             if not s.activa:
                 continue
             for lfo in s.lfos:
-                if not lfo.activo or (s.salida, s.canal, lfo.cc) in self.cc_secuencias:
+                if not lfo.activo or (s.salida, s.canal, lfo.cc) in self.cc_secuencias or self.filtro_grupo_tiene(s.salida, s.canal, lfo.cc):
                     continue
                 valor = lfo.valor(self.tick)
                 if valor != lfo.ultimo:
@@ -714,7 +728,7 @@ class Motor(FormaMotor, BateriaMotor):
         p = self.pads
         if p is not None and p.activo and p.suenan:
             for lfo in p.lfos:
-                if lfo.activo:
+                if lfo.activo and not self.filtro_grupo_tiene(p.salida, p.canal, lfo.cc):
                     valor = lfo.valor(self.tick)
                     if valor != lfo.ultimo:
                         self.enviar(p.salida, "control_change", p.canal, lfo.cc, valor)
@@ -722,7 +736,7 @@ class Motor(FormaMotor, BateriaMotor):
         t = self.tocado
         if t.activo and t.salida:
             for lfo in t.lfos:
-                if not lfo.activo or (t.salida, t.canal, lfo.cc) in self.cc_secuencias:
+                if not lfo.activo or (t.salida, t.canal, lfo.cc) in self.cc_secuencias or self.filtro_grupo_tiene(t.salida, t.canal, lfo.cc):
                     continue
                 valor = lfo.valor(self.tick)
                 if valor != lfo.ultimo:
@@ -779,8 +793,11 @@ class Motor(FormaMotor, BateriaMotor):
         for d in self.disparos.values():
             d.paso(paso, self.tick, self.cambio, self.nota_maxima)
         self._paso_scatter(paso)
+        self._paso_bateria(paso)   # antes del filtro: «Probar» un rise arranca los dos en el mismo compás
+        self._paso_filtro_grupo(paso)
+        if self.bajo is not None:
+            self.bajo.filtro_pausa = self.filtro_grupo_tiene(self.bajo.salida, self.bajo.canal, self.bajo.filtro_cc)
         self._paso_circuit(paso)
-        self._paso_bateria(paso)
         if self._en_hueco(paso):
             if paso == self.hueco_desde:
                 self.apagar_todo()  # el último tiempo antes de la parte que viene: silencio

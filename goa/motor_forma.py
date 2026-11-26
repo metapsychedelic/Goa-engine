@@ -341,6 +341,8 @@ class FormaMotor:
             disparo = getattr(s, "disparo", None)   # el Tocado no tiene disparo: lo tocas tú
             if not ((s.fx or s.subida_filtro) and s.activa) or (disparo is not None and self.disparos[disparo].raiz is None):
                 continue
+            if self.filtro_grupo_tiene(s.salida, s.canal, s.cc_filtro):
+                continue   # lo maneja el filtro compartido del rise
             if s.subida_filtro:
                 # El último paso de la subida ya está en «hasta» (el drop cae justo después).
                 largo = max(1, self.subida["hasta"] - self.subida["desde"] - 1)
@@ -458,7 +460,9 @@ class FormaMotor:
                     self.enviar(salida, "control_change", canal, cc, valor)
                 if x >= 1:
                     st["p0"] = None
-        if c.get("subida_filtro") and self.subida is not None:
+        if self.filtro_grupo_tiene(salida, canal, CIRCUIT_CC_FILTRO):
+            self.circuit_filtro = None   # lo maneja el filtro compartido del rise
+        elif c.get("subida_filtro") and self.subida is not None:
             # El último paso de la subida ya está en su punto (el drop cae justo después).
             largo = max(1, self.subida["hasta"] - self.subida["desde"] - 1)
             x = max(0.0, min(1.0, (paso - self.subida["desde"]) / largo))

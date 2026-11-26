@@ -24,14 +24,15 @@ class BateriaMotor:
         self.bateria_estado = {}      # drum -> {"sample": valor mandado, "pitch": valor mandado}
         self.bateria_veces = {}       # nombre de la transición -> cuántas veces sonó
         self.bateria_prueba = None    # (clase, transición) pedida con «Probar»: suena en el próximo compás
+        self.filtro_prueba = None     # (transición, inicio, fin): el filtro compartido de un rise en prueba
 
     def probar_bateria(self, clase, t):
         """«Probar» de la app: el rise o fill `t` suena desde el próximo compás, sin la canción.
         Fill: en los últimos pasos de ese compás. Rise: sus `bateria_compases` compases."""
         if clase not in ("rise", "fill"):
             raise ValueError("Solo los rises y los fills tienen batería")
-        if not t.get("bateria"):
-            raise ValueError("Elige primero un tipo de batería")
+        if not t.get("bateria") and not (clase == "rise" and t.get("filtro")):
+            raise ValueError("Elige primero un tipo de batería" + (" o prende el filtro compartido" if clase == "rise" else ""))
         if not self.corriendo:
             raise ValueError("Dale Play primero: suena en el próximo compás")
         self.bateria_prueba = (clase, dict(t))
@@ -46,6 +47,25 @@ class BateriaMotor:
                 return t
         return None
 
+    def _rise_en_curso(self, compas):
+        """El rise que corre (o viene) en este compás: (transición, primer paso posible, paso
+        del drop) o None. Canción: la parte con final «rise» (haya o no riser de FX); subida
+        pedida a mano o del piloto: el rise elegido para el modo libre ([bateria] rise_libre).
+        Lo usan la batería y el filtro compartido."""
+        base = self.base or {}
+        parte = self.conductor.parte(base, compas)
+        datos = base["parte"][parte["i"]] if parte is not None and parte["i"] < len(base.get("parte", [])) else None
+        sub = self.subida
+        if datos is not None and datos.get("final") == "rise" and (sub is None or sub["origen"] != "manual"):
+            t = self._bateria_transicion("rise", datos.get("final_rise"))
+            fin = (compas - parte["dentro"] + parte["largo"]) * PASOS_POR_COMPAS
+            return (t, fin - parte["largo"] * PASOS_POR_COMPAS, fin) if t else None
+        if sub is not None:
+            b = (self.config or {}).get("bateria") or {}
+            t = self._bateria_transicion("rise", b.get("rise_libre", ""))
+            return (t, sub["desde"], sub["hasta"]) if t else None
+        return None
+
     def _bateria_planear(self, paso):
         """Primer paso de cada compás: ¿empieza (o ya está por empezar) un rise o un fill?"""
         compas = paso // PASOS_POR_COMPAS
@@ -53,22 +73,11 @@ class BateriaMotor:
         parte = self.conductor.parte(base, compas)
         datos = base["parte"][parte["i"]] if parte is not None and parte["i"] < len(base.get("parte", [])) else None
         fin_parte = None if parte is None else (compas - parte["dentro"] + parte["largo"]) * PASOS_POR_COMPAS
-        # Rise de la canción: los últimos compases de la parte (haya o no riser de FX)
-        sub = self.subida
-        if datos is not None and datos.get("final") == "rise" and (sub is None or sub["origen"] != "manual"):
-            t = self._bateria_transicion("rise", datos.get("final_rise"))
-            if t and t.get("bateria"):
-                inicio = max(fin_parte - parte["largo"] * PASOS_POR_COMPAS,
-                             fin_parte - int(t.get("bateria_compases", 4)) * PASOS_POR_COMPAS)
-                if inicio // PASOS_POR_COMPAS <= compas:
-                    return self._bateria_nuevo("rise", t, inicio, fin_parte)
-        # Subida pedida a mano (o del piloto): el rise elegido para el modo libre
-        elif sub is not None:
-            b = (self.config or {}).get("bateria") or {}
-            t = self._bateria_transicion("rise", b.get("rise_libre", ""))
-            if t and t.get("bateria"):
-                fin = sub["hasta"]
-                inicio = max(sub["desde"], fin - int(t.get("bateria_compases", 4)) * PASOS_POR_COMPAS)
+        rise = self._rise_en_curso(compas)
+        if rise is not None and rise[0].get("bateria"):
+            t, primero, fin = rise
+            inicio = max(primero, fin - int(t.get("bateria_compases", 4)) * PASOS_POR_COMPAS)
+            if inicio // PASOS_POR_COMPAS <= compas:
                 return self._bateria_nuevo("rise", t, inicio, fin)
         # Fill: últimos pasos de la parte
         if datos is not None and datos.get("final") in ("fill", "fill_break"):
@@ -101,11 +110,14 @@ class BateriaMotor:
             else:
                 fin = paso + PASOS_POR_COMPAS
                 inicio = fin - int(t.get("bateria_largo", 8))
-            if self.bateria_plan is not None:
-                self._bateria_soltar()
-            plan = self._bateria_nuevo(clase, t, inicio, fin)
-            plan["clave"] = ("prueba",) + plan["clave"]
-            self.bateria_plan = plan
+            if clase == "rise" and t.get("filtro"):
+                self.filtro_prueba = (dict(t, nombre="prueba: " + t["nombre"]), inicio, fin)
+            if t.get("bateria"):
+                if self.bateria_plan is not None:
+                    self._bateria_soltar()
+                plan = self._bateria_nuevo(clase, t, inicio, fin)
+                plan["clave"] = ("prueba",) + plan["clave"]
+                self.bateria_plan = plan
         en_prueba = self.bateria_plan is not None and self.bateria_plan["clave"][0] == "prueba"
         if paso % PASOS_POR_COMPAS == 0 and not en_prueba:
             plan = self._bateria_planear(paso)

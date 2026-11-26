@@ -289,6 +289,40 @@ function elegirDrum(obj, k, etiqueta) {
   sel.value = String(obj[k] || 1);
   return el("label", {className: "campo"}, [etiqueta, sel]);
 }
+function botonProbar(clase, t) {
+  if (!t.bateria && !(clase === "rise" && t.filtro)) return null;
+  return el("button", {type: "button", className: "prim", textContent: clase === "rise" ? "▶ Probar (desde el próximo compás)" : "▶ Probar (al final del próximo compás)", onclick: async () => {
+    try {
+      if (temporizador) await enviarConfig();   // que las salidas queden abiertas
+      await api("/api/bateria/probar", {clase, t});
+      aviso(clase === "rise" ? `${t.nombre}: suena desde el próximo compás` : `${t.nombre}: suena al final del próximo compás`);
+    } catch (e) { aviso(e.message, true); } }});
+}
+// Filtro compartido de un rise (= goa/motor_filtro.py): quiénes se suman, por id.
+function participantesFiltro() {
+  return [["circuit", "Circuit: filtro maestro"], ["circuit_s1", "Circuit: Synth 1"], ["circuit_s2", "Circuit: Synth 2"],
+    ["bajo", "Bajo"], ["pads", "Pads"], ["tocado", "Tocado"],
+    ...(cfg.secuencia || []).map((x) => ["sec:" + x.nombre, `Secuencia ${x.nombre}`])];
+}
+function bloqueFiltroRise(t) {
+  if (t.filtro === undefined) Object.assign(t, {filtro: false, filtro_quienes: "", filtro_compases: 8, filtro_desde: 15, filtro_hasta: 127});
+  const re = () => renderCancion();
+  const hijos = [casilla(t, "filtro", "Filtro compartido", "Los filtros de los que elijas parten cerrados y se abren juntos hasta el drop.", re)];
+  if (!t.filtro) return hijos;
+  const elegidos = new Set((t.filtro_quienes || "").split(",").map((x) => x.trim()).filter(Boolean));
+  const marcas = participantesFiltro().map(([id, nombre]) => {
+    const c = el("input", {type: "checkbox", checked: elegidos.has(id), onchange: () => {
+      if (c.checked) elegidos.add(id); else elegidos.delete(id);
+      t.filtro_quienes = [...elegidos].join(","); guardar(); }});
+    return el("label", {className: "fila", style: "min-height:40px;gap:10px"}, [el("span", {textContent: nombre}), c]);
+  });
+  hijos.push(el("div", {className: "card", style: "display:flex;flex-direction:column;gap:2px"}, [el("b", {textContent: "Se suman", style: "font-weight:600"}), ...marcas]));
+  hijos.push(campo("Empieza antes del drop (compases)", segmentado([["2","2"],["4","4"],["8","8"],["16","16"],["32","32"]], String(t.filtro_compases), (v) => { t.filtro_compases = parseInt(v); guardar(); }, 5)));
+  hijos.push(deslizador(t, "filtro_desde", "Parte en (cerrado)", 0, 127, 1, (v) => String(v)));
+  hijos.push(deslizador(t, "filtro_hasta", "Llega a (en el drop)", 0, 127, 1, (v) => String(v)));
+  hijos.push(ayuda("En el drop cada uno vuelve a lo suyo: las secuencias y el Tocado a su reposo, el filtro maestro de la Circuit a apagado y el bajo con filtro automático sigue con el suyo. Synth 1 y 2, los pads y un bajo sin filtro automático se quedan en «Llega a» (la Circuit no deja leer el filtro de su parche). Mientras dura, el LFO y el filtro de la subida de esas pistas esperan."));
+  return hijos;
+}
 function bloqueBateria(clase, t) {
   for (const [k, v] of Object.entries(BATERIA_NUEVA)) if (t[k] === undefined) t[k] = v;
   if (clase === "rise") Object.assign(t, Object.assign({bateria_compases: 4, bateria_intensidad: 0.6, bateria_pitch: 0.5, bateria_silencio: 2}, t));
@@ -312,12 +346,6 @@ function bloqueBateria(clase, t) {
     }
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "golpe_drum", "Golpes (redoble, claps) en"), elegirSample(t, "golpe_sample", "con el sample", [[-1, "el que tenga el Drum"]])]));
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "fx_drum", "FX (riser, toms, glitch) en"), elegirSample(t, "fx_sample", "con el sample", [[-2, "el del tipo (automático)"], [-1, "el que tenga el Drum"]])]));
-    hijos.push(el("button", {type: "button", className: "prim", textContent: clase === "rise" ? "▶ Probar (desde el próximo compás)" : "▶ Probar (al final del próximo compás)", onclick: async () => {
-      try {
-        if (temporizador) await enviarConfig();   // que la salida de la Circuit quede abierta
-        await api("/api/bateria/probar", {clase, t});
-        aviso(clase === "rise" ? `${t.nombre}: suena desde el próximo compás` : `${t.nombre}: suena al final del próximo compás`);
-      } catch (e) { aviso(e.message, true); } }}));
     hijos.push(ayuda("Suena por la Circuit (canal de baterías) encima de tu patrón. Solo cambia el sample de un Drum si en Motores → Circuit → «Batería en rises y fills» dijiste cuál tiene normalmente, y al terminar lo devuelve; si no, usa el que tenga y mueve el pitch."));
   }
   return hijos;
@@ -367,6 +395,7 @@ function nuevaTransicion(clase, desde) {
 function resumenTransicion(clase, t) {
   if (!t) return "no existe";
   const r = CLASES_TRANS[clase].claves.filter((k) => t[k]).map((k) => TEXTO_APOYO[k][0].toLowerCase());
+  if (clase === "rise" && t.filtro) { const n = (t.filtro_quienes || "").split(",").filter((x) => x.trim()).length; r.push(n ? `filtro compartido (${n})` : "filtro compartido (nadie)"); }
   if (t.bateria) r.push("batería: " + ((TIPOS_BATERIA[clase] || []).find(([v]) => v === t.bateria) || [, t.bateria])[1].toLowerCase());
   return r.length ? r.join(" · ") : "no hace nada todavía";
 }
@@ -426,7 +455,9 @@ function bloqueTransicion(clase, t, j) {
     el("label", {className: "campo"}, ["Nombre", nombre]),
     ...CLASES_TRANS[clase].claves.map((k) => casilla(t, k, TEXTO_APOYO[k][0], TEXTO_APOYO[k][1], cambio)),
     ...(clase === "rise" && t.scatter ? bloqueScatter(t) : []),
+    ...(clase === "rise" ? bloqueFiltroRise(t) : []),
     ...(clase in TIPOS_BATERIA ? bloqueBateria(clase, t) : []),
+    botonProbar(clase, t),
     el("div", {className: "dos"}, [
       el("button", {type: "button", textContent: "Duplicar", onclick: () => { const c = nuevaTransicion(clase, t); transAbierta = [clase, c.nombre]; guardar(); renderCancion(); }}),
       el("button", {type: "button", textContent: "Borrar", style: "color:var(--bad)", onclick: () => {

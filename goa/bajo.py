@@ -444,11 +444,15 @@ class Bajo:
         if not listas:
             return
         self.cc_pendientes = [c for c in self.cc_pendientes if c[0] > tick]
+        if getattr(self, "filtro_pausa", False):
+            return   # el filtro compartido de un rise maneja este filtro
         for _, valor in sorted(listas, key=lambda c: c[0]):
             enviar(self.salida, "control_change", self.canal, self.filtro_cc,
                    self.filtro_ultimo if valor is None and self.filtro_ultimo is not None else (valor or 0))
 
     def _mover_filtro(self, compas, tiempo, enviar):
+        if getattr(self, "filtro_pausa", False):
+            return   # el filtro compartido de un rise maneja este filtro
         valor = self.valor_filtro(compas, tiempo)
         if valor != self.filtro_ultimo:
             enviar(self.salida, "control_change", self.canal, self.filtro_cc, valor)

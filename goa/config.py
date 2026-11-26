@@ -488,6 +488,14 @@ _BATERIA_COMUN = {
     "fx_sample": (int, -2, -2, 63),
 }
 ESQUEMA_RISE.update({
+    # Filtro compartido (goa/motor_filtro.py): los filtros de los que elijas parten cerrados
+    # y se abren juntos hasta el drop. `filtro_quienes`: ids separados por coma: "circuit"
+    # (filtro maestro), "circuit_s1", "circuit_s2", "bajo", "pads", "tocado", "sec:<nombre>".
+    "filtro": (bool, False, None, None),
+    "filtro_quienes": (str, "", None, 400),
+    "filtro_compases": (int, 8, 1, 32),
+    "filtro_desde": (int, 15, 0, 127),       # cerrado al empezar
+    "filtro_hasta": (int, 127, 0, 127),      # en el drop (los que no tienen reposo propio se quedan ahí)
     "bateria": (str, "", None, ("", "seed", "redoble", "riser", "toms", "reversa", "glitch", "bombo")),
     "bateria_compases": (int, 4, 1, 32),            # los últimos N compases de la parte
     "bateria_intensidad": (float, 0.6, 0.0, 1.0),
@@ -1015,6 +1023,8 @@ def salidas(cfg):
         claves.append(cfg["circuit"]["salida"])
     if any(t.get("bateria") for clase in ("rise", "fill") for t in cfg.get(clase, [])):
         claves.append(cfg["bateria"]["salida"])
+    if any(t.get("filtro") and "circuit" in t.get("filtro_quienes", "") for t in cfg.get("rise", [])):
+        claves.append(cfg["circuit"]["salida"])
     # Un canal del nano con el looper o la Circuit manda CC directo a su sinte: su salida
     # tiene que estar abierta aunque el motor esté apagado.
     if cfg["control"]["activo"]:
