@@ -1,6 +1,7 @@
 """Punto de entrada: abre los puertos MIDI, conecta la Circuit con el motor y sirve la app."""
 
 import argparse
+import faulthandler
 import os
 import re
 import logging
@@ -15,6 +16,8 @@ from .control import Control
 from .teclado import Teclado
 from .motor import Motor
 from .web import Contexto, crear_servidor
+
+CIERRE_MAXIMO = 8   # segundos para cerrarse ordenado después de SIGTERM (ver al_terminar)
 
 log = logging.getLogger("goa")
 
@@ -294,8 +297,30 @@ def main():
     entrada_control = None
     entrada_teclado = None
     terminar = threading.Event()
-    signal.signal(signal.SIGTERM, lambda *_: terminar.set())
-    signal.signal(signal.SIGINT, lambda *_: terminar.set())
+
+    def al_terminar(*_):
+        """Pide cerrar ordenado (notas apagadas, puertos cerrados, config guardada). Red de
+        seguridad: si en CIERRE_MAXIMO segundos el proceso sigue vivo (un candado trabado o
+        un puerto USB que no cierra), deja en el log dónde quedó cada hilo y sale a la fuerza;
+        systemd lo vuelve a levantar. Antes, una actualización podía dejar el motor viejo
+        corriendo para siempre y el nuevo nunca arrancaba."""
+        if terminar.is_set():
+            return
+        terminar.set()
+
+        def forzar():
+            log.error("El motor no terminó de cerrarse en %d s: dónde quedó cada hilo:", CIERRE_MAXIMO)
+            try:
+                faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
+                sys.stderr.flush()
+            finally:
+                os._exit(1)
+        reloj = threading.Timer(CIERRE_MAXIMO, forzar)
+        reloj.daemon = True
+        reloj.start()
+
+    signal.signal(signal.SIGTERM, al_terminar)
+    signal.signal(signal.SIGINT, al_terminar)
 
     try:
         while not terminar.is_set():

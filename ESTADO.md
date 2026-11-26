@@ -1,6 +1,6 @@
 # Estado del proyecto (para retomar en un chat nuevo)
 
-Versión actual: **0.104.2** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
+Versión actual: **0.104.3** (ver `goa/__init__.py`). En la Pi se actualiza con `goa-update`.
 
 ## Qué es
 Motor generativo Goa/psytrance en Raspberry Pi. La Circuit Tracks es el reloj
@@ -27,6 +27,7 @@ Canción, Ajustes).
 
 ## Hecho recientemente
 
+- **0.104.3 · Red de seguridad al cerrar.** Al instalar 0.104.2 desde la app, el motor viejo recibió SIGTERM y no terminó nunca (seguía `active (running)` con el mismo PID, sin log nuevo): el nuevo no arrancaba y la app no respondía. Causa exacta pendiente (el bucle principal o el `finally` se trabaron: un candado o el cierre de un puerto USB). `main.al_terminar`: además de pedir el cierre ordenado arranca un Timer daemon de CIERRE_MAXIMO (8 s) que deja en el log (stderr → journal) el traceback de todos los hilos con faulthandler y hace `os._exit(1)`; systemd (Restart=always) lo levanta. Probado con un cierre trabado a propósito. **Si vuelve a pasar, el journal trae dónde se trabó.**
 - **0.104.2 · El nano abre la salida del looper o la Circuit si los tiene asignados.** `config.salidas`: con el control activo, un canal en "looper" o "circuit" agrega la salida de ese motor aunque esté apagado (su fader y perilla mandan CC directo). Antes el CC se perdía si ningún motor usaba esa salida; lo destapó la prueba al pasar a la búsqueda estricta de 0.104.1.
 - **0.104.1 · /api/cc avisa si la salida no está abierta.** Antes `Puertos.enviar` descartaba en silencio un CC a una clave no abierta (pasó probando la Circuit con salida «Circuit» cuando el motor la tenía con otro nombre). Ahora busca la salida abierta que contenga el nombre pedido (o al revés, sin mayúsculas) y, si no hay ninguna, responde 400 con la lista de salidas abiertas; la respuesta trae `salida` (la clave usada).
 - **0.104.0 · nanoKONTROL2: canales asignables.** Antes los 8 canales eran fijos (`CANALES`). Ahora `[control]` tiene `canal1`-`canal8` ("pads", "bajo", "sec:<nombre>", "dialogo", "fx", "texturas", "looper", "obertura", "tocado", "circuit" o "" = nada; de fábrica lo de antes: pads, bajo, sec:A, sec:B, dialogo, fx, texturas, looper) y `fader1-8`/`perilla1-8` ("" = DEFECTO del motor). `control.OPCIONES` (por tipo de motor: id -> secciones, clave, nombre; ("cc",) = CC directo) y `DEFECTO`; `control.canales(cfg)` arma los 8 canales en cada uso (una secuencia que no existe o «nada» = None: el canal no hace nada). Obertura: fader intensidad (densidad_cuerdas), perilla desarrollo (viva); Tocado: densidad/mutación; Circuit: filtro maestro (CC 74 por su canal de proyecto, `_cc_del_motor` usa canal_control) y reverb Synth 1; R sin seed (Circuit) no hace nada. App: Ajustes › nanoKONTROL2 › Canales, con un selector por canal, «Personalizar» (fader y perilla) y «Volver a la asignación de fábrica»; `OPCIONES_NANO`/`DEFECTO_NANO` en 3-vivo.js = las de Python (la prueba lo revisa). Pruebas en pruebas/control.py (cambian la asignación con /api/config, como la app).
