@@ -312,6 +312,12 @@ function bloqueBateria(clase, t) {
     }
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "golpe_drum", "Golpes (redoble, claps) en"), elegirSample(t, "golpe_sample", "con el sample", [[-1, "el que tenga el Drum"]])]));
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "fx_drum", "FX (riser, toms, glitch) en"), elegirSample(t, "fx_sample", "con el sample", [[-2, "el del tipo (automático)"], [-1, "el que tenga el Drum"]])]));
+    hijos.push(el("button", {type: "button", className: "prim", textContent: clase === "rise" ? "▶ Probar (desde el próximo compás)" : "▶ Probar (al final del próximo compás)", onclick: async () => {
+      try {
+        if (temporizador) await enviarConfig();   // que la salida de la Circuit quede abierta
+        await api("/api/bateria/probar", {clase, t});
+        aviso(clase === "rise" ? `${t.nombre}: suena desde el próximo compás` : `${t.nombre}: suena al final del próximo compás`);
+      } catch (e) { aviso(e.message, true); } }}));
     hijos.push(ayuda("Suena por la Circuit (canal de baterías) encima de tu patrón. Solo cambia el sample de un Drum si en Motores → Circuit → «Batería en rises y fills» dijiste cuál tiene normalmente, y al terminar lo devuelve; si no, usa el que tenga y mueve el pitch."));
   }
   return hijos;

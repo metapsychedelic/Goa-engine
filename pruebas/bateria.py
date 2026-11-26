@@ -100,6 +100,37 @@ def main():
     sin = base([], rise=[dict(rise, nombre="L")])
     todo &= ok(not tocar(sin, 8, subida=(2, 4)), "sin rise elegido para el modo libre, nada")
 
+    print("Probar desde la app")
+    cfg = base([], fill=[fill], sample_d4=33)
+    pev = []
+    m = Motor(cfg, lambda *a: pev.append((m.tick,) + a))
+    try:
+        m.probar_bateria("fill", fill)
+        todo &= ok(False, "sin Play avisa")
+    except ValueError:
+        todo &= ok(True, "sin Play avisa que hay que darle Play")
+    m.start()
+    for _ in range(int(1.5 * 96)):
+        m.reloj()
+    m.probar_bateria("fill", fill)
+    for _ in range(3 * 96):
+        m.reloj()
+    notas = [e for e in pev if e[1] == "Circuit" and e[2] == "note_on" and e[5] > 0]
+    todo &= ok(bool(notas) and all(2 * 96 + 48 <= e[0] < 3 * 96 for e in notas), f"el fill suena al final del próximo compás ({len(notas)} golpes)")
+    samples = [e[5] for e in pev if e[1] == "Circuit" and e[2] == "control_change" and e[4] == 50]
+    todo &= ok(samples[-1:] == [33], "y devuelve el sample")
+    pev.clear()
+    m.probar_bateria("rise", rise)
+    for _ in range(4 * 96):
+        m.reloj()
+    notas = [e for e in pev if e[1] == "Circuit" and e[2] == "note_on" and e[5] > 0]
+    todo &= ok(bool(notas) and all(5 * 96 <= e[0] < 7 * 96 for e in notas), f"el rise suena sus 2 compases desde el próximo ({len(notas)} golpes)")
+    try:
+        m.probar_bateria("fill", dict(fill, bateria=""))
+        todo &= ok(False, "sin tipo avisa")
+    except ValueError:
+        todo &= ok(True, "sin tipo de batería avisa")
+
     print("Stop a mitad")
     m_ev = []
     cfg = base(partes, rise=[rise], sample_d2=16)

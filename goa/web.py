@@ -452,6 +452,7 @@ def crear_servidor(ctx, puerto):
                 "/api/energia": self._energia,
                 "/api/piloto": self._piloto,
                 "/api/subida": self._subida,
+                "/api/bateria/probar": self._probar_bateria,
                 "/api/cancion": self._cancion,
                 "/api/cancion/plantilla": self._cancion_plantilla,
                 "/api/cancion/actualizar": self._cancion_actualizar,
@@ -1299,6 +1300,22 @@ def crear_servidor(ctx, puerto):
                     ctx.motor.pedir_subida_final(int(datos.get("compases", 0)))
                 else:
                     ctx.motor.pedir_subida(int(datos.get("compases", 0)))
+            self._responder()
+
+        def _probar_bateria(self, datos):
+            """«Probar» un rise o fill: su batería suena desde el próximo compás (con la
+            transición que manda la app, aunque no esté guardada todavía)."""
+            from .config import TRANSICIONES, ConfigError, _valor
+            clase = datos.get("clase")
+            if clase not in ("rise", "fill") or not isinstance(datos.get("t"), dict):
+                raise ValueError("Falta el rise o fill a probar")
+            esquema = TRANSICIONES[clase]
+            try:
+                t = {k: _valor(k, datos["t"].get(k), e) for k, e in esquema.items()}
+            except ConfigError as e:
+                raise ValueError(str(e))
+            with ctx.candado:
+                ctx.motor.probar_bateria(clase, t)
             self._responder()
 
         def _piloto(self, datos):

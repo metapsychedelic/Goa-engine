@@ -23,6 +23,18 @@ class BateriaMotor:
         self.bateria_pend = []        # [(tick, salida, canal, nota, vel)] golpes en mitad de paso y note_off
         self.bateria_estado = {}      # drum -> {"sample": valor mandado, "pitch": valor mandado}
         self.bateria_veces = {}       # nombre de la transición -> cuántas veces sonó
+        self.bateria_prueba = None    # (clase, transición) pedida con «Probar»: suena en el próximo compás
+
+    def probar_bateria(self, clase, t):
+        """«Probar» de la app: el rise o fill `t` suena desde el próximo compás, sin la canción.
+        Fill: en los últimos pasos de ese compás. Rise: sus `bateria_compases` compases."""
+        if clase not in ("rise", "fill"):
+            raise ValueError("Solo los rises y los fills tienen batería")
+        if not t.get("bateria"):
+            raise ValueError("Elige primero un tipo de batería")
+        if not self.corriendo:
+            raise ValueError("Dale Play primero: suena en el próximo compás")
+        self.bateria_prueba = (clase, dict(t))
 
     def _bateria_cfg(self):
         b = (self.config or {}).get("bateria") or {}
@@ -81,7 +93,21 @@ class BateriaMotor:
         return {"clave": clave, "inicio": inicio, "fin": fin, "ev": ev, "tipo": tipo, "nombre": t["nombre"]}
 
     def _paso_bateria(self, paso):
-        if paso % PASOS_POR_COMPAS == 0:
+        if paso % PASOS_POR_COMPAS == 0 and self.bateria_prueba is not None:
+            clase, t = self.bateria_prueba
+            self.bateria_prueba = None
+            if clase == "rise":
+                inicio, fin = paso, paso + int(t.get("bateria_compases", 4)) * PASOS_POR_COMPAS
+            else:
+                fin = paso + PASOS_POR_COMPAS
+                inicio = fin - int(t.get("bateria_largo", 8))
+            if self.bateria_plan is not None:
+                self._bateria_soltar()
+            plan = self._bateria_nuevo(clase, t, inicio, fin)
+            plan["clave"] = ("prueba",) + plan["clave"]
+            self.bateria_plan = plan
+        en_prueba = self.bateria_plan is not None and self.bateria_plan["clave"][0] == "prueba"
+        if paso % PASOS_POR_COMPAS == 0 and not en_prueba:
             plan = self._bateria_planear(paso)
             if plan is None and self.bateria_plan is not None and paso < self.bateria_plan["fin"]:
                 if self.bateria_plan["clave"][0] == "rise":
