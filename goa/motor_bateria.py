@@ -109,9 +109,16 @@ class BateriaMotor:
         if plan is not None and paso >= plan["fin"]:
             # El drop (o el uno de la parte siguiente): todo vuelve y, si se pidió, el crash.
             t = plan["t"]
-            self._bateria_soltar()
             if t.get("crash") and paso == plan["fin"]:
+                crash = int(t.get("crash_drum", 4))
+                cargado = self.bateria_estado.get(crash, {}).get("crash")
+                self.bateria_estado = {d: st for d, st in self.bateria_estado.items() if d != crash or not cargado}
+                self._bateria_soltar()
+                if cargado is not None:
+                    self.bateria_estado[crash] = {"crash": cargado}
                 self._bateria_golpe_crash(t)
+            else:
+                self._bateria_soltar()
         if paso % PASOS_POR_COMPAS == 0 and self.bateria_prueba is not None:
             clase, t = self.bateria_prueba
             self.bateria_prueba = None
@@ -146,6 +153,7 @@ class BateriaMotor:
             # sample y a su pitch: así el uno de la parte siguiente entra limpio.
             plan["devuelto"] = True
             self._bateria_devolver()
+            self._bateria_cargar_crash(plan["t"])   # el crash queda cargado en el silencio
             return
         salida, canal, b = self._bateria_cfg()
         for g in plan["ev"].get(paso - plan["inicio"], ()):
@@ -175,13 +183,27 @@ class BateriaMotor:
                 self.enviar(salida, "control_change", canal, bateria.CC_PITCH[g.drum], pitch)
                 st["pitch"] = pitch
 
-    def _bateria_golpe_crash(self, t):
+    def _bateria_cargar_crash(self, t):
+        """Carga el sample del crash en su Drum (antes del golpe, así la Circuit alcanza).
+        Solo si se sabe el sample normal de ese Drum, para poder devolverlo."""
+        if not t.get("crash"):
+            return False
         salida, canal, b = self._bateria_cfg()
         drum = int(t.get("crash_drum", 4))
         muestra, normal = int(t.get("crash_sample", 40)), int(b.get(f"sample_d{drum}", -1))
-        if muestra >= 0 and normal >= 0 and muestra != normal:
+        if muestra < 0 or normal < 0 or muestra == normal:
+            return False
+        if self.bateria_estado.get(drum, {}).get("crash") != muestra:
             self.enviar(salida, "control_change", canal, bateria.CC_SAMPLE[drum], muestra)
-            self.bateria_crash.append((self.tick + TICKS_POR_PASO, drum))
+            self.bateria_estado.setdefault(drum, {})["crash"] = muestra
+        return True
+
+    def _bateria_golpe_crash(self, t):
+        salida, canal, b = self._bateria_cfg()
+        drum = int(t.get("crash_drum", 4))
+        if self._bateria_cargar_crash(t):
+            self.bateria_crash.append((self.tick + int(t.get("crash_vuelve", 4)) * TICKS_POR_PASO, drum))
+        self.bateria_estado.pop(drum, None)
         nota = bateria.NOTAS[drum]
         self.enviar(salida, "note_on", canal, nota, int(t.get("bateria_vel_hasta", 127)))
         self.bateria_pend.append((self.tick + 1, salida, canal, nota, 0))
@@ -230,7 +252,7 @@ class BateriaMotor:
     def _bateria_devolver(self):
         salida, canal, b = self._bateria_cfg()
         for drum, st in self.bateria_estado.items():
-            if "sample" in st:
+            if "sample" in st or "crash" in st:
                 normal = int(b.get(f"sample_d{drum}", -1))
                 if normal >= 0:
                     self.enviar(salida, "control_change", canal, bateria.CC_SAMPLE[drum], normal)

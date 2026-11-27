@@ -264,7 +264,7 @@ const CLASES_TRANS = {
 };
 // Batería de la Circuit en rises y fills (= config._BATERIA_COMUN y goa/bateria.py)
 const BATERIA_NUEVA = {bateria: "", bateria_seed: "lluvia", bateria_variar: true, golpe_drum: 2, golpe_sample: 22, fx_drum: 4, fx_sample: -2,
-  bateria_vel_desde: 70, bateria_vel_hasta: 127, crash: false, crash_drum: 4, crash_sample: 40};
+  bateria_vel_desde: 70, bateria_vel_hasta: 127, crash: false, crash_drum: 4, crash_sample: 40, crash_vuelve: 4};
 const TIPOS_BATERIA = {
   rise: [["", "Sin batería"], ["seed", "Al azar (seed)"], ["redoble", "Redoble"], ["riser", "Redoble + riser"], ["toms", "Toms"], ["reversa", "Redoble + reversa"], ["glitch", "Glitch"], ["bombo", "Bombo y snare"]],
   fill: [["", "Sin batería"], ["seed", "Al azar (seed)"], ["redoble", "Redoble"], ["toms", "Toms que bajan"], ["glitch", "Glitch"], ["claps", "Claps"], ["bombo", "Bombos"]],
@@ -281,11 +281,12 @@ function elegirSample(obj, k, etiqueta, extras, alCambiar) {
     [...extras.map(([v, t]) => el("option", {value: String(v), textContent: t})),
      ...lista.map(([n, nombre]) => el("option", {value: String(n), textContent: nombre}))]);
   sel.value = String(obj[k]);
-  if (!lista.length) cargarMuestras().then(() => { if (sel.isConnected) sel.replaceWith(elegirSample(obj, k, etiqueta, extras, alCambiar)); });
-  return el("label", {className: "campo"}, [etiqueta, sel]);
+  const caja = el("label", {className: "campo"}, [etiqueta, sel]);
+  if (!lista.length) cargarMuestras().then(() => { if (caja.isConnected) caja.replaceWith(elegirSample(obj, k, etiqueta, extras, alCambiar)); });
+  return caja;
 }
-function elegirDrum(obj, k, etiqueta) {
-  const sel = el("select", {"aria-label": etiqueta, onchange: () => { obj[k] = parseInt(sel.value); guardar(); }},
+function elegirDrum(obj, k, etiqueta, alCambiar) {
+  const sel = el("select", {"aria-label": etiqueta, onchange: () => { obj[k] = parseInt(sel.value); guardar(); if (alCambiar) alCambiar(); }},
     [1, 2, 3, 4].map((n) => el("option", {value: String(n), textContent: `Drum ${n}`})));
   sel.value = String(obj[k] || 1);
   return el("label", {className: "campo"}, [etiqueta, sel]);
@@ -350,7 +351,14 @@ function bloqueBateria(clase, t) {
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "golpe_drum", "Golpes (redoble, claps) en"), elegirSample(t, "golpe_sample", "con el sample", [[-1, "el que tenga el Drum"]])]));
     hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "fx_drum", "FX (riser, toms, glitch) en"), elegirSample(t, "fx_sample", "con el sample", [[-2, "el del tipo (automático)"], [-1, "el que tenga el Drum"]])]));
     hijos.push(casilla(t, "crash", "Entrar con crash", "En el uno de la parte siguiente, un golpe de crash con la fuerza final.", re));
-    if (t.crash) hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "crash_drum", "Crash en"), elegirSample(t, "crash_sample", "con el sample", [[-1, "el que tenga el Drum"]])]));
+    if (t.crash) {
+      hijos.push(el("div", {className: "dos"}, [elegirDrum(t, "crash_drum", "Crash en", re), elegirSample(t, "crash_sample", "con el sample", [[-1, "el que tenga el Drum"]], re)]));
+      hijos.push(campo("El Drum vuelve a su sample", segmentado([["1","a la semicorchea"],["4","al tiempo"],["16","al compás"]], String(t.crash_vuelve || 4), (v) => { t.crash_vuelve = parseInt(v); guardar(); }, 3)));
+      const normal = ((cfg.bateria || {})["sample_d" + t.crash_drum] ?? -1);
+      if (t.crash_sample >= 0 && normal < 0)
+        hijos.push(el("p", {className: "aviso-campo", style: "color:var(--alerta,#f5a524);margin:0",
+          textContent: `Falta decir qué sample tiene normalmente el Drum ${t.crash_drum} (Motores → Circuit → «Batería en rises y fills»). Sin eso Yantra no le cambia el sample y el crash suena con el sonido que ya tenga.`}));
+    }
     hijos.push(ayuda("Suena por la Circuit (canal de baterías) encima de tu patrón. Solo cambia el sample de un Drum si en Motores → Circuit → «Batería en rises y fills» dijiste cuál tiene normalmente, y al terminar lo devuelve; si no, usa el que tenga y mueve el pitch."));
   }
   return hijos;

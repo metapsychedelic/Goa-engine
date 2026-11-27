@@ -144,9 +144,18 @@ def main():
     ultimo_golpe = max(e[0] for e in ev if e[2] == "note_on" and e[5] > 0 and e[4] == 62)
     vuelta = [e[0] for e in ev if e[2] == "control_change" and e[4] == 18 and e[5] == 16]
     todo &= ok(vuelta and ultimo_golpe < vuelta[0] < 4 * 96, f"el Drum 2 vuelve a su sample en el silencio antes del drop (tick {vuelta[0] if vuelta else None})")
-    c = [e for e in ev if e[0] >= 4 * 96 and e[4] in (50, 65) and e[2] in ("control_change", "note_on")]
-    todo &= ok([(e[2], e[4], e[5]) for e in c][:3] == [("control_change", 50, 40), ("note_on", 65, 127), ("control_change", 50, 33)] and c[0][0] == 4 * 96,
-               f"en el uno de la parte siguiente: crash en el Drum 4 y vuelve a su sample ({[(e[0], e[2], e[4], e[5]) for e in c][:3]})")
+    carga = [e[0] for e in ev if e[2] == "control_change" and e[4] == 50 and e[5] == 40]
+    todo &= ok(carga and ultimo_golpe < carga[0] < 4 * 96, f"el crash queda cargado en el silencio antes del drop (tick {carga[:1]})")
+    c = [(e[0], e[2], e[4], e[5]) for e in ev if e[0] >= 4 * 96 and e[4] in (50, 65) and e[2] in ("control_change", "note_on")]
+    todo &= ok(c[:2] == [(4 * 96, "note_on", 65, 127), (4 * 96 + 24, "control_change", 50, 33)],
+               f"en el uno: crash en el Drum 4 y un tiempo después vuelve a su sample ({c[:2]})")
+    m_ev = []
+    m = Motor(base(partes, rise=[crash], sample_d2=16, sample_d4=33), lambda *a: m_ev.append(a))
+    m.start()
+    for _ in range(4 * 96 - 3):
+        m.reloj()
+    m.stop()
+    todo &= ok(("control_change", 9, 50, 33) in [e[1:] for e in m_ev if e[0] == "Circuit"][-6:], "Stop con el crash cargado: el Drum 4 vuelve a su sample")
 
     print("Stop a mitad")
     m_ev = []

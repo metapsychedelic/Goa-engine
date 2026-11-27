@@ -493,6 +493,7 @@ _BATERIA_COMUN = {
     "crash": (bool, False, None, None),
     "crash_drum": (int, 4, 1, 4),
     "crash_sample": (int, 40, -1, 63),
+    "crash_vuelve": (int, 4, 1, 16),               # pasos hasta que el Drum vuelve a su sample (4 = un tiempo)
 }
 ESQUEMA_RISE.update({
     # Filtro compartido (goa/motor_filtro.py): los filtros de los que elijas parten cerrados
