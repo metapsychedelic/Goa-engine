@@ -529,6 +529,8 @@ def crear_servidor(ctx, puerto):
             ctx.config = nueva
             if origen:
                 historia.anotar(ctx.historia, previa, nueva, origen, estado)
+            if hasattr(ctx.puertos, "ruteo"):
+                ctx.puertos.ruteo.cambiar(nueva)
             ctx.puertos.cambiar_salidas(salidas(nueva))
             return self._guardar_activa()
 
@@ -831,6 +833,8 @@ def crear_servidor(ctx, puerto):
                     dialogo, llamada, respuesta = dialogo_con_clip(ctx.config, clip)
                     ctx.motor.lanzar_dialogo(dialogo, llamada, respuesta, clip["nombre"])
                     ctx.config = dict(ctx.config, dialogo=dialogo, llamada=llamada, respuesta=respuesta)
+                    if hasattr(ctx.puertos, "ruteo"):
+                        ctx.puertos.ruteo.cambiar(ctx.config)
                     ctx.puertos.cambiar_salidas(salidas(ctx.config))
                     aviso = self._guardar_activa()
                 else:
@@ -956,6 +960,8 @@ def crear_servidor(ctx, puerto):
                         ctx.editando = None   # lanzar otra escena termina la edición (ya quedó guardada)
                     ctx.motor.lanzar_escena(nueva, compases, indice)
                     ctx.config = nueva
+                    if hasattr(ctx.puertos, "ruteo"):
+                        ctx.puertos.ruteo.cambiar(nueva)
                     ctx.puertos.cambiar_salidas(salidas(nueva))
                     if datos.get("editar"):
                         ctx.editando = {"escena": indice, "original": copy.deepcopy(nueva["escena"][indice])}

@@ -22,6 +22,18 @@ ESQUEMA_SECCIONES = {
         "canal_disparo": (int, 4, 1, 16),
         "nota_maxima": (int, 4, 0, 64),
     },
+    # Ruteo de la cadena MIDI (goa/ruteo.py). «dongle»: como siempre, todo lo que apunta al
+    # dongle sale por su cable (Circuit → dongle → MicroFreak → thru → MC-101). «usb»: lo que
+    # apunta al dongle se reparte por canal a cada máquina por USB (los canales de la
+    # MicroFreak a la MicroFreak, el resto a la MC-101) y la entrada pasa a `entrada_usb`.
+    "ruteo": {
+        "modo": (str, "dongle", None, ("dongle", "usb")),
+        "dongle": (str, "CH345", None, None),
+        "entrada_usb": (str, "Circuit Tracks", None, None),
+        "mc101": (str, "MC-101", None, None),
+        "microfreak": (str, "MicroFreak", None, None),
+        "microfreak_canales": (str, "3", None, None),   # «3» o «3,5»
+    },
     "thru": {
         "activo": (bool, False, None, None),
         "salida": (str, "USB MIDI", None, None),
@@ -1008,7 +1020,19 @@ def _suenan_en_cancion(cfg):
 
 
 def salidas(cfg):
-    """Todos los puertos de salida que usa la configuración."""
+    """Todos los puertos de salida que usa la configuración (con el ruteo USB, las
+    máquinas en vez del dongle)."""
+    from .ruteo import salidas_ruteadas
+    return salidas_ruteadas(cfg, _salidas(cfg))
+
+
+def entrada_puerto(cfg):
+    """El puerto de entrada según el ruteo."""
+    r = cfg.get("ruteo") or {}
+    return r.get("entrada_usb") or cfg["entrada"]["puerto"] if r.get("modo") == "usb" else cfg["entrada"]["puerto"]
+
+
+def _salidas(cfg):
     claves = [s["salida"] for s in cfg["secuencia"]]
     cancion = _suenan_en_cancion(cfg)
     if cfg["thru"]["activo"]:

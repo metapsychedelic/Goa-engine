@@ -154,6 +154,7 @@ function renderAjustes() {
   $("cambio").replaceChildren(segmentado([["paso","Al tiro"],["compas","En el próximo compás"]], cfg.musica.cambio_de_nota, (v) => { cfg.musica.cambio_de_nota = v; guardar(); }, 2));
   $("adaptacion").replaceChildren(segmentado([["escala","Se quedan en la escala"],["transponer","Se transponen iguales"]], cfg.musica.adaptacion, (v) => { cfg.musica.adaptacion = v; guardar(); }, 2));
   $("entrada_puerto").replaceChildren(puertoSelect("entrada", cfg.entrada.puerto, (v) => { cfg.entrada.puerto = v; guardar(); }));
+  renderRuteo();
   const ta = $("thru_activo"); ta.checked = cfg.thru.activo;
   ta.onchange = () => { cfg.thru.activo = ta.checked; guardar(); };
   const tr = $("thru_reloj"); tr.checked = cfg.thru.reloj !== false;
@@ -494,3 +495,24 @@ async function borrarEscena(i) {
   try { await api("/api/escena/borrar", {indice: i}); await recargar(); avisoDeshacer(`Escena ${nombre} borrada`, () => volverPartes(f)); } catch (e) { aviso(e.message, true); }
 }
 
+
+// Ruteo de la cadena (goa/ruteo.py): por el dongle, como siempre, o por USB, repartiendo lo
+// que va al dongle por canal (MicroFreak sus canales, el resto la MC-101).
+function renderRuteo() {
+  const r = cfg.ruteo || (cfg.ruteo = {modo: "dongle", dongle: "CH345", entrada_usb: "Circuit Tracks", mc101: "MC-101", microfreak: "MicroFreak", microfreak_canales: "3"});
+  const usb = r.modo === "usb";
+  $("ruteo_modo").replaceChildren(segmentado([["dongle", "Dongle (cable)"], ["usb", "USB"]], r.modo, (v) => { r.modo = v; guardar(); renderRuteo(); }, 2));
+  $("ruteo_texto").textContent = usb
+    ? `Lo que apunta a «${r.dongle}» se reparte por canal: canales ${r.microfreak_canales || "—"} a la MicroFreak, el resto a la MC-101, cada una por su USB. Yantra escucha a la Circuit por USB. El reenvío (si está prendido) va igual por USB; su reloj y Start/Stop, a la MC-101.`
+    : `Como siempre: lo que apunta a «${r.dongle}» sale por el dongle (Circuit → dongle → MicroFreak → thru → MC-101).`;
+  $("ruteo_usb").style.display = usb ? "flex" : "none";
+  $("entrada_campo").style.display = usb ? "none" : "";
+  $("ruteo_dongle").replaceChildren(puertoSelect("salida", r.dongle, (v) => { r.dongle = v; guardar(); renderRuteo(); }));
+  if (usb) {
+    $("ruteo_entrada").replaceChildren(puertoSelect("entrada", r.entrada_usb, (v) => { r.entrada_usb = v; guardar(); }));
+    $("ruteo_mc101").replaceChildren(puertoSelect("salida", r.mc101, (v) => { r.mc101 = v; guardar(); }));
+    $("ruteo_microfreak").replaceChildren(puertoSelect("salida", r.microfreak, (v) => { r.microfreak = v; guardar(); }));
+    const mf = $("ruteo_mf_canales"); mf.value = r.microfreak_canales;
+    mf.onchange = () => { r.microfreak_canales = mf.value.replace(/[^0-9,\s]/g, "").trim(); mf.value = r.microfreak_canales; guardar(); renderRuteo(); };
+  }
+}

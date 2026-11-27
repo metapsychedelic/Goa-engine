@@ -81,7 +81,22 @@
     <div class="card">
       <h2>Conexión MIDI</h2>
       <span class="mut" id="puertos"></span>
-      <div class="campo">Entrada (puerto de la Circuit o del dongle)
+      <div class="campo">Ruteo de la cadena
+        <div id="ruteo_modo"></div></div>
+      <span class="mut" id="ruteo_texto"></span>
+      <div id="ruteo_usb" style="display:flex;flex-direction:column;gap:10px">
+        <div class="campo">Entrada por USB (la Circuit)
+          <div id="ruteo_entrada"></div></div>
+        <div class="campo">MC-101 por USB
+          <div id="ruteo_mc101"></div></div>
+        <div class="campo">MicroFreak por USB
+          <div id="ruteo_microfreak"></div></div>
+        <label class="campo">Canales de la MicroFreak (el resto va a la MC-101)
+          <input type="text" id="ruteo_mf_canales" placeholder="3 o 3,5" inputmode="numeric"></label>
+      </div>
+      <div class="campo" id="ruteo_dongle_campo">Puerto del dongle (al que apuntan los motores)
+        <div id="ruteo_dongle"></div></div>
+      <div class="campo" id="entrada_campo">Entrada (puerto de la Circuit o del dongle)
         <div id="entrada_puerto"></div></div>
       <label class="fila" style="min-height:44px"><span>Reenviar todo a la cadena MIDI<br><span class="mut">Modo dongle: la Circuit pasa por la Pi</span></span>
         <input type="checkbox" id="thru_activo"></label>

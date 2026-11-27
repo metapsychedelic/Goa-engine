@@ -1,3 +1,3 @@
 """Motor generativo Goa para Raspberry Pi."""
 
-__version__ = "0.109.1"
+__version__ = "0.110.0"

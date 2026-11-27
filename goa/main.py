@@ -11,7 +11,8 @@ import threading
 
 import mido
 
-from .config import ConfigError, cargar, salidas
+from .config import ConfigError, cargar, entrada_puerto, salidas
+from .ruteo import Ruteo
 from .control import Control
 from .teclado import Teclado
 from .motor import Motor
@@ -63,8 +64,9 @@ TRANSPORTE = ("clock", "start", "stop", "continue", "songpos")
 class Puertos:
     """Salidas MIDI buscadas por parte del nombre, con reconexión."""
 
-    def __init__(self, salidas):
+    def __init__(self, salidas, ruteo=None):
         self.salidas = sorted(set(salidas))
+        self.ruteo = ruteo or Ruteo()
         self.abiertos = {}
         # Mandar a un puerto puede pasar desde varios hilos (el reloj reenviado y el eco de
         # las perillas van sin el candado del motor): un candado chico por puerto, así lo
@@ -122,6 +124,7 @@ class Puertos:
                     log.warning("No encuentro la salida %r. Revisa el cable o corre goa-ports.", clave)
 
     def enviar(self, clave, tipo, canal, nota, velocidad):
+        clave = self.ruteo.destino(clave, canal)
         puerto = self.abiertos.get(clave)
         if puerto is None:
             return
@@ -140,6 +143,8 @@ class Puertos:
             log.warning("Error enviando a %r: %s", clave, e)
 
     def reenviar(self, clave, msg):
+        canal = getattr(msg, "channel", None)
+        clave = self.ruteo.destino_sin_canal(clave) if canal is None else self.ruteo.destino(clave, canal)
         puerto = self.abiertos.get(clave)
         if puerto is None:
             return
@@ -207,7 +212,7 @@ def main():
     # MIDI entra casi de inmediato (la MC-101 seguía el tempo con ese tironeo).
     sys.setswitchinterval(0.0005)
 
-    puertos = Puertos(salidas(config))
+    puertos = Puertos(salidas(config), Ruteo(config))
     candado = threading.RLock()
 
     def enviar(salida, tipo, canal, nota, velocidad):
@@ -327,7 +332,7 @@ def main():
             salidas_vistas = sin_propios(mido.get_output_names())   # tarda: fuera del candado
             with candado:
                 puertos.revisar(salidas_vistas)
-                nombre_entrada = ctx.config["entrada"]["puerto"]
+                nombre_entrada = entrada_puerto(ctx.config)
                 ctx.sincronizar_tocado()   # lo grabado en el Tocado queda guardado aunque la app esté cerrada
             disponibles = sin_propios(mido.get_input_names())
             with candado:
